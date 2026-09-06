@@ -29,11 +29,18 @@ Staged enablement for the SCOOP background worker on Render.
 
 Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundles.
 
-## Stage 0 — Blueprint only
+## Stage 0 — Blueprint / disabled idle worker
 
 1. Deploy `render.yaml` worker with `SCOOP_INDEXING_ENABLED=false`.
-2. Confirm container starts and exits/refuses cleanly (indexing gated).
-3. Confirm Docker image builds from `docker/indexer.Dockerfile`.
+2. Confirm Docker image builds from `docker/indexer.Dockerfile`.
+3. Confirm the worker **stays alive** in disabled idle mode:
+   - Logs: `indexer disabled — idle mode`
+   - Periodic: `indexer idle heartbeat`
+   - **Zero** Robinhood RPC ingest, **zero** block processing, **zero** projection writes
+4. Confirm Render does **not** restart-loop the service (process exit code is not 1 while idle).
+5. Confirm SIGTERM/restart exits cleanly with code 0 (`indexer idle shutdown`).
+
+`pnpm indexer:start` with indexing disabled is intentional Render Stage 0 behavior — idle, not a crash.
 
 ## Stage 1 — Database ready
 
@@ -71,8 +78,9 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 ## Rollback
 
 1. Set `SCOOP_INDEXING_ENABLED=false` and restart worker.
-2. Product read APIs continue against DB projections; ingest stops.
-3. Do not drop migrations; additive schema remains.
+2. Worker returns to **disabled idle mode** (alive, no ingest) — not a crash exit.
+3. Product read APIs continue against DB projections; ingest stops.
+4. Do not drop migrations; additive schema remains.
 
 ## Notes
 
