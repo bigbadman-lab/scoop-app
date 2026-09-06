@@ -1,0 +1,33 @@
+{
+  "name": "@scoop/news",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings=0",
+    "ingest:once": "tsx src/commands/ingest-once.ts",
+    "catchup": "tsx src/commands/catchup.ts",
+    "smoke": "tsx src/commands/smoke.ts",
+    "concepts": "tsx src/commands/concepts.ts"
+  },
+  "dependencies": {
+    "@scoop/db": "workspace:*",
+    "openai": "^7.10.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

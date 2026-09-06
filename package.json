@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present run build",
-    "build:packages": "pnpm --filter @scoop/contracts run build && pnpm --filter @scoop/db run build && pnpm --filter @scoop/shared run build",
+    "build:packages": "pnpm --filter @scoop/contracts run build && pnpm --filter @scoop/db run build && pnpm --filter @scoop/shared run build && pnpm --filter @scoop/news run build",
     "test": "pnpm run build:packages && pnpm -r --if-present run test",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm run build:packages && pnpm -r --if-present run typecheck",
@@ -22,7 +22,11 @@
     "indexer:start": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-start.ts",
     "indexer:status": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-status.ts",
     "indexer:catchup": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-catchup.ts",
-    "indexer:once": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-once.ts"
+    "indexer:once": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-once.ts",
+    "news:ingest:once": "pnpm --filter @scoop/news run ingest:once",
+    "news:catchup": "pnpm --filter @scoop/news run catchup",
+    "news:smoke": "pnpm --filter @scoop/news run smoke",
+    "news:concepts": "pnpm --filter @scoop/news run concepts --"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

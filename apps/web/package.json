@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@scoop/db": "workspace:*",
+    "@scoop/news": "workspace:*",
     "next": "^15.2.4",
     "pg": "^8.23.0",
     "react": "^19.0.0",
