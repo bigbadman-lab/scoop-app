@@ -1,0 +1,35 @@
+{
+  "protocol": "SCOOP",
+  "chainId": 4663,
+  "baseline": "frozen-v1-mainnet-canary",
+  "source": {
+    "repo": "scoop-protocol",
+    "tag": "scoop-v1-mainnet-canary",
+    "commit": "c8268c0a97274cb751f4077d0e28450caf276357"
+  },
+  "contracts": {
+    "ScoopCreatorRegistry": "0x608e117EdA28b65cDa473756a990B8246EAe62D2",
+    "ScoopTokenDeployer": "0xB50307bc184e000281e3b1EE59Fa0a099Ecd0444",
+    "ScoopLaunchDeployer": "0xc36470C674Defc2d65ee179B686581954a5B16B0",
+    "ScoopQuoteRegistry": "0x7e34424D65e5042Ac82cd036Fa63F3E841349eCD",
+    "ScoopPriceOracle": "0xc818e890AE8dBE0CcD1Bf9169Adb19D578867f12",
+    "ScoopCreatorRewards": "0x1248070FC454757B91337e66df883F90b7a06fA4",
+    "ScoopFactory": "0x15E874Bc667435ddbF2a67c0362701DC23C90833",
+    "PoolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "PositionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+    "UniversalRouter": "0x8876789976dEcBfCbBbe364623C63652db8C0904",
+    "Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  },
+  "fixtures": {
+    "hello": {
+      "token": "0x2284ed0e4d446c6D78aC2d49a68BAE822Fd87373",
+      "poolId": "0xe9ee30525faa467bcc5742f330a47c7d516a56a06f6fd9b302a8599f344f5abc",
+      "launchTx": "0xbb4e2f633b3ffb96c0786c9e0b7e096383be3b6472c8e6aec42264f5620d0fe7",
+      "launchBlock": 55863290
+    }
+  },
+  "metadata": {
+    "description": "Frozen V1 mainnet canary baseline for scoop-app ABI and address binding",
+    "indexingStartBlock": 55863290
+  }
+}
