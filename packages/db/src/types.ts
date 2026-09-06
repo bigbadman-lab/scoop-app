@@ -1,7 +1,5 @@
-/**
- * Placeholder DB types for Phase 6A.4 bootstrap.
- * Generated Supabase / Postgres types will land here in a later phase.
- */
+import type { Pool, PoolClient, Client, QueryResult, QueryResultRow } from 'pg';
+
 export type DatabaseClientMode = 'service-role' | 'unconfigured';
 
 export interface ScoopDbConfig {
@@ -16,4 +14,10 @@ export interface ScoopDbConfig {
 export interface ScoopDbClient {
   mode: DatabaseClientMode;
   config: ScoopDbConfig;
+  /** Connected pool when databaseUrl was provided; otherwise null. */
+  pool: Pool | null;
 }
+
+export type Queryable = Pool | PoolClient | Client;
+
+export type { Pool, PoolClient, Client, QueryResult, QueryResultRow };

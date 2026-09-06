@@ -27,7 +27,7 @@ async function main() {
 
   logJson('info', 'scoop-indexer startup', {
     service: 'scoop-indexer',
-    phase: '6A.4',
+    phase: '6A.5',
     protocol: {
       tag: CANONICAL_PROTOCOL_TAG,
       commit: CANONICAL_PROTOCOL_COMMIT,
@@ -45,16 +45,16 @@ async function main() {
   });
 
   if (!config.SCOOP_INDEXING_ENABLED) {
-    logJson('info', 'Live indexing is disabled in Phase 6A.4', {
+    logJson('info', 'Live indexing is disabled — HELLO backfill available via commands', {
       indexingEnabled: false,
-      note: 'No RPC log fetch and no DB writes will occur',
+      note: 'No live RPC poller; use pnpm backfill:hello for one-shot HELLO ingest',
     });
     logJson('info', 'Indexer bootstrap complete; exiting cleanly');
     return;
   }
 
-  // Guarded path for later phases — still refuse to ingest in 6A.4 codepaths.
-  throw new Error('SCOOP_INDEXING_ENABLED=true is not supported in Phase 6A.4 bootstrap');
+  // Live loop still refused — HELLO one-shot commands are separate entrypoints.
+  throw new Error('SCOOP_INDEXING_ENABLED=true is not supported yet; use HELLO backfill commands');
 }
 
 main().catch((error: unknown) => {

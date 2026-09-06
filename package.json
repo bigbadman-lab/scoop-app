@@ -14,14 +14,20 @@
     "typecheck": "pnpm run build:packages && pnpm -r --if-present run typecheck",
     "dev:web": "pnpm --filter @scoop/web dev",
     "dev:indexer": "pnpm --filter @scoop/indexer^... run build && pnpm --filter @scoop/indexer dev",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",
+    "verify:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/verify-hello.ts",
+    "reset:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-hello.ts"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
     "eslint": "^9.22.0",
+    "pg": "^8.23.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.1",
+    "viem": "^2.56.3",
     "vitest": "^3.0.8"
   }
 }
