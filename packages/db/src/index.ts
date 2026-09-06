@@ -29,10 +29,41 @@ export {
 export { upsertCandle, type CandleRow } from './repos/candles.js';
 export {
   upsertIndexerCheckpoint,
+  getIndexerCheckpoint,
   type IndexerCheckpointRow,
 } from './repos/indexer-checkpoints.js';
-export { upsertIndexerHealth, type IndexerHealthRow } from './repos/indexer-health.js';
+export {
+  upsertIndexerHealth,
+  getIndexerHealth,
+  type IndexerHealthRow,
+} from './repos/indexer-health.js';
 export {
   upsertAddressClassification,
   type AddressClassificationRow,
 } from './repos/address-classifications.js';
+export {
+  upsertProcessedBlock,
+  getProcessedBlock,
+  deleteProcessedBlocksFrom,
+  listProcessedBlocksInWindow,
+  type ProcessedBlockRow,
+} from './repos/processed-blocks.js';
+export {
+  queryDiscoveryAll,
+  queryDiscoveryNew,
+  queryDiscoverySoon,
+  queryDiscoveryBonded,
+  type DiscoveryLaunchRow,
+} from './repos/discovery.js';
+export {
+  upsertFeeDistribution,
+  upsertCreatorCredit,
+  upsertCreatorClaim,
+  upsertCreatorClaimable,
+  insertQuotePriceSnapshot,
+  type FeeDistributionRow,
+  type CreatorCreditRow,
+  type CreatorClaimRow,
+  type CreatorClaimableRow,
+  type QuotePriceSnapshotRow,
+} from './repos/creator-economics.js';

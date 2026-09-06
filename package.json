@@ -18,7 +18,11 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",
     "verify:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/verify-hello.ts",
-    "reset:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-hello.ts"
+    "reset:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-hello.ts",
+    "indexer:start": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-start.ts",
+    "indexer:status": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-status.ts",
+    "indexer:catchup": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-catchup.ts",
+    "indexer:once": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-once.ts"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

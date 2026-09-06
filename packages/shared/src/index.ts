@@ -4,6 +4,36 @@ import {
   type HexAddress,
   type HexBytes32,
 } from '@scoop/contracts';
+import { mulDiv, Q96 } from './fixedPoint.js';
+
+export { Q96, mulDiv } from './fixedPoint.js';
+export {
+  getAmount0ForLiquidity,
+  getAmount1ForLiquidity,
+  getAmountsForLiquidity,
+} from './liquidityAmounts.js';
+export {
+  getSqrtRatioAtTick,
+  getSqrtPriceAtTick,
+  MIN_TICK,
+  MAX_TICK,
+  MIN_SQRT_RATIO,
+  MAX_SQRT_RATIO,
+} from './tickMath.js';
+export {
+  amountTokenInPosition,
+  launchProgressBps,
+  isLaunchComplete,
+  computeLaunchProgress,
+  DEFAULT_LAUNCH_DUST_RAW,
+} from './launchProgress.js';
+export {
+  isNew,
+  isSoon,
+  isBonded,
+  discoveryBuckets,
+  type DiscoveryBucket,
+} from './discoveryFilters.js';
 
 /** Canonical Robinhood Chain ID for SCOOP production. */
 export const SCOOP_CHAIN_ID = CANONICAL_CHAIN_ID;
@@ -45,15 +75,6 @@ export function rawAmountFromBigInt(value: bigint): RawAmount {
 
 export function rawAmountToBigInt(value: RawAmount): bigint {
   return BigInt(value);
-}
-
-/** Uniswap X96 fixed-point denominator. */
-export const Q96 = 2n ** 96n;
-
-/** Floor(a * b / denom) with bigint — never Number(). */
-export function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
-  if (denom === 0n) throw new Error('mulDiv: division by zero');
-  return (a * b) / denom;
 }
 
 function mulDivPrice(amount: bigint, sqrtPriceX96: bigint): bigint {

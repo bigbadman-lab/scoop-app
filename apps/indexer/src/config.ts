@@ -13,6 +13,18 @@ const boolFromEnv = z
     throw new Error(`Invalid boolean env value: ${value}`);
   });
 
+const optionalPositiveInt = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === '') return undefined;
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+      throw new Error(`Invalid non-negative integer: ${value}`);
+    }
+    return n;
+  });
+
 const indexerEnvSchema = z
   .object({
     SCOOP_CHAIN_ID: z.coerce.number().int().default(SCOOP_CHAIN_ID),
@@ -20,6 +32,14 @@ const indexerEnvSchema = z
     SCOOP_START_BLOCK: z.coerce.number().int().positive().default(55863290),
     SCOOP_CONFIRM_MODE: z.enum(['safe', 'latest', 'finalized']).default('safe'),
     SCOOP_CONFIRM_LAG_BLOCKS: z.coerce.number().int().nonnegative().optional(),
+    SCOOP_NEW_WINDOW_SECONDS: z.coerce.number().int().positive().default(86400),
+    SCOOP_SOON_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10000).default(8000),
+    SCOOP_REORG_WINDOW_BLOCKS: z.coerce.number().int().positive().default(128),
+    SCOOP_QUOTE_SNAPSHOT_SECONDS: z.coerce.number().int().positive().default(60),
+    SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+    SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(20),
+    SCOOP_LAUNCH_DUST_RAW: z.coerce.bigint().default(1000n),
+    SCOOP_INDEX_TO_BLOCK: optionalPositiveInt,
     ROBINHOOD_RPC_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
     ROBINHOOD_WS_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
     ROBINHOOD_FALLBACK_RPC_URL: z
@@ -51,18 +71,19 @@ const indexerEnvSchema = z
           message: 'ROBINHOOD_RPC_URL is required when SCOOP_INDEXING_ENABLED=true',
         });
       }
-      if (!env.DATABASE_URL && !env.SUPABASE_SERVICE_ROLE_KEY) {
+      if (!env.DATABASE_URL) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['DATABASE_URL'],
-          message:
-            'DATABASE_URL or SUPABASE_SERVICE_ROLE_KEY is required when SCOOP_INDEXING_ENABLED=true',
+          message: 'DATABASE_URL is required when SCOOP_INDEXING_ENABLED=true',
         });
       }
     }
   });
 
 export type IndexerConfig = z.infer<typeof indexerEnvSchema>;
+
+export const MAIN_STREAM_NAME = 'main';
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): IndexerConfig {
   const parsed = indexerEnvSchema.safeParse(env);
@@ -83,6 +104,14 @@ export function publicConfigView(config: IndexerConfig) {
     startBlock: config.SCOOP_START_BLOCK,
     confirmMode: config.SCOOP_CONFIRM_MODE,
     confirmLagBlocks: config.SCOOP_CONFIRM_LAG_BLOCKS ?? null,
+    newWindowSeconds: config.SCOOP_NEW_WINDOW_SECONDS,
+    soonThresholdBps: config.SCOOP_SOON_THRESHOLD_BPS,
+    reorgWindowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,
+    quoteSnapshotSeconds: config.SCOOP_QUOTE_SNAPSHOT_SECONDS,
+    pollIntervalMs: config.SCOOP_POLL_INTERVAL_MS,
+    maxBlockBatch: config.SCOOP_MAX_BLOCK_BATCH,
+    launchDustRaw: config.SCOOP_LAUNCH_DUST_RAW.toString(),
+    indexToBlock: config.SCOOP_INDEX_TO_BLOCK ?? null,
     hasPrimaryRpc: Boolean(config.ROBINHOOD_RPC_URL),
     hasWsRpc: Boolean(config.ROBINHOOD_WS_URL),
     fallbackRpc: config.ROBINHOOD_FALLBACK_RPC_URL,
@@ -90,4 +119,15 @@ export function publicConfigView(config: IndexerConfig) {
     hasServiceRoleKey: Boolean(config.SUPABASE_SERVICE_ROLE_KEY),
     logLevel: config.LOG_LEVEL,
   };
+}
+
+/** Sanitize RPC URL for logs (host only). */
+export function sanitizeRpcLabel(url: string | undefined): string {
+  if (!url) return 'none';
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return 'invalid-url';
+  }
 }

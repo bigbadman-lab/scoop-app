@@ -213,9 +213,11 @@ export async function verifyHello(): Promise<HelloCheck[]> {
       `SELECT latest_indexed_block FROM indexer_health WHERE chain_id = $1`,
       [HELLO.chainId],
     );
+    // Live indexing (6A.6+) advances health beyond the HELLO block; require at least HELLO.
+    const healthBlock = health.rows[0]?.latest_indexed_block;
     check(
       'health_latest_indexed_block',
-      health.rows[0]?.latest_indexed_block === String(HELLO.blockNumber),
+      healthBlock != null && BigInt(healthBlock) >= BigInt(HELLO.blockNumber),
     );
 
     const dup = await query<{ c: string }>(

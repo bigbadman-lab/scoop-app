@@ -7,6 +7,7 @@ import { loadConfig, publicConfigView } from './config.js';
 import { createChainDefinition } from './chain.js';
 import { initDb } from './db.js';
 import { getHealthStatus } from './health.js';
+import { runIndexer } from './live/runner.js';
 
 function logJson(level: string, message: string, fields: Record<string, unknown> = {}) {
   console.log(
@@ -27,7 +28,7 @@ async function main() {
 
   logJson('info', 'scoop-indexer startup', {
     service: 'scoop-indexer',
-    phase: '6A.5',
+    phase: '6A.6',
     protocol: {
       tag: CANONICAL_PROTOCOL_TAG,
       commit: CANONICAL_PROTOCOL_COMMIT,
@@ -45,16 +46,15 @@ async function main() {
   });
 
   if (!config.SCOOP_INDEXING_ENABLED) {
-    logJson('info', 'Live indexing is disabled — HELLO backfill available via commands', {
+    logJson('info', 'Live indexing is disabled — HELLO backfill / indexer commands available', {
       indexingEnabled: false,
-      note: 'No live RPC poller; use pnpm backfill:hello for one-shot HELLO ingest',
+      note: 'No live RPC poller; use pnpm backfill:hello or indexer:once with SCOOP_INDEXING_ENABLED=true',
     });
     logJson('info', 'Indexer bootstrap complete; exiting cleanly');
     return;
   }
 
-  // Live loop still refused — HELLO one-shot commands are separate entrypoints.
-  throw new Error('SCOOP_INDEXING_ENABLED=true is not supported yet; use HELLO backfill commands');
+  await runIndexer({ config });
 }
 
 main().catch((error: unknown) => {
