@@ -1,0 +1,53 @@
+# Render — SCOOP Indexer Worker
+
+# Background worker built from docker/indexer.Dockerfile.
+# Do NOT put secret values in this file — configure them in the Render dashboard.
+
+services:
+  - type: worker
+    name: scoop-indexer
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./docker/indexer.Dockerfile
+    dockerContext: .
+    # Keep indexing OFF until migrations + HELLO verify pass (see docs/RENDER_INDEXER_CHECKLIST.md)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: SCOOP_CHAIN_ID
+        value: "4663"
+      - key: SCOOP_INDEXING_ENABLED
+        value: "false"
+      - key: SCOOP_START_BLOCK
+        value: "55863290"
+      - key: SCOOP_CONFIRM_MODE
+        value: safe
+      - key: SCOOP_NEW_WINDOW_SECONDS
+        value: "86400"
+      - key: SCOOP_SOON_THRESHOLD_BPS
+        value: "8000"
+      - key: SCOOP_REORG_WINDOW_BLOCKS
+        value: "128"
+      - key: SCOOP_QUOTE_SNAPSHOT_SECONDS
+        value: "60"
+      - key: SCOOP_POLL_INTERVAL_MS
+        value: "2000"
+      - key: SCOOP_MAX_BLOCK_BATCH
+        value: "20"
+      - key: SCOOP_LAUNCH_DUST_RAW
+        value: "1000"
+      - key: ROBINHOOD_FALLBACK_RPC_URL
+        value: https://rpc.mainnet.chain.robinhood.com
+      # Secrets — set in Render dashboard (never commit):
+      # DATABASE_URL
+      # ROBINHOOD_RPC_URL
+      # ROBINHOOD_WS_URL (optional)
+      # SUPABASE_SERVICE_ROLE_KEY (optional; indexer prefers DATABASE_URL)
+      - key: DATABASE_URL
+        sync: false
+      - key: ROBINHOOD_RPC_URL
+        sync: false
+      - key: ROBINHOOD_WS_URL
+        sync: false

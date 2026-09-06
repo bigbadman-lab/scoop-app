@@ -1,5 +1,47 @@
 export { createPool, createClient, withTransaction, createDbClient, query } from './client.js';
 export { normalizeAddress, normalizeBytes32, toNumericString } from './hex.js';
+export {
+  formatRawAmount,
+  formatX18,
+  percentOfSupplyBps,
+  percentOfSupplyX18,
+  clampLimit,
+  clampOffset,
+} from './decimal.js';
+export type {
+  DiscoveryFilter,
+  DiscoverySort,
+  RankingType,
+  CandleInterval,
+  TradeSide,
+  ConfirmationStatus,
+  TokenDiscoveryItem,
+  TokenDetail,
+  TradeItem,
+  HolderItem,
+  CandleItem,
+  CreatorEarningsAsset,
+  CreatorEarningsSummary,
+  DiscoveryRankingItem,
+  IndexerStatus,
+} from './dto.js';
+export {
+  getTokens,
+  getToken,
+  getTrades,
+  getHolders,
+  getCandles,
+  assertCandleInterval,
+  getCreatorEarnings,
+  getRankings,
+  assertRankingType,
+  getIndexerStatus,
+  type GetTokensOptions,
+  type GetTradesOptions,
+  type GetHoldersOptions,
+  type GetCandlesOptions,
+  type GetRankingsOptions,
+} from './queries/index.js';
 export type {
   DatabaseClientMode,
   ScoopDbClient,
@@ -9,7 +51,6 @@ export type {
   PoolClient,
   Client,
 } from './types.js';
-
 export { upsertRawChainEvent, type RawChainEventRow } from './repos/raw-chain-events.js';
 export { upsertLaunch, type LaunchRow } from './repos/launches.js';
 export { upsertToken, type TokenRow } from './repos/tokens.js';

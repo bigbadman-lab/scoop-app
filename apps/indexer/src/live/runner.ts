@@ -7,6 +7,11 @@ import { processBlock } from './processBlock.js';
 import { handleReorgIfNeeded } from './reorg.js';
 import { promoteConfirmations, type ConfirmationHeads } from './confirmations.js';
 import { maybeSnapshotQuoteUsd } from './quoteSnapshot.js';
+import {
+  acquireIndexerAdvisoryLock,
+  assertMigrationCompatibilityFromPool,
+  type AdvisoryLockHandle,
+} from './guardrails.js';
 
 function logJson(level: string, message: string, fields: Record<string, unknown> = {}) {
   console.log(
@@ -41,6 +46,7 @@ export interface RunnerResult {
  * Production indexer runner.
  * Refuses unless SCOOP_INDEXING_ENABLED=true.
  * Exits cleanly on SIGINT/SIGTERM and when bounded mode completes.
+ * Holds a Postgres advisory lock for singleton enforcement.
  */
 export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   const { config } = opts;
@@ -59,11 +65,22 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   const headLagTarget = opts.headLagTarget ?? 0;
 
   logJson('info', 'indexer runner starting', {
-    phase: '6A.6',
+    phase: '6A.7',
     config: publicConfigView(config),
     maxBatches: maxBatches ?? null,
     indexToBlock: indexToBlock ?? null,
   });
+
+  let lock: AdvisoryLockHandle | null = null;
+  try {
+    lock = await acquireIndexerAdvisoryLock(config.DATABASE_URL);
+  } catch (error) {
+    logJson('error', 'indexer singleton lock failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+  logJson('info', 'indexer advisory lock acquired', { key: "hashtext('scoop_indexer')" });
 
   const rpc = createFailoverRpc({
     primaryUrl: config.ROBINHOOD_RPC_URL,
@@ -71,12 +88,23 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   });
   const pool = createPool(config.DATABASE_URL);
 
+  try {
+    await assertMigrationCompatibilityFromPool(pool);
+    logJson('info', 'migration compatibility ok', {
+      required: 'token_market_state.launch_progress_bps',
+    });
+  } catch (error) {
+    await lock.release();
+    await pool.end();
+    throw error;
+  }
+
   let stopRequested = false;
   let stopReason = 'running';
   const onSignal = (sig: string) => {
     stopRequested = true;
     stopReason = sig;
-    logJson('info', 'shutdown signal received', { signal: sig });
+    logJson('info', 'shutdown signal received — finishing current batch', { signal: sig });
   };
   process.once('SIGINT', () => onSignal('SIGINT'));
   process.once('SIGTERM', () => onSignal('SIGTERM'));
@@ -236,7 +264,6 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           break;
         }
         if (headLagTarget >= 0 && maxBatches != null) {
-          // bounded catchup that reached head
           stopReason = 'caughtUp';
           break;
         }
@@ -245,7 +272,6 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           break;
         }
 
-        // Wait for poll interval or WS wake
         await Promise.race([
           new Promise((r) => setTimeout(r, config.SCOOP_POLL_INTERVAL_MS)),
           wakePromise,
@@ -261,8 +287,8 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         return end;
       })();
 
+      // Finish the current batch even after SIGTERM/SIGINT.
       for (let b = nextBlock; b <= batchEnd; b++) {
-        if (stopRequested) break;
         const result = await withTransaction(pool, async (db) =>
           processBlock(db, {
             client,
@@ -314,6 +340,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         });
       });
 
+      if (stopRequested) {
+        break;
+      }
+
       if (indexToBlock != null && lastBlock != null && lastBlock >= BigInt(indexToBlock)) {
         stopReason = 'indexToBlock';
         break;
@@ -324,6 +354,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');
     await pool.end();
+    if (lock) {
+      await lock.release();
+      logJson('info', 'indexer advisory lock released');
+    }
   }
 
   logJson('info', 'indexer runner stopped', {
