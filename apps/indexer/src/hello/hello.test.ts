@@ -17,6 +17,8 @@ import {
   type TransactionReceipt,
 } from 'viem';
 import { decodeHelloLogs } from './decode.js';
+import { evaluateHelloTradeInvariants, HELLO_LAUNCH_1M_BUCKET } from './verify.js';
+import { HELLO } from './fixture.js';
 
 describe('HELLO classification (network-independent)', () => {
   it('classifies initial buy swap deltas', () => {
@@ -135,5 +137,103 @@ describe('HELLO decode (synthetic Transfer)', () => {
       expect(decoded[0].args.value).toBe(HELLO_FIXTURE.totalSupply);
     }
     expect(scoopAbis.ScoopToken).toBeTruthy();
+  });
+});
+
+const baseLaunch = {
+  token_address: HELLO.token,
+  initial_buy_quote_raw: HELLO.initialBuyQuote.toString(),
+  pool_id: HELLO.poolId,
+  creator_id: HELLO.creatorId,
+};
+
+const baseInitialBuy = {
+  tx_hash: HELLO.txHash,
+  is_initial_buy: true,
+  side: 'buy',
+  quote_amount_raw: HELLO.initialBuyQuote.toString(),
+  token_amount_raw: HELLO.initialBuyTokens.toString(),
+};
+
+describe('HELLO verifier production-safety (immutable vs mutable)', () => {
+  it('passes with only the canonical initial buy', () => {
+    const checks = evaluateHelloTradeInvariants({
+      launches: [baseLaunch],
+      initialBuyTrades: [baseInitialBuy],
+      totalTrades: 1,
+      tokenName: HELLO.metadata.name,
+      tokenSymbol: HELLO.metadata.symbol,
+    });
+    expect(checks.every((c) => c.pass)).toBe(true);
+    expect(HELLO_LAUNCH_1M_BUCKET).toBe(Math.floor(HELLO.blockTimestamp / 60) * 60);
+  });
+
+  it('passes with initial buy + later genuine trades', () => {
+    const checks = evaluateHelloTradeInvariants({
+      launches: [baseLaunch],
+      initialBuyTrades: [baseInitialBuy],
+      totalTrades: 3,
+      tokenName: HELLO.metadata.name,
+      tokenSymbol: HELLO.metadata.symbol,
+    });
+    expect(checks.every((c) => c.pass)).toBe(true);
+    const total = checks.find((c) => c.name === 'total_trades_at_least_one');
+    expect(total?.kind).toBe('mutable');
+    expect(total?.pass).toBe(true);
+  });
+
+  it('fails with duplicate initial-buy trades', () => {
+    const checks = evaluateHelloTradeInvariants({
+      launches: [baseLaunch],
+      initialBuyTrades: [baseInitialBuy, { ...baseInitialBuy }],
+      totalTrades: 2,
+    });
+    const dup = checks.find((c) => c.name === 'exactly_one_initial_buy_trade');
+    expect(dup?.pass).toBe(false);
+    expect(dup?.kind).toBe('immutable');
+  });
+
+  it('fails if initial-buy amounts change', () => {
+    const checks = evaluateHelloTradeInvariants({
+      launches: [
+        {
+          ...baseLaunch,
+          initial_buy_quote_raw: '1',
+        },
+      ],
+      initialBuyTrades: [
+        {
+          ...baseInitialBuy,
+          quote_amount_raw: '1',
+          token_amount_raw: '1',
+        },
+      ],
+      totalTrades: 1,
+    });
+    expect(checks.find((c) => c.name === 'initial_buy_quote')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'initial_buy_quote_amount')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'initial_buy_token_amount')?.pass).toBe(false);
+  });
+
+  it('fails if launch metadata / identity changes', () => {
+    const checks = evaluateHelloTradeInvariants({
+      launches: [
+        {
+          ...baseLaunch,
+          token_address: '0x1111111111111111111111111111111111111111',
+          pool_id: `0x${'c'.repeat(64)}`,
+          creator_id: `0x${'d'.repeat(64)}`,
+        },
+      ],
+      initialBuyTrades: [baseInitialBuy],
+      totalTrades: 1,
+      tokenName: 'Wrong',
+      tokenSymbol: 'NOPE',
+    });
+    expect(checks.find((c) => c.name === 'token_address')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'pool_id')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'creator_id')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'token_name')?.pass).toBe(false);
+    expect(checks.find((c) => c.name === 'token_symbol')?.pass).toBe(false);
   });
 });

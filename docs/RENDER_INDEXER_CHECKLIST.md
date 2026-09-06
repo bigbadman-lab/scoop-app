@@ -21,7 +21,10 @@ Staged enablement for the SCOOP background worker on Render.
 | `SCOOP_REORG_WINDOW_BLOCKS` | optional | default `128` |
 | `SCOOP_QUOTE_SNAPSHOT_SECONDS` | optional | default `60` |
 | `SCOOP_POLL_INTERVAL_MS` | optional | default `2000` |
-| `SCOOP_MAX_BLOCK_BATCH` | optional | default `20` |
+| `SCOOP_MAX_BLOCK_BATCH` | optional | default `20` (near-tip / live mode) |
+| `SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS` | optional | default `5000` — lag above this uses fast catch-up |
+| `SCOOP_FAST_CATCHUP_RANGE` | optional | default `5000` — getLogs / batch span in fast mode |
+| `SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS` | optional | default `64` — empty-range hash anchors |
 | `SCOOP_LAUNCH_DUST_RAW` | optional | default `1000` |
 | `SCOOP_INDEX_TO_BLOCK` | optional | Bounded catchup only |
 | `LOG_LEVEL` | optional | `info` |
@@ -56,10 +59,11 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 
 ## Stage 3 — Bounded catchup
 
-1. Keep `SCOOP_INDEXING_ENABLED=false` on the always-on worker.
+1. Keep `SCOOP_INDEXING_ENABLED=false` on the always-on worker **or** leave it enabled with fast catch-up defaults.
 2. Run a one-off / local `indexer:catchup` or `indexer:once` with indexing enabled against the same DB.
-3. Watch `/api/indexer/health` lag and heartbeat.
-4. Confirm singleton advisory lock: a second live runner must exit non-zero.
+3. With large lag, expect `fast catchup batch starting` logs and sparse empty-range advances (see `docs/PHASE_6A_7B_FAST_CATCHUP.md`).
+4. Watch `/api/indexer/health` lag and heartbeat.
+5. Confirm singleton advisory lock: a second live runner must exit non-zero.
 
 ## Stage 4 — Enable continuous indexing
 

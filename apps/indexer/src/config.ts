@@ -38,6 +38,12 @@ const indexerEnvSchema = z
     SCOOP_QUOTE_SNAPSHOT_SECONDS: z.coerce.number().int().positive().default(60),
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
     SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(20),
+    /** Enter fast historical catch-up when lag (safe - next) exceeds this. */
+    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(5000),
+    /** Max eth_getLogs window size while in fast catch-up (auto-shrinks on reject). */
+    SCOOP_FAST_CATCHUP_RANGE: z.coerce.number().int().positive().default(5000),
+    /** Sparse processed_blocks anchor spacing over empty ranges. */
+    SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS: z.coerce.number().int().positive().default(64),
     SCOOP_LAUNCH_DUST_RAW: z.coerce.bigint().default(1000n),
     SCOOP_INDEX_TO_BLOCK: optionalPositiveInt,
     ROBINHOOD_RPC_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
@@ -110,6 +116,9 @@ export function publicConfigView(config: IndexerConfig) {
     quoteSnapshotSeconds: config.SCOOP_QUOTE_SNAPSHOT_SECONDS,
     pollIntervalMs: config.SCOOP_POLL_INTERVAL_MS,
     maxBlockBatch: config.SCOOP_MAX_BLOCK_BATCH,
+    fastCatchupThresholdBlocks: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
+    fastCatchupRange: config.SCOOP_FAST_CATCHUP_RANGE,
+    fastCatchupAnchorBlocks: config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS,
     launchDustRaw: config.SCOOP_LAUNCH_DUST_RAW.toString(),
     indexToBlock: config.SCOOP_INDEX_TO_BLOCK ?? null,
     hasPrimaryRpc: Boolean(config.ROBINHOOD_RPC_URL),

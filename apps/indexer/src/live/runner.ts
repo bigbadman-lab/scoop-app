@@ -4,6 +4,7 @@ import { MAIN_STREAM_NAME, publicConfigView, sanitizeRpcLabel } from '../config.
 import { createFailoverRpc } from './rpc/failover.js';
 import { loadWatchlist, watchlistSize } from './watchlist.js';
 import { processBlock } from './processBlock.js';
+import { processFastCatchupRange, shouldUseFastCatchup } from './fastCatchup.js';
 import { handleReorgIfNeeded } from './reorg.js';
 import { promoteConfirmations, type ConfirmationHeads } from './confirmations.js';
 import { maybeSnapshotQuoteUsd } from './quoteSnapshot.js';
@@ -65,7 +66,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   const headLagTarget = opts.headLagTarget ?? 0;
 
   logJson('info', 'indexer runner starting', {
-    phase: '6A.7',
+    phase: '6A.7b',
     config: publicConfigView(config),
     maxBatches: maxBatches ?? null,
     indexToBlock: indexToBlock ?? null,
@@ -280,34 +281,79 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         continue;
       }
 
+      const lagBlocks = targetHead - nextBlock + 1n;
+      const useFast = shouldUseFastCatchup(
+        lagBlocks,
+        config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
+      );
+
       const batchEnd = (() => {
-        let end = nextBlock + BigInt(config.SCOOP_MAX_BLOCK_BATCH) - 1n;
+        const span = useFast
+          ? config.SCOOP_FAST_CATCHUP_RANGE
+          : config.SCOOP_MAX_BLOCK_BATCH;
+        let end = nextBlock + BigInt(span) - 1n;
         if (end > targetHead) end = targetHead;
         if (indexToBlock != null && end > BigInt(indexToBlock)) end = BigInt(indexToBlock);
         return end;
       })();
 
       // Finish the current batch even after SIGTERM/SIGINT.
-      for (let b = nextBlock; b <= batchEnd; b++) {
-        const result = await withTransaction(pool, async (db) =>
-          processBlock(db, {
-            client,
-            chainId: config.SCOOP_CHAIN_ID,
-            blockNumber: b,
-            watchlist,
-            heads,
-            dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
-          }),
-        );
-        lastBlock = result.blockNumber;
-        if (result.launches > 0 || result.swaps > 0 || result.transfers > 0) {
-          logJson('info', 'block processed', {
-            block: result.blockNumber.toString(),
-            launches: result.launches,
-            swaps: result.swaps,
-            transfers: result.transfers,
-            duplicate: result.skippedDuplicate,
-          });
+      if (useFast) {
+        logJson('info', 'fast catchup batch starting', {
+          from: nextBlock.toString(),
+          to: batchEnd.toString(),
+          lagBlocks: lagBlocks.toString(),
+          threshold: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
+          range: config.SCOOP_FAST_CATCHUP_RANGE,
+        });
+        const fastResult = await processFastCatchupRange({
+          runInTxn: (fn) => withTransaction(pool, fn),
+          client,
+          chainId: config.SCOOP_CHAIN_ID,
+          fromBlock: nextBlock,
+          toBlock: batchEnd,
+          watchlist,
+          heads,
+          dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+          anchorBlocks: config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS,
+          initialLogRangeSize: config.SCOOP_FAST_CATCHUP_RANGE,
+        });
+        lastBlock = fastResult.lastBlock;
+        for (const result of fastResult.blockResults) {
+          if (result.launches > 0 || result.swaps > 0 || result.transfers > 0) {
+            logJson('info', 'block processed', {
+              mode: 'fast',
+              block: result.blockNumber.toString(),
+              launches: result.launches,
+              swaps: result.swaps,
+              transfers: result.transfers,
+              duplicate: result.skippedDuplicate,
+            });
+          }
+        }
+      } else {
+        for (let b = nextBlock; b <= batchEnd; b++) {
+          const result = await withTransaction(pool, async (db) =>
+            processBlock(db, {
+              client,
+              chainId: config.SCOOP_CHAIN_ID,
+              blockNumber: b,
+              watchlist,
+              heads,
+              dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+            }),
+          );
+          lastBlock = result.blockNumber;
+          if (result.launches > 0 || result.swaps > 0 || result.transfers > 0) {
+            logJson('info', 'block processed', {
+              mode: 'live',
+              block: result.blockNumber.toString(),
+              launches: result.launches,
+              swaps: result.swaps,
+              transfers: result.transfers,
+              duplicate: result.skippedDuplicate,
+            });
+          }
         }
       }
 
@@ -336,7 +382,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           watchlistSize: watchlistSize(watchlist),
           activeRpc: rpc.activeLabel(),
           wsConnected: Boolean(wsCleanup),
-          notes: `batch ${batches}`,
+          notes: useFast ? `fast batch ${batches}` : `live batch ${batches}`,
         });
       });
 
