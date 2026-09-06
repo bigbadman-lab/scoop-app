@@ -17,10 +17,13 @@
     "ingest:once": "tsx src/commands/ingest-once.ts",
     "catchup": "tsx src/commands/catchup.ts",
     "smoke": "tsx src/commands/smoke.ts",
-    "concepts": "tsx src/commands/concepts.ts"
+    "concepts": "tsx src/commands/concepts.ts",
+    "draft:create": "tsx src/commands/draft-create.ts",
+    "draft:artwork": "tsx src/commands/draft-artwork.ts"
   },
   "dependencies": {
     "@scoop/db": "workspace:*",
+    "@supabase/supabase-js": "^2.115.0",
     "openai": "^7.10.0",
     "zod": "^3.25.76"
   },

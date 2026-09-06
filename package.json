@@ -26,7 +26,9 @@
     "news:ingest:once": "pnpm --filter @scoop/news run ingest:once",
     "news:catchup": "pnpm --filter @scoop/news run catchup",
     "news:smoke": "pnpm --filter @scoop/news run smoke",
-    "news:concepts": "pnpm --filter @scoop/news run concepts --"
+    "news:concepts": "pnpm --filter @scoop/news run concepts --",
+    "news:draft:create": "pnpm --filter @scoop/news run draft:create --",
+    "news:draft:artwork": "pnpm --filter @scoop/news run draft:artwork --"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

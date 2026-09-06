@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createPool } from '@scoop/db';
-import { generateLaunchConcepts, ConceptValidationError } from '@scoop/news';
+import {
+  createNewsLaunchDraft,
+  ConceptValidationError,
+  type LaunchConcept,
+} from '@scoop/news';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -18,7 +22,6 @@ export async function POST(request: Request) {
   let pool: ReturnType<typeof createPool> | null = null;
   try {
     assertInternalAccess(request);
-
     if (!rateLimitInternal(clientIp(request))) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
@@ -30,39 +33,21 @@ export async function POST(request: Request) {
     const providerArticleId = String(
       (body as { providerArticleId?: unknown }).providerArticleId ?? '',
     ).trim();
-    if (!providerArticleId) {
-      throw new ValidationError('providerArticleId is required');
+    const concept = (body as { concept?: LaunchConcept }).concept;
+    if (!providerArticleId || !concept) {
+      throw new ValidationError('providerArticleId and concept are required');
     }
 
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required');
-    }
-
+    if (!databaseUrl) throw new Error('DATABASE_URL is required');
     pool = createPool(databaseUrl);
-    const result = await generateLaunchConcepts(
-      { providerArticleId },
+
+    const draft = await createNewsLaunchDraft(
+      { providerArticleId, concept },
       { db: pool },
     );
-
-    const payload = {
-      article: result.response.article,
-      concepts: result.response.concepts,
-      availablePairs: result.enabledQuotes.map((q) => ({
-        symbol: q.symbol,
-        address: q.address,
-        quoteType: q.quoteType,
-      })),
-      usage: {
-        model: result.usage.model,
-        latencyMs: result.usage.latencyMs,
-        inputTokens: result.usage.inputTokens,
-        outputTokens: result.usage.outputTokens,
-        repairAttempted: result.usage.repairAttempted,
-      },
-    };
-    assertNoSecretLeakage(payload);
-    return NextResponse.json(payload);
+    assertNoSecretLeakage(draft);
+    return NextResponse.json({ draft });
   } catch (error) {
     if (error instanceof ValidationError) {
       const status = error.message === 'Unauthorized' ? 401 : 400;
@@ -72,15 +57,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error(
-      'POST /api/internal/news/concepts',
+      'POST /api/internal/launch-drafts',
       error instanceof Error
         ? error.message.replace(/sk-[a-zA-Z0-9._-]+/g, '[REDACTED]')
         : 'error',
     );
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    if (pool) {
-      await pool.end().catch(() => undefined);
-    }
+    if (pool) await pool.end().catch(() => undefined);
   }
 }
