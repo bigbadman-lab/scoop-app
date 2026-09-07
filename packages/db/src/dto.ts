@@ -204,3 +204,25 @@ export interface IndexerStatus {
   notes: string | null;
   healthy: boolean;
 }
+
+/** Product category for public quote catalogue (distinct from protocol quote_type). */
+export type QuoteCategory = 'native' | 'stablecoin' | 'stock';
+
+/** Row from `public_quote_catalogue` — product-safe fields only. */
+export interface PublicQuoteCatalogueItem {
+  chainId: number;
+  quoteAsset: string;
+  /** Protocol quote_type: native | scoop | stock */
+  quoteType: string;
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  decimals: number;
+  category: QuoteCategory;
+  /** Nullable — ETH/USDG images pending approved assets; stocks use Robinhood CDN. */
+  imageUrl: string | null;
+  sourceName: string | null;
+  sortOrder: number;
+  isRegistered: boolean;
+  isEnabled: boolean;
+}

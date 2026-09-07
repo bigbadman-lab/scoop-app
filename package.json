@@ -28,12 +28,18 @@
     "news:smoke": "pnpm --filter @scoop/news run smoke",
     "news:concepts": "pnpm --filter @scoop/news run concepts --",
     "news:draft:create": "pnpm --filter @scoop/news run draft:create --",
-    "news:draft:artwork": "pnpm --filter @scoop/news run draft:artwork --"
+    "news:draft:artwork": "pnpm --filter @scoop/news run draft:artwork --",
+    "images:quote-assets": "node scripts/ingest-quote-asset-images.mjs",
+    "test:quote-asset-images": "vitest run scripts/quote-asset-images"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.13.10",
+    "@types/pngjs": "^6.0.5",
     "eslint": "^9.22.0",
+    "jpeg-js": "^0.4.4",
     "pg": "^8.23.0",
+    "pngjs": "^7.0.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.1",

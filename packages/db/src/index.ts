@@ -24,6 +24,8 @@ export type {
   CreatorEarningsSummary,
   DiscoveryRankingItem,
   IndexerStatus,
+  QuoteCategory,
+  PublicQuoteCatalogueItem,
 } from './dto.js';
 export {
   getTokens,
@@ -36,11 +38,15 @@ export {
   getRankings,
   assertRankingType,
   getIndexerStatus,
+  getPublicQuoteCatalogue,
+  CANONICAL_QUOTE_CATALOGUE_COUNT,
+  SCOOP_CHAIN_ID,
   type GetTokensOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
   type GetCandlesOptions,
   type GetRankingsOptions,
+  type GetPublicQuoteCatalogueOptions,
 } from './queries/index.js';
 export type {
   DatabaseClientMode,

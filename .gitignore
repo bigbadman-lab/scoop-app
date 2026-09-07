@@ -35,3 +35,6 @@ yarn-error.log*
 # Test / tooling
 .turbo/
 .cache/
+
+# Quote asset image ingest workspace
+.cache/quote-asset-images/

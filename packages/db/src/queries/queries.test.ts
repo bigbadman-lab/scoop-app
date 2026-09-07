@@ -13,6 +13,11 @@ import { getHolders } from './holders.js';
 import { assertCandleInterval } from './candles.js';
 import { assertRankingType, getRankings } from './rankings.js';
 import { getIndexerStatus } from './health.js';
+import {
+  CANONICAL_QUOTE_CATALOGUE_COUNT,
+  SCOOP_CHAIN_ID,
+  getPublicQuoteCatalogue,
+} from './quotes.js';
 import type { Queryable } from '../types.js';
 
 function mockDb(rows: unknown[] = []) {
@@ -249,5 +254,87 @@ describe('query validation / SQL mapping', () => {
     const status = await getIndexerStatus(db, 4663);
     expect(status?.healthy).toBe(true);
     expect(status?.lagBlocks).toBe(2);
+  });
+
+  it('canonical quote catalogue count is 22', () => {
+    expect(CANONICAL_QUOTE_CATALOGUE_COUNT).toBe(22);
+    expect(SCOOP_CHAIN_ID).toBe(4663);
+  });
+
+  it('getPublicQuoteCatalogue filters chain/registered/enabled and orders by sort_order', async () => {
+    const db = mockDb([
+      {
+        chain_id: 4663,
+        quote_asset: '0x0000000000000000000000000000000000000000',
+        quote_type: 'native',
+        symbol: 'ETH',
+        display_symbol: 'ETH',
+        name: 'Ethereum',
+        decimals: 18,
+        category: 'native',
+        image_url: null,
+        source_name: 'protocol',
+        sort_order: 1,
+        is_registered: true,
+        is_enabled: true,
+      },
+      {
+        chain_id: 4663,
+        quote_asset: '0x5fc5360d0400a0fd4f2af552add042d716f1d168',
+        quote_type: 'scoop',
+        symbol: 'USDG',
+        display_symbol: 'USDG',
+        name: 'Global Dollar',
+        decimals: 6,
+        category: 'stablecoin',
+        image_url: null,
+        source_name: 'protocol',
+        sort_order: 2,
+        is_registered: true,
+        is_enabled: true,
+      },
+    ]);
+
+    const rows = await getPublicQuoteCatalogue(db);
+    const [sql, params] = db.query.mock.calls[0]!;
+
+    expect(String(sql)).toContain('FROM public_quote_catalogue');
+    expect(String(sql)).toContain('ORDER BY sort_order ASC');
+    expect(String(sql)).toContain('is_registered = TRUE');
+    expect(String(sql)).toContain('is_enabled = TRUE');
+    expect(params).toEqual([4663, true]);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.symbol).toBe('ETH');
+    expect(rows[0]?.category).toBe('native');
+    expect(rows[0]?.imageUrl).toBeNull();
+    expect(rows[0]?.displaySymbol).toBe('ETH');
+    expect(rows[0]?.sortOrder).toBe(1);
+    expect(rows[1]?.symbol).toBe('USDG');
+    expect(rows[1]?.quoteType).toBe('scoop');
+    expect(rows[1]?.imageUrl).toBeNull();
+  });
+
+  it('getPublicQuoteCatalogue keeps nullable imageUrl null-safe', async () => {
+    const db = mockDb([
+      {
+        chain_id: 4663,
+        quote_asset: '0xaf3d76f1834a1d425780943c99ea8a608f8a93f9',
+        quote_type: 'stock',
+        symbol: 'AAPL',
+        display_symbol: 'AAPL',
+        name: 'Apple',
+        decimals: 18,
+        category: 'stock',
+        image_url: 'https://cdn.robinhood.com/ncw_assets/logos/aapl.png',
+        source_name: 'robinhood',
+        sort_order: 3,
+        is_registered: true,
+        is_enabled: true,
+      },
+    ]);
+    const rows = await getPublicQuoteCatalogue(db, { chainId: 4663, enabledOnly: true });
+    expect(rows[0]?.imageUrl).toContain('cdn.robinhood.com');
+    expect(rows[0]?.category).toBe('stock');
   });
 });
