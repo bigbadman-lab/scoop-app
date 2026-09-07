@@ -1,10 +1,42 @@
 @import 'tailwindcss';
 
 :root {
-  --bg: #0c0f0e;
-  --fg: #e8efe9;
-  --muted: #9aab9e;
-  --accent: #6fbf73;
+  /* Light-first canvas */
+  --bg: #faf9f7;
+  --bg-elevated: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #6b6b6b;
+  --muted-2: #9a9a9a;
+  --divider: #e6e4e0;
+  --focus: #0a0a0a;
+
+  /* Locked SCOOP orange from SCOOPMASTER.png */
+  --scoop-orange: #fc4c00;
+  --scoop-orange-contrast: #0a0a0a;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-editorial: 16px;
+
+  --sidebar-width: 6.5rem;
+  --bottom-nav-height: 4.75rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+}
+
+@theme inline {
+  --color-scoop: var(--scoop-orange);
+  --color-canvas: var(--bg);
+  --color-ink: var(--fg);
+  --color-mute: var(--muted);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
 }
 
 html,
@@ -14,10 +46,50 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(1200px 600px at 10% -10%, #1a2a1c 0%, transparent 55%),
-    radial-gradient(900px 500px at 90% 0%, #142018 0%, transparent 50%),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
-  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

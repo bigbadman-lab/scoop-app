@@ -1,9 +1,59 @@
-export default function HomePage() {
+import { NowSection } from '@/components/home/NowSection';
+import { DiscoverSection, DEFAULT_DISCOVER_TAB } from '@/components/home/DiscoverSection';
+import { ProtocolSection } from '@/components/home/ProtocolSection';
+import { SiteFooter } from '@/components/home/SiteFooter';
+import {
+  loadDiscoverTab,
+  loadMarketActivity,
+  type DiscoverTabResult,
+} from '@/lib/discovery/load-home';
+import { loadLeadNews } from '@/lib/news/load-home';
+import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
+import { DISCOVER_TABS, type DiscoverTabId } from '@/lib/discovery/tabs';
+
+export const dynamic = 'force-dynamic';
+
+async function loadCatalogueSafe() {
+  try {
+    return await loadEnabledQuoteCatalogue();
+  } catch {
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const [news, activity, catalogue, ...tabResults] = await Promise.all([
+    loadLeadNews(),
+    loadMarketActivity(),
+    loadCatalogueSafe(),
+    ...DISCOVER_TABS.map((tab) => loadDiscoverTab(tab.id)),
+  ]);
+
+  const preloaded = Object.fromEntries(
+    tabResults.map((result) => [result.tabId, result]),
+  ) as Partial<Record<DiscoverTabId, DiscoverTabResult>>;
+
+  const initialTab = DEFAULT_DISCOVER_TAB;
+  const initialResult =
+    preloaded[initialTab] ??
+    ({
+      tabId: initialTab,
+      status: 'unavailable',
+      items: [],
+      message: 'Trending ranking is not available yet.',
+    } satisfies DiscoverTabResult);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-4 px-6 py-16">
-      <p className="text-5xl font-semibold tracking-tight text-[var(--fg)] sm:text-6xl">SCOOP</p>
-      <p className="text-xl text-[var(--muted)]">Production app bootstrap</p>
-      <p className="text-sm uppercase tracking-[0.2em] text-[var(--accent)]">Phase 6A.4</p>
+    <main>
+      <NowSection news={news} activity={activity} catalogue={catalogue} />
+      <DiscoverSection
+        initialTab={initialTab}
+        initialResult={initialResult}
+        preloaded={preloaded}
+        catalogue={catalogue}
+      />
+      <ProtocolSection />
+      <SiteFooter />
     </main>
   );
 }

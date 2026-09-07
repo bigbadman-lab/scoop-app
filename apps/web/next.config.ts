@@ -6,7 +6,7 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@scoop/db'],
+  transpilePackages: ['@scoop/db', '@scoop/news', 'geist'],
   outputFileTracingRoot: path.join(configDir, '../..'),
 };
 
