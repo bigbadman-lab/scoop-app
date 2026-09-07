@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { sessionAddress } from '@/lib/auth/address';
 
 export { normalizeAddress, sessionAddress } from '@/lib/auth/address';
@@ -88,12 +89,25 @@ export function createSession(
   const normalized = sessionAddress(address);
   if (!normalized) return null;
   if (!Number.isInteger(chainId) || chainId <= 0) return null;
+  // C.2: only Robinhood Chain sessions are authoritative.
+  if (chainId !== ROBINHOOD_CHAIN_ID) return null;
   return {
     address: normalized,
     chainId,
     issuedAt: now,
     expiresAt: now + SESSION_TTL_MS,
   };
+}
+
+/**
+ * Canonical server identity resolver.
+ * Browser-supplied addresses must never override this.
+ */
+export function getAuthenticatedWallet(
+  request: Request,
+  env?: NodeJS.ProcessEnv,
+): `0x${string}` | null {
+  return readSessionFromRequest(request, env)?.address ?? null;
 }
 
 export function sealSession(

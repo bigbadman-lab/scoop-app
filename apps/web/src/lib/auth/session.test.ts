@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SESSION_COOKIE,
   createNonce,
   createSession,
+  getAuthenticatedWallet,
   sealNonce,
   sealSession,
   unsealNonce,
@@ -39,10 +41,32 @@ describe('auth session cookies', () => {
     expect(unsealSession(sealed, env, session.expiresAt + 1)).toBeNull();
   });
 
-  it('consumes nonce with expiry', () => {
+  it('rejects missing session as unauthenticated', () => {
+    expect(unsealSession(null, env)).toBeNull();
+    expect(unsealSession(undefined, env)).toBeNull();
+    const request = new Request('http://localhost/api/auth/session');
+    expect(getAuthenticatedWallet(request, env)).toBeNull();
+  });
+
+  it('resolves normalized authenticated address from a valid session cookie', () => {
+    const session = createSession(SAMPLE_ADDRESS, 4663)!;
+    const sealed = sealSession(session, env);
+    const request = new Request('http://localhost/api/auth/session', {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(sealed)}` },
+    });
+    expect(getAuthenticatedWallet(request, env)).toBe(SAMPLE_ADDRESS_LOWER);
+  });
+
+  it('rejects non-Robinhood chain sessions', () => {
+    expect(createSession(SAMPLE_ADDRESS, 1)).toBeNull();
+  });
+
+  it('creates server-controlled nonces and rejects expired sealed nonces', () => {
     const nonce = createNonce();
+    expect(nonce).toMatch(/^[a-f0-9]{32}$/);
     const sealed = sealNonce(nonce, env);
     expect(unsealNonce(sealed, env)).toBe(nonce);
+    expect(unsealNonce('not-a-sealed-nonce', env)).toBeNull();
   });
 });
 

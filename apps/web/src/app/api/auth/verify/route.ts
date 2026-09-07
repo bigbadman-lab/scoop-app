@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifySiweSignature } from '@/lib/auth/siwe';
+import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
+import {
+  resolveSiweExpectedDomain,
+  resolveSiweExpectedUri,
+  verifySiweSignature,
+} from '@/lib/auth/siwe';
 import {
   NONCE_COOKIE,
   SESSION_COOKIE,
@@ -48,12 +53,15 @@ export async function POST(request: Request) {
       throw new ValidationError('Nonce missing or expired — request a new one');
     }
 
-    const host = request.headers.get('host') ?? 'localhost';
+    const expectedDomain = resolveSiweExpectedDomain(request);
+    const expectedUri = resolveSiweExpectedUri(request);
     const verified = await verifySiweSignature({
       message,
       signature,
       expectedNonce,
-      expectedDomain: host,
+      expectedDomain,
+      expectedUri,
+      expectedChainId: ROBINHOOD_CHAIN_ID,
     });
     if (!verified) {
       return NextResponse.json(
@@ -68,6 +76,7 @@ export async function POST(request: Request) {
     }
 
     const res = NextResponse.json({
+      authenticated: true,
       address: session.address,
       chainId: session.chainId,
       expiresAt: new Date(session.expiresAt).toISOString(),

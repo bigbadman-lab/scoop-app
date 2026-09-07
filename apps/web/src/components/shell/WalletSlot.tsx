@@ -1,80 +1,38 @@
 'use client';
 
-import { useAppKit } from '@reown/appkit/react';
-import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-import { isReownConfigured } from '@/lib/auth/chain';
-import { requestSiweSession } from '@/components/auth/AuthProviders';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
+import {
+  useWalletShell,
+  type WalletOpenIntent,
+} from '@/components/auth/WalletShellProvider';
 
-type PublicSession =
-  | { status: 'loading' | 'anonymous' }
-  | { status: 'authenticated'; address: string };
+type LiveProps = {
+  variant: 'sidebar' | 'mobile';
+  initialIntent: WalletOpenIntent;
+};
 
-function shorten(address: string): string {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-function WalletSlotConfigured({ variant }: { variant: 'sidebar' | 'mobile' }) {
-  const { open } = useAppKit();
-  const { address, isConnected, chainId } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { signMessageAsync, isPending } = useSignMessage();
-  const [session, setSession] = useState<PublicSession>({ status: 'loading' });
-
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/session', { credentials: 'include' });
-      const data = (await res.json()) as { authenticated?: boolean; address?: string };
-      if (data.authenticated && data.address) {
-        setSession({ status: 'authenticated', address: data.address });
-      } else {
-        setSession({ status: 'anonymous' });
-      }
-    } catch {
-      setSession({ status: 'anonymous' });
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  async function signIn() {
-    if (!address || chainId == null) {
-      open({ view: 'Connect' });
-      return;
-    }
-    const ok = await requestSiweSession(address, chainId, signMessageAsync);
-    if (ok) await refresh();
-  }
-
-  async function signOut() {
-    await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
-    disconnect();
-    setSession({ status: 'anonymous' });
-  }
-
-  const authenticated = session.status === 'authenticated';
-  const label = authenticated
-    ? shorten(session.address)
-    : isConnected && address
-      ? 'Sign in'
-      : 'Connect';
-
+function WalletSlotIdle({
+  variant,
+  activating,
+  onActivate,
+}: {
+  variant: 'sidebar' | 'mobile';
+  activating: boolean;
+  onActivate: () => void;
+}) {
   if (variant === 'mobile') {
     return (
       <button
         type="button"
-        disabled={isPending}
-        onClick={() => {
-          if (authenticated) void signOut();
-          else if (isConnected) void signIn();
-          else open({ view: 'Connect' });
-        }}
-        className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--fg)]"
-        title={authenticated ? 'Sign out ends launch-assist access' : 'Connect wallet'}
+        disabled={activating}
+        data-wallet-connected="false"
+        data-wallet-runtime={activating ? 'loading' : 'idle'}
+        onClick={onActivate}
+        className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50"
+        title="Connect wallet"
+        aria-label="Connect wallet"
       >
-        {authenticated ? `${label} · Out` : label}
+        {activating ? '…' : 'Connect'}
       </button>
     );
   }
@@ -83,27 +41,19 @@ function WalletSlotConfigured({ variant }: { variant: 'sidebar' | 'mobile' }) {
     <div className="flex flex-col items-center gap-1">
       <button
         type="button"
-        disabled={isPending}
-        onClick={() => {
-          if (authenticated) void signOut();
-          else if (isConnected) void signIn();
-          else open({ view: 'Connect' });
-        }}
-        className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
-        aria-label={authenticated ? `Signed in as ${session.address}. Sign out.` : 'Connect wallet'}
-        title={
-          authenticated
-            ? 'Sign out — ends launch-assist access (wallet may stay connected)'
-            : 'Connect wallet'
-        }
+        disabled={activating}
+        data-wallet-connected="false"
+        data-wallet-runtime={activating ? 'loading' : 'idle'}
+        onClick={onActivate}
+        className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50"
+        aria-label="Connect wallet"
+        title="Connect wallet"
       >
-        {authenticated ? label.slice(0, 6) : isConnected ? 'SIWE' : 'W'}
+        {activating ? '…' : 'Conn'}
       </button>
-      {authenticated ? (
-        <span className="max-w-[4.5rem] truncate font-mono text-[9px] text-[var(--muted)]">
-          {label}
-        </span>
-      ) : null}
+      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--muted)]">
+        {activating ? '…' : 'Connect'}
+      </span>
     </div>
   );
 }
@@ -113,27 +63,64 @@ function WalletSlotFallback({ variant }: { variant: 'sidebar' | 'mobile' }) {
     return (
       <div
         className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--divider)] text-[var(--muted-2)]"
-        title="Set NEXT_PUBLIC_REOWN_PROJECT_ID to enable wallet auth"
+        title="Set NEXT_PUBLIC_REOWN_PROJECT_ID to enable wallet connect"
         aria-label="Wallet not configured"
+        data-wallet-configured="false"
       >
         <span className="font-mono text-[10px]">Off</span>
       </div>
     );
   }
   return (
-    <span className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+    <span
+      className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]"
+      data-wallet-configured="false"
+    >
       Wallet off
     </span>
   );
 }
 
 /**
- * Account slot — Connect / SIWE sign-in / Sign out.
- * "Sign out" clears SCOOP session (paid AI). Disconnect is separate via AppKit account view.
+ * Anonymous: light Connect (no AppKit/wagmi imports in this module).
+ * One click loads wallet runtime + live chrome, then opens AppKit.
  */
 export function WalletSlot({ variant }: { variant: 'sidebar' | 'mobile' }) {
-  if (!isReownConfigured()) {
+  const {
+    configured,
+    runtimeReady,
+    activating,
+    ensureRuntime,
+    takePendingIntent,
+  } = useWalletShell();
+  const [bootIntent, setBootIntent] = useState<WalletOpenIntent>(null);
+  const [Live, setLive] = useState<ComponentType<LiveProps> | null>(null);
+  const capturedIntent = useRef(false);
+
+  useEffect(() => {
+    if (!runtimeReady || capturedIntent.current) return;
+    capturedIntent.current = true;
+    setBootIntent(takePendingIntent());
+    void import('@/components/shell/WalletSlotLive').then((mod) => {
+      setLive(() => mod.WalletSlotLive);
+    });
+  }, [runtimeReady, takePendingIntent]);
+
+  if (!configured) {
     return <WalletSlotFallback variant={variant} />;
   }
-  return <WalletSlotConfigured variant={variant} />;
+
+  if (!runtimeReady || !Live) {
+    return (
+      <WalletSlotIdle
+        variant={variant}
+        activating={activating || (runtimeReady && !Live)}
+        onActivate={() => {
+          void ensureRuntime('connect');
+        }}
+      />
+    );
+  }
+
+  return <Live variant={variant} initialIntent={bootIntent} />;
 }

@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { Instrument_Serif } from 'next/font/google';
 import { AppShell } from '@/components/shell/AppShell';
-import { AuthProviders } from '@/components/auth/AuthProviders';
+import { WalletShellProvider } from '@/components/auth/WalletShellProvider';
 import './globals.css';
 
 const instrumentSerif = Instrument_Serif({
@@ -28,16 +29,18 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieHeader = (await headers()).get('cookie');
+
   return (
     <html
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
     >
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
-        <AuthProviders>
+        <WalletShellProvider cookies={cookieHeader}>
           <AppShell>{children}</AppShell>
-        </AuthProviders>
+        </WalletShellProvider>
       </body>
     </html>
   );

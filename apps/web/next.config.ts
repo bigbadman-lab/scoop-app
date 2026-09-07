@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
       '@x402/svm': false,
       '@x402/svm/exact/client': false,
     };
+    config.externals.push('pino-pretty', 'lokijs', 'encoding');
     return config;
   },
 };

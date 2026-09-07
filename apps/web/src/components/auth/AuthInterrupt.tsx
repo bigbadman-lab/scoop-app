@@ -1,80 +1,13 @@
 'use client';
 
-import { useAppKit } from '@reown/appkit/react';
-import { useState } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
-import { isReownConfigured } from '@/lib/auth/chain';
-import { requestSiweSession } from '@/components/auth/AuthProviders';
-import { sanitizeAssistResumePath } from '@/lib/auth/siwe-client';
+import { useEffect, useState, type ComponentType } from 'react';
+import { useWalletShell } from '@/components/auth/WalletShellProvider';
 
 type AuthInterruptProps = {
   resumePath: string;
   onAuthenticated: () => void;
   onCancel: () => void;
 };
-
-function AuthInterruptConfigured({
-  resumePath,
-  onAuthenticated,
-  onCancel,
-}: AuthInterruptProps) {
-  const { open } = useAppKit();
-  const { address, isConnected, chainId } = useAccount();
-  const { signMessageAsync, isPending: signing } = useSignMessage();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const safeResume = sanitizeAssistResumePath(resumePath);
-
-  async function completeSiwe() {
-    if (!address || chainId == null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const ok = await requestSiweSession(address, chainId, signMessageAsync);
-      if (!ok) {
-        setError('Could not verify wallet signature. Try again.');
-        return;
-      }
-      if (safeResume && typeof window !== 'undefined') {
-        window.sessionStorage.setItem('scoop:auth:resume', safeResume);
-      }
-      onAuthenticated();
-    } catch {
-      setError('Sign-in was cancelled or failed.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <AuthInterruptShell
-      error={error}
-      configured
-      onCancel={onCancel}
-      primary={
-        !isConnected ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => open({ view: 'Connect' })}
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
-          >
-            Connect wallet
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={busy || signing}
-            onClick={() => void completeSiwe()}
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
-          >
-            {busy || signing ? 'Signing…' : 'Sign in with Ethereum'}
-          </button>
-        )
-      }
-    />
-  );
-}
 
 function AuthInterruptShell({
   configured,
@@ -129,11 +62,25 @@ function AuthInterruptShell({
 }
 
 /**
- * Polished SCOOP auth interruption for paid launch assist.
- * Offers wallet connect + SIWE only (email/social deferred).
+ * Light gate — no AppKit/wagmi static imports. Loads runtime then AuthInterruptLive.
  */
 export function AuthInterrupt(props: AuthInterruptProps) {
-  if (!isReownConfigured()) {
+  const { configured, runtimeReady, activating, ensureRuntime } = useWalletShell();
+  const [Live, setLive] = useState<ComponentType<AuthInterruptProps> | null>(null);
+
+  useEffect(() => {
+    if (!configured) return;
+    void ensureRuntime(null);
+  }, [configured, ensureRuntime]);
+
+  useEffect(() => {
+    if (!runtimeReady) return;
+    void import('@/components/auth/AuthInterruptLive').then((mod) => {
+      setLive(() => mod.AuthInterruptLive);
+    });
+  }, [runtimeReady]);
+
+  if (!configured) {
     return (
       <AuthInterruptShell
         configured={false}
@@ -143,5 +90,26 @@ export function AuthInterrupt(props: AuthInterruptProps) {
       />
     );
   }
-  return <AuthInterruptConfigured {...props} />;
+
+  if (!runtimeReady || !Live) {
+    return (
+      <AuthInterruptShell
+        configured
+        error={null}
+        onCancel={props.onCancel}
+        primary={
+          <button
+            type="button"
+            disabled={activating || !runtimeReady}
+            onClick={() => void ensureRuntime(null)}
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
+          >
+            {activating || !Live ? 'Loading wallet…' : 'Continue'}
+          </button>
+        }
+      />
+    );
+  }
+
+  return <Live {...props} />;
 }
