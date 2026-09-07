@@ -2,7 +2,6 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { LiveDeskStrip } from '@/components/home/LiveDeskStrip';
 import { HouseLeadHero } from '@/components/home/HouseLeadHero';
-import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import { HOUSE_IMAGE_SET, SCOOP_HERO_SRC } from '@/lib/brand';
 import type { LeadNewsResult } from '@/lib/news/load-home';
 import { MarketActivityList } from '@/components/home/MarketActivityList';
@@ -16,8 +15,6 @@ type Props = {
 };
 
 export function NowSection({ news, activity, catalogue }: Props) {
-  const article = news.article;
-
   return (
     <section aria-label="Now" className="border-b border-[var(--divider)]">
       <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-10 md:px-8 md:pt-5 md:pb-14 lg:px-10">
@@ -63,17 +60,6 @@ export function NowSection({ news, activity, catalogue }: Props) {
               <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                 Add /house/01–03 to enable rotating house imagery
               </p>
-            ) : null}
-
-            {news.status === 'ok' && article ? (
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
-                {article.url ? (
-                  <CtaLink href={article.url} external>
-                    Read story ↗
-                  </CtaLink>
-                ) : null}
-              </div>
             ) : null}
           </div>
 

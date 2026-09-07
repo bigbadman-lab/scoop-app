@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
   HOUSE_FADE_MS,
+  HOUSE_HOVER_ADVANCE_MS,
   HOUSE_ROTATE_MS,
   HouseLeadHero,
 } from '@/components/home/HouseLeadHero';
@@ -77,14 +78,27 @@ describe('HouseLeadHero', () => {
     expect(screen.getByText('reuters.com')).toBeTruthy();
   });
 
-  it('makes the tile an external link when article URL exists', () => {
+  it('does not wrap the whole tile in a story link', () => {
     render(<HouseLeadHero news={{ status: 'ok', article }} />);
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('href')).toBe(article.url);
-    expect(link.getAttribute('target')).toBe('_blank');
+    expect(
+      screen.queryByRole('link', { name: /Markets react to rate decision/i }),
+    ).toBeNull();
   });
 
-  it('does not create a fake link without article URL', () => {
+  it('overlays Launch as Token and Read story on the house image', () => {
+    render(<HouseLeadHero news={{ status: 'ok', article }} />);
+    const actions = screen.getByTestId('house-lead-actions');
+    expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
+
+    const launch = screen.getByRole('link', { name: /launch as token/i });
+    expect(launch.getAttribute('href')).toBe('/news/77/launch');
+    const read = screen.getByRole('link', { name: /read story/i });
+    expect(read.getAttribute('href')).toBe(article.url);
+    expect(launch.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
+    expect(read.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
+  });
+
+  it('keeps Launch as Token without Read story when article has no URL', () => {
     render(
       <HouseLeadHero
         news={{
@@ -93,8 +107,23 @@ describe('HouseLeadHero', () => {
         }}
       />,
     );
-    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('link', { name: /launch as token/i })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /read story/i })).toBeNull();
     expect(screen.getByText('Markets react to rate decision')).toBeTruthy();
+  });
+
+  it('hides story actions when there is no article', () => {
+    render(
+      <HouseLeadHero
+        news={{
+          status: 'empty',
+          article: null,
+          message: 'No stories yet.',
+        }}
+      />,
+    );
+    expect(screen.queryByTestId('house-lead-actions')).toBeNull();
+    expect(screen.queryByRole('link', { name: /launch as token/i })).toBeNull();
   });
 
   it('does not invent a headline when news is unavailable', () => {
@@ -138,6 +167,49 @@ describe('HouseLeadHero', () => {
     expect(opacityOf('/house/01.webp')).toBe('1');
     expect(HOUSE_FADE_MS).toBeGreaterThanOrEqual(400);
     expect(HOUSE_FADE_MS).toBeLessThanOrEqual(600);
+  });
+
+  it('advances on top-left hotspot click without relying on the story link', () => {
+    render(<HouseLeadHero news={{ status: 'ok', article }} />);
+    const opacityOf = (src: string) =>
+      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+        ?.style.opacity;
+
+    expect(opacityOf('/house/01.webp')).toBe('1');
+    const hotspot = screen.getByTestId('house-lead-rotate');
+    expect(hotspot.closest('a')).toBeNull();
+
+    act(() => {
+      hotspot.click();
+    });
+    expect(opacityOf('/house/02.webp')).toBe('1');
+    expect(opacityOf('/house/01.webp')).toBe('0');
+  });
+
+  it('advances on top-left hover with cooldown', () => {
+    vi.setSystemTime(new Date('2026-09-07T12:00:00.000Z'));
+    render(<HouseLeadHero news={{ status: 'ok', article }} />);
+    const opacityOf = (src: string) =>
+      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+        ?.style.opacity;
+    const hotspot = screen.getByTestId('house-lead-rotate');
+
+    act(() => {
+      fireEvent.mouseEnter(hotspot);
+    });
+    expect(opacityOf('/house/02.webp')).toBe('1');
+
+    act(() => {
+      fireEvent.mouseEnter(hotspot);
+    });
+    // Still on 02 — cooldown blocks immediate second hover advance
+    expect(opacityOf('/house/02.webp')).toBe('1');
+
+    act(() => {
+      vi.setSystemTime(new Date('2026-09-07T12:00:01.000Z'));
+      fireEvent.mouseEnter(hotspot);
+    });
+    expect(opacityOf('/house/03.webp')).toBe('1');
   });
 
   it('disables automatic rotation when reduced motion is preferred', () => {

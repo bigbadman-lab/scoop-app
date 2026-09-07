@@ -40,12 +40,12 @@ describe('NowSection news lead', () => {
       />,
     );
     expect(screen.getByTestId('house-lead-hero')).toBeTruthy();
+    expect(screen.getByTestId('house-lead-actions')).toBeTruthy();
     expect(screen.getByText('Markets react to rate decision')).toBeTruthy();
     expect(screen.getByText('reuters.com')).toBeTruthy();
-    const link = screen.getByRole('link', {
-      name: /Markets react to rate decision/i,
-    });
-    expect(link.getAttribute('href')).toBe('https://reuters.com/markets/rate-decision');
+
+    const actions = screen.getByTestId('house-lead-actions');
+    expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
 
     const launch = screen.getByRole('link', { name: /launch as token/i });
     expect(launch.getAttribute('href')).toBe('/news/77/launch');

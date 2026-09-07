@@ -1,14 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HOUSE_IMAGE_SET } from '@/lib/brand';
 import { NewsAge } from '@/components/news/NewsAge';
+import { CtaLink } from '@/components/ui/CtaLink';
+import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import type { LeadNewsResult } from '@/lib/news/load-home';
 import type { NewsFeedItem } from '@scoop/news';
 
 export const HOUSE_ROTATE_MS = 10_000;
 export const HOUSE_FADE_MS = 500;
+/** Cooldown so hover doesn't thrash through the set. */
+export const HOUSE_HOVER_ADVANCE_MS = 900;
 
 type Props = {
   news: LeadNewsResult;
@@ -74,93 +78,127 @@ function OverlayCopy({
 }
 
 /**
- * Editorial NOW lead: rotating evergreen house imagery with live story overlay.
- * Image rotation is independent of the latest article.
+ * Editorial NOW lead: rotating evergreen house imagery with live story overlay
+ * and story actions overlaid on the image.
  */
 export function HouseLeadHero({ news }: Props) {
   const images = HOUSE_IMAGE_SET;
   const article = news.article;
   const reducedMotion = usePrefersReducedMotion();
   const [index, setIndex] = useState(0);
-  const canRotate = !reducedMotion && images.length > 1;
+  /** Bumps to restart the auto-rotate timer after a manual advance. */
+  const [rotateEpoch, setRotateEpoch] = useState(0);
+  const lastHoverAdvanceAt = useRef(0);
+  const canAutoRotate = !reducedMotion && images.length > 1;
+  const canManualRotate = images.length > 1;
 
   useEffect(() => {
-    if (!canRotate) return;
+    if (!canAutoRotate) return;
     const id = window.setInterval(() => {
       setIndex((current) => (current + 1) % images.length);
     }, HOUSE_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [canRotate, images.length]);
+  }, [canAutoRotate, images.length, rotateEpoch]);
+
+  function advance() {
+    if (!canManualRotate) return;
+    setIndex((current) => (current + 1) % images.length);
+    setRotateEpoch((n) => n + 1);
+  }
+
+  function advanceFromHover() {
+    if (!canManualRotate) return;
+    const now = Date.now();
+    if (now - lastHoverAdvanceAt.current < HOUSE_HOVER_ADVANCE_MS) return;
+    lastHoverAdvanceAt.current = now;
+    advance();
+  }
 
   const href = article?.url?.trim() ? article.url.trim() : null;
   const activeIndex = images.length === 0 ? 0 : index % images.length;
+  const showActions = news.status === 'ok' && article != null;
 
-  const frame = (
-    <div
-      className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)]"
-      style={{ aspectRatio: '1.5 / 1' }}
-      data-testid="house-lead-hero"
-    >
-      {images.length > 0 ? (
-        images.map((src, i) => {
-          const active = i === activeIndex;
-          return (
-            <Image
-              key={src}
-              src={src}
-              alt=""
-              fill
-              sizes="(max-width: 1024px) 100vw, 66vw"
-              priority={i === 0}
-              className="object-cover transition-opacity motion-reduce:transition-none"
-              style={{
-                opacity: active ? 1 : 0,
-                transitionDuration: `${HOUSE_FADE_MS}ms`,
-              }}
-              aria-hidden={!active}
-            />
-          );
-        })
-      ) : (
-        <div
-          className="absolute inset-0 bg-[var(--scoop-orange)]"
-          aria-hidden
-          data-testid="house-lead-fallback"
-        >
-          <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full bg-white/10" />
-          <div className="absolute bottom-24 left-8 h-24 w-24 rounded-full bg-black/15" />
-        </div>
-      )}
-
-      {/* Readability gradient — lower ~40% */}
+  return (
+    <div data-testid="house-lead-module" className="relative">
       <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-black/75 via-black/35 to-transparent"
-      />
+        className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)]"
+        style={{ aspectRatio: '1.5 / 1' }}
+        data-testid="house-lead-hero"
+      >
+        {images.length > 0 ? (
+          images.map((src, i) => {
+            const active = i === activeIndex;
+            return (
+              <Image
+                key={src}
+                src={src}
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 66vw"
+                priority={i === 0}
+                className="object-cover transition-opacity motion-reduce:transition-none"
+                style={{
+                  opacity: active ? 1 : 0,
+                  transitionDuration: `${HOUSE_FADE_MS}ms`,
+                }}
+                aria-hidden={!active}
+              />
+            );
+          })
+        ) : (
+          <div
+            className="absolute inset-0 bg-[var(--scoop-orange)]"
+            aria-hidden
+            data-testid="house-lead-fallback"
+          >
+            <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full bg-white/10" />
+            <div className="absolute bottom-24 left-8 h-24 w-24 rounded-full bg-black/15" />
+          </div>
+        )}
 
-      <div className="absolute inset-x-0 bottom-0 p-5 md:p-7 lg:p-8">
-        <OverlayCopy article={article} news={news} />
+        {/* Readability gradient — lower half for copy + CTAs */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+        />
+
+        <div className="absolute inset-x-0 bottom-0 space-y-4 p-5 md:space-y-5 md:p-7 lg:p-8">
+          <OverlayCopy article={article} news={news} />
+
+          {showActions ? (
+            <div
+              className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+              data-testid="house-lead-actions"
+            >
+              <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
+              {href ? (
+                <CtaLink
+                  href={href}
+                  external
+                  className="text-white hover:text-white/85 hover:opacity-100"
+                >
+                  Read story ↗
+                </CtaLink>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {canManualRotate ? (
+          <button
+            type="button"
+            data-testid="house-lead-rotate"
+            aria-label="Next house image"
+            className="absolute left-0 top-0 z-20 h-[30%] w-[30%] max-h-32 max-w-32 cursor-pointer rounded-br-[var(--radius-editorial)] bg-transparent transition-colors hover:bg-white/10 focus-visible:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              advance();
+            }}
+            onMouseEnter={advanceFromHover}
+          />
+        ) : null}
       </div>
     </div>
   );
-
-  if (href) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block focus-visible:outline-offset-4"
-        aria-label={
-          article
-            ? `${article.headline} — ${article.sourceDomain}`
-            : 'Read latest story'
-        }
-      >
-        {frame}
-      </a>
-    );
-  }
-
-  return frame;
 }
