@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { Instrument_Serif } from 'next/font/google';
 import { AppShell } from '@/components/shell/AppShell';
+import { AuthProviders } from '@/components/auth/AuthProviders';
 import './globals.css';
 
 const instrumentSerif = Instrument_Serif({
@@ -34,7 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
     >
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
-        <AppShell>{children}</AppShell>
+        <AuthProviders>
+          <AppShell>{children}</AppShell>
+        </AuthProviders>
       </body>
     </html>
   );

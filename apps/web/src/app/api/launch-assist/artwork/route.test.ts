@@ -27,6 +27,11 @@ vi.mock('@scoop/news', () => {
 
 vi.mock('@/lib/launch-assist/access', () => ({
   resolveLaunchAssistAccess: (...args: unknown[]) => resolveLaunchAssistAccess(...args),
+  launchAssistRateKey: (
+    kind: string,
+    ip: string,
+    session: { address?: string } | null,
+  ) => `launch-assist-${kind}:${session?.address ?? 'anon'}:${ip}`,
 }));
 
 vi.mock('@/lib/server/internal-auth', () => ({
@@ -51,7 +56,11 @@ describe('POST /api/launch-assist/artwork', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.DATABASE_URL = 'postgres://test';
-    resolveLaunchAssistAccess.mockReturnValue({ ok: true, mode: 'development' });
+    resolveLaunchAssistAccess.mockReturnValue({
+      ok: true,
+      mode: 'development',
+      session: null,
+    });
     rateLimitInternal.mockReturnValue(true);
     clientIp.mockReturnValue('127.0.0.1');
     createPool.mockReturnValue({ end: vi.fn().mockResolvedValue(undefined) });

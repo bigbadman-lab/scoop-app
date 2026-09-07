@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
 import { ArtworkChooser } from '@/components/launch-assist/ArtworkChooser';
+import { AuthInterrupt } from '@/components/auth/AuthInterrupt';
 import {
   saveAssistedLaunchHandoff,
   saveSelectedLaunchConcept,
@@ -189,7 +190,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
           kind: 'auth',
           message:
             data.error ??
-            'Launch assist requires product authentication, which is not available yet.',
+            'Sign in with your wallet to use launch assist.',
         });
         return;
       }
@@ -251,7 +252,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
           kind: 'auth',
           message:
             data.error ??
-            'Launch assist requires product authentication, which is not available yet.',
+            'Sign in with your wallet to use launch assist.',
         });
         return;
       }
@@ -378,17 +379,22 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   }
 
   if (state.kind === 'rate_limited' || state.kind === 'auth' || state.kind === 'error') {
+    if (state.kind === 'auth') {
+      return (
+        <AuthInterrupt
+          resumePath={`/news/${encodeURIComponent(providerArticleId)}/launch`}
+          onAuthenticated={() => void generateConcepts()}
+          onCancel={() => router.back()}
+        />
+      );
+    }
     return (
       <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
         <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Launch assist
         </p>
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {state.kind === 'rate_limited'
-            ? 'Limit reached'
-            : state.kind === 'auth'
-              ? 'Assist unavailable'
-              : 'Could not make a market'}
+          {state.kind === 'rate_limited' ? 'Limit reached' : 'Could not make a market'}
         </h1>
         <p className="text-sm text-[var(--muted)]">{state.message}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">

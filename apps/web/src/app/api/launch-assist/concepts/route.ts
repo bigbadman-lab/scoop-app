@@ -5,13 +5,14 @@ import {
   generateLaunchConcepts,
   getNewsArticleForConcepts,
 } from '@scoop/news';
-import { resolveLaunchAssistAccess } from '@/lib/launch-assist/access';
+import { resolveLaunchAssistAccess, launchAssistRateKey } from '@/lib/launch-assist/access';
 import {
   LAUNCH_ASSIST_RATE_LIMIT,
   toPublicLaunchConcept,
   type LaunchAssistArticle,
 } from '@/lib/launch-assist/types';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
+import { readSessionFromRequest } from '@/lib/auth/session';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
 import {
   ValidationError,
@@ -37,7 +38,8 @@ type Body = {
 export async function POST(request: Request) {
   let pool: ReturnType<typeof createPool> | null = null;
   try {
-    const access = resolveLaunchAssistAccess();
+    const session = readSessionFromRequest(request);
+    const access = resolveLaunchAssistAccess(process.env, session);
     if (!access.ok) {
       const status = access.code === 'AUTH_REQUIRED' ? 401 : 403;
       return NextResponse.json(
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
     const ip = clientIp(request);
     if (
       !rateLimitInternal(
-        `launch-assist:${ip}`,
+        launchAssistRateKey('concepts', ip, access.session),
         LAUNCH_ASSIST_RATE_LIMIT.windowMs,
         LAUNCH_ASSIST_RATE_LIMIT.maxHits,
       )

@@ -1,17 +1,19 @@
 import { isNewsPublicDisplayEnabled } from '@scoop/news';
+import type { ScoopAuthSession } from '@/lib/auth/session';
 
 export type LaunchAssistAccess =
-  | { ok: true; mode: 'development' }
+  | { ok: true; mode: 'session' | 'development'; session: ScoopAuthSession | null }
   | { ok: false; code: 'AUTH_REQUIRED' | 'DISPLAY_GATED'; message: string };
 
 /**
- * Product auth for paid concept generation.
- * No wallet/session product auth exists in apps/web yet (WalletSlot deferred).
- * Production must not expose OpenAI-backed generation anonymously.
- * Development allows generation so Phase A can be reviewed locally.
+ * Centralized paid-AI access policy.
+ * Production requires a server-verified SIWE session.
+ * Development may bypass when no session exists (local review without Reown).
+ * Never trust client-reported addresses.
  */
 export function resolveLaunchAssistAccess(
   env: NodeJS.ProcessEnv = process.env,
+  session: ScoopAuthSession | null = null,
 ): LaunchAssistAccess {
   if (!isNewsPublicDisplayEnabled(env)) {
     return {
@@ -21,14 +23,27 @@ export function resolveLaunchAssistAccess(
     };
   }
 
+  if (session) {
+    return { ok: true, mode: 'session', session };
+  }
+
   if (env.NODE_ENV === 'development') {
-    return { ok: true, mode: 'development' };
+    return { ok: true, mode: 'development', session: null };
   }
 
   return {
     ok: false,
     code: 'AUTH_REQUIRED',
-    message:
-      'Launch assist requires product authentication (wallet/session), which is not available yet.',
+    message: 'Sign in with your wallet to use launch assist.',
   };
+}
+
+/** Rate-limit key: authenticated address when present, else IP-only bucket. */
+export function launchAssistRateKey(
+  kind: 'concepts' | 'artwork' | 'select',
+  ip: string,
+  session: ScoopAuthSession | null,
+): string {
+  const identity = session?.address ?? 'anon';
+  return `launch-assist-${kind}:${identity}:${ip}`;
 }

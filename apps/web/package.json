@@ -11,14 +11,20 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@reown/appkit": "^1.8.23",
+    "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@scoop/db": "workspace:*",
     "@scoop/news": "workspace:*",
     "@scoop/shared": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
     "geist": "^1.7.2",
     "next": "^15.2.4",
     "pg": "^8.23.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "siwe": "^3.0.0",
+    "viem": "^2.56.3",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.0",

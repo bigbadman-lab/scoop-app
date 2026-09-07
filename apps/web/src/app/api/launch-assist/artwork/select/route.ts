@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createPool } from '@scoop/db';
 import { ConceptValidationError, selectDraftArtwork } from '@scoop/news';
-import { resolveLaunchAssistAccess } from '@/lib/launch-assist/access';
+import { resolveLaunchAssistAccess, launchAssistRateKey } from '@/lib/launch-assist/access';
+import { readSessionFromRequest } from '@/lib/auth/session';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
 import {
   ValidationError,
@@ -23,7 +24,8 @@ type Body = {
 export async function POST(request: Request) {
   let pool: ReturnType<typeof createPool> | null = null;
   try {
-    const access = resolveLaunchAssistAccess();
+    const session = readSessionFromRequest(request);
+    const access = resolveLaunchAssistAccess(process.env, session);
     if (!access.ok) {
       const status = access.code === 'AUTH_REQUIRED' ? 401 : 403;
       return NextResponse.json(
@@ -32,7 +34,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!rateLimitInternal(`launch-assist-select:${clientIp(request)}`, 60_000, 10)) {
+    if (
+      !rateLimitInternal(
+        launchAssistRateKey('select', clientIp(request), access.session),
+        60_000,
+        10,
+      )
+    ) {
       return NextResponse.json(
         {
           error: "You've reached the current generation limit. Try again shortly.",

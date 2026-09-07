@@ -5,7 +5,7 @@ import {
   createNewsLaunchDraft,
   generateDraftArtwork,
 } from '@scoop/news';
-import { resolveLaunchAssistAccess } from '@/lib/launch-assist/access';
+import { resolveLaunchAssistAccess, launchAssistRateKey } from '@/lib/launch-assist/access';
 import {
   LAUNCH_ASSIST_ARTWORK_RATE_LIMIT,
   isLaunchConceptId,
@@ -14,6 +14,7 @@ import {
   type PublicArtworkResponse,
   type PublicLaunchConcept,
 } from '@/lib/launch-assist/types';
+import { readSessionFromRequest } from '@/lib/auth/session';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
 import {
   ValidationError,
@@ -84,7 +85,8 @@ function parseConcept(raw: unknown): PublicLaunchConcept {
 export async function POST(request: Request) {
   let pool: ReturnType<typeof createPool> | null = null;
   try {
-    const access = resolveLaunchAssistAccess();
+    const session = readSessionFromRequest(request);
+    const access = resolveLaunchAssistAccess(process.env, session);
     if (!access.ok) {
       const status = access.code === 'AUTH_REQUIRED' ? 401 : 403;
       return NextResponse.json(
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
     const ip = clientIp(request);
     if (
       !rateLimitInternal(
-        `launch-assist-artwork:${ip}`,
+        launchAssistRateKey('artwork', ip, access.session),
         LAUNCH_ASSIST_ARTWORK_RATE_LIMIT.windowMs,
         LAUNCH_ASSIST_ARTWORK_RATE_LIMIT.maxHits,
       )
