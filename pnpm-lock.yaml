@@ -84,6 +84,9 @@ importers:
       '@scoop/news':
         specifier: workspace:*
         version: link:../../packages/news
+      '@scoop/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       geist:
         specifier: ^1.7.2
         version: 1.7.2(next@15.5.25(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))

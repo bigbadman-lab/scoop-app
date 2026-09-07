@@ -8,9 +8,9 @@ export type LeadNewsResult = {
 };
 
 /**
- * Latest news for the NOW lead.
+ * Latest news for the NOW lead — same canonical source as `/news`.
  * Public display remains gated by SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED.
- * CREATE FROM STORY is omitted until a public /launch + auth flow exists.
+ * Launch-as-token CTAs live on NowSection / NewsFeed (Phase A).
  */
 export async function loadLeadNews(): Promise<LeadNewsResult> {
   if (!isNewsPublicDisplayEnabled()) {
@@ -25,6 +25,7 @@ export async function loadLeadNews(): Promise<LeadNewsResult> {
     const items = await getLatestNews(serverDb(), {
       limit: 1,
       excludeBackfill: true,
+      orderBy: 'published',
     });
     const article = items[0] ?? null;
     if (!article) {

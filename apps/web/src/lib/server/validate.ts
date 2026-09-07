@@ -69,6 +69,7 @@ export function assertNoSecretLeakage(payload: unknown): void {
     'ROBINHOOD_RPC_URL',
     'OPENAI_API_KEY',
     'TIINGO_API_TOKEN',
+    'SCOOP_INTERNAL_API_SECRET',
     'postgres://',
     'postgresql://',
     'service_role',

@@ -1,8 +1,9 @@
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { CtaLink } from '@/components/ui/CtaLink';
-import { ImageFallback } from '@/components/ui/ImageFallback';
+import { LiveDeskStrip } from '@/components/home/LiveDeskStrip';
+import { HouseLeadHero } from '@/components/home/HouseLeadHero';
+import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import { HOUSE_IMAGE_SET, SCOOP_HERO_SRC } from '@/lib/brand';
-import { formatRelativeTime } from '@/lib/format';
 import type { LeadNewsResult } from '@/lib/news/load-home';
 import { MarketActivityList } from '@/components/home/MarketActivityList';
 import type { MarketActivityResult } from '@/lib/discovery/load-home';
@@ -14,77 +15,68 @@ type Props = {
   catalogue: readonly PublicQuoteCatalogueItem[];
 };
 
-function houseImageSrc(): string | null {
-  if (HOUSE_IMAGE_SET.length === 0) return null;
-  const idx = Math.floor(Date.now() / 86_400_000) % HOUSE_IMAGE_SET.length;
-  return HOUSE_IMAGE_SET[idx] ?? null;
-}
-
 export function NowSection({ news, activity, catalogue }: Props) {
-  const houseSrc = houseImageSrc();
   const article = news.article;
 
   return (
     <section aria-label="Now" className="border-b border-[var(--divider)]">
-      <div className="mx-auto max-w-[1400px] px-4 pt-6 pb-10 md:px-8 md:pt-8 md:pb-14 lg:px-10">
-        {/* Main hero — sized at ~50% of content width */}
-        <div className="mb-10 md:mb-12">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={SCOOP_HERO_SRC}
-            alt=""
-            width={1000}
-            height={400}
-            className="block w-1/2 max-w-full rounded-[var(--radius-editorial)] object-contain"
-          />
-          <p className="mt-5 max-w-2xl text-lg font-semibold tracking-tight text-[var(--fg)] md:mt-6 md:text-xl lg:text-2xl lg:leading-snug">
-            Turn the news into a market, choose what it trades against, and earn from
-            every trade.
-          </p>
-        </div>
+      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-10 md:px-8 md:pt-5 md:pb-14 lg:px-10">
+        <LiveDeskStrip />
 
-        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-          {/* Lead — ~8 cols */}
-          <div className="lg:col-span-8">
-            {houseSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={houseSrc}
-                alt=""
-                className="w-full rounded-[var(--radius-editorial)] object-cover"
-                style={{ aspectRatio: '1.5 / 1' }}
-              />
-            ) : (
-              <ImageFallback variant="house" className="w-full" />
-            )}
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-              House image · independent of article photography
+        {/* Brand mark + Launch */}
+        <div className="mb-5 flex flex-col gap-5 md:mb-6 md:flex-row md:items-center md:justify-between md:gap-10">
+          <div className="min-w-0 flex-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SCOOP_HERO_SRC}
+              alt=""
+              width={1000}
+              height={200}
+              className="block w-[55%] max-w-[280px] rounded-[var(--radius-editorial)] object-contain md:w-[42%] md:max-w-[360px]"
+            />
+            <p className="mt-0 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
+              Turn news into markets. Earn from every trade.
             </p>
-
-            <div className="mt-6 space-y-4">
-              {news.status === 'ok' && article ? (
-                <>
-                  <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-                    Just in · {formatRelativeTime(article.publishedAt)}
-                  </p>
-                  <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-[var(--fg)] md:text-4xl lg:text-[2.75rem] lg:leading-[1.12]">
-                    {article.headline}
-                  </h1>
-                  <p className="font-mono text-[12px] text-[var(--muted)]">{article.sourceDomain}</p>
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    <CtaLink href={article.url} external>
-                      Read story →
-                    </CtaLink>
-                    {/* CREATE FROM STORY omitted — no public launch/auth flow yet */}
-                  </div>
-                </>
-              ) : (
-                <NewsUnavailable news={news} />
-              )}
+            <div className="mt-5 md:hidden">
+              <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5">
+                Launch
+              </CtaLink>
             </div>
           </div>
 
-          {/* Market activity — ~4 cols */}
+          <div className="hidden shrink-0 md:block">
+            <CtaLink href="/launch" variant="primary" className="px-6 text-[13px]">
+              Launch
+            </CtaLink>
+          </div>
+        </div>
+
+        <div
+          aria-hidden
+          className="mb-10 hidden h-px w-[90%] bg-[var(--divider)] md:mb-12 md:block"
+        />
+
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-8">
+            <HouseLeadHero news={news} />
+            {HOUSE_IMAGE_SET.length === 0 ? (
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+                Add /house/01–03 to enable rotating house imagery
+              </p>
+            ) : null}
+
+            {news.status === 'ok' && article ? (
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
+                {article.url ? (
+                  <CtaLink href={article.url} external>
+                    Read story ↗
+                  </CtaLink>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
           <div className="lg:col-span-4">
             <SectionHeading className="mb-5">Market activity</SectionHeading>
             <MarketActivityList activity={activity} catalogue={catalogue} />
@@ -92,27 +84,5 @@ export function NowSection({ news, activity, catalogue }: Props) {
         </div>
       </div>
     </section>
-  );
-}
-
-function NewsUnavailable({ news }: { news: LeadNewsResult }) {
-  const title =
-    news.status === 'gated'
-      ? 'Latest story pending'
-      : news.status === 'empty'
-        ? 'No stories yet'
-        : 'Story unavailable';
-
-  return (
-    <div className="space-y-3">
-      <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-        Just in
-      </p>
-      <h1 className="max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl">{title}</h1>
-      <p className="max-w-md text-sm text-[var(--muted)]">
-        {news.message ??
-          'News will appear here when public display is enabled and articles are available.'}
-      </p>
-    </div>
   );
 }

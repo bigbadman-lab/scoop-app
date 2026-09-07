@@ -1,15 +1,23 @@
-import { SectionHeading } from '@/components/ui/SectionHeading';
+import { LaunchFlow } from '@/components/launch/LaunchFlow';
+import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
 
-/** Minimal route shell — four-step launch UI is out of Phase 1 scope. */
-export default function LaunchPage() {
+export const dynamic = 'force-dynamic';
+
+async function loadCatalogueSafe() {
+  try {
+    return await loadEnabledQuoteCatalogue();
+  } catch (error) {
+    console.error('[launch] quote catalogue load failed:', error);
+    return [];
+  }
+}
+
+export default async function LaunchPage() {
+  const catalogue = await loadCatalogueSafe();
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-16 md:px-8">
-      <SectionHeading>Create</SectionHeading>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">Launch a market</h1>
-      <p className="mt-4 text-[var(--muted)]">
-        The creation flow is intentionally deferred. Use Create from the shell when it
-        ships.
-      </p>
+    <main className="px-4 py-5 md:px-8 md:py-8 lg:px-10">
+      <LaunchFlow catalogue={catalogue} />
     </main>
   );
 }

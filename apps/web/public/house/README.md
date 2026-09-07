@@ -1,20 +1,22 @@
 # House imagery
 
-Curated evergreen images for the NOW lead visual slot.
+Curated evergreen images for the NOW lead visual tile (rotating cover).
 
-Drop files here, e.g.:
+Drop exactly three files here:
 
-- `01.jpg`
-- `02.jpg`
+- `01.webp` (or `.jpg` / `.png`)
+- `02.webp`
 - `03.webp`
 
-Then add their public paths to `src/lib/brand.ts`:
+Then list their public paths in `src/lib/brand.ts`:
 
 ```ts
 export const HOUSE_IMAGE_SET: readonly string[] = [
-  '/house/01.jpg',
-  '/house/02.jpg',
+  '/house/01.webp',
+  '/house/02.webp',
+  '/house/03.webp',
 ];
 ```
 
 House images are independent of news article photography.
+The lead headline overlays the image; rotation does not follow the story.

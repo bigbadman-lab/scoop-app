@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   displayFdv,
   formatCompactAge,
+  formatNewsAge,
   formatProgressPercent,
   formatRelativeTime,
   truncateAddress,
@@ -16,6 +17,13 @@ describe('format helpers', () => {
     const now = Date.parse('2026-09-07T12:00:00.000Z');
     expect(formatRelativeTime('2026-09-07T11:59:30.000Z', now)).toBe('30s ago');
     expect(formatRelativeTime('2026-09-07T11:00:00.000Z', now)).toBe('1h ago');
+  });
+
+  it('formats editorial news ages', () => {
+    const now = Date.parse('2026-09-07T12:00:00.000Z');
+    expect(formatNewsAge('2026-09-07T11:59:30.000Z', now)).toBe('JUST IN');
+    expect(formatNewsAge('2026-09-07T11:48:00.000Z', now)).toBe('12M');
+    expect(formatNewsAge('2026-09-07T10:00:00.000Z', now)).toBe('2H');
   });
 
   it('formats compact age and progress', () => {

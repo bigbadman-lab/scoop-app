@@ -2,6 +2,7 @@ export type {
   TiingoNewsArticleRaw,
   ProviderNewsArticle,
   NewsFeedItem,
+  NewsFeedCursor,
   GetLatestNewsOptions,
   NewsIngestionCheckpoint,
   NewsIngestResult,

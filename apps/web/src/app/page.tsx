@@ -16,7 +16,8 @@ export const dynamic = 'force-dynamic';
 async function loadCatalogueSafe() {
   try {
     return await loadEnabledQuoteCatalogue();
-  } catch {
+  } catch (error) {
+    console.error('[home] quote catalogue load failed:', error);
     return [];
   }
 }

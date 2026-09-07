@@ -4,9 +4,11 @@ import { DesktopSidebar } from '@/components/shell/DesktopSidebar';
 import { MobileBottomNav } from '@/components/shell/MobileBottomNav';
 
 vi.mock('next/image', () => ({
-  default: ({ alt, priority: _priority, ...props }: { alt: string; priority?: boolean }) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img alt={alt} {...props} />;
+  default: (props: { alt: string; priority?: boolean }) => {
+    const { priority: _p, ...rest } = props;
+    void _p;
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img {...rest} alt={props.alt} />;
   },
 }));
 

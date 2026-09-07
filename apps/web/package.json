@@ -13,6 +13,7 @@
   "dependencies": {
     "@scoop/db": "workspace:*",
     "@scoop/news": "workspace:*",
+    "@scoop/shared": "workspace:*",
     "geist": "^1.7.2",
     "next": "^15.2.4",
     "pg": "^8.23.0",

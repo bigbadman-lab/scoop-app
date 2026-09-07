@@ -42,12 +42,27 @@ export type NewsFeedItem = {
   isBackfillCandidate: boolean;
 };
 
+/** Keyset cursor for newest-first pagination. */
+export type NewsFeedCursor = {
+  /** ISO timestamp of the sort column on the last seen row. */
+  at: string;
+  providerArticleId: string;
+};
+
 export type GetLatestNewsOptions = {
   limit?: number;
   ticker?: string;
   onlyWithTickers?: boolean;
   excludeBackfill?: boolean;
   provider?: string;
+  /**
+   * Sort key for newest-first feed.
+   * - `crawled` (default): ingestion/recency watermark order
+   * - `published`: authoritative publication time (preferred for public UI)
+   */
+  orderBy?: 'crawled' | 'published';
+  /** Exclusive keyset cursor — returns rows strictly older than this position. */
+  cursor?: NewsFeedCursor;
 };
 
 export type NewsIngestionCheckpoint = {

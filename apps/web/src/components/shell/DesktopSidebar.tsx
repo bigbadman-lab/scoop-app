@@ -12,7 +12,7 @@ type Props = {
 export function DesktopSidebar({ pathname }: Props) {
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-width)] flex-col border-r border-[var(--divider)] bg-[var(--bg-elevated)] md:flex"
+      className="fixed bottom-0 left-0 top-[var(--announcement-offset,0px)] z-40 hidden w-[var(--sidebar-width)] flex-col border-r border-[var(--divider)] bg-[var(--bg-elevated)] md:flex"
       aria-label="Primary"
     >
       <div className="flex flex-1 flex-col items-center px-2.5 py-6">

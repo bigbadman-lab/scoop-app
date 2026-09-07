@@ -1,13 +1,13 @@
 @import 'tailwindcss';
 
 :root {
-  /* Light-first canvas */
-  --bg: #faf9f7;
-  --bg-elevated: #ffffff;
+  /* Light-first paper canvas — not pure white */
+  --bg: #eceae6;
+  --bg-elevated: #f5f3ef;
   --fg: #0a0a0a;
-  --muted: #6b6b6b;
-  --muted-2: #9a9a9a;
-  --divider: #e6e4e0;
+  --muted: #5c5c5c;
+  --muted-2: #8a8a8a;
+  --divider: #d8d4cd;
   --focus: #0a0a0a;
 
   /* Locked SCOOP orange from SCOOPMASTER.png */
@@ -23,6 +23,7 @@
   --sidebar-width: 6.5rem;
   --bottom-nav-height: 4.75rem;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --announcement-height: 2.75rem;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -83,6 +84,57 @@ button {
   font-family: var(--font-serif);
 }
 
+.desk-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--scoop-orange);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
+  animation: desk-pulse 2.4s ease-out infinite;
+}
+
+.live-desk-strip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0;
+  row-gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.desk-tone-eth {
+  color: #3b82f6;
+}
+
+.desk-tone-btc {
+  color: var(--scoop-orange);
+}
+
+.desk-flash-up {
+  color: #1a7f4b !important;
+}
+
+.desk-flash-down {
+  color: #b42318 !important;
+}
+
+@keyframes desk-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-orange) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -91,5 +143,10 @@ button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .desk-live-dot {
+    animation: none;
+    box-shadow: none;
   }
 }

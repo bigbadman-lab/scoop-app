@@ -5,7 +5,7 @@ export function truncateAddress(address: string, left = 5, right = 3): string {
   return `${value.slice(0, left)}…${value.slice(-right)}`;
 }
 
-/** Relative time label for JUST IN · <time>. */
+/** Relative time label for general UI (e.g. activity). */
 export function formatRelativeTime(iso: string, now = Date.now()): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '—';
@@ -17,6 +17,25 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
   if (hours < 48) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+/**
+ * Editorial news age labels: JUST IN / 1M / 12M / 1H / date.
+ * Pass `now` in tests to avoid flaky clock coupling.
+ */
+export function formatNewsAge(iso: string, now = Date.now()): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '—';
+  const deltaSec = Math.max(0, Math.floor((now - then) / 1000));
+  if (deltaSec < 90) return 'JUST IN';
+  const mins = Math.floor(deltaSec / 60);
+  if (mins < 60) return `${mins}M`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}H`;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }).format(then);
 }
 
 /** Compact age for market activity (e.g. 2m, 1h). */
