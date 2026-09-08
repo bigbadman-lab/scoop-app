@@ -137,14 +137,14 @@ describe('shouldResetJoinAfterModalClose', () => {
 });
 
 describe('joinShellLabel', () => {
-  it('shows Join SCOOP when idle and disconnected', () => {
+  it('shows Sign in when idle and disconnected', () => {
     expect(
       joinShellLabel({
         phase: 'idle',
         walletConnecting: false,
         walletConnected: false,
       }),
-    ).toBe('Join SCOOP');
+    ).toBe('Sign in');
   });
 
   it('shows Connecting while opening or wagmi connecting', () => {

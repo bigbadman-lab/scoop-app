@@ -480,7 +480,7 @@ describe('WalletSlotLive full sign-out shell reset', () => {
     authHandlers.length = 0;
   });
 
-  it('A/C: session-only signout clears avatar/name/address → Join SCOOP', async () => {
+  it('A/C: session-only signout clears avatar/name/address → Sign in', async () => {
     fetchScoopAuthStatus.mockResolvedValue({
       authenticated: true,
       userId: USER_A,
@@ -523,7 +523,7 @@ describe('WalletSlotLive full sign-out shell reset', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^join scoop$/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^sign in$/i })).toBeTruthy();
     });
     expect(screen.queryByText('Wallet A')).toBeNull();
     expect(screen.queryByText(/0xd8da…6045/i)).toBeNull();
@@ -534,7 +534,7 @@ describe('WalletSlotLive full sign-out shell reset', () => {
       handler({ reason: 'refresh' });
     }
     await new Promise((r) => setTimeout(r, 40));
-    expect(screen.getByRole('button', { name: /^join scoop$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeTruthy();
     expect(screen.queryByText('Wallet A')).toBeNull();
   });
 
@@ -688,7 +688,7 @@ describe('WalletSlotLive AppKit cancel resets Join', () => {
     });
   });
 
-  it('Join → Connecting… → AppKit cancel without wallet → Join SCOOP again', async () => {
+  it('Join → Connecting… → AppKit cancel without wallet → Sign in again', async () => {
     const { rerender } = render(
       <WalletSlotLive variant="mobile" initialIntent="connect" />,
     );
@@ -707,12 +707,12 @@ describe('WalletSlotLive AppKit cancel resets Join', () => {
     rerender(<WalletSlotLive variant="mobile" initialIntent="connect" />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^join scoop$/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^sign in$/i })).toBeTruthy();
     });
     expect(requestSiweSession).not.toHaveBeenCalled();
 
     open.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: /^join scoop$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
     await waitFor(() => {
       expect(open).toHaveBeenCalledWith({ view: 'Connect' });
     });
@@ -758,6 +758,6 @@ describe('WalletSlotLive AppKit cancel resets Join', () => {
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /open scoop account/i })).toBeTruthy();
     });
-    expect(screen.queryByRole('button', { name: /^join scoop$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^sign in$/i })).toBeNull();
   });
 });

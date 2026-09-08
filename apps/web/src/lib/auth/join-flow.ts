@@ -81,7 +81,7 @@ export function joinShellLabel(input: {
   if (input.phase === 'needs_finish' || input.walletConnected) {
     return 'Sign in to SCOOP';
   }
-  return 'Join SCOOP';
+  return 'Sign in';
 }
 
 export function joinShellAriaLabel(input: {

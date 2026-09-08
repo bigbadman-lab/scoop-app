@@ -652,9 +652,7 @@ export function WalletSlotLive({
       ? 'Confirming…'
       : joinPhase === 'opening_wallet' || connecting
         ? '…'
-        : walletReady
-          ? 'Sign in'
-          : 'Join';
+        : 'Sign in';
 
   return (
     <div className="flex flex-col items-center gap-1">

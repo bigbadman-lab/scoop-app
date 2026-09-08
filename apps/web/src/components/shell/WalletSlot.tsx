@@ -51,10 +51,10 @@ function WalletSlotIdle({
         data-wallet-runtime={activating ? 'loading' : 'idle'}
         onClick={onActivate}
         className="inline-flex min-h-10 items-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3.5 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50"
-        title={activating ? 'Connecting…' : 'Join SCOOP'}
-        aria-label={activating ? 'Connecting…' : 'Join SCOOP'}
+        title={activating ? 'Connecting…' : 'Sign in'}
+        aria-label={activating ? 'Connecting…' : 'Sign in'}
       >
-        {activating ? 'Connecting…' : 'Join SCOOP'}
+        {activating ? 'Connecting…' : 'Sign in'}
       </button>
     );
   }
@@ -68,13 +68,13 @@ function WalletSlotIdle({
         data-wallet-runtime={activating ? 'loading' : 'idle'}
         onClick={onActivate}
         className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--divider)] transition-colors hover:border-[var(--fg)] disabled:opacity-50"
-        aria-label={activating ? 'Connecting…' : 'Join SCOOP'}
-        title={activating ? 'Connecting…' : 'Join SCOOP'}
+        aria-label={activating ? 'Connecting…' : 'Sign in'}
+        title={activating ? 'Connecting…' : 'Sign in'}
       >
         <JoinSidebarAvatar busy={activating} />
       </button>
       <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--muted)]">
-        {activating ? '…' : 'Join'}
+        {activating ? '…' : 'Sign in'}
       </span>
     </div>
   );

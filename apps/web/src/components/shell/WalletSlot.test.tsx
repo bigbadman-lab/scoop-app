@@ -73,25 +73,25 @@ describe('WalletSlot (C.1c lazy wallet boundary)', () => {
     });
   });
 
-  it('configured anonymous shell renders Join SCOOP before runtime is active', () => {
+  it('configured anonymous shell renders Sign in before runtime is active', () => {
     render(<WalletSlot variant="mobile" />);
-    const button = screen.getByRole('button', { name: /join scoop/i });
+    const button = screen.getByRole('button', { name: /^sign in$/i });
     expect(button.getAttribute('data-wallet-runtime')).toBe('idle');
-    expect(button.textContent).toMatch(/join scoop/i);
+    expect(button.textContent).toMatch(/sign in/i);
     expect(screen.queryByText(/wallet off/i)).toBeNull();
   });
 
   it('sidebar signed-out control uses SCOOPAV avatar instead of Join text', () => {
     render(<WalletSlot variant="sidebar" />);
-    const button = screen.getByRole('button', { name: /join scoop/i });
+    const button = screen.getByRole('button', { name: /^sign in$/i });
     expect(button.textContent).not.toMatch(/^join$/i);
     const img = button.querySelector('img');
     expect(img?.getAttribute('src')).toMatch(/SCOOPAV|scoopav/i);
   });
 
-  it('clicking Join SCOOP requests wallet-stack activation once', () => {
+  it('clicking Sign in requests wallet-stack activation once', () => {
     render(<WalletSlot variant="mobile" />);
-    fireEvent.click(screen.getByRole('button', { name: /join scoop/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
     expect(ensureRuntime).toHaveBeenCalledTimes(1);
     expect(ensureRuntime).toHaveBeenCalledWith('connect');
   });
@@ -193,6 +193,6 @@ describe('WalletSlot (C.1c lazy wallet boundary)', () => {
     shellState.configured = false;
     render(<WalletSlot variant="mobile" />);
     expect(screen.getByText(/wallet off/i)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /join scoop/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^sign in$/i })).toBeNull();
   });
 });

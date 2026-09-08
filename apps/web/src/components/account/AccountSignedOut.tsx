@@ -20,7 +20,7 @@ const ACCOUNT_OPENERS = [
   },
   {
     label: 'Fees',
-    detail: 'Deployer and creator fee balances when they accrue.',
+    detail: 'Deployers earn 4%. Creators earn 70%. Two separate fee streams.',
   },
 ] as const;
 
