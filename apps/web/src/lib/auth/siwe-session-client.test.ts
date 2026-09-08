@@ -115,6 +115,30 @@ describe('requestSiweSession pre-sign gate', () => {
     expect(getVerifyCalls()).toBe(0);
   });
 
+  it('sends embedded walletType/provider on verify for email AUTH', async () => {
+    stubWindow();
+    const { fetchMock } = mockAuthFetch();
+    const sign = vi.fn(async () => '0xsig');
+
+    const result = await requestSiweSession(ADDRESS, sign, 4663, {
+      connectedAddress: ADDRESS,
+      walletType: 'embedded',
+      provider: 'reown_email',
+    });
+
+    expect(result.ok).toBe(true);
+    const verifyCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes('/api/auth/verify'),
+    );
+    expect(verifyCall).toBeTruthy();
+    const body = JSON.parse(String((verifyCall?.[1] as RequestInit)?.body ?? '{}')) as {
+      walletType?: string;
+      provider?: string;
+    };
+    expect(body.walletType).toBe('embedded');
+    expect(body.provider).toBe('reown_email');
+  });
+
   it('first SIWE: nonce → sign invoked → verify called', async () => {
     stubWindow();
     const { getVerifyCalls } = mockAuthFetch();

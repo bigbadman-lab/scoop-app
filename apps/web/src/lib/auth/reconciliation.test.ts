@@ -97,12 +97,15 @@ describe('launch-assist policy', () => {
   });
 
   it('uses connect-wallet copy for session_only without signing the user out', () => {
-    expect(launchAssistAuthTitle('session_only')).toMatch(/connect a wallet to launch/i);
-    expect(launchAssistAuthMessage('session_only')).toMatch(/session is still active/i);
+    expect(launchAssistAuthTitle('session_only')).toMatch(/connect a wallet to continue/i);
+    expect(launchAssistAuthMessage('session_only')).toMatch(/still signed into scoop/i);
+    expect(launchAssistAuthMessage('session_only')).toMatch(/external wallet/i);
     expect(launchAssistAuthMessage('session_only')).not.toMatch(/signed out/i);
+    expect(launchAssistAuthMessage('session_only')).not.toMatch(/sign in required/i);
   });
 
   it('uses mismatch copy for wallet_mismatch', () => {
-    expect(launchAssistAuthMessage('wallet_mismatch')).toMatch(/different wallet/i);
+    expect(launchAssistAuthTitle('wallet_mismatch')).toMatch(/different wallet connected/i);
+    expect(launchAssistAuthMessage('wallet_mismatch')).toMatch(/switch your active scoop profile/i);
   });
 });

@@ -1,11 +1,12 @@
 'use client';
 
-import { useAppKit } from '@reown/appkit/react';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { sanitizeAssistResumePath } from '@/lib/auth/siwe-client';
+import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
 
 export type AuthInterruptLiveProps = {
   resumePath: string;
@@ -45,14 +46,14 @@ function AuthInterruptShell({
         {title?.trim()
           ? title
           : mismatch
-            ? "You're connected with a different wallet"
+            ? 'Different wallet connected'
             : 'Connect a wallet to make a market'}
       </h1>
       <p className="text-sm text-[var(--muted)]">
         {message?.trim()
           ? message
           : mismatch
-            ? 'Sign in with this wallet to continue.'
+            ? 'Sign in with this wallet to switch your active SCOOP profile.'
             : 'Launch assist uses paid AI. Sign in with an existing wallet to generate concepts and artwork. This is a free message signature — not a transaction and not gas.'}
       </p>
 
@@ -93,6 +94,7 @@ export function AuthInterruptLive({
   message = null,
 }: AuthInterruptLiveProps) {
   const { open } = useAppKit();
+  const appKitAccount = useAppKitAccount();
   const { address, isConnected, connector, status } = useAccount();
   const { signMessageAsync, isPending: signing } = useSignMessage();
   const [busy, setBusy] = useState(false);
@@ -108,6 +110,10 @@ export function AuthInterruptLive({
     setBusy(true);
     setError(null);
     try {
+      const walletMeta = resolveSiweWalletMeta({
+        connectorId: connector.id,
+        embeddedWalletInfo: appKitAccount.embeddedWalletInfo,
+      });
       const result = await requestSiweSession(
         address,
         async ({ message: siweMessage }) =>
@@ -115,6 +121,8 @@ export function AuthInterruptLive({
         ROBINHOOD_CHAIN_ID,
         {
           connectedAddress: address,
+          walletType: walletMeta.walletType,
+          provider: walletMeta.provider,
           onStep: (step, meta) => {
             console.info('[scoop-siwe]', step, {
               connector: connector.id,
@@ -163,7 +171,7 @@ export function AuthInterruptLive({
             onClick={() => void completeSiwe()}
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
           >
-            {busy || signing ? 'Signing…' : 'Sign in with Ethereum'}
+            {busy || signing ? 'Confirming…' : 'Finish signing in'}
           </button>
         )
       }

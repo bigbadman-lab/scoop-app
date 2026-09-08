@@ -85,6 +85,15 @@ button {
   font-family: var(--font-serif);
 }
 
+/*
+ * AppKit 1.8.23: email verify router body can race `--local-container-height` to 0
+ * during view transitions (header-only modal). Soft floor on the host reduces the
+ * worst-case collapse; JS repair in EmailDeviceApprovalHelper restores true height.
+ */
+w3m-router-container {
+  min-height: 12rem;
+}
+
 .desk-live-dot {
   display: inline-block;
   width: 6px;
@@ -99,9 +108,11 @@ button {
 .live-desk-strip {
   display: flex;
   width: 100%;
+  max-width: 100%;
   align-items: center;
   gap: 0.4rem;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   padding-bottom: 0.15rem;
   font-family: var(--font-sans);
   font-size: 12px;
@@ -183,6 +194,31 @@ button {
   }
 }
 
+/* Top-left SCOOP mark — presence without noise */
+.scoop-home-mark__img {
+  transform-origin: 50% 55%;
+  transition: transform 0.45s cubic-bezier(0.34, 1.45, 0.64, 1);
+  will-change: transform;
+}
+
+.scoop-home-mark:hover .scoop-home-mark__img:not(.is-spinning),
+.scoop-home-mark:focus-visible .scoop-home-mark__img:not(.is-spinning) {
+  transform: rotate(14deg);
+}
+
+.scoop-home-mark__img.is-spinning {
+  animation: scoop-mark-spin 0.72s cubic-bezier(0.22, 1.15, 0.36, 1);
+}
+
+@keyframes scoop-mark-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -196,5 +232,12 @@ button {
   .desk-live-dot {
     animation: none;
     box-shadow: none;
+  }
+
+  .scoop-home-mark:hover .scoop-home-mark__img,
+  .scoop-home-mark:focus-visible .scoop-home-mark__img,
+  .scoop-home-mark__img.is-spinning {
+    transform: none !important;
+    animation: none !important;
   }
 }

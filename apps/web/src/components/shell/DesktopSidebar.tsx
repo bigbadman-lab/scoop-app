@@ -1,6 +1,5 @@
-import Image from 'next/image';
 import Link from 'next/link';
-import { SCOOP_MARK_SRC } from '@/lib/brand';
+import { ScoopHomeMark } from '@/components/shell/ScoopHomeMark';
 import { WalletSlot } from '@/components/shell/WalletSlot';
 import { isNavActive, PRIMARY_NAV } from '@/components/shell/nav';
 import { NavIcon } from '@/components/shell/NavIcons';
@@ -16,20 +15,7 @@ export function DesktopSidebar({ pathname }: Props) {
       aria-label="Primary"
     >
       <div className="flex flex-1 flex-col items-center px-2.5 py-6">
-        <Link
-          href="/"
-          aria-label="SCOOP home"
-          className="mb-8 inline-flex focus-visible:outline-offset-4"
-        >
-          <Image
-            src={SCOOP_MARK_SRC}
-            alt=""
-            width={72}
-            height={72}
-            className="h-[4.25rem] w-[4.25rem] object-contain"
-            priority
-          />
-        </Link>
+        <ScoopHomeMark size="sidebar" />
 
         <nav className="flex w-full flex-col items-center gap-2.5" aria-label="Main">
           {PRIMARY_NAV.map((item) => {

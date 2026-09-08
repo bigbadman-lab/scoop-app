@@ -5,6 +5,9 @@ export const SCOOP_ORANGE = '#FC4C00' as const;
 /** Canonical mark asset — `public/brand/MARK.png`. */
 export const SCOOP_MARK_SRC = '/brand/MARK.png' as const;
 
+/** Signed-out shell avatar — `public/brand/SCOOPAV.png`. */
+export const SCOOP_AVATAR_SRC = '/brand/SCOOPAV.png' as const;
+
 /** Front-page brand strip — `public/scoophero.png`. */
 export const SCOOP_HERO_SRC = '/scoophero.png' as const;
 

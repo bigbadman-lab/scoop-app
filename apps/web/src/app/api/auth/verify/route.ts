@@ -26,6 +26,9 @@ type Body = {
   signature?: unknown;
   address?: unknown;
   userId?: unknown;
+  /** Metadata only — never authorization. */
+  walletType?: unknown;
+  provider?: unknown;
 };
 
 function clearNonceCookie(res: NextResponse): void {
@@ -90,9 +93,23 @@ export async function POST(request: Request) {
 
     let identity;
     try {
+      const walletType =
+        body.walletType === 'embedded' || body.walletType === 'external'
+          ? body.walletType
+          : undefined;
+      const provider =
+        body.provider === 'injected' ||
+        body.provider === 'walletconnect' ||
+        body.provider === 'reown_email' ||
+        body.provider === 'auth' ||
+        body.provider === 'unknown'
+          ? body.provider
+          : undefined;
       identity = await resolveVerifiedWalletIdentity({
         address: verified.address,
         chainId: verified.chainId,
+        walletType,
+        provider,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'SCOOP_USER_DISABLED') {

@@ -84,8 +84,8 @@ describe('AssistAuthGateLive', () => {
     await waitFor(() => {
       expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
     });
-    expect(screen.getByText(/connect a wallet to launch/i)).toBeTruthy();
-    expect(screen.getByText(/session is still active/i)).toBeTruthy();
+    expect(screen.getByText(/connect a wallet to continue/i)).toBeTruthy();
+    expect(screen.getByText(/still signed into scoop/i)).toBeTruthy();
     expect(onReady).not.toHaveBeenCalled();
   });
 
@@ -112,7 +112,7 @@ describe('AssistAuthGateLive', () => {
       expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
     });
     expect(screen.getByText('mismatch')).toBeTruthy();
-    expect(screen.getAllByText(/different wallet/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/different wallet connected/i).length).toBeGreaterThan(0);
     expect(onReady).not.toHaveBeenCalled();
   });
 
@@ -277,7 +277,7 @@ describe('AssistAuthGateLive', () => {
     );
     await waitFor(() => expect(onBlocked).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
-    expect(screen.getByText(/connect a wallet to launch/i)).toBeTruthy();
+    expect(screen.getByText(/connect a wallet to continue/i)).toBeTruthy();
   });
 
   it('calls onBlocked when switching from match to mismatch', async () => {

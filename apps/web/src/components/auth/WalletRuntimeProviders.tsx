@@ -4,6 +4,7 @@ import { createAppKit } from '@reown/appkit/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { cookieToInitialState, type Config, WagmiProvider } from 'wagmi';
+import { EmailDeviceApprovalHelper } from '@/components/auth/EmailDeviceApprovalHelper';
 import {
   buildAppKitMetadata,
   robinhoodAppKitChain,
@@ -80,7 +81,10 @@ export function WalletRuntimeProviders({
 
   return (
     <WagmiProvider config={config} initialState={cookieToInitialState(config, cookies)}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        <EmailDeviceApprovalHelper />
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }

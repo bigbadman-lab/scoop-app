@@ -153,6 +153,24 @@ export async function resolveOrCreateScoopUserForVerifiedWallet(
       if (existing) {
         await assertActive(existing);
         await touchWalletLastSeen(client, existing.walletId);
+        if (input.walletType || input.provider !== undefined) {
+          await client.query(
+            `UPDATE scoop_wallets
+             SET wallet_type = COALESCE($2, wallet_type),
+                 provider = COALESCE($3, provider),
+                 last_seen_at = NOW()
+             WHERE id = $1`,
+            [
+              existing.walletId,
+              input.walletType ?? null,
+              input.provider === undefined ? null : input.provider,
+            ],
+          );
+          return {
+            ...existing,
+            walletType: input.walletType ?? existing.walletType,
+          };
+        }
         return existing;
       }
       return createCanonicalIdentity(client, address, walletType, provider);

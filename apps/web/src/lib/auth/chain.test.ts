@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   ROBINHOOD_CHAIN_ID,
 } from '@/lib/brand';
+import { APPKIT_ICON_DATA_URI } from '@/lib/auth/appkit-icon-data-uri';
 import {
   buildAppKitMetadata,
   getReownProjectId,
   isReownConfigured,
+  resolveAppKitMetadataIcons,
   resolveAppKitMetadataUrl,
   resolveRobinhoodPublicRpc,
   robinhoodAppKitChain,
@@ -21,7 +23,7 @@ describe('auth chain / AppKit metadata', () => {
     expect(robinhoodAppKitChain.rpcUrls.default.http.length).toBeGreaterThan(0);
   });
 
-  it('uses localhost metadata.url in development', () => {
+  it('uses localhost metadata.url in development with embedded icon', () => {
     expect(
       resolveAppKitMetadataUrl({ NODE_ENV: 'development' } as NodeJS.ProcessEnv),
     ).toBe('http://localhost:3000');
@@ -29,19 +31,32 @@ describe('auth chain / AppKit metadata', () => {
       NODE_ENV: 'development',
     } as NodeJS.ProcessEnv);
     expect(meta.url).toBe('http://localhost:3000');
-    expect(meta.icons[0]).toBe('http://localhost:3000/brand/MARK.png');
+    expect(meta.icons[0]).toBe(APPKIT_ICON_DATA_URI);
+    expect(meta.icons[0]).toMatch(/^data:image\/png;base64,/);
+    expect(meta.description).toMatch(/not payments/i);
   });
 
   it('uses canonical origin in production unless overridden', () => {
     expect(
       resolveAppKitMetadataUrl({ NODE_ENV: 'production' } as NodeJS.ProcessEnv),
-    ).toBe('https://scoop.market');
+    ).toBe('https://scoop.fun');
     expect(
       resolveAppKitMetadataUrl({
         NODE_ENV: 'production',
-        NEXT_PUBLIC_APP_ORIGIN: 'https://www.scoop.market/',
+        NEXT_PUBLIC_APP_ORIGIN: 'https://www.scoop.fun/',
       } as NodeJS.ProcessEnv),
-    ).toBe('https://www.scoop.market');
+    ).toBe('https://www.scoop.fun');
+  });
+
+  it('resolves AppKit icons via data URI or HTTPS override', () => {
+    expect(resolveAppKitMetadataIcons({} as NodeJS.ProcessEnv)).toEqual([
+      APPKIT_ICON_DATA_URI,
+    ]);
+    expect(
+      resolveAppKitMetadataIcons({
+        NEXT_PUBLIC_APPKIT_ICON_URL: ' https://cdn.example/scoop.png ',
+      } as NodeJS.ProcessEnv),
+    ).toEqual(['https://cdn.example/scoop.png']);
   });
 
   it('never prefers server-only RPC env for public AppKit RPC', () => {

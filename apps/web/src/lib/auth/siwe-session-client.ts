@@ -1,5 +1,6 @@
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { addressesEqual, sessionAddress } from '@/lib/auth/address';
+import { notifyScoopAuthChanged } from '@/lib/auth/scoop-auth-events';
 import { buildSiweMessage } from '@/lib/auth/siwe-client';
 
 export type ScoopAuthStatus =
@@ -44,6 +45,14 @@ export type RequestSiweSessionOptions = {
    * Do NOT force this into signMessageAsync — connector-default signing opens the popup.
    */
   connectedAddress?: string;
+  /** Persist wallet origin on verify (email embedded vs external). */
+  walletType?: 'embedded' | 'external';
+  provider?:
+    | 'injected'
+    | 'walletconnect'
+    | 'reown_email'
+    | 'auth'
+    | 'unknown';
   /** Safe breadcrumb logger for SIWE diagnosis (no secrets). */
   onStep?: (step: string, meta?: Record<string, unknown>) => void;
 };
@@ -267,7 +276,12 @@ export async function requestSiweSession(
       credentials: 'include',
       cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, signature }),
+      body: JSON.stringify({
+        message,
+        signature,
+        ...(options.walletType ? { walletType: options.walletType } : {}),
+        ...(options.provider ? { provider: options.provider } : {}),
+      }),
     });
     verifyBody = (await verifyRes.json().catch(() => ({}))) as typeof verifyBody;
     if (!verifyRes.ok) {
@@ -305,6 +319,7 @@ export async function requestSiweSession(
   }
 
   emitStep(onStep, 'session_ok', { userIdPrefix: status.userId.slice(0, 8) });
+  notifyScoopAuthChanged({ reason: 'signin' });
 
   return {
     ok: true,

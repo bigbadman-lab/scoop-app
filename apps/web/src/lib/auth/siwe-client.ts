@@ -1,7 +1,8 @@
 import { SiweMessage } from 'siwe';
 import { normalizeAddress } from '@/lib/auth/address';
 
-export const SIWE_STATEMENT = 'Sign in to SCOOP to use launch assist.';
+export const SIWE_STATEMENT =
+  'Finish signing in to SCOOP. This confirms it is you - not a payment.';
 
 /** Client-safe SIWE message builder (no Node crypto). */
 export function buildSiweMessage(input: {

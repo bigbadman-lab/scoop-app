@@ -67,9 +67,9 @@ export function launchAssistRequiresSiwe(
 export function launchAssistAuthTitle(
   state: ScoopAuthReconciliationState,
 ): string {
-  if (state === 'session_only') return 'Connect a wallet to launch';
+  if (state === 'session_only') return 'Connect a wallet to continue';
   if (state === 'wallet_mismatch') {
-    return "You're connected with a different wallet";
+    return 'Different wallet connected';
   }
   return 'Connect a wallet to make a market';
 }
@@ -78,10 +78,10 @@ export function launchAssistAuthMessage(
   state: ScoopAuthReconciliationState,
 ): string {
   if (state === 'session_only') {
-    return 'Your SCOOP session is still active, but a connected wallet is required to create and launch a token.';
+    return "You're still signed into SCOOP. A connected external wallet is required for on-chain actions.";
   }
   if (state === 'wallet_mismatch') {
-    return "You're connected with a different wallet. Sign in with this wallet to continue.";
+    return 'Sign in with this wallet to switch your active SCOOP profile.';
   }
   return 'Sign in with your wallet to use launch assist.';
 }

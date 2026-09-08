@@ -1,4 +1,5 @@
 import { defineChain } from '@reown/appkit/networks';
+import { APPKIT_ICON_DATA_URI } from '@/lib/auth/appkit-icon-data-uri';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 
 export {
@@ -9,7 +10,7 @@ export {
 } from '@/lib/auth/reown-public';
 
 /** Canonical public product origin (production metadata / Verify). */
-export const SCOOP_CANONICAL_ORIGIN = 'https://scoop.market';
+export const SCOOP_CANONICAL_ORIGIN = 'https://scoop.fun';
 
 /**
  * Public RPC for AppKit/Wagmi client config.
@@ -36,13 +37,30 @@ export function resolveAppKitMetadataUrl(
   return SCOOP_CANONICAL_ORIGIN;
 }
 
+/**
+ * Icon URLs for AppKit metadata — including the email SIWE “Approve Transaction”
+ * UI inside Reown’s HTTPS secure iframe.
+ *
+ * Do not use `http://localhost…` icons: the iframe blocks mixed content.
+ * Do not depend on `${canonical}/brand/…` until that asset is deployed (404 today).
+ * Default: embedded data URI so the avatar always resolves.
+ * Optional NEXT_PUBLIC_APPKIT_ICON_URL for a public HTTPS CDN/icon override.
+ */
+export function resolveAppKitMetadataIcons(
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const override = (env.NEXT_PUBLIC_APPKIT_ICON_URL ?? '').trim();
+  if (override) return [override];
+  return [APPKIT_ICON_DATA_URI];
+}
+
 export function buildAppKitMetadata(env: NodeJS.ProcessEnv = process.env) {
   const url = resolveAppKitMetadataUrl(env);
   return {
     name: 'SCOOP',
-    description: 'Turn news into markets on Robinhood Chain',
+    description: 'Sign in to SCOOP. Confirmations are for login — not payments.',
     url,
-    icons: [`${url}/brand/MARK.png`],
+    icons: resolveAppKitMetadataIcons(env),
   };
 }
 

@@ -48,10 +48,10 @@ describe('SIWE challenge context', () => {
       headers: { host: '127.0.0.1:3000' },
     });
     const env = {
-      NEXT_PUBLIC_APP_ORIGIN: 'https://scoop.market/',
+      NEXT_PUBLIC_APP_ORIGIN: 'https://scoop.fun/',
     } as NodeJS.ProcessEnv;
-    expect(resolveSiweExpectedDomain(request, env)).toBe('scoop.market');
-    expect(resolveSiweExpectedUri(request, env)).toBe('https://scoop.market');
+    expect(resolveSiweExpectedDomain(request, env)).toBe('scoop.fun');
+    expect(resolveSiweExpectedUri(request, env)).toBe('https://scoop.fun');
   });
 
   it('rejects stale or far-future issuedAt', () => {
@@ -80,6 +80,7 @@ describe('buildSiweMessage challenge fields', () => {
     expect(message).toContain(`Nonce: ${nonce}`);
     expect(message).toContain('URI: http://localhost:3000');
     expect(message).toMatch(/^localhost:3000 wants you to sign in/);
+    expect(message).toMatch(/not a payment/i);
   });
 
   it('rejects malformed address', () => {
