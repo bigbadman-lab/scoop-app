@@ -89,7 +89,10 @@ export {
 } from './repos/holder-balances.js';
 export {
   upsertTokenMarketState,
+  listMarketsForQuoteUsdRevaluation,
+  updateTokenMarketUsdValuation,
   type TokenMarketStateRow,
+  type QuoteMarketRevaluationRow,
 } from './repos/token-market-state.js';
 export { upsertCandle, type CandleRow } from './repos/candles.js';
 export {

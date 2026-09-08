@@ -129,3 +129,89 @@ export async function upsertTokenMarketState(
     ],
   );
 }
+
+export interface QuoteMarketRevaluationRow {
+  tokenAddress: string;
+  priceQuoteX18: string;
+  totalSupplyRaw: string;
+  tokenDecimals: number;
+  lastTradeAt: string | null;
+  volume24hUsdX18: string | null;
+  volume24hQuoteRaw: string;
+}
+
+/** Markets on a quote asset that have a quote-denominated spot price. */
+export async function listMarketsForQuoteUsdRevaluation(
+  db: Queryable,
+  chainId: number,
+  quoteAsset: string,
+): Promise<QuoteMarketRevaluationRow[]> {
+  const quote = normalizeAddress(quoteAsset);
+  const result = await db.query<{
+    token_address: string;
+    price_quote_x18: string;
+    total_supply_raw: string;
+    decimals: number;
+    last_trade_at: string | null;
+    volume_24h_usd_x18: string | null;
+    volume_24h_quote_raw: string;
+  }>(
+    `SELECT
+       m.token_address,
+       m.price_quote_x18::text AS price_quote_x18,
+       t.total_supply_raw::text AS total_supply_raw,
+       t.decimals,
+       m.last_trade_at::text AS last_trade_at,
+       m.volume_24h_usd_x18::text AS volume_24h_usd_x18,
+       COALESCE(m.volume_24h_quote_raw, 0)::text AS volume_24h_quote_raw
+     FROM token_market_state m
+     INNER JOIN launches l
+       ON l.chain_id = m.chain_id AND l.token_address = m.token_address
+     INNER JOIN tokens t
+       ON t.chain_id = m.chain_id AND t.token_address = m.token_address
+     WHERE m.chain_id = $1
+       AND l.quote_asset = $2
+       AND m.price_quote_x18 IS NOT NULL`,
+    [chainId, quote],
+  );
+  return result.rows.map((row) => ({
+    tokenAddress: normalizeAddress(row.token_address),
+    priceQuoteX18: String(row.price_quote_x18),
+    totalSupplyRaw: String(row.total_supply_raw),
+    tokenDecimals: Number(row.decimals),
+    lastTradeAt: row.last_trade_at == null ? null : String(row.last_trade_at),
+    volume24hUsdX18: row.volume_24h_usd_x18 == null ? null : String(row.volume_24h_usd_x18),
+    volume24hQuoteRaw: String(row.volume_24h_quote_raw),
+  }));
+}
+
+/**
+ * Update only quote/USD valuation fields. Does not touch trade metrics,
+ * volume, liquidity, or last_trade_at. Bumps updated_at (generic projection clock).
+ */
+export async function updateTokenMarketUsdValuation(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    quoteUsdX18: string | bigint;
+    priceUsdX18: string | bigint;
+    fdvUsdX18: string | bigint;
+  },
+): Promise<void> {
+  await db.query(
+    `UPDATE token_market_state
+     SET quote_usd_x18 = $3,
+         price_usd_x18 = $4,
+         fdv_usd_x18 = $5,
+         updated_at = NOW()
+     WHERE chain_id = $1 AND token_address = $2`,
+    [
+      input.chainId,
+      normalizeAddress(input.tokenAddress),
+      toNumericString(input.quoteUsdX18),
+      toNumericString(input.priceUsdX18),
+      toNumericString(input.fdvUsdX18),
+    ],
+  );
+}

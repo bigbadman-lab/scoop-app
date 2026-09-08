@@ -7,6 +7,7 @@ import {
 } from '@scoop/db';
 import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 import type { HexAddress } from '@scoop/shared';
+import { revalueMarketsForQuote } from './projections/revalueQuoteMarkets.js';
 
 export type QuoteSnapshotAssetResult = {
   quoteAsset: string;
@@ -14,11 +15,13 @@ export type QuoteSnapshotAssetResult = {
   ok: boolean;
   priceUsdX18?: bigint;
   error?: string;
+  revalued?: number;
 };
 
 /**
  * Periodic quote/USD snapshots via ScoopPriceOracle.getPriceUsd for every
  * enabled catalogue asset with a configured oracle feed.
+ * After each successful snapshot, revalue markets paired with that quote.
  * Per-asset failures are skipped — core indexing must not fail.
  */
 export async function maybeSnapshotQuoteUsd(args: {
@@ -82,11 +85,28 @@ export async function maybeSnapshotQuoteUsd(args: {
           priceUsdX18: price,
         });
         await args.db.query('RELEASE SAVEPOINT quote_usd_snapshot');
+
+        let revalued = 0;
+        try {
+          const reval = await revalueMarketsForQuote(args.db, {
+            chainId: args.chainId,
+            quoteAsset: asset.quoteAsset,
+            quoteUsdX18: price,
+          });
+          revalued = reval.updated;
+        } catch (err) {
+          console.warn(
+            `[quoteSnapshot] revalue failed for ${asset.symbol}`,
+            err instanceof Error ? err.message : err,
+          );
+        }
+
         results.push({
           quoteAsset: asset.quoteAsset,
           symbol: asset.symbol,
           ok: true,
           priceUsdX18: price,
+          revalued,
         });
         anyOk = true;
         if (asset.quoteAsset === '0x0000000000000000000000000000000000000000') {

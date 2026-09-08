@@ -70,6 +70,49 @@ describe('maybeSnapshotQuoteUsd multi-asset loop', () => {
     expect(inserted).toContain(ETH);
     expect(inserted).toContain(AAPL);
     expect(inserted).not.toContain(USDG);
+    // Revaluation list runs after each successful insert (no markets in this mock).
+    expect(result.results.find((r) => r.symbol === 'ETH')?.revalued).toBe(0);
+    expect(result.results.find((r) => r.symbol === 'AAPL')?.revalued).toBe(0);
+  });
+
+  it('rejected/oracle-failed snapshot does not trigger revaluation updates', async () => {
+    const updates: string[] = [];
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM quote_assets')) {
+          return {
+            rows: [
+              {
+                quote_asset: ETH,
+                symbol: 'ETH',
+                decimals: 18,
+                oracle_feed: '0x1111111111111111111111111111111111111111',
+                oracle_max_age: 86400,
+              },
+            ],
+          };
+        }
+        if (sql.includes('UPDATE token_market_state')) {
+          updates.push('usd');
+          return { rows: [] };
+        }
+        return { rows: [] };
+      }),
+    };
+    const client = {
+      readContract: vi.fn(async () => 0n),
+    };
+    const result = await maybeSnapshotQuoteUsd({
+      db: db as never,
+      client: client as never,
+      chainId: 4663,
+      intervalSeconds: 60,
+      lastSnapshotAtMs: 0,
+      nowMs: 60_000,
+    });
+    expect(result.snapped).toBe(false);
+    expect(result.results[0]?.ok).toBe(false);
+    expect(updates).toHaveLength(0);
   });
 
   it('does not invent snapshots when no eligible assets', async () => {
