@@ -1,21 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { DeskInstrument, SpotPayload } from '@/lib/market/spot';
 
-type SpotResponse = {
-  ethUsd: number | null;
-  btcUsd: number | null;
-  asOf: string;
-  source: 'coingecko' | 'unavailable';
-};
-
-function formatUsd(value: number | null): string {
+function formatPrice(id: DeskInstrument['id'], value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
+  if (id === 'eth' || id === 'btc') {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: value >= 1000 ? 0 : 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatChangePct(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${Math.abs(value).toFixed(2)}%`;
 }
 
 function formatLocalTime(date: Date): string {
@@ -32,69 +37,66 @@ function formatTimeZone(date: Date): string {
   return parts.find((part) => part.type === 'timeZoneName')?.value ?? '';
 }
 
-function Sep() {
-  return (
-    <span className="px-1 text-[var(--muted-2)]" aria-hidden>
-      ·
-    </span>
-  );
+function changeTone(changePct: number | null): 'up' | 'down' | 'flat' | 'unknown' {
+  if (changePct == null || !Number.isFinite(changePct)) return 'unknown';
+  if (Math.abs(changePct) < 0.005) return 'flat';
+  return changePct > 0 ? 'up' : 'down';
 }
 
-function PriceCell({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number | null;
-  tone: 'eth' | 'btc';
-}) {
-  const display = formatUsd(value);
-  const prevValue = useRef<number | null>(null);
+function MarketPill({ instrument }: { instrument: DeskInstrument }) {
+  const tone = changeTone(instrument.changePct);
+  const prevPrice = useRef<number | null>(null);
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
 
   useEffect(() => {
+    const value = instrument.price;
     if (value == null || !Number.isFinite(value)) {
-      prevValue.current = value;
+      prevPrice.current = value;
       return;
     }
-    if (prevValue.current == null) {
-      prevValue.current = value;
+    if (prevPrice.current == null) {
+      prevPrice.current = value;
       return;
     }
-    if (value === prevValue.current) return;
-    const direction = value > prevValue.current ? 'up' : 'down';
-    prevValue.current = value;
+    if (value === prevPrice.current) return;
+    const direction = value > prevPrice.current ? 'up' : 'down';
+    prevPrice.current = value;
     setFlash(direction);
     const timer = window.setTimeout(() => setFlash(null), 700);
     return () => window.clearTimeout(timer);
-  }, [value]);
+  }, [instrument.price]);
 
-  const toneClass = tone === 'eth' ? 'desk-tone-eth' : 'desk-tone-btc';
+  const arrow = tone === 'down' ? '▼' : '▲';
 
   return (
-    <span className={`inline-flex items-baseline gap-1 ${toneClass}`}>
-      <span className="opacity-80">{label}</span>
+    <span className="desk-pill" data-testid={`desk-pill-${instrument.id}`}>
+      <span className="desk-pill-label">{instrument.label}</span>
       <span
         className={[
-          'tabular transition-colors duration-500',
+          'desk-pill-price tabular',
           flash === 'up' ? 'desk-flash-up' : '',
           flash === 'down' ? 'desk-flash-down' : '',
-        ].join(' ')}
+        ]
+          .filter(Boolean)
+          .join(' ')}
       >
-        {display}
+        {formatPrice(instrument.id, instrument.price)}
+      </span>
+      <span className={`desk-pill-change desk-change-${tone}`} aria-label={`${tone} ${formatChangePct(instrument.changePct)}`}>
+        <span aria-hidden>{arrow}</span>
+        <span className="tabular">{formatChangePct(instrument.changePct)}</span>
       </span>
     </span>
   );
 }
 
 /**
- * Self-contained editorial desk strip — local clock + live ETH/BTC spot.
+ * Bloomberg-style desk strip — local clock + live ETH/BTC/S&P/FTSE.
  * Prices from `/api/market/spot` (real feed); never mocked.
  */
 export function LiveDeskStrip() {
   const [now, setNow] = useState<Date | null>(null);
-  const [spot, setSpot] = useState<SpotResponse | null>(null);
+  const [spot, setSpot] = useState<SpotPayload | null>(null);
 
   useEffect(() => {
     setNow(new Date());
@@ -109,13 +111,17 @@ export function LiveDeskStrip() {
       try {
         const res = await fetch('/api/market/spot', { cache: 'no-store' });
         if (!res.ok) return;
-        const data = (await res.json()) as SpotResponse;
+        const data = (await res.json()) as SpotPayload;
         if (!cancelled) setSpot(data);
       } catch {
         if (!cancelled) {
           setSpot({
-            ethUsd: null,
-            btcUsd: null,
+            instruments: [
+              { id: 'eth', label: 'ETH', price: null, changePct: null },
+              { id: 'btc', label: 'BTC', price: null, changePct: null },
+              { id: 'spx', label: 'S&P 500', price: null, changePct: null },
+              { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
+            ],
             asOf: new Date().toISOString(),
             source: 'unavailable',
           });
@@ -133,22 +139,27 @@ export function LiveDeskStrip() {
 
   const timeLabel = now ? formatLocalTime(now) : '—:—:—';
   const zoneLabel = now ? formatTimeZone(now) : '';
+  const instruments = spot?.instruments ?? [
+    { id: 'eth' as const, label: 'ETH', price: null, changePct: null },
+    { id: 'btc' as const, label: 'BTC', price: null, changePct: null },
+    { id: 'spx' as const, label: 'S&P 500', price: null, changePct: null },
+    { id: 'ftse' as const, label: 'FTSE 100', price: null, changePct: null },
+  ];
 
   return (
     <div className="live-desk-strip mb-3 md:mb-4" aria-label="Live desk">
-      <span className="inline-flex items-center gap-1.5 text-[var(--fg)]">
+      <span className="desk-pill desk-pill-live">
         <span className="desk-live-dot" aria-hidden />
-        <span>Live</span>
+        <span className="desk-pill-label">Live</span>
+        <time className="desk-pill-price tabular" dateTime={now?.toISOString()} suppressHydrationWarning>
+          {timeLabel}
+          {zoneLabel ? <span className="desk-pill-zone">{zoneLabel}</span> : null}
+        </time>
       </span>
-      <Sep />
-      <time className="tabular text-[var(--fg)]" dateTime={now?.toISOString()} suppressHydrationWarning>
-        {timeLabel}
-        {zoneLabel ? <span className="ml-1 text-[var(--muted)]">{zoneLabel}</span> : null}
-      </time>
-      <Sep />
-      <PriceCell label="ETH" value={spot?.ethUsd ?? null} tone="eth" />
-      <Sep />
-      <PriceCell label="BTC" value={spot?.btcUsd ?? null} tone="btc" />
+
+      {instruments.map((instrument) => (
+        <MarketPill key={instrument.id} instrument={instrument} />
+      ))}
     </div>
   );
 }

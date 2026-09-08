@@ -1,63 +1,31 @@
 import { NextResponse } from 'next/server';
+import { loadDeskSpot } from '@/lib/market/spot';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type SpotPayload = {
-  ethUsd: number | null;
-  btcUsd: number | null;
-  asOf: string;
-  source: 'coingecko' | 'unavailable';
-};
-
 /**
- * Public spot prices for the homepage desk strip.
+ * Public desk prices for the homepage strip.
+ * Crypto via CoinGecko; equity indices via Yahoo Finance chart meta.
  * Proxied server-side so the client never depends on CORS / invented values.
  */
 export async function GET() {
-  const asOf = new Date().toISOString();
-
   try {
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd',
-      {
-        headers: { Accept: 'application/json' },
-        next: { revalidate: 30 },
-      },
-    );
-
-    if (!response.ok) {
-      const body: SpotPayload = {
-        ethUsd: null,
-        btcUsd: null,
-        asOf,
-        source: 'unavailable',
-      };
-      return NextResponse.json(body, { status: 200 });
-    }
-
-    const data = (await response.json()) as {
-      ethereum?: { usd?: number };
-      bitcoin?: { usd?: number };
-    };
-
-    const ethUsd = typeof data.ethereum?.usd === 'number' ? data.ethereum.usd : null;
-    const btcUsd = typeof data.bitcoin?.usd === 'number' ? data.bitcoin.usd : null;
-
-    const body: SpotPayload = {
-      ethUsd,
-      btcUsd,
-      asOf,
-      source: ethUsd == null && btcUsd == null ? 'unavailable' : 'coingecko',
-    };
+    const body = await loadDeskSpot();
     return NextResponse.json(body);
   } catch {
-    const body: SpotPayload = {
-      ethUsd: null,
-      btcUsd: null,
-      asOf,
-      source: 'unavailable',
-    };
-    return NextResponse.json(body, { status: 200 });
+    return NextResponse.json(
+      {
+        instruments: [
+          { id: 'eth', label: 'ETH', price: null, changePct: null },
+          { id: 'btc', label: 'BTC', price: null, changePct: null },
+          { id: 'spx', label: 'S&P 500', price: null, changePct: null },
+          { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
+        ],
+        asOf: new Date().toISOString(),
+        source: 'unavailable' as const,
+      },
+      { status: 200 },
+    );
   }
 }

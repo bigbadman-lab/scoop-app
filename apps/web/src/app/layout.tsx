@@ -1,18 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
-import { Instrument_Serif } from 'next/font/google';
+import '@fontsource/open-sauce-sans/latin-400.css';
+import '@fontsource/open-sauce-sans/latin-500.css';
+import '@fontsource/open-sauce-sans/latin-600.css';
+import '@fontsource/open-sauce-sans/latin-700.css';
 import { AppShell } from '@/components/shell/AppShell';
 import { WalletShellProvider } from '@/components/auth/WalletShellProvider';
 import './globals.css';
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  variable: '--font-instrument-serif',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'SCOOP',
@@ -33,10 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieHeader = (await headers()).get('cookie');
 
   return (
-    <html
-      lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
-    >
+    <html lang="en" className={GeistMono.variable}>
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
         <WalletShellProvider cookies={cookieHeader}>
           <AppShell>{children}</AppShell>

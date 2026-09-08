@@ -25,9 +25,10 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --announcement-height: 2.75rem;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Bloomberg-adjacent neo-grotesque (Open Sauce Sans); mono retained for desk/data */
+  --font-sans: 'Open Sauce Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-serif: 'Open Sauce Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
@@ -88,6 +89,7 @@ button {
   display: inline-block;
   width: 6px;
   height: 6px;
+  flex-shrink: 0;
   border-radius: 999px;
   background: var(--scoop-orange);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
@@ -95,32 +97,78 @@ button {
 }
 
 .live-desk-strip {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 0;
-  row-gap: 0.25rem;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   line-height: 1.2;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
-.desk-tone-eth {
-  color: #3b82f6;
+.desk-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
 }
 
-.desk-tone-btc {
-  color: var(--scoop-orange);
+.desk-pill-live {
+  gap: 0.4rem;
+}
+
+.desk-pill-label {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.desk-pill-price {
+  color: #ffffff;
+}
+
+.desk-pill-zone {
+  margin-left: 0.3rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+}
+
+.desk-pill-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.desk-change-up {
+  color: #2f9e44;
+}
+
+.desk-change-down {
+  color: #e03131;
+}
+
+.desk-change-flat,
+.desk-change-unknown {
+  color: #9ca3af;
 }
 
 .desk-flash-up {
-  color: #1a7f4b !important;
+  color: #69db7c !important;
 }
 
 .desk-flash-down {
-  color: #b42318 !important;
+  color: #ff8787 !important;
 }
 
 @keyframes desk-pulse {

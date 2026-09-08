@@ -5,8 +5,8 @@ export const SCOOP_ORANGE = '#FC4C00' as const;
 /** Canonical mark asset — `public/brand/MARK.png`. */
 export const SCOOP_MARK_SRC = '/brand/MARK.png' as const;
 
-/** Front-page brand strip — `public/house/scoophero.png`. */
-export const SCOOP_HERO_SRC = '/house/scoophero.png' as const;
+/** Front-page brand strip — `public/scoophero.png`. */
+export const SCOOP_HERO_SRC = '/scoophero.png' as const;
 
 /**
  * Evergreen house imagery for the NOW lead tile (rotate 01 → 02 → 03).
