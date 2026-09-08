@@ -36,3 +36,17 @@ export {
   createSupabaseDraftAssetStorage,
   type DraftAssetStorage,
 } from './storage.js';
+export {
+  TOKEN_IMAGE_BUCKET,
+  TOKEN_IMAGE_MAX_BYTES,
+  TOKEN_IMAGE_MIME,
+  buildTokenDisplayImagePath,
+  deriveTokenImagePublicUrl,
+  validateTokenDisplayImage,
+  createSupabaseTokenImageStorage,
+  type TokenImageStorage,
+} from './token-image-storage.js';
+export {
+  persistSelectedArtworkDisplayCopy,
+  type PersistDisplayCopyResult,
+} from './display-copy.js';

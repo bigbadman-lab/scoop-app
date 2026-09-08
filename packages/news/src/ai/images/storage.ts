@@ -7,6 +7,7 @@ export type DraftAssetStorage = {
     bytes: Buffer;
     mimeType: string;
   }) => Promise<void>;
+  downloadArtwork: (path: string) => Promise<Buffer>;
   createSignedPreviewUrl: (
     path: string,
     expiresInSeconds?: number,
@@ -39,6 +40,19 @@ export function createSupabaseDraftAssetStorage(
       if (error) {
         throw new Error(`Storage upload failed: ${error.message}`);
       }
+    },
+
+    async downloadArtwork(path) {
+      const { data, error } = await supabase.storage
+        .from(LAUNCH_DRAFT_ASSETS_BUCKET)
+        .download(path);
+      if (error || !data) {
+        throw new Error(
+          `Storage download failed: ${error?.message ?? 'missing data'}`,
+        );
+      }
+      const ab = await data.arrayBuffer();
+      return Buffer.from(ab);
     },
 
     async createSignedPreviewUrl(path, expiresInSeconds = 3600) {

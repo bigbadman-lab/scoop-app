@@ -140,6 +140,7 @@ export async function getRankings(
       t.symbol,
       t.decimals,
       t.image_uri,
+      t.display_image_url,
       l.pool_id,
       l.creator_id,
       l.quote_asset,

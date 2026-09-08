@@ -1,9 +1,15 @@
 /** Product discovery filters — derived, not mutually exclusive. */
 
+/**
+ * Launched markets remain NEW for 7 days (discovery label, not market structure).
+ * 7 * 24 * 60 * 60 = 604800
+ */
+export const NEW_MARKET_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+
 export function isNew(
   launchedAt: number | bigint,
   nowSec: number | bigint,
-  windowSec = 86400,
+  windowSec = NEW_MARKET_WINDOW_SECONDS,
 ): boolean {
   const launched = Number(launchedAt);
   const now = Number(nowSec);

@@ -24,12 +24,6 @@ export type DiscoverTabConfig = {
 
 export const DISCOVER_TABS: readonly DiscoverTabConfig[] = [
   {
-    id: 'trending',
-    label: 'Trending',
-    dataAvailable: false,
-    emptyMessage: 'Trending ranking is not available yet.',
-  },
-  {
     id: 'new',
     label: 'New',
     dataAvailable: true,
@@ -53,9 +47,15 @@ export const DISCOVER_TABS: readonly DiscoverTabConfig[] = [
     sort: 'newest',
     emptyMessage: 'No bonded markets yet.',
   },
+  {
+    id: 'trending',
+    label: 'Trending',
+    dataAvailable: false,
+    emptyMessage: 'Trending ranking is not available yet.',
+  },
 ] as const;
 
-export const DEFAULT_DISCOVER_TAB: DiscoverTabId = 'trending';
+export const DEFAULT_DISCOVER_TAB: DiscoverTabId = 'new';
 
 export function getDiscoverTab(id: string | null | undefined): DiscoverTabConfig {
   const found = DISCOVER_TABS.find((tab) => tab.id === id);

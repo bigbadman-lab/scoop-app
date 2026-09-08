@@ -14,6 +14,7 @@ import {
   isBonded,
   discoveryBuckets,
   DEFAULT_LAUNCH_DUST_RAW,
+  NEW_MARKET_WINDOW_SECONDS,
 } from './index.js';
 
 describe('getSqrtRatioAtTick', () => {
@@ -149,10 +150,16 @@ describe('launch progress', () => {
 
 describe('discovery filters NEW/SOON/BONDED', () => {
   const now = 1_700_000_000;
+  const day = 24 * 60 * 60;
 
-  it('NEW is age window', () => {
-    expect(isNew(now - 100, now, 86400)).toBe(true);
-    expect(isNew(now - 90000, now, 86400)).toBe(false);
+  it('NEW uses 7-day product window by default', () => {
+    expect(NEW_MARKET_WINDOW_SECONDS).toBe(7 * day);
+    expect(isNew(now - 100, now)).toBe(true);
+    expect(isNew(now - day, now)).toBe(true);
+    expect(isNew(now - 2 * day, now)).toBe(true);
+    expect(isNew(now - (6 * day + 23 * 3600), now)).toBe(true);
+    expect(isNew(now - 7 * day, now)).toBe(true); // exactly 7d still in window (>= now - window)
+    expect(isNew(now - 7 * day - 1, now)).toBe(false);
   });
 
   it('SOON requires threshold and not complete', () => {

@@ -8,6 +8,7 @@ import { createChainDefinition } from './chain.js';
 import { initDb } from './db.js';
 import { getHealthStatus } from './health.js';
 import { runIndexer } from './live/runner.js';
+import { runDisabledIdleMode } from './live/idle.js';
 
 function logJson(level: string, message: string, fields: Record<string, unknown> = {}) {
   console.log(
@@ -20,6 +21,11 @@ function logJson(level: string, message: string, fields: Record<string, unknown>
   );
 }
 
+/**
+ * Production Docker entry (`dist/index.js`).
+ * - SCOOP_INDEXING_ENABLED=false → Render-safe idle heartbeat (no crash-loop)
+ * - SCOOP_INDEXING_ENABLED=true → continuous live indexer
+ */
 async function main() {
   const config = loadConfig();
   const chain = createChainDefinition(config);
@@ -28,7 +34,7 @@ async function main() {
 
   logJson('info', 'scoop-indexer startup', {
     service: 'scoop-indexer',
-    phase: '6A.6',
+    phase: 'E.1b',
     protocol: {
       tag: CANONICAL_PROTOCOL_TAG,
       commit: CANONICAL_PROTOCOL_COMMIT,
@@ -46,11 +52,8 @@ async function main() {
   });
 
   if (!config.SCOOP_INDEXING_ENABLED) {
-    logJson('info', 'Live indexing is disabled — HELLO backfill / indexer commands available', {
-      indexingEnabled: false,
-      note: 'No live RPC poller; use pnpm backfill:hello or indexer:once with SCOOP_INDEXING_ENABLED=true',
-    });
-    logJson('info', 'Indexer bootstrap complete; exiting cleanly');
+    // Stay alive for Render Background Workers — matches indexer-start idle path.
+    await runDisabledIdleMode(config);
     return;
   }
 

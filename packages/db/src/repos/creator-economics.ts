@@ -209,3 +209,60 @@ export async function insertQuotePriceSnapshot(
     ],
   );
 }
+
+export interface LatestQuotePriceRow {
+  quoteAsset: string;
+  priceUsdX18: string;
+  observedAt: Date;
+  quoteDecimals: number | null;
+  oracleMaxAge: number | null;
+}
+
+/** Latest quote/USD snapshot joined with catalogue metadata (if present). */
+export async function getLatestQuotePriceUsd(
+  db: Queryable,
+  chainId: number,
+  quoteAsset: string,
+): Promise<LatestQuotePriceRow | null> {
+  const asset = normalizeAddress(quoteAsset);
+  const result = await db.query<{
+    price_usd_x18: string;
+    observed_at: Date;
+    decimals: number | null;
+    oracle_max_age: number | null;
+  }>(
+    `SELECT s.price_usd_x18::text AS price_usd_x18, s.observed_at,
+            q.decimals, q.oracle_max_age
+     FROM quote_price_snapshots s
+     LEFT JOIN quote_assets q
+       ON q.chain_id = s.chain_id AND q.quote_asset = s.quote_asset
+     WHERE s.chain_id = $1 AND s.quote_asset = $2
+     ORDER BY s.observed_at DESC
+     LIMIT 1`,
+    [chainId, asset],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    quoteAsset: asset,
+    priceUsdX18: String(row.price_usd_x18),
+    observedAt: row.observed_at,
+    quoteDecimals: row.decimals == null ? null : Number(row.decimals),
+    oracleMaxAge: row.oracle_max_age == null ? null : Number(row.oracle_max_age),
+  };
+}
+
+/** Catalogue decimals for a quote asset; null if not registered. */
+export async function getQuoteAssetDecimals(
+  db: Queryable,
+  chainId: number,
+  quoteAsset: string,
+): Promise<number | null> {
+  const result = await db.query<{ decimals: number }>(
+    `SELECT decimals FROM quote_assets
+     WHERE chain_id = $1 AND quote_asset = $2`,
+    [chainId, normalizeAddress(quoteAsset)],
+  );
+  const row = result.rows[0];
+  return row ? Number(row.decimals) : null;
+}

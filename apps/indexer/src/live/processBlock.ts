@@ -8,6 +8,7 @@ import {
   getProcessedBlock,
   upsertIndexerCheckpoint,
   upsertPool,
+  getQuoteAssetDecimals,
 } from '@scoop/db';
 import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 import {
@@ -72,10 +73,12 @@ export async function processBlock(
     watchlist: Watchlist;
     heads?: ConfirmationHeads;
     dustRaw?: bigint;
+    quoteUsdMaxAgeSeconds?: number;
     streamName?: string;
   },
 ): Promise<ProcessBlockResult> {
   const { client, chainId, blockNumber, watchlist } = args;
+  const quoteUsdMaxAgeSeconds = args.quoteUsdMaxAgeSeconds ?? 300;
   const streamName = args.streamName ?? MAIN_STREAM_NAME;
   const factory = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.ScoopFactory);
   const poolManager = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.PoolManager);
@@ -233,7 +236,11 @@ export async function processBlock(
       },
       confirmationStatus,
       dustRaw: args.dustRaw,
+      quoteUsdMaxAgeSeconds,
     });
+
+    const quoteDecimals =
+      (await getQuoteAssetDecimals(db, chainId, launchView.quoteAsset)) ?? 18;
 
     watchlistAddLaunch(watchlist, {
       chainId,
@@ -255,6 +262,8 @@ export async function processBlock(
       tickSpacing: 10,
       hooks: ZERO_ADDRESS,
       tokenIsCurrency1: true,
+      tokenDecimals: tokenMeta.decimals || 18,
+      quoteDecimals,
     });
     launchCount += 1;
   }
@@ -287,11 +296,13 @@ export async function processBlock(
     const side = classifyBuySell(amount0, amount1);
     const quoteAmountRaw = amount0 < 0n ? -amount0 : amount0;
     const tokenAmountRaw = amount1 < 0n ? -amount1 : amount1;
+    const quoteDecimals = entry.quoteDecimals;
+    const tokenDecimals = entry.tokenDecimals;
     const executionPrice = executionPriceQuoteX18({
       quoteAmountRaw,
       tokenAmountRaw,
-      quoteDecimals: 18,
-      tokenDecimals: 18,
+      quoteDecimals,
+      tokenDecimals,
     });
 
     await upsertRawChainEvent(db, {
@@ -365,7 +376,8 @@ export async function processBlock(
     const price = priceQuoteX18FromSqrt({
       sqrtPriceX96: sqrtAfter,
       tokenIsCurrency1: entry.tokenIsCurrency1,
-      quoteDecimals: 18,
+      quoteDecimals,
+      tokenDecimals,
     });
     const bucketStart = bucketStartFor('1m', Number(blockTimestamp));
     const existingCandle = await db.query<{
@@ -440,6 +452,10 @@ export async function processBlock(
       tokenIsCurrency1: entry.tokenIsCurrency1,
       dustRaw: args.dustRaw,
       nowSec: Number(blockTimestamp),
+      quoteDecimals,
+      tokenDecimals,
+      quoteAsset: entry.quoteAsset,
+      quoteUsdMaxAgeSeconds,
     });
 
     swapCount += 1;

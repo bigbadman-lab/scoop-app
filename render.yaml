@@ -24,13 +24,15 @@ services:
       - key: SCOOP_CONFIRM_MODE
         value: safe
       - key: SCOOP_NEW_WINDOW_SECONDS
-        value: "86400"
+        value: "604800"
       - key: SCOOP_SOON_THRESHOLD_BPS
         value: "8000"
       - key: SCOOP_REORG_WINDOW_BLOCKS
         value: "128"
       - key: SCOOP_QUOTE_SNAPSHOT_SECONDS
         value: "60"
+      - key: SCOOP_QUOTE_USD_MAX_AGE_SECONDS
+        value: "300"
       - key: SCOOP_POLL_INTERVAL_MS
         value: "2000"
       - key: SCOOP_MAX_BLOCK_BATCH

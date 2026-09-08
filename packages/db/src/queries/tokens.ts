@@ -1,6 +1,6 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress } from '../hex.js';
-import { clampLimit, clampOffset, formatRawAmount, formatX18 } from '../decimal.js';
+import { clampLimit, clampOffset, formatRawAmount } from '../decimal.js';
 import type { DiscoveryFilter, DiscoverySort, TokenDetail, TokenDiscoveryItem } from '../dto.js';
 import {
   DEFAULT_NEW_WINDOW_SECONDS,
@@ -97,6 +97,7 @@ export async function getToken(
       t.symbol,
       t.decimals,
       t.image_uri,
+      t.display_image_url,
       t.description,
       t.twitter,
       t.telegram,
@@ -186,7 +187,6 @@ export async function getToken(
 
   const base = mapDiscoveryItem(row);
   const totalSupplyRaw = String(row.total_supply_raw);
-  const priceUsdX18 = row.price_usd_x18 == null ? null : String(row.price_usd_x18);
 
   return {
     ...base,
@@ -205,8 +205,6 @@ export async function getToken(
     sqrtPriceX96: row.sqrt_price_x96 == null ? null : String(row.sqrt_price_x96),
     tick: row.tick == null ? null : Number(row.tick),
     liquidityRaw: row.liquidity_raw == null ? null : String(row.liquidity_raw),
-    priceUsdX18,
-    priceUsdDisplay: formatX18(priceUsdX18),
     quoteUsdX18: row.quote_usd_x18 == null ? null : String(row.quote_usd_x18),
     quoteVolumeAllTimeRaw:
       row.quote_volume_all_time_raw == null ? null : String(row.quote_volume_all_time_raw),

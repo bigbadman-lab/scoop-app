@@ -32,6 +32,7 @@ export {
   isSoon,
   isBonded,
   discoveryBuckets,
+  NEW_MARKET_WINDOW_SECONDS,
   type DiscoveryBucket,
 } from './discoveryFilters.js';
 
@@ -90,15 +91,24 @@ function mulDivInversePrice(amount: bigint, sqrtPriceX96: bigint): bigint {
 /**
  * Spot price in quote units per 1 whole token, scaled by 1e18.
  * When token is currency1 (ETH quote path), uses inverse sqrt price.
+ * `tokenDecimals` defaults to 18 (Scoop tokens); quote decimals come from quote_assets.
  */
 export function priceQuoteX18FromSqrt(args: {
   sqrtPriceX96: bigint;
   tokenIsCurrency1: boolean;
   quoteDecimals: number;
+  tokenDecimals?: number;
 }): bigint {
   const { sqrtPriceX96, tokenIsCurrency1, quoteDecimals } = args;
+  const tokenDecimals = args.tokenDecimals ?? 18;
   if (sqrtPriceX96 <= 0n) throw new Error('sqrtPriceX96 must be positive');
-  const oneTokenRaw = 10n ** 18n;
+  if (!Number.isInteger(tokenDecimals) || tokenDecimals < 0) {
+    throw new Error(`Invalid tokenDecimals: ${tokenDecimals}`);
+  }
+  if (!Number.isInteger(quoteDecimals) || quoteDecimals < 0) {
+    throw new Error(`Invalid quoteDecimals: ${quoteDecimals}`);
+  }
+  const oneTokenRaw = 10n ** BigInt(tokenDecimals);
   const quoteRaw = tokenIsCurrency1
     ? mulDivInversePrice(oneTokenRaw, sqrtPriceX96)
     : mulDivPrice(oneTokenRaw, sqrtPriceX96);
@@ -122,6 +132,38 @@ export function executionPriceQuoteX18(args: {
   const numer = quoteAmountRaw * 10n ** BigInt(tokenDecimals) * 10n ** 18n;
   const denom = tokenAmountRaw * 10n ** BigInt(quoteDecimals);
   return numer / denom;
+}
+
+/**
+ * USD spot from quote-denominated price × quote/USD, both x18 fixed-point.
+ * price_usd_x18 = price_quote_x18 * quote_usd_x18 / 1e18
+ */
+export function priceUsdX18FromQuote(args: {
+  priceQuoteX18: bigint;
+  quoteUsdX18: bigint;
+}): bigint {
+  if (args.priceQuoteX18 < 0n || args.quoteUsdX18 < 0n) {
+    throw new Error('USD price inputs must be non-negative');
+  }
+  return mulDiv(args.priceQuoteX18, args.quoteUsdX18, 10n ** 18n);
+}
+
+/**
+ * Fully-diluted valuation in USD x18 using total supply (not circulating).
+ * fdv_usd_x18 = price_usd_x18 * total_supply_raw / 10^tokenDecimals
+ */
+export function fdvUsdX18FromPrice(args: {
+  priceUsdX18: bigint;
+  totalSupplyRaw: bigint;
+  tokenDecimals: number;
+}): bigint {
+  if (args.priceUsdX18 < 0n || args.totalSupplyRaw < 0n) {
+    throw new Error('FDV inputs must be non-negative');
+  }
+  if (!Number.isInteger(args.tokenDecimals) || args.tokenDecimals < 0) {
+    throw new Error(`Invalid tokenDecimals: ${args.tokenDecimals}`);
+  }
+  return mulDiv(args.priceUsdX18, args.totalSupplyRaw, 10n ** BigInt(args.tokenDecimals));
 }
 
 export type TradeSide = 'buy' | 'sell';

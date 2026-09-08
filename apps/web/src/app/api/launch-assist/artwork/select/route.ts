@@ -69,9 +69,11 @@ export async function POST(request: Request) {
     pool = createPool(databaseUrl);
 
     const draft = await selectDraftArtwork(draftId, artworkId, { db: pool });
+    const selected = draft.artworks.find((a) => a.assetId === draft.selectedArtworkId);
     const payload = {
       draftId: draft.id,
       selectedArtworkId: draft.selectedArtworkId,
+      displayImageUrl: selected?.displayImageUrl ?? null,
     };
     assertNoSecretLeakage(payload);
     return NextResponse.json(payload);

@@ -68,3 +68,65 @@ export async function upsertToken(db: Queryable, row: TokenRow): Promise<void> {
     ],
   );
 }
+
+/**
+ * Set SCOOP display HTTPS URL without touching canonical image_uri.
+ * Ownership: launch finalization / ops backfill — not the chain indexer.
+ */
+export async function setTokenDisplayImageUrl(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    displayImageUrl: string;
+  },
+): Promise<void> {
+  const url = input.displayImageUrl.trim();
+  if (!url || !/^https:\/\//i.test(url)) {
+    throw new Error('displayImageUrl must be an https URL');
+  }
+  if (/^(javascript|data|file|blob):/i.test(url)) {
+    throw new Error('Unsafe displayImageUrl scheme');
+  }
+  await db.query(
+    `UPDATE tokens
+     SET display_image_url = $3,
+         updated_at = NOW()
+     WHERE chain_id = $1 AND token_address = $2`,
+    [input.chainId, normalizeAddress(input.tokenAddress), url],
+  );
+}
+
+/**
+ * After token address is known, copy selected draft artwork display URL onto tokens.
+ * Returns false when no display copy exists (IPFS fallback remains valid).
+ */
+export async function applyDraftDisplayImageToToken(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    draftId: string;
+  },
+): Promise<boolean> {
+  const result = await db.query(
+    `SELECT a.display_image_url
+     FROM launch_drafts d
+     INNER JOIN launch_draft_artworks a
+       ON a.id = d.selected_artwork_asset_id
+     WHERE d.id = $1
+     LIMIT 1`,
+    [input.draftId],
+  );
+  const displayUrl = String(
+    (result.rows[0] as { display_image_url?: string | null } | undefined)
+      ?.display_image_url ?? '',
+  ).trim();
+  if (!displayUrl) return false;
+  await setTokenDisplayImageUrl(db, {
+    chainId: input.chainId,
+    tokenAddress: input.tokenAddress,
+    displayImageUrl: displayUrl,
+  });
+  return true;
+}

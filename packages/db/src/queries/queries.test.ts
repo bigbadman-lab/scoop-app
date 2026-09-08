@@ -39,6 +39,14 @@ describe('decimal helpers', () => {
     expect(percentOfSupplyBps('1', '0')).toBe(0);
   });
 
+  it('never formats tiny non-zero x18 prices as 0', () => {
+    // HELLO-like spot: 2031177705 / 1e18 ≈ 2.031e-9
+    expect(formatX18('2031177705')).toBe('0.000000002031');
+    expect(formatX18('2031177705')).not.toBe('0');
+    expect(formatX18(0n)).toBe('0');
+    expect(formatX18('1000000000000000')).toBe('0.001'); // normal compact path
+  });
+
   it('clamps limit and offset', () => {
     expect(clampLimit(1000)).toBe(100);
     expect(clampLimit(0)).toBe(1);
@@ -68,6 +76,50 @@ describe('query validation / SQL mapping', () => {
     expect(params).toEqual([4663, 3600, 9000, 100, 10]);
   });
 
+  it('getTokens defaults to 7-day NEW window', async () => {
+    const db = mockDb([]);
+    await getTokens(db, { chainId: 4663, filter: 'new', sort: 'newest' });
+    const [, params] = db.query.mock.calls[0]!;
+    expect(params[1]).toBe(604800);
+  });
+
+  it('mapDiscoveryItem formats tiny non-zero quote prices', async () => {
+    const db = mockDb([
+      {
+        chain_id: 4663,
+        token_address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+        name: 'Hello World',
+        symbol: 'HELLO',
+        decimals: 18,
+        image_uri: '',
+        display_image_url: null,
+        pool_id: `0x${'c'.repeat(64)}`,
+        creator_id: `0x${'d'.repeat(64)}`,
+        quote_asset: '0x0000000000000000000000000000000000000000',
+        launched_at: 1,
+        age_seconds: 200000,
+        launch_progress_bps: 100,
+        launch_complete: false,
+        is_new: true,
+        is_soon: false,
+        is_bonded: false,
+        price_quote_x18: '2031177705',
+        price_usd_x18: null,
+        fdv_usd_x18: null,
+        volume_24h_quote_raw: '0',
+        trade_count_24h: 7,
+        holder_count_all: 4,
+        holder_count_retail: 2,
+        last_trade_at: null,
+        price_change_24h_bps: -154,
+        quote_decimals: 18,
+      },
+    ]);
+    const items = await getTokens(db, { chainId: 4663, filter: 'new' });
+    expect(items[0]?.priceQuoteDisplay).toBe('0.000000002031');
+    expect(items[0]?.priceQuoteDisplay).not.toBe('0');
+  });
+
   it('getToken normalizes address and maps detail DTO', async () => {
     const db = mockDb([
       {
@@ -77,6 +129,8 @@ describe('query validation / SQL mapping', () => {
         symbol: 'HELLO',
         decimals: 18,
         image_uri: '',
+        display_image_url:
+          'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
         description: 'Hello, world. This is a test.',
         twitter: '',
         telegram: '',
@@ -133,6 +187,10 @@ describe('query validation / SQL mapping', () => {
     );
     expect(token?.isNew).toBe(true);
     expect(token?.priceQuoteDisplay).toBe('0.001');
+    expect(token?.displayImageUrl).toBe(
+      'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
+    );
+    expect(token?.imageUri).toBe('');
   });
 
   it('getTrades left-joins confirmation_status and keeps attribution type', async () => {
@@ -206,6 +264,7 @@ describe('query validation / SQL mapping', () => {
         symbol: 'HELLO',
         decimals: 18,
         image_uri: '',
+        display_image_url: null,
         pool_id: `0x${'c'.repeat(64)}`,
         creator_id: `0x${'d'.repeat(64)}`,
         quote_asset: '0x0000000000000000000000000000000000000000',

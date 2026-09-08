@@ -18,6 +18,8 @@ import {
   createSupabaseDraftAssetStorage,
   type DraftAssetStorage,
 } from '../ai/images/storage.js';
+import { persistSelectedArtworkDisplayCopy } from '../ai/images/display-copy.js';
+import type { TokenImageStorage } from '../ai/images/token-image-storage.js';
 import type {
   CreateNewsLaunchDraftInput,
   LaunchDraft,
@@ -55,6 +57,8 @@ type ArtworkRow = {
   model: string;
   quality: string;
   selected: boolean;
+  display_image_url?: string | null;
+  display_image_path?: string | null;
   created_at: Date | string;
 };
 
@@ -65,6 +69,7 @@ function toIso(value: Date | string): string {
 export type DraftServiceDeps = {
   db: Queryable;
   storage?: DraftAssetStorage;
+  tokenImageStorage?: TokenImageStorage;
   callImage?: ImageModelCaller;
   imageModel?: string;
   imageQuality?: 'low' | 'medium' | 'high';
@@ -127,6 +132,7 @@ async function toArtworkOptions(
       height: 1024,
       assetId: row.id,
       previewUrl,
+      displayImageUrl: row.display_image_url ?? undefined,
       generation: {
         model: row.model,
         quality: row.quality,
@@ -364,7 +370,19 @@ export async function selectDraftArtwork(
     [draftId, artworkId],
   );
 
-  return getLaunchDraft(draftId, deps);
+  // Best-effort SCOOP display copy — never blocks selection / launch.
+  const storage = deps.storage ?? createSupabaseDraftAssetStorage();
+  await persistSelectedArtworkDisplayCopy({
+    db: deps.db,
+    draftId,
+    artworkId,
+    draftStoragePath: row.storage_path,
+    mimeType: row.mime_type,
+    draftStorage: storage,
+    tokenImageStorage: deps.tokenImageStorage,
+  });
+
+  return getLaunchDraft(draftId, { ...deps, storage });
 }
 
 export async function updateLaunchDraft(

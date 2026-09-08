@@ -9,10 +9,12 @@ import {
   classifyBuySell,
   classifyTransfer,
   executionPriceQuoteX18,
+  fdvUsdX18FromPrice,
   foldHolderBalances,
   mulDiv,
   normalizeAddress,
   priceQuoteX18FromSqrt,
+  priceUsdX18FromQuote,
 } from './index.js';
 
 describe('@scoop/shared', () => {
@@ -73,6 +75,66 @@ describe('price math', () => {
     expect(px).toBe(
       (HELLO_FIXTURE.initialBuyQuote * 10n ** 18n) / HELLO_FIXTURE.initialBuyTokens,
     );
+  });
+
+  it('18-token / 6-quote execution and spot scale correctly', () => {
+    // 1.5 USDG (6 dec) for 1 whole token (18 dec)
+    const quoteAmountRaw = 1_500_000n; // 1.5 * 10^6
+    const tokenAmountRaw = 10n ** 18n;
+    const exec = executionPriceQuoteX18({
+      quoteAmountRaw,
+      tokenAmountRaw,
+      quoteDecimals: 6,
+      tokenDecimals: 18,
+    });
+    expect(exec).toBe(15n * 10n ** 17n); // 1.5e18
+
+    // Same ratio via wrong 18/18 would understate by 10^12
+    const wrong = executionPriceQuoteX18({
+      quoteAmountRaw,
+      tokenAmountRaw,
+      quoteDecimals: 18,
+      tokenDecimals: 18,
+    });
+    expect(wrong).toBe(exec / 10n ** 12n);
+  });
+
+  it('non-18 token decimals scale one-token spot from sqrt', () => {
+    // sqrtPriceX96 = Q96 ⇒ raw price token1/token0 = 1
+    const sqrt = Q96;
+    const as18 = priceQuoteX18FromSqrt({
+      sqrtPriceX96: sqrt,
+      tokenIsCurrency1: true,
+      quoteDecimals: 18,
+      tokenDecimals: 18,
+    });
+    const as6 = priceQuoteX18FromSqrt({
+      sqrtPriceX96: sqrt,
+      tokenIsCurrency1: true,
+      quoteDecimals: 18,
+      tokenDecimals: 6,
+    });
+    expect(as18).toBe(10n ** 18n);
+    expect(as6).toBe(10n ** 6n);
+    expect(as18 / as6).toBe(10n ** 12n);
+  });
+
+  it('priceUsdX18FromQuote and fdvUsdX18FromPrice use integer math', () => {
+    const priceQuote = 2n * 10n ** 18n; // 2 quote per token
+    const quoteUsd = 3n * 10n ** 18n; // $3 per quote
+    const priceUsd = priceUsdX18FromQuote({
+      priceQuoteX18: priceQuote,
+      quoteUsdX18: quoteUsd,
+    });
+    expect(priceUsd).toBe(6n * 10n ** 18n);
+
+    const supply = 1_000n * 10n ** 18n; // 1000 tokens
+    const fdv = fdvUsdX18FromPrice({
+      priceUsdX18: priceUsd,
+      totalSupplyRaw: supply,
+      tokenDecimals: 18,
+    });
+    expect(fdv).toBe(6000n * 10n ** 18n);
   });
 });
 

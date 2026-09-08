@@ -11,6 +11,7 @@ import {
   upsertTokenMarketState,
   upsertCandle,
   upsertAddressClassification,
+  getQuoteAssetDecimals,
 } from '@scoop/db';
 import {
   DEAD_ADDRESS,
@@ -26,6 +27,7 @@ import {
   computeLaunchProgress,
 } from '@scoop/shared';
 import type { DecodedChainEvent } from './decode.js';
+import { resolveUsdMarketFields } from './projections/usd.js';
 
 export interface TokenMetadataInput {
   name: string;
@@ -90,6 +92,7 @@ export interface LaunchNormalizeInput {
   };
   confirmationStatus?: string;
   dustRaw?: bigint;
+  quoteUsdMaxAgeSeconds?: number;
 }
 
 function jsonSafe(value: unknown): unknown {
@@ -124,8 +127,9 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   const currency0 = quoteAsset;
   const currency1 = token;
   const tokenIsCurrency1 = true;
-  const quoteDecimals = 18;
   const tokenDecimals = input.tokenMeta.decimals || 18;
+  const quoteDecimals =
+    (await getQuoteAssetDecimals(db, chainId, quoteAsset)) ?? 18;
 
   for (const log of input.logs) {
     const decoded = input.decoded.find((d) => d.logIndex === log.logIndex);
@@ -385,11 +389,13 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     sqrtPriceX96: openingSqrt,
     tokenIsCurrency1,
     quoteDecimals,
+    tokenDecimals,
   });
   const closeQuote = priceQuoteX18FromSqrt({
     sqrtPriceX96: sqrtAfter,
     tokenIsCurrency1,
     quoteDecimals,
+    tokenDecimals,
   });
   const highQuote = openQuote > closeQuote ? openQuote : closeQuote;
   const lowQuote = openQuote < closeQuote ? openQuote : closeQuote;
@@ -419,6 +425,17 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
           currentTokenInventory: progress.currentTokenInventory,
         };
 
+  const totalSupplyRaw = BigInt(String(input.tokenMeta.totalSupply));
+  const usd = await resolveUsdMarketFields(db, {
+    chainId,
+    quoteAsset,
+    priceQuoteX18: closeQuote,
+    totalSupplyRaw,
+    tokenDecimals,
+    maxAgeSeconds: input.quoteUsdMaxAgeSeconds ?? 300,
+    nowMs: Number(blockTimestamp) * 1000,
+  });
+
   await upsertTokenMarketState(db, {
     chainId,
     tokenAddress: token,
@@ -426,9 +443,9 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     sqrtPriceX96: sqrtAfter,
     tick: tickAfter,
     priceQuoteX18: closeQuote,
-    quoteUsdX18: null,
-    priceUsdX18: null,
-    fdvUsdX18: null,
+    quoteUsdX18: usd.quoteUsdX18,
+    priceUsdX18: usd.priceUsdX18,
+    fdvUsdX18: usd.fdvUsdX18,
     liquidityRaw: liqAfter,
     sourceBlock: blockNumber,
     sourceTxHash: txHash,

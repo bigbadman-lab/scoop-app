@@ -72,6 +72,7 @@ export async function handleReorgIfNeeded(
     latestIndexed: bigint;
     fetchCanonicalHashes: (from: bigint, to: bigint) => Promise<CanonicalBlockHash[]>;
     streamName?: string;
+    quoteUsdMaxAgeSeconds?: number;
   },
 ): Promise<{ replayFrom: bigint | null; reorg: boolean }> {
   if (args.latestIndexed <= 0n) return { replayFrom: null, reorg: false };
@@ -162,6 +163,7 @@ export async function handleReorgIfNeeded(
       sourceBlock: BigInt(t.block_number),
       sourceTxHash: t.tx_hash,
       sourceLogIndex: t.log_index,
+      quoteUsdMaxAgeSeconds: args.quoteUsdMaxAgeSeconds,
     });
   }
 

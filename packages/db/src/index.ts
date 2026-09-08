@@ -3,11 +3,17 @@ export { normalizeAddress, normalizeBytes32, toNumericString } from './hex.js';
 export {
   formatRawAmount,
   formatX18,
+  fracDigitsForSignificant,
   percentOfSupplyBps,
   percentOfSupplyX18,
   clampLimit,
   clampOffset,
 } from './decimal.js';
+export {
+  DEFAULT_NEW_WINDOW_SECONDS,
+  DEFAULT_SOON_THRESHOLD_BPS,
+  NEW_MARKET_WINDOW_SECONDS,
+} from './queries/_discoverySql.js';
 export type {
   DiscoveryFilter,
   DiscoverySort,
@@ -71,7 +77,7 @@ export type {
 } from './types.js';
 export { upsertRawChainEvent, type RawChainEventRow } from './repos/raw-chain-events.js';
 export { upsertLaunch, type LaunchRow } from './repos/launches.js';
-export { upsertToken, type TokenRow } from './repos/tokens.js';
+export { upsertToken, setTokenDisplayImageUrl, applyDraftDisplayImageToToken, type TokenRow } from './repos/tokens.js';
 export { upsertCreator, type CreatorRow } from './repos/creators.js';
 export { upsertPool, type PoolRow } from './repos/pools.js';
 export { upsertTrade, type TradeRow } from './repos/trades.js';
@@ -129,9 +135,12 @@ export {
   upsertCreatorClaim,
   upsertCreatorClaimable,
   insertQuotePriceSnapshot,
+  getLatestQuotePriceUsd,
+  getQuoteAssetDecimals,
   type FeeDistributionRow,
   type CreatorCreditRow,
   type CreatorClaimRow,
   type CreatorClaimableRow,
   type QuotePriceSnapshotRow,
+  type LatestQuotePriceRow,
 } from './repos/creator-economics.js';

@@ -205,6 +205,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             chainId: config.SCOOP_CHAIN_ID,
             windowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,
             latestIndexed: BigInt(checkpoint.lastBlockNumber),
+            quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
             fetchCanonicalHashes: async (from, to) => {
               const out = [];
               for (let b = from; b <= to; b++) {
@@ -315,6 +316,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           watchlist,
           heads,
           dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+          quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
           anchorBlocks: config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS,
           initialLogRangeSize: config.SCOOP_FAST_CATCHUP_RANGE,
         });
@@ -341,6 +343,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
               watchlist,
               heads,
               dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+              quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
             }),
           );
           lastBlock = result.blockNumber;

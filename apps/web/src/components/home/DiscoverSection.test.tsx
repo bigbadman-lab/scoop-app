@@ -18,27 +18,28 @@ const emptyNew: DiscoverTabResult = {
 };
 
 describe('DiscoverSection', () => {
-  it('defaults to trending deferred state and switches empty copy', () => {
+  it('defaults to NEW and can switch to trending deferred empty copy', () => {
     render(
       <DiscoverSection
-        initialTab="trending"
-        initialResult={trending}
+        initialTab="new"
+        initialResult={emptyNew}
         preloaded={{ trending, new: emptyNew }}
         catalogue={[]}
       />,
     );
 
-    expect(screen.getByTestId('discover-empty').textContent).toMatch(/trending ranking/i);
-    fireEvent.click(screen.getByTestId('discover-tab-new'));
+    expect(screen.queryByText('Discover')).toBeNull();
     expect(screen.getByTestId('discover-empty').textContent).toMatch(/nothing new yet/i);
+    fireEvent.click(screen.getByTestId('discover-tab-trending'));
+    expect(screen.getByTestId('discover-empty').textContent).toMatch(/trending ranking/i);
   });
 
   it('does not fabricate production token rows', () => {
     render(
       <DiscoverSection
-        initialTab="trending"
-        initialResult={trending}
-        preloaded={{ trending }}
+        initialTab="new"
+        initialResult={emptyNew}
+        preloaded={{ new: emptyNew }}
         catalogue={[]}
       />,
     );

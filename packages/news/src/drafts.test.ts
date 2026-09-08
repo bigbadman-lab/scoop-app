@@ -67,6 +67,7 @@ const article: ConceptArticleContext = {
 function mockStorage(): DraftAssetStorage {
   return {
     uploadArtwork: vi.fn(async () => undefined),
+    downloadArtwork: vi.fn(async () => Buffer.from('png-bytes')),
     createSignedPreviewUrl: vi.fn(async (path) => `https://signed.test/${path}`),
   };
 }
@@ -296,6 +297,9 @@ describe('draft service (mocked db)', () => {
           selected = String(params?.[1]);
           return { rows: [] };
         }
+        if (sql.includes('display_image_path')) {
+          return { rows: [] };
+        }
         if (sql.includes('FROM launch_drafts')) {
           return {
             rows: [
@@ -357,13 +361,26 @@ describe('draft service (mocked db)', () => {
       }),
     };
 
+    const storage = mockStorage();
+    const tokenImageStorage = {
+      uploadDisplayCopy: vi.fn(async ({ path }: { path: string }) => ({
+        path,
+        publicUrl: `https://project.supabase.co/storage/v1/object/public/token-image/${path}`,
+      })),
+      publicUrlForPath: (path: string) =>
+        `https://project.supabase.co/storage/v1/object/public/token-image/${path}`,
+    };
+
     const draft = await selectDraftArtwork(draftId, artA, {
       db: db as never,
-      storage: mockStorage(),
+      storage,
+      tokenImageStorage,
     });
     expect(draft.selectedArtworkId).toBe(artA);
     expect(selectedFlags.get(artA)).toBe(true);
     expect(selectedFlags.get(artB)).toBe(false);
+    expect(storage.downloadArtwork).toHaveBeenCalled();
+    expect(tokenImageStorage.uploadDisplayCopy).toHaveBeenCalled();
 
     await expect(
       selectDraftArtwork(draftId, '77777777-7777-4777-8777-777777777777', {

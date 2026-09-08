@@ -318,6 +318,7 @@ export async function processFastCatchupRange(args: {
   watchlist: Watchlist;
   heads?: ConfirmationHeads;
   dustRaw?: bigint;
+  quoteUsdMaxAgeSeconds?: number;
   streamName?: string;
   anchorBlocks: number;
   initialLogRangeSize: number;
@@ -385,6 +386,7 @@ export async function processFastCatchupRange(args: {
           watchlist: args.watchlist,
           heads: args.heads,
           dustRaw: args.dustRaw,
+          quoteUsdMaxAgeSeconds: args.quoteUsdMaxAgeSeconds,
           streamName: args.streamName,
         }),
       ));

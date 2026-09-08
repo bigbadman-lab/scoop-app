@@ -16,10 +16,11 @@ Staged enablement for the SCOOP background worker on Render.
 | `SCOOP_START_BLOCK` | yes | `55863290` (HELLO launch) |
 | `SCOOP_CONFIRM_MODE` | recommended | `safe` |
 | `SCOOP_CONFIRM_LAG_BLOCKS` | optional | Fallback if safe tag missing |
-| `SCOOP_NEW_WINDOW_SECONDS` | optional | default `86400` |
+| `SCOOP_NEW_WINDOW_SECONDS` | optional | default `604800` (7 days) |
 | `SCOOP_SOON_THRESHOLD_BPS` | optional | default `8000` |
 | `SCOOP_REORG_WINDOW_BLOCKS` | optional | default `128` |
 | `SCOOP_QUOTE_SNAPSHOT_SECONDS` | optional | default `60` |
+| `SCOOP_QUOTE_USD_MAX_AGE_SECONDS` | optional | default `300` — stale ETH/USD snapshots null USD/FDV |
 | `SCOOP_POLL_INTERVAL_MS` | optional | default `2000` |
 | `SCOOP_MAX_BLOCK_BATCH` | optional | default `20` (near-tip / live mode) |
 | `SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS` | optional | default `5000` — lag above this uses fast catch-up |
@@ -36,14 +37,14 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 
 1. Deploy `render.yaml` worker with `SCOOP_INDEXING_ENABLED=false`.
 2. Confirm Docker image builds from `docker/indexer.Dockerfile`.
-3. Confirm the worker **stays alive** in disabled idle mode:
+3. Confirm Docker entry `node dist/index.js` **stays alive** when disabled (idle heartbeat — same as `indexer:start`):
    - Logs: `indexer disabled — idle mode`
    - Periodic: `indexer idle heartbeat`
    - **Zero** Robinhood RPC ingest, **zero** block processing, **zero** projection writes
 4. Confirm Render does **not** restart-loop the service (process exit code is not 1 while idle).
 5. Confirm SIGTERM/restart exits cleanly with code 0 (`indexer idle shutdown`).
 
-`pnpm indexer:start` with indexing disabled is intentional Render Stage 0 behavior — idle, not a crash.
+`node dist/index.js` and `pnpm indexer:start` share the same disabled→idle / enabled→live behavior.
 
 ## Stage 1 — Database ready
 

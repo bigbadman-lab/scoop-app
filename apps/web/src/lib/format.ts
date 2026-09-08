@@ -55,9 +55,62 @@ export function formatProgressPercent(bps: number): string {
   return `${pct}%`;
 }
 
-/** Pass through real FDV display; never invent values. */
+/** Pass through real display string; never invent values. */
 export function displayFdv(fdvUsdDisplay: string | null | undefined): string | null {
   if (!fdvUsdDisplay) return null;
   const trimmed = fdvUsdDisplay.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+/** USD amount with `$` prefix; null when missing — never `$0` from null. */
+export function displayUsd(amountDisplay: string | null | undefined): string | null {
+  const raw = displayFdv(amountDisplay);
+  if (!raw) return null;
+  return raw.startsWith('$') ? raw : `$${raw}`;
+}
+
+/**
+ * Prefer USD spot when present; otherwise quote-denominated price with symbol.
+ * Never fabricates zeros from null.
+ */
+export function displayTokenPrice(args: {
+  priceUsdDisplay: string | null | undefined;
+  priceQuoteDisplay: string | null | undefined;
+  quoteSymbol: string;
+}): string | null {
+  const usd = displayUsd(args.priceUsdDisplay);
+  if (usd) return usd;
+  const quote = displayFdv(args.priceQuoteDisplay);
+  if (!quote) return null;
+  return `${quote} ${args.quoteSymbol}`;
+}
+
+/** 24h change from bps. Null → null (UI shows —). True 0 bps → `0.0%`. */
+export function displayPriceChangeBps(bps: number | null | undefined): string | null {
+  if (bps == null || !Number.isFinite(bps)) return null;
+  const tenths = Math.trunc(bps / 10);
+  const sign = tenths > 0 ? '+' : tenths < 0 ? '-' : '';
+  const absTenths = Math.abs(tenths);
+  return `${sign}${Math.floor(absTenths / 10)}.${absTenths % 10}%`;
+}
+
+/** 24h quote volume label; null when missing (do not fake 0). */
+export function displayVolume24h(
+  volumeDisplay: string | null | undefined,
+  quoteSymbol: string,
+): string | null {
+  const v = displayFdv(volumeDisplay);
+  if (!v) return null;
+  return `24h vol ${v} ${quoteSymbol}`;
+}
+
+/** Prefer retail holders; fall back to all. Null when unknown. */
+export function displayHolderCount(
+  retail: number | null | undefined,
+  all: number | null | undefined,
+): string | null {
+  const n = retail ?? all;
+  if (n == null || !Number.isFinite(n)) return null;
+  const count = Math.max(0, Math.floor(n));
+  return `${count} holder${count === 1 ? '' : 's'}`;
 }

@@ -35,6 +35,8 @@ export interface TokenDiscoveryItem {
   symbol: string;
   decimals: number;
   imageUri: string;
+  /** SCOOP-controlled HTTPS display copy; prefer over imageUri for UI. */
+  displayImageUrl: string | null;
   poolId: string;
   creatorId: string;
   quoteAsset: string;
@@ -47,6 +49,8 @@ export interface TokenDiscoveryItem {
   isBonded: boolean;
   priceQuoteX18: string | null;
   priceQuoteDisplay: string | null;
+  priceUsdX18: string | null;
+  priceUsdDisplay: string | null;
   fdvUsdX18: string | null;
   fdvUsdDisplay: string | null;
   volume24hQuoteRaw: string | null;
@@ -74,8 +78,6 @@ export interface TokenDetail extends TokenDiscoveryItem {
   sqrtPriceX96: string | null;
   tick: number | null;
   liquidityRaw: string | null;
-  priceUsdX18: string | null;
-  priceUsdDisplay: string | null;
   quoteUsdX18: string | null;
   quoteVolumeAllTimeRaw: string | null;
   tokenVolumeAllTimeRaw: string | null;

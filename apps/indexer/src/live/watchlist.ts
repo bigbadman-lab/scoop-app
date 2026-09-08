@@ -21,6 +21,10 @@ export interface WatchlistEntry {
   tickSpacing: number;
   hooks: string;
   tokenIsCurrency1: boolean;
+  /** From tokens.decimals (canonical). */
+  tokenDecimals: number;
+  /** From quote_assets.decimals (canonical); 18 if catalogue miss. */
+  quoteDecimals: number;
 }
 
 export interface Watchlist {
@@ -78,14 +82,19 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
     fee: number | null;
     tick_spacing: number | null;
     hooks: string | null;
+    token_decimals: number | null;
+    quote_decimals: number | null;
   }>(
     `SELECT
       l.chain_id, l.token_address, l.pool_id, l.fee_distributor_address,
       l.liquidity_locker_address, l.quote_asset, l.factory_address, l.deployer_address,
       l.creator_id, l.tick_lower, l.tick_upper, l.opening_sqrt_price_x96, l.lp_token_id,
-      p.currency0, p.currency1, p.fee, p.tick_spacing, p.hooks
+      p.currency0, p.currency1, p.fee, p.tick_spacing, p.hooks,
+      t.decimals AS token_decimals, q.decimals AS quote_decimals
      FROM launches l
      LEFT JOIN pools p ON p.chain_id = l.chain_id AND p.pool_id = l.pool_id
+     LEFT JOIN tokens t ON t.chain_id = l.chain_id AND t.token_address = l.token_address
+     LEFT JOIN quote_assets q ON q.chain_id = l.chain_id AND q.quote_asset = l.quote_asset
      WHERE l.chain_id = $1`,
     [chainId],
   );
@@ -115,6 +124,8 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
       tickSpacing: row.tick_spacing ?? 10,
       hooks: row.hooks ? normalizeAddress(row.hooks) : quote,
       tokenIsCurrency1: currency1 === token,
+      tokenDecimals: row.token_decimals ?? 18,
+      quoteDecimals: row.quote_decimals ?? 18,
     });
   }
   return wl;
@@ -123,7 +134,11 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
 /** Register a newly discovered launch into an in-memory watchlist. */
 export function watchlistAddLaunch(
   wl: Watchlist,
-  entry: Omit<WatchlistEntry, 'tokenIsCurrency1'> & { tokenIsCurrency1?: boolean },
+  entry: Omit<WatchlistEntry, 'tokenIsCurrency1' | 'tokenDecimals' | 'quoteDecimals'> & {
+    tokenIsCurrency1?: boolean;
+    tokenDecimals?: number;
+    quoteDecimals?: number;
+  },
 ): WatchlistEntry {
   const token = normalizeAddress(entry.tokenAddress);
   const full: WatchlistEntry = {
@@ -141,6 +156,8 @@ export function watchlistAddLaunch(
     hooks: normalizeAddress(entry.hooks),
     tokenIsCurrency1:
       entry.tokenIsCurrency1 ?? normalizeAddress(entry.currency1) === token,
+    tokenDecimals: entry.tokenDecimals ?? 18,
+    quoteDecimals: entry.quoteDecimals ?? 18,
   };
   addEntry(wl, full);
   return full;

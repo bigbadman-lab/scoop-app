@@ -74,6 +74,12 @@ export {
   assertSafeImagePrompt,
   DEFAULT_OPENAI_IMAGE_MODEL,
   createSupabaseDraftAssetStorage,
+  TOKEN_IMAGE_BUCKET,
+  buildTokenDisplayImagePath,
+  deriveTokenImagePublicUrl,
+  validateTokenDisplayImage,
+  createSupabaseTokenImageStorage,
+  persistSelectedArtworkDisplayCopy,
   type EnabledQuoteAsset,
   type LaunchConcept,
   type LaunchConceptResponse,
@@ -87,6 +93,7 @@ export {
   type CreateNewsLaunchDraftInput,
   type UpdateLaunchDraftPatch,
   type DraftAssetStorage,
+  type TokenImageStorage,
   type ImageModelCaller,
 } from './ai/index.js';
 

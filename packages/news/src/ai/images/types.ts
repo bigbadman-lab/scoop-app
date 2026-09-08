@@ -25,6 +25,8 @@ export type TokenArtworkOption = {
   height: 1024;
   assetId: string;
   previewUrl?: string;
+  /** SCOOP public display copy when upload succeeded. */
+  displayImageUrl?: string;
   generation: {
     model: string;
     quality: string;

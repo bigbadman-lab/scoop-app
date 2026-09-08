@@ -1,4 +1,8 @@
 import type { Queryable } from '../types.js';
+import {
+  DEFAULT_SOON_THRESHOLD_BPS,
+  NEW_MARKET_WINDOW_SECONDS,
+} from '../queries/_discoverySql.js';
 
 export interface DiscoveryLaunchRow {
   chainId: number;
@@ -78,8 +82,8 @@ const BASE_SELECT = `
 export async function queryDiscoveryAll(
   db: Queryable,
   chainId: number,
-  windowSec = 86400,
-  soonThresholdBps = 8000,
+  windowSec = NEW_MARKET_WINDOW_SECONDS,
+  soonThresholdBps = DEFAULT_SOON_THRESHOLD_BPS,
 ): Promise<DiscoveryLaunchRow[]> {
   const result = await db.query(`${BASE_SELECT} ORDER BY l.launched_at DESC`, [
     chainId,
@@ -92,8 +96,8 @@ export async function queryDiscoveryAll(
 export async function queryDiscoveryNew(
   db: Queryable,
   chainId: number,
-  windowSec = 86400,
-  soonThresholdBps = 8000,
+  windowSec = NEW_MARKET_WINDOW_SECONDS,
+  soonThresholdBps = DEFAULT_SOON_THRESHOLD_BPS,
 ): Promise<DiscoveryLaunchRow[]> {
   const result = await db.query(
     `${BASE_SELECT}
@@ -107,8 +111,8 @@ export async function queryDiscoveryNew(
 export async function queryDiscoverySoon(
   db: Queryable,
   chainId: number,
-  windowSec = 86400,
-  soonThresholdBps = 8000,
+  windowSec = NEW_MARKET_WINDOW_SECONDS,
+  soonThresholdBps = DEFAULT_SOON_THRESHOLD_BPS,
 ): Promise<DiscoveryLaunchRow[]> {
   const result = await db.query(
     `${BASE_SELECT}
@@ -123,8 +127,8 @@ export async function queryDiscoverySoon(
 export async function queryDiscoveryBonded(
   db: Queryable,
   chainId: number,
-  windowSec = 86400,
-  soonThresholdBps = 8000,
+  windowSec = NEW_MARKET_WINDOW_SECONDS,
+  soonThresholdBps = DEFAULT_SOON_THRESHOLD_BPS,
 ): Promise<DiscoveryLaunchRow[]> {
   const result = await db.query(
     `${BASE_SELECT}

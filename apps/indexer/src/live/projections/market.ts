@@ -6,6 +6,7 @@ import {
   priceQuoteX18FromSqrt,
   normalizeAddress,
 } from '@scoop/shared';
+import { resolveUsdMarketFields } from './usd.js';
 
 export interface TradeMetricInput {
   side: 'buy' | 'sell';
@@ -41,12 +42,42 @@ export async function refreshTokenMarketFromTrades(
     dustRaw?: bigint;
     nowSec?: number;
     quoteDecimals?: number;
+    tokenDecimals?: number;
+    quoteAsset?: string;
+    totalSupplyRaw?: bigint;
+    quoteUsdMaxAgeSeconds?: number;
   },
 ): Promise<void> {
   const token = normalizeAddress(args.tokenAddress);
   const tokenIsCurrency1 = args.tokenIsCurrency1 ?? true;
   const nowSec = args.nowSec ?? Math.floor(Date.now() / 1000);
   const windowStart = nowSec - 86400;
+
+  const meta = await db.query<{
+    quote_asset: string;
+    token_decimals: number;
+    total_supply_raw: string;
+    quote_decimals: number | null;
+  }>(
+    `SELECT l.quote_asset, t.decimals AS token_decimals, t.total_supply_raw::text AS total_supply_raw,
+            q.decimals AS quote_decimals
+     FROM launches l
+     JOIN tokens t ON t.chain_id = l.chain_id AND t.token_address = l.token_address
+     LEFT JOIN quote_assets q ON q.chain_id = l.chain_id AND q.quote_asset = l.quote_asset
+     WHERE l.chain_id = $1 AND l.token_address = $2`,
+    [args.chainId, token],
+  );
+  const metaRow = meta.rows[0];
+  const rawQuote = args.quoteAsset ?? metaRow?.quote_asset;
+  if (!rawQuote) {
+    throw new Error(`Missing quote asset metadata for token ${token}`);
+  }
+  const quoteAsset = normalizeAddress(rawQuote);
+  const tokenDecimals = args.tokenDecimals ?? metaRow?.token_decimals ?? 18;
+  const quoteDecimals = args.quoteDecimals ?? metaRow?.quote_decimals ?? 18;
+  const totalSupplyRaw =
+    args.totalSupplyRaw ??
+    (metaRow?.total_supply_raw != null ? BigInt(metaRow.total_supply_raw) : 0n);
 
   const metrics = await db.query<{
     trade_count: string;
@@ -122,7 +153,8 @@ export async function refreshTokenMarketFromTrades(
   const priceQuote = priceQuoteX18FromSqrt({
     sqrtPriceX96: args.sqrtPriceX96,
     tokenIsCurrency1,
-    quoteDecimals: args.quoteDecimals ?? 18,
+    quoteDecimals,
+    tokenDecimals,
   });
 
   let priceChange24hBps: number | null = null;
@@ -133,6 +165,16 @@ export async function refreshTokenMarketFromTrades(
       ((BigInt(lastPx) - BigInt(firstPx)) * 10000n) / BigInt(firstPx),
     );
   }
+
+  const usd = await resolveUsdMarketFields(db, {
+    chainId: args.chainId,
+    quoteAsset,
+    priceQuoteX18: priceQuote,
+    totalSupplyRaw,
+    tokenDecimals,
+    maxAgeSeconds: args.quoteUsdMaxAgeSeconds ?? 300,
+    nowMs: nowSec * 1000,
+  });
 
   const all = metrics.rows[0];
   const day = m24.rows[0];
@@ -145,6 +187,9 @@ export async function refreshTokenMarketFromTrades(
     sqrtPriceX96: args.sqrtPriceX96,
     tick: args.tick,
     priceQuoteX18: priceQuote,
+    quoteUsdX18: usd.quoteUsdX18,
+    priceUsdX18: usd.priceUsdX18,
+    fdvUsdX18: usd.fdvUsdX18,
     liquidityRaw: args.liquidityRaw,
     sourceBlock: args.sourceBlock,
     sourceTxHash: args.sourceTxHash,

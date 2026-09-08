@@ -7,8 +7,8 @@ import {
 import { SCOOP_ORANGE, SCOOP_MARK_SRC } from '@/lib/brand';
 
 describe('discover tabs', () => {
-  it('defaults to trending without inventing ranking data', () => {
-    expect(DEFAULT_DISCOVER_TAB).toBe('trending');
+  it('defaults to NEW; Trending stays deferred without inventing ranking', () => {
+    expect(DEFAULT_DISCOVER_TAB).toBe('new');
     const trending = getDiscoverTab('trending');
     expect(trending.dataAvailable).toBe(false);
     expect(trending.emptyMessage).toMatch(/not available/i);

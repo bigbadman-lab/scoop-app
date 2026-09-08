@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SCOOP_CHAIN_ID } from '@scoop/shared';
+import { SCOOP_CHAIN_ID, NEW_MARKET_WINDOW_SECONDS } from '@scoop/shared';
 
 const boolFromEnv = z
   .union([z.boolean(), z.string()])
@@ -32,10 +32,16 @@ const indexerEnvSchema = z
     SCOOP_START_BLOCK: z.coerce.number().int().positive().default(55863290),
     SCOOP_CONFIRM_MODE: z.enum(['safe', 'latest', 'finalized']).default('safe'),
     SCOOP_CONFIRM_LAG_BLOCKS: z.coerce.number().int().nonnegative().optional(),
-    SCOOP_NEW_WINDOW_SECONDS: z.coerce.number().int().positive().default(86400),
+    SCOOP_NEW_WINDOW_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(NEW_MARKET_WINDOW_SECONDS),
     SCOOP_SOON_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10000).default(8000),
     SCOOP_REORG_WINDOW_BLOCKS: z.coerce.number().int().positive().default(128),
     SCOOP_QUOTE_SNAPSHOT_SECONDS: z.coerce.number().int().positive().default(60),
+    /** Max age of quote_price_snapshots before USD/FDV fields are nulled. */
+    SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
     SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(20),
     /** Enter fast historical catch-up when lag (safe - next) exceeds this. */
@@ -114,6 +120,7 @@ export function publicConfigView(config: IndexerConfig) {
     soonThresholdBps: config.SCOOP_SOON_THRESHOLD_BPS,
     reorgWindowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,
     quoteSnapshotSeconds: config.SCOOP_QUOTE_SNAPSHOT_SECONDS,
+    quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
     pollIntervalMs: config.SCOOP_POLL_INTERVAL_MS,
     maxBlockBatch: config.SCOOP_MAX_BLOCK_BATCH,
     fastCatchupThresholdBlocks: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
