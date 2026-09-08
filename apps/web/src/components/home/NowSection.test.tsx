@@ -49,14 +49,13 @@ describe('NowSection news lead', () => {
             },
           ],
         }}
-        activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}
-        catalogue={[]}
       />,
     );
     expect(screen.getByTestId('house-lead-hero')).toBeTruthy();
     expect(screen.getByTestId('house-lead-actions')).toBeTruthy();
     expect(screen.getByText('Markets react to rate decision')).toBeTruthy();
     expect(screen.getByText('reuters.com')).toBeTruthy();
+    expect(screen.queryByText(/market activity/i)).toBeNull();
 
     const actions = screen.getByTestId('house-lead-actions');
     expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
@@ -77,8 +76,6 @@ describe('NowSection news lead', () => {
           articles: [],
           message: 'No stories yet.',
         }}
-        activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}
-        catalogue={[]}
       />,
     );
     expect(screen.queryByRole('link', { name: /launch as token/i })).toBeNull();
@@ -93,11 +90,38 @@ describe('NowSection news lead', () => {
           articles: [],
           message: 'Latest story display is not enabled yet.',
         }}
-        activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}
-        catalogue={[]}
       />,
     );
     expect(screen.getByText('Latest story pending')).toBeTruthy();
     expect(screen.getByText(/not enabled yet/i)).toBeTruthy();
+  });
+
+  it('renders infrastructure badges beside the title with Launch intact', () => {
+    render(
+      <NowSection
+        news={{
+          status: 'empty',
+          article: null,
+          articles: [],
+          message: 'No stories yet.',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('homepage-infrastructure-badges')).toBeTruthy();
+    expect(screen.getByText('Built on')).toBeTruthy();
+    expect(screen.getByText('Robinhood Chain')).toBeTruthy();
+    expect(screen.getByText('Powered by')).toBeTruthy();
+    expect(screen.getByText('Uniswap')).toBeTruthy();
+    expect(screen.getByText('Markets paired with')).toBeTruthy();
+    expect(screen.getByText('Stocks + ETH')).toBeTruthy();
+    expect(screen.getByText('Turn news into markets. Earn from every trade.')).toBeTruthy();
+
+    const launches = screen.getAllByRole('link', { name: /^launch$/i });
+    expect(launches.length).toBeGreaterThan(0);
+    expect(launches[0]!.getAttribute('href')).toBe('/launch');
+
+    const heroImg = document.querySelector(`img[src="/scoophero.png"]`);
+    expect(heroImg).toBeTruthy();
   });
 });

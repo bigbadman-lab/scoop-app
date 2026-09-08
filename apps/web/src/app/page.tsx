@@ -4,7 +4,6 @@ import { ProtocolSection } from '@/components/home/ProtocolSection';
 import { SiteFooter } from '@/components/home/SiteFooter';
 import {
   loadDiscoverTab,
-  loadMarketActivity,
   type DiscoverTabResult,
 } from '@/lib/discovery/load-home';
 import { loadLeadNews } from '@/lib/news/load-home';
@@ -23,9 +22,8 @@ async function loadCatalogueSafe() {
 }
 
 export default async function HomePage() {
-  const [news, activity, catalogue, ...tabResults] = await Promise.all([
+  const [news, catalogue, ...tabResults] = await Promise.all([
     loadLeadNews(),
-    loadMarketActivity(),
     loadCatalogueSafe(),
     ...DISCOVER_TABS.map((tab) => loadDiscoverTab(tab.id)),
   ]);
@@ -46,7 +44,7 @@ export default async function HomePage() {
 
   return (
     <main>
-      <NowSection news={news} activity={activity} catalogue={catalogue} />
+      <NowSection news={news} />
       <DiscoverSection
         initialTab={initialTab}
         initialResult={initialResult}

@@ -62,6 +62,84 @@ export function displayFdv(fdvUsdDisplay: string | null | undefined): string | n
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/**
+ * Compact USD market totals (FDV, 24h USD volume). Not for token unit price.
+ * Examples: $5.00K, $1.25M, $0.0048
+ */
+export function formatCompactUsdMarketValue(
+  usdAmount: string | number | null | undefined,
+): string | null {
+  const n = parseUsdMarketAmount(usdAmount);
+  if (n == null) return null;
+  if (n === 0) return '$0';
+
+  if (n < 1000) {
+    return formatSubThousandUsd(n);
+  }
+
+  const tiers: Array<{ div: number; suffix: string }> = [
+    { div: 1e3, suffix: 'K' },
+    { div: 1e6, suffix: 'M' },
+    { div: 1e9, suffix: 'B' },
+    { div: 1e12, suffix: 'T' },
+  ];
+
+  let tierIdx = 0;
+  if (n >= 1e12) tierIdx = 3;
+  else if (n >= 1e9) tierIdx = 2;
+  else if (n >= 1e6) tierIdx = 1;
+
+  let scaled = n / tiers[tierIdx]!.div;
+  let rounded = Math.round(scaled * 100) / 100;
+  while (rounded >= 1000 && tierIdx < tiers.length - 1) {
+    tierIdx += 1;
+    scaled = n / tiers[tierIdx]!.div;
+    rounded = Math.round(scaled * 100) / 100;
+  }
+  return `$${rounded.toFixed(2)}${tiers[tierIdx]!.suffix}`;
+}
+
+/** Compact USD with `$`; null when missing — never invents `$0` from null. */
+export function displayCompactUsdMarketValue(
+  usdAmount: string | number | null | undefined,
+): string | null {
+  if (usdAmount == null) return null;
+  if (typeof usdAmount === 'string' && usdAmount.trim() === '') return null;
+  return formatCompactUsdMarketValue(usdAmount);
+}
+
+function parseUsdMarketAmount(raw: string | number | null | undefined): number | null {
+  if (raw == null) return null;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) && raw >= 0 ? raw : null;
+  }
+  let s = raw.trim().replace(/,/g, '');
+  if (!s) return null;
+  if (s.startsWith('$')) s = s.slice(1).trim();
+  const suffixed = s.match(/^([\d.]+)\s*([KMBT])$/i);
+  if (suffixed) {
+    const base = Number(suffixed[1]);
+    if (!Number.isFinite(base) || base < 0) return null;
+    const mult =
+      { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }[suffixed[2]!.toUpperCase() as 'K' | 'M' | 'B' | 'T']!;
+    return base * mult;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function formatSubThousandUsd(n: number): string {
+  if (n >= 0.01) {
+    return `$${(Math.round(n * 100) / 100).toFixed(2)}`;
+  }
+  // Keep enough fractional digits for tiny market totals without K/M suffixes.
+  let s = n.toFixed(8);
+  if (s.includes('.')) {
+    s = s.replace(/0+$/, '').replace(/\.$/, '');
+  }
+  return `$${s}`;
+}
+
 /** USD amount with `$` prefix; null when missing — never `$0` from null. */
 export function displayUsd(amountDisplay: string | null | undefined): string | null {
   const raw = displayFdv(amountDisplay);
@@ -102,6 +180,20 @@ export function displayVolume24h(
   const v = displayFdv(volumeDisplay);
   if (!v) return null;
   return `24h vol ${v} ${quoteSymbol}`;
+}
+
+/**
+ * Prefer compact USD 24h volume; fall back to quote-denominated volume.
+ * Never invents zeros from null.
+ */
+export function displayMarketVolume24h(args: {
+  volume24hUsdDisplay: string | null | undefined;
+  volume24hQuoteDisplay: string | null | undefined;
+  quoteSymbol: string;
+}): string | null {
+  const usd = displayCompactUsdMarketValue(args.volume24hUsdDisplay);
+  if (usd) return `24h vol ${usd}`;
+  return displayVolume24h(args.volume24hQuoteDisplay, args.quoteSymbol);
 }
 
 /** Prefer retail holders; fall back to all. Null when unknown. */

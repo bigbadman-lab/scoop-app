@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  displayCompactUsdMarketValue,
   displayFdv,
   displayHolderCount,
+  displayMarketVolume24h,
   displayPriceChangeBps,
   displayTokenPrice,
   displayUsd,
   displayVolume24h,
   formatCompactAge,
+  formatCompactUsdMarketValue,
   formatNewsAge,
   formatProgressPercent,
   formatRelativeTime,
@@ -87,5 +90,50 @@ describe('format helpers', () => {
     expect(displayHolderCount(124, 130)).toBe('124 holders');
     expect(displayHolderCount(null, null)).toBeNull();
     expect(displayHolderCount(1, null)).toBe('1 holder');
+  });
+
+  it('formats compact USD market values', () => {
+    expect(formatCompactUsdMarketValue(null)).toBeNull();
+    expect(formatCompactUsdMarketValue(0)).toBe('$0');
+    expect(formatCompactUsdMarketValue(0.0048)).toBe('$0.0048');
+    expect(formatCompactUsdMarketValue(0.48)).toBe('$0.48');
+    expect(formatCompactUsdMarketValue(12.34)).toBe('$12.34');
+    expect(formatCompactUsdMarketValue(999.5)).toBe('$999.50');
+    expect(formatCompactUsdMarketValue(1000)).toBe('$1.00K');
+    expect(formatCompactUsdMarketValue(1250)).toBe('$1.25K');
+    expect(formatCompactUsdMarketValue(5000.95)).toBe('$5.00K');
+    expect(formatCompactUsdMarketValue(27480)).toBe('$27.48K');
+    expect(formatCompactUsdMarketValue(999_999)).toBe('$1.00M');
+    expect(formatCompactUsdMarketValue(1_250_000)).toBe('$1.25M');
+    expect(formatCompactUsdMarketValue(987_400_000)).toBe('$987.40M');
+    expect(formatCompactUsdMarketValue(1_240_000_000)).toBe('$1.24B');
+    expect(formatCompactUsdMarketValue(1_500_000_000_000)).toBe('$1.50T');
+    expect(formatCompactUsdMarketValue('5000.9484848484')).toBe('$5.00K');
+    expect(displayCompactUsdMarketValue(null)).toBeNull();
+    expect(displayCompactUsdMarketValue('')).toBeNull();
+  });
+
+  it('prefers USD volume then quote fallback for market volume', () => {
+    expect(
+      displayMarketVolume24h({
+        volume24hUsdDisplay: '270.44',
+        volume24hQuoteDisplay: '3.2',
+        quoteSymbol: 'ETH',
+      }),
+    ).toBe('24h vol $270.44');
+    expect(
+      displayMarketVolume24h({
+        volume24hUsdDisplay: null,
+        volume24hQuoteDisplay: '3.2',
+        quoteSymbol: 'ETH',
+      }),
+    ).toBe('24h vol 3.2 ETH');
+    expect(
+      displayMarketVolume24h({
+        volume24hUsdDisplay: null,
+        volume24hQuoteDisplay: null,
+        quoteSymbol: 'ETH',
+      }),
+    ).toBeNull();
   });
 });

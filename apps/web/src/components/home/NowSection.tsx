@@ -1,37 +1,35 @@
-import { SectionHeading } from '@/components/ui/SectionHeading';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { LiveDeskStrip } from '@/components/home/LiveDeskStrip';
 import { HouseLeadHero } from '@/components/home/HouseLeadHero';
+import { HomepageInfrastructureBadges } from '@/components/home/HomepageInfrastructureBadges';
 import { HOUSE_IMAGE_SET, SCOOP_HERO_SRC } from '@/lib/brand';
 import type { LeadNewsResult } from '@/lib/news/load-home';
-import { MarketActivityList } from '@/components/home/MarketActivityList';
-import type { MarketActivityResult } from '@/lib/discovery/load-home';
-import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
 type Props = {
   news: LeadNewsResult;
-  activity: MarketActivityResult;
-  catalogue: readonly PublicQuoteCatalogueItem[];
 };
 
-export function NowSection({ news, activity, catalogue }: Props) {
+export function NowSection({ news }: Props) {
   return (
-    <section aria-label="Now" className="border-b border-[var(--divider)]">
-      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-10 md:px-8 md:pt-5 md:pb-14 lg:px-10">
+    <section aria-label="Now">
+      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-4 md:px-8 md:pt-5 md:pb-5 lg:px-10">
         <LiveDeskStrip />
 
-        {/* Brand mark + Launch */}
-        <div className="mb-5 flex flex-col gap-5 md:mb-6 md:flex-row md:items-center md:justify-between md:gap-10">
+        {/* Brand mark + infrastructure badges + Launch */}
+        <div className="mb-5 flex flex-col gap-4 md:mb-6 md:flex-row md:items-start md:justify-between md:gap-8 lg:items-center">
           <div className="min-w-0 flex-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={SCOOP_HERO_SRC}
-              alt=""
-              width={1000}
-              height={200}
-              className="block w-[55%] max-w-[280px] rounded-[var(--radius-editorial)] object-contain md:w-[42%] md:max-w-[360px]"
-            />
-            <p className="mt-0 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={SCOOP_HERO_SRC}
+                alt=""
+                width={1000}
+                height={200}
+                className="block w-[55%] max-w-[280px] shrink-0 rounded-[var(--radius-editorial)] object-contain md:w-[42%] md:max-w-[360px]"
+              />
+              <HomepageInfrastructureBadges className="w-full min-w-0 lg:w-auto" />
+            </div>
+            <p className="mt-3 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
               Turn news into markets. Earn from every trade.
             </p>
             <div className="mt-5 md:hidden">
@@ -53,20 +51,13 @@ export function NowSection({ news, activity, catalogue }: Props) {
           className="mb-10 hidden h-px w-[90%] bg-[var(--divider)] md:mb-12 md:block"
         />
 
-        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-          <div className="lg:col-span-8">
-            <HouseLeadHero news={news} />
-            {HOUSE_IMAGE_SET.length === 0 ? (
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-                Add /house/01–03 to enable rotating house imagery
-              </p>
-            ) : null}
-          </div>
-
-          <div className="lg:col-span-4">
-            <SectionHeading className="mb-5">Market activity</SectionHeading>
-            <MarketActivityList activity={activity} catalogue={catalogue} />
-          </div>
+        <div>
+          <HouseLeadHero news={news} />
+          {HOUSE_IMAGE_SET.length === 0 ? (
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+              Add /house/01–03 to enable rotating house imagery
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

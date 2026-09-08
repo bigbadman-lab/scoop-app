@@ -100,7 +100,7 @@ describe('TokenDiscoveryItemCard', () => {
         quoteSymbol="ETH"
       />,
     );
-    expect(screen.getByText('$184200')).toBeTruthy();
+    expect(screen.getByText('$184.20K')).toBeTruthy();
     expect(screen.getByText('FDV')).toBeTruthy();
     expect(screen.queryByText(/market\s*cap/i)).toBeNull();
     expect(tokenCardFdvLabel('184200')).toBe('FDV');
@@ -113,9 +113,20 @@ describe('TokenDiscoveryItemCard', () => {
     expect(screen.queryByText('$0.00')).toBeNull();
   });
 
-  it('renders 24h volume in quote units', () => {
+  it('renders 24h volume in quote units when USD volume missing', () => {
     render(<TokenDiscoveryItemCard token={baseToken()} quoteSymbol="ETH" />);
     expect(screen.getByText('24h vol 3.2 ETH')).toBeTruthy();
+  });
+
+  it('prefers compact USD 24h volume when present', () => {
+    render(
+      <TokenDiscoveryItemCard
+        token={baseToken({ volume24hUsdDisplay: '270.44', volume24hUsdX18: '270440000000000000000' })}
+        quoteSymbol="ETH"
+      />,
+    );
+    expect(screen.getByText('24h vol $270.44')).toBeTruthy();
+    expect(screen.queryByText('24h vol 3.2 ETH')).toBeNull();
   });
 
   it('renders positive and negative 24h change; null as em dash', () => {

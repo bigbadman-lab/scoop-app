@@ -111,7 +111,7 @@ export function DiscoverSection({
 
   return (
     <section aria-label="Markets" className="border-b border-[var(--divider)]">
-      <div className="mx-auto max-w-[1400px] px-4 py-10 md:px-8 md:py-14 lg:px-10">
+      <div className="mx-auto max-w-[1400px] px-4 pt-3 pb-10 md:px-8 md:pt-4 md:pb-14 lg:px-10">
         <div
           role="tablist"
           aria-label="Market filters"

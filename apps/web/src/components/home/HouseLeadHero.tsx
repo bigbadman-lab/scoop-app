@@ -55,7 +55,7 @@ function OverlayCopy({
   const metaClass =
     'font-mono text-[11px] uppercase tracking-[0.16em] text-white/85 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
   const headlineClass =
-    'mt-1.5 max-w-3xl text-[1.4rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-3 md:mt-2 md:line-clamp-none md:text-3xl lg:text-[2.35rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
+    'mt-1.5 max-w-3xl text-[1.25rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-2 md:mt-2 md:text-2xl lg:text-[1.85rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
 
   if (news.status === 'ok' && article) {
     return (
@@ -212,7 +212,7 @@ export function HouseLeadHero({ news }: Props) {
   return (
     <div data-testid="house-lead-module" className="relative">
       <div
-        className="relative aspect-[5/4] w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)] md:aspect-[3/2]"
+        className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)]"
         data-testid="house-lead-hero"
       >
         {images.length > 0 ? (
@@ -246,18 +246,19 @@ export function HouseLeadHero({ news }: Props) {
           </div>
         )}
 
-        {/* Readability scrim — house photos are bright/busy; white copy needs denser shade */}
+        {/* Readability scrim — denser at the top where time + title sit */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[68%] bg-gradient-to-t from-black/92 via-black/55 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[72%] bg-gradient-to-b from-black/90 via-black/45 to-transparent"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/50 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[42%] bg-gradient-to-b from-black/45 to-transparent"
         />
 
+        {/* In-flow story block sizes the frame; imagery fills behind via absolute inset. */}
         <div
-          className="absolute inset-x-0 bottom-0 space-y-3 p-4 pt-10 md:space-y-5 md:p-7 md:pt-7 lg:p-8"
+          className="relative z-10 space-y-3 p-4 pb-5 md:space-y-4 md:p-6 md:pb-6 lg:p-7 lg:pb-7"
           data-testid="house-lead-story"
           data-story-id={article?.providerArticleId ?? ''}
           data-story-offset={String(storyOffset)}
@@ -289,7 +290,7 @@ export function HouseLeadHero({ news }: Props) {
             type="button"
             data-testid="house-lead-rotate"
             aria-label="Next house image"
-            className="absolute left-0 top-0 z-20 h-[30%] w-[30%] max-h-32 max-w-32 cursor-pointer rounded-br-[var(--radius-editorial)] bg-transparent transition-colors hover:bg-white/10 focus-visible:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+            className="absolute bottom-0 right-0 z-20 h-[30%] w-[30%] max-h-32 max-w-32 cursor-pointer rounded-tl-[var(--radius-editorial)] bg-transparent transition-colors hover:bg-white/10 focus-visible:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

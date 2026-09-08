@@ -23,6 +23,7 @@
     "indexer:status": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-status.ts",
     "indexer:catchup": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-catchup.ts",
     "indexer:once": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-once.ts",
+    "indexer:replay:token": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-replay-token.ts",
     "news:ingest:once": "pnpm --filter @scoop/news run ingest:once",
     "news:ingest": "pnpm --filter @scoop/news run ingest",
     "news:catchup": "pnpm --filter @scoop/news run catchup",

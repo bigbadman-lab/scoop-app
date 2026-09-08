@@ -117,6 +117,15 @@ describe('HouseLeadHero', () => {
     expect(read.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
   });
 
+  it('sizes the lead frame from story content instead of a fixed aspect ratio', () => {
+    render(<HouseLeadHero news={okNews([article])} />);
+    const hero = screen.getByTestId('house-lead-hero');
+    expect(hero.className).not.toMatch(/aspect-/);
+    const story = screen.getByTestId('house-lead-story');
+    expect(story.className).toMatch(/relative/);
+    expect(story.className).not.toMatch(/absolute/);
+  });
+
   it('keeps Launch as Token without Read story when article has no URL', () => {
     render(
       <HouseLeadHero

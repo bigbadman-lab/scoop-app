@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import type { TokenDiscoveryItem } from '@/lib/server/queries';
 import {
+  displayCompactUsdMarketValue,
   displayFdv,
   displayHolderCount,
+  displayMarketVolume24h,
   displayPriceChangeBps,
   displayTokenPrice,
-  displayUsd,
-  displayVolume24h,
   formatCompactAge,
 } from '@/lib/format';
 import { ContractCopy } from '@/components/ui/ContractCopy';
@@ -28,8 +28,12 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
     quoteSymbol,
   });
   const change = displayPriceChangeBps(token.priceChange24hBps);
-  const fdv = displayUsd(token.fdvUsdDisplay);
-  const volume = displayVolume24h(token.volume24hQuoteDisplay, quoteSymbol);
+  const fdv = displayCompactUsdMarketValue(token.fdvUsdDisplay);
+  const volume = displayMarketVolume24h({
+    volume24hUsdDisplay: token.volume24hUsdDisplay,
+    volume24hQuoteDisplay: token.volume24hQuoteDisplay,
+    quoteSymbol,
+  });
   const holders = displayHolderCount(token.holderCountRetail, token.holderCountAll);
   const age = formatCompactAge(token.ageSeconds);
 
@@ -111,5 +115,7 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
 
 /** Exported for tests — confirms FDV is never mislabeled as market cap. */
 export function tokenCardFdvLabel(fdvUsdDisplay: string | null | undefined): string {
-  return displayFdv(fdvUsdDisplay) ? 'FDV' : 'FDV unavailable';
+  return displayCompactUsdMarketValue(fdvUsdDisplay) || displayFdv(fdvUsdDisplay)
+    ? 'FDV'
+    : 'FDV unavailable';
 }
