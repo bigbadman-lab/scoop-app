@@ -17,8 +17,8 @@ function articles(n: number) {
 }
 
 describe('homepage news rotation helpers', () => {
-  it('exposes a single 20s interval constant', () => {
-    expect(HOMEPAGE_NEWS_ROTATION_MS).toBe(20_000);
+  it('exposes a single 8s interval constant', () => {
+    expect(HOMEPAGE_NEWS_ROTATION_MS).toBe(8_000);
     expect(HOMEPAGE_NEWS_ROTATION_POOL).toBeGreaterThanOrEqual(20);
     expect(HOMEPAGE_NEWS_ROTATION_POOL).toBeLessThanOrEqual(30);
     expect(HOMEPAGE_VISIBLE_NEWS_SLOTS).toBe(1);

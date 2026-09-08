@@ -1,14 +1,14 @@
 import type { NewsFeedItem } from '@scoop/news';
 
 /** Client-side homepage story rotation — never triggers network. */
-export const HOMEPAGE_NEWS_ROTATION_MS = 20_000;
+export const HOMEPAGE_NEWS_ROTATION_MS = 8_000;
 
 /** Soft fade when swapping the lead story overlay. */
 export const HOMEPAGE_NEWS_FADE_MS = 400;
 
 /**
  * How many DB stories the homepage loads for rotation.
- * UI currently shows 1 lead slot; 24 ≈ 8 minutes of unique stories at 20s.
+ * UI currently shows 1 lead slot; 24 ≈ 3.2 minutes of unique stories at 8s.
  */
 export const HOMEPAGE_NEWS_ROTATION_POOL = 24;
 

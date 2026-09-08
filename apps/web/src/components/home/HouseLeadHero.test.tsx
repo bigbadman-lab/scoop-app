@@ -268,7 +268,7 @@ describe('HouseLeadHero', () => {
       });
     }
 
-    it('starts on the first loaded story and does not rotate before 20s', () => {
+    it('starts on the first loaded story and does not rotate before 8s', () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
       render(<HouseLeadHero news={okNews(pool)} />);
       expect(screen.getByText('Story one headline')).toBeTruthy();
@@ -284,7 +284,7 @@ describe('HouseLeadHero', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('rotates to the next story at 20s and advances again', () => {
+    it('rotates to the next story at 8s and advances again', () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
       render(<HouseLeadHero news={okNews(pool)} />);
 
