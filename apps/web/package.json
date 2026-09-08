@@ -20,6 +20,7 @@
     "@scoop/shared": "workspace:*",
     "@tanstack/react-query": "^5.102.8",
     "geist": "^1.7.2",
+    "lightweight-charts": "^5.2.1",
     "next": "^15.2.4",
     "pg": "^8.23.0",
     "react": "^19.0.0",

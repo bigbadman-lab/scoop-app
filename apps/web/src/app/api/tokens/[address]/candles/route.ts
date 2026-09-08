@@ -29,7 +29,8 @@ export async function GET(
     const items = await getCandles(serverDb(), chainId, address, interval, {
       from: parseOptionalInt(url.searchParams.get('from'), 'from'),
       to: parseOptionalInt(url.searchParams.get('to'), 'to'),
-      limit: parseLimit(url.searchParams.get('limit'), 100, 100),
+      // Match @scoop/db clampLimit ceiling so chart ranges (e.g. 1W×1h) are not truncated.
+      limit: parseLimit(url.searchParams.get('limit'), 500, 100),
     });
     const body = { items };
     assertNoSecretLeakage(body);

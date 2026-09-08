@@ -196,6 +196,19 @@ export function displayMarketVolume24h(args: {
   return displayVolume24h(args.volume24hQuoteDisplay, args.quoteSymbol);
 }
 
+/** Metric-cell volume (no "24h vol" prefix) — USD compact, else quote + symbol. */
+export function displayVolume24hMetric(args: {
+  volume24hUsdDisplay: string | null | undefined;
+  volume24hQuoteDisplay: string | null | undefined;
+  quoteSymbol: string;
+}): string | null {
+  const usd = displayCompactUsdMarketValue(args.volume24hUsdDisplay);
+  if (usd) return usd;
+  const quote = displayFdv(args.volume24hQuoteDisplay);
+  if (!quote) return null;
+  return `${quote} ${args.quoteSymbol}`;
+}
+
 /** Prefer retail holders; fall back to all. Null when unknown. */
 export function displayHolderCount(
   retail: number | null | undefined,
