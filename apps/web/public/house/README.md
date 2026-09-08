@@ -4,17 +4,17 @@ Curated evergreen images for the NOW lead visual tile (rotating cover).
 
 Drop exactly three files here:
 
-- `01.webp` (or `.jpg` / `.png`)
-- `02.webp`
-- `03.webp`
+- `place1.webp` (or `.jpg` / `.png`)
+- `place2.webp`
+- `place3.webp`
 
 Then list their public paths in `src/lib/brand.ts`:
 
 ```ts
 export const HOUSE_IMAGE_SET: readonly string[] = [
-  '/house/01.webp',
-  '/house/02.webp',
-  '/house/03.webp',
+  '/house/place1.webp',
+  '/house/place2.webp',
+  '/house/place3.webp',
 ];
 ```
 

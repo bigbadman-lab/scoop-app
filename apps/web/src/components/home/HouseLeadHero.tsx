@@ -38,16 +38,19 @@ function OverlayCopy({
   article: NewsFeedItem | null;
   news: LeadNewsResult;
 }) {
+  const metaClass =
+    'font-mono text-[11px] uppercase tracking-[0.16em] text-white/85 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
+  const headlineClass =
+    'mt-1.5 max-w-3xl text-[1.4rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-3 md:mt-2 md:line-clamp-none md:text-3xl lg:text-[2.35rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
+
   if (news.status === 'ok' && article) {
     return (
       <>
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/75 md:text-[12px]">
-          <NewsAge iso={article.publishedAt} className="text-white/75" />
+        <p className={metaClass}>
+          <NewsAge iso={article.publishedAt} className="text-white/85" />
         </p>
-        <h1 className="mt-2 max-w-3xl text-[1.65rem] font-semibold leading-[1.15] tracking-tight text-white md:text-3xl lg:text-[2.35rem] lg:leading-[1.12]">
-          {article.headline}
-        </h1>
-        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/70 md:text-[12px]">
+        <h1 className={headlineClass}>{article.headline}</h1>
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/80 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
           {article.sourceDomain}
         </p>
       </>
@@ -63,13 +66,9 @@ function OverlayCopy({
 
   return (
     <>
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/75 md:text-[12px]">
-        Just in
-      </p>
-      <h1 className="mt-2 max-w-2xl text-[1.65rem] font-semibold leading-[1.15] tracking-tight text-white md:text-3xl">
-        {title}
-      </h1>
-      <p className="mt-2 max-w-md text-sm text-white/70">
+      <p className={metaClass}>Just in</p>
+      <h1 className={`${headlineClass} max-w-2xl lg:text-3xl`}>{title}</h1>
+      <p className="mt-2 max-w-md text-sm text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
         {news.message ??
           'News will appear here when public display is enabled and articles are available.'}
       </p>
@@ -121,8 +120,7 @@ export function HouseLeadHero({ news }: Props) {
   return (
     <div data-testid="house-lead-module" className="relative">
       <div
-        className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)]"
-        style={{ aspectRatio: '1.5 / 1' }}
+        className="relative aspect-[5/4] w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)] md:aspect-[3/2]"
         data-testid="house-lead-hero"
       >
         {images.length > 0 ? (
@@ -156,27 +154,27 @@ export function HouseLeadHero({ news }: Props) {
           </div>
         )}
 
-        {/* Readability gradient — lower half for copy + CTAs */}
+        {/* Readability scrim — house photos are bright/busy; white copy needs denser shade */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[68%] bg-gradient-to-t from-black/92 via-black/55 to-transparent"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/50 to-transparent"
         />
 
-        <div className="absolute inset-x-0 bottom-0 space-y-4 p-5 md:space-y-5 md:p-7 lg:p-8">
+        <div className="absolute inset-x-0 bottom-0 space-y-3 p-4 pt-10 md:space-y-5 md:p-7 md:pt-7 lg:p-8">
           <OverlayCopy article={article} news={news} />
 
           {showActions ? (
             <div
-              className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+              className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center md:gap-3"
               data-testid="house-lead-actions"
             >
               <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
               {href ? (
-                <CtaLink
-                  href={href}
-                  external
-                  className="text-white hover:text-white/85 hover:opacity-100"
-                >
+                <CtaLink href={href} external variant="secondary">
                   Read story ↗
                 </CtaLink>
               ) : null}

@@ -17,9 +17,9 @@ export const SCOOP_HERO_SRC = '/scoophero.png' as const;
  * Do not invent missing URLs — leave empty until assets exist.
  */
 export const HOUSE_IMAGE_SET: readonly string[] = [
-  // '/house/01.webp',
-  // '/house/02.webp',
-  // '/house/03.webp',
+  '/house/place1.webp',
+  '/house/place2.webp',
+  '/house/place3.webp',
 ];
 
 /** Interval for house-image crossfade rotation (ms). */

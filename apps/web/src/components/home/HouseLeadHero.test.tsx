@@ -94,6 +94,8 @@ describe('HouseLeadHero', () => {
     expect(launch.getAttribute('href')).toBe('/news/77/launch');
     const read = screen.getByRole('link', { name: /read story/i });
     expect(read.getAttribute('href')).toBe(article.url);
+    expect(read.className).toMatch(/border/);
+    expect(read.className).toMatch(/rounded/);
     expect(launch.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
     expect(read.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
   });

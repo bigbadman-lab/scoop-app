@@ -3,7 +3,7 @@ import Link from 'next/link';
 type Props = {
   href: string;
   children: React.ReactNode;
-  variant?: 'primary' | 'ghost' | 'on-orange';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'on-orange';
   className?: string;
   external?: boolean;
 };
@@ -16,13 +16,15 @@ export function CtaLink({
   external = false,
 }: Props) {
   const base =
-    'inline-flex min-h-11 items-center gap-2 font-mono text-[12px] uppercase tracking-[0.14em] transition-opacity hover:opacity-80';
+    'inline-flex min-h-11 items-center justify-center gap-2 font-mono text-[12px] uppercase tracking-[0.14em] transition-opacity hover:opacity-80';
   const styles =
     variant === 'primary'
       ? 'rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 text-[var(--scoop-orange-contrast)]'
-      : variant === 'on-orange'
-        ? 'text-[var(--scoop-orange-contrast)] underline-offset-4 hover:underline'
-        : 'text-[var(--fg)]';
+      : variant === 'secondary'
+        ? 'rounded-[var(--radius-md)] border border-white/65 bg-white/12 px-4 text-white! hover:text-white! backdrop-blur-[2px] hover:bg-white/20 hover:opacity-100'
+        : variant === 'on-orange'
+          ? 'text-[var(--scoop-orange-contrast)] underline-offset-4 hover:underline'
+          : 'text-[var(--fg)]';
 
   if (external) {
     return (
