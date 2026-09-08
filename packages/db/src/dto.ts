@@ -55,6 +55,8 @@ export interface TokenDiscoveryItem {
   fdvUsdDisplay: string | null;
   volume24hQuoteRaw: string | null;
   volume24hQuoteDisplay: string | null;
+  volume24hUsdX18: string | null;
+  volume24hUsdDisplay: string | null;
   tradeCount24h: number | null;
   holderCountAll: number | null;
   holderCountRetail: number | null;
@@ -113,6 +115,11 @@ export interface TradeItem {
   tokenAmountDisplay: string;
   executionPriceQuoteX18: string;
   executionPriceQuoteDisplay: string;
+  /** Quote/USD snapshot used at trade time (x18). */
+  quoteUsdX18: string | null;
+  executionPriceUsdX18: string | null;
+  executionPriceUsdDisplay: string | null;
+  /** Trade USD notional (x18) — finished by indexer; do not recompute in UI. */
   usdValueX18: string | null;
   usdValueDisplay: string | null;
   isInitialBuy: boolean;

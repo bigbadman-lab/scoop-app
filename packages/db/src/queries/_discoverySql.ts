@@ -32,6 +32,7 @@ export interface DiscoverySqlRow {
   price_usd_x18: string | null;
   fdv_usd_x18: string | null;
   volume_24h_quote_raw: string | null;
+  volume_24h_usd_x18: string | null;
   trade_count_24h: number | null;
   holder_count_all: number | null;
   holder_count_retail: number | null;
@@ -48,6 +49,8 @@ export function mapDiscoveryItem(
   const priceUsdX18 = row.price_usd_x18 == null ? null : String(row.price_usd_x18);
   const fdvUsdX18 = row.fdv_usd_x18 == null ? null : String(row.fdv_usd_x18);
   const volume24h = row.volume_24h_quote_raw == null ? null : String(row.volume_24h_quote_raw);
+  const volume24hUsd =
+    row.volume_24h_usd_x18 == null ? null : String(row.volume_24h_usd_x18);
   const resolvedQuoteDecimals =
     row.quote_decimals == null ? quoteDecimals : Number(row.quote_decimals);
 
@@ -81,6 +84,8 @@ export function mapDiscoveryItem(
     volume24hQuoteRaw: volume24h,
     volume24hQuoteDisplay:
       volume24h == null ? null : formatRawAmount(volume24h, resolvedQuoteDecimals),
+    volume24hUsdX18: volume24hUsd,
+    volume24hUsdDisplay: formatX18(volume24hUsd),
     tradeCount24h: row.trade_count_24h == null ? null : Number(row.trade_count_24h),
     holderCountAll: row.holder_count_all == null ? null : Number(row.holder_count_all),
     holderCountRetail: row.holder_count_retail == null ? null : Number(row.holder_count_retail),
@@ -116,6 +121,7 @@ export const DISCOVERY_SELECT = `
     m.price_usd_x18::text AS price_usd_x18,
     m.fdv_usd_x18::text AS fdv_usd_x18,
     m.volume_24h_quote_raw::text AS volume_24h_quote_raw,
+    m.volume_24h_usd_x18::text AS volume_24h_usd_x18,
     m.trade_count_24h,
     m.holder_count_all,
     m.holder_count_retail,

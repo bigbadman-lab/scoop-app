@@ -25,6 +25,8 @@ export interface TokenMarketStateRow {
   quoteVolumeAllTimeRaw?: string | bigint;
   tokenVolumeAllTimeRaw?: string | bigint;
   volume24hQuoteRaw?: string | bigint;
+  /** Null when any 24h trade lacks usd_value_x18 (incomplete coverage). */
+  volume24hUsdX18?: string | bigint | null;
   tradeCount24h?: number;
   buyCount24h?: number;
   sellCount24h?: number;
@@ -48,12 +50,12 @@ export async function upsertTokenMarketState(
       last_trade_at, last_trade_block,
       trade_count_all_time, buy_count_all_time, sell_count_all_time,
       quote_volume_all_time_raw, token_volume_all_time_raw,
-      volume_24h_quote_raw, trade_count_24h, buy_count_24h, sell_count_24h,
+      volume_24h_quote_raw, volume_24h_usd_x18, trade_count_24h, buy_count_24h, sell_count_24h,
       price_change_24h_bps, holder_count_all, holder_count_retail,
       initial_token_inventory_raw, current_token_inventory_raw
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
+      $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32
     )
     ON CONFLICT (chain_id, token_address) DO UPDATE SET
       pool_id = EXCLUDED.pool_id,
@@ -77,6 +79,7 @@ export async function upsertTokenMarketState(
       quote_volume_all_time_raw = COALESCE(EXCLUDED.quote_volume_all_time_raw, token_market_state.quote_volume_all_time_raw),
       token_volume_all_time_raw = COALESCE(EXCLUDED.token_volume_all_time_raw, token_market_state.token_volume_all_time_raw),
       volume_24h_quote_raw = COALESCE(EXCLUDED.volume_24h_quote_raw, token_market_state.volume_24h_quote_raw),
+      volume_24h_usd_x18 = EXCLUDED.volume_24h_usd_x18,
       trade_count_24h = COALESCE(EXCLUDED.trade_count_24h, token_market_state.trade_count_24h),
       buy_count_24h = COALESCE(EXCLUDED.buy_count_24h, token_market_state.buy_count_24h),
       sell_count_24h = COALESCE(EXCLUDED.sell_count_24h, token_market_state.sell_count_24h),
@@ -110,6 +113,7 @@ export async function upsertTokenMarketState(
       toNumericString(row.quoteVolumeAllTimeRaw ?? 0),
       toNumericString(row.tokenVolumeAllTimeRaw ?? 0),
       toNumericString(row.volume24hQuoteRaw ?? 0),
+      row.volume24hUsdX18 == null ? null : toNumericString(row.volume24hUsdX18),
       row.tradeCount24h ?? 0,
       row.buyCount24h ?? 0,
       row.sellCount24h ?? 0,

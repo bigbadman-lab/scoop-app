@@ -27,7 +27,7 @@ import {
   computeLaunchProgress,
 } from '@scoop/shared';
 import type { DecodedChainEvent } from './decode.js';
-import { resolveUsdMarketFields } from './projections/usd.js';
+import { resolveUsdMarketFields, resolveTradeUsdFields } from './projections/usd.js';
 
 export interface TokenMetadataInput {
   name: string;
@@ -270,6 +270,12 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   let quoteAmountRaw = 0n;
   let tokenAmountRaw = 0n;
   let executionPrice = 0n;
+  let tradeUsd: Awaited<ReturnType<typeof resolveTradeUsdFields>> = {
+    quoteUsdX18: null,
+    executionPriceUsdX18: null,
+    usdValueX18: null,
+    reason: 'no_snapshot',
+  };
 
   if (hasTrade) {
     side = classifyBuySell(amount0, amount1);
@@ -283,6 +289,16 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
         tokenDecimals,
       });
     }
+
+    tradeUsd = await resolveTradeUsdFields(db, {
+      chainId,
+      quoteAsset,
+      quoteAmountRaw,
+      executionPriceQuoteX18: executionPrice,
+      quoteDecimals,
+      tradeTimestampSec: Number(blockTimestamp),
+      maxAgeSeconds: input.quoteUsdMaxAgeSeconds ?? 300,
+    });
 
     await upsertTrade(db, {
       chainId,
@@ -308,9 +324,9 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
       liquidityAfterRaw: liqAfter,
       fee: poolFee,
       executionPriceQuoteX18: executionPrice,
-      quoteUsdX18: null,
-      executionPriceUsdX18: null,
-      usdValueX18: null,
+      quoteUsdX18: tradeUsd.quoteUsdX18,
+      executionPriceUsdX18: tradeUsd.executionPriceUsdX18,
+      usdValueX18: tradeUsd.usdValueX18,
       isInitialBuy: Boolean(input.launch.initialBuyPresent),
     });
   }
@@ -460,6 +476,7 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     quoteVolumeAllTimeRaw: hasTrade ? quoteAmountRaw : 0n,
     tokenVolumeAllTimeRaw: hasTrade ? tokenAmountRaw : 0n,
     volume24hQuoteRaw: hasTrade ? quoteAmountRaw : 0n,
+    volume24hUsdX18: hasTrade ? tradeUsd.usdValueX18 : 0n,
     tradeCount24h: hasTrade ? 1 : 0,
     buyCount24h: hasTrade && side === 'buy' ? 1 : 0,
     sellCount24h: hasTrade && side === 'sell' ? 1 : 0,
@@ -471,6 +488,7 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   });
 
   if (hasTrade) {
+    const hasUsd = tradeUsd.reason === 'ok' && tradeUsd.usdValueX18 != null;
     await upsertCandle(db, {
       chainId,
       tokenAddress: token,
@@ -486,11 +504,11 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
       tradeCount: 1,
       buyCount: side === 'buy' ? 1 : 0,
       sellCount: side === 'sell' ? 1 : 0,
-      openUsdX18: null,
-      highUsdX18: null,
-      lowUsdX18: null,
-      closeUsdX18: null,
-      usdVolumeX18: null,
+      openUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      highUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      lowUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      closeUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      usdVolumeX18: hasUsd ? tradeUsd.usdValueX18 : null,
       firstTradeBlock: blockNumber,
       lastTradeBlock: blockNumber,
     });

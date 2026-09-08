@@ -13,6 +13,7 @@ import {
   foldHolderBalances,
   mulDiv,
   normalizeAddress,
+  notionalUsdX18FromQuoteAmount,
   priceQuoteX18FromSqrt,
   priceUsdX18FromQuote,
 } from './index.js';
@@ -135,6 +136,23 @@ describe('price math', () => {
       tokenDecimals: 18,
     });
     expect(fdv).toBe(6000n * 10n ** 18n);
+  });
+
+  it('notionalUsdX18FromQuoteAmount handles 18 and 6 decimal quotes', () => {
+    const quoteUsd = 2000n * 10n ** 18n; // $2000 / ETH
+    const ethNotional = notionalUsdX18FromQuoteAmount({
+      quoteAmountRaw: 10n ** 18n, // 1 ETH
+      quoteUsdX18: quoteUsd,
+      quoteDecimals: 18,
+    });
+    expect(ethNotional).toBe(2000n * 10n ** 18n);
+
+    const usdgNotional = notionalUsdX18FromQuoteAmount({
+      quoteAmountRaw: 5n * 10n ** 6n, // 5 USDG (6 decimals)
+      quoteUsdX18: 1n * 10n ** 18n, // $1
+      quoteDecimals: 6,
+    });
+    expect(usdgNotional).toBe(5n * 10n ** 18n);
   });
 });
 

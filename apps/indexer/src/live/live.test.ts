@@ -113,6 +113,8 @@ describe('candle rollup', () => {
       side: 'buy',
       blockNumber: 1,
       bucketStart: b0,
+      priceUsdX18: 1000n,
+      usdValueX18: 10n,
     });
     c = mergeTradeIntoMinuteCandle(c, {
       priceQuoteX18: 120n,
@@ -121,11 +123,15 @@ describe('candle rollup', () => {
       side: 'sell',
       blockNumber: 2,
       bucketStart: b0,
+      priceUsdX18: 1200n,
+      usdValueX18: 30n,
     });
     expect(c.openQuoteX18).toBe(100n);
     expect(c.closeQuoteX18).toBe(120n);
     expect(c.highQuoteX18).toBe(120n);
     expect(c.tradeCount).toBe(2);
+    expect(c.usdComplete).toBe(true);
+    expect(c.usdVolumeX18).toBe(40n);
 
     const m2 = mergeTradeIntoMinuteCandle(null, {
       priceQuoteX18: 110n,
@@ -134,12 +140,42 @@ describe('candle rollup', () => {
       side: 'buy',
       blockNumber: 3,
       bucketStart: b0 + 60,
+      priceUsdX18: 1100n,
+      usdValueX18: 5n,
     });
     const rolled = rollupMinuteCandles([c, m2], '5m');
     expect(rolled).toHaveLength(1);
     expect(rolled[0]!.tradeCount).toBe(3);
     expect(rolled[0]!.openQuoteX18).toBe(100n);
     expect(rolled[0]!.closeQuoteX18).toBe(110n);
+    expect(rolled[0]!.usdComplete).toBe(true);
+    expect(rolled[0]!.usdVolumeX18).toBe(45n);
+  });
+
+  it('missing USD on a trade nulls USD candle without corrupting quote OHLC', () => {
+    const b0 = bucketStartFor('1m', 1_700_000_000);
+    let c = mergeTradeIntoMinuteCandle(null, {
+      priceQuoteX18: 100n,
+      quoteAmountRaw: 1n,
+      tokenAmountRaw: 1n,
+      side: 'buy',
+      blockNumber: 1,
+      bucketStart: b0,
+      priceUsdX18: 1000n,
+      usdValueX18: 10n,
+    });
+    c = mergeTradeIntoMinuteCandle(c, {
+      priceQuoteX18: 90n,
+      quoteAmountRaw: 2n,
+      tokenAmountRaw: 2n,
+      side: 'sell',
+      blockNumber: 2,
+      bucketStart: b0,
+    });
+    expect(c.closeQuoteX18).toBe(90n);
+    expect(c.quoteVolumeRaw).toBe(3n);
+    expect(c.usdComplete).toBe(false);
+    expect(c.usdVolumeX18).toBeNull();
   });
 });
 

@@ -136,6 +136,8 @@ export {
   upsertCreatorClaimable,
   insertQuotePriceSnapshot,
   getLatestQuotePriceUsd,
+  getQuotePriceUsdAtOrBefore,
+  listSnapshotEligibleQuoteAssets,
   getQuoteAssetDecimals,
   type FeeDistributionRow,
   type CreatorCreditRow,

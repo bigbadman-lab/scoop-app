@@ -37,6 +37,7 @@ import {
   upsertMinuteAndRollups,
   type MinuteCandle,
 } from './projections/candles.js';
+import { resolveTradeUsdFields } from './projections/usd.js';
 import { applyHolderTransfer } from './projections/holders.js';
 import { processCreatorEvents } from './projections/creators.js';
 import { confirmationStatusForBlock, type ConfirmationHeads } from './confirmations.js';
@@ -305,6 +306,16 @@ export async function processBlock(
       tokenDecimals,
     });
 
+    const tradeUsd = await resolveTradeUsdFields(db, {
+      chainId,
+      quoteAsset: entry.quoteAsset,
+      quoteAmountRaw,
+      executionPriceQuoteX18: executionPrice,
+      quoteDecimals,
+      tradeTimestampSec: Number(blockTimestamp),
+      maxAgeSeconds: quoteUsdMaxAgeSeconds,
+    });
+
     await upsertRawChainEvent(db, {
       chainId,
       blockNumber,
@@ -347,6 +358,9 @@ export async function processBlock(
       liquidityAfterRaw: liqAfter,
       fee: entry.fee,
       executionPriceQuoteX18: executionPrice,
+      quoteUsdX18: tradeUsd.quoteUsdX18,
+      executionPriceUsdX18: tradeUsd.executionPriceUsdX18,
+      usdValueX18: tradeUsd.usdValueX18,
       isInitialBuy: false,
     });
 
@@ -392,32 +406,54 @@ export async function processBlock(
       sell_count: number;
       first_trade_block: string | null;
       last_trade_block: string | null;
+      open_usd_x18: string | null;
+      high_usd_x18: string | null;
+      low_usd_x18: string | null;
+      close_usd_x18: string | null;
+      usd_volume_x18: string | null;
     }>(
       `SELECT open_quote_x18, high_quote_x18, low_quote_x18, close_quote_x18,
               quote_volume_raw, token_volume_raw, trade_count, buy_count, sell_count,
-              first_trade_block, last_trade_block
+              first_trade_block, last_trade_block,
+              open_usd_x18::text AS open_usd_x18, high_usd_x18::text AS high_usd_x18,
+              low_usd_x18::text AS low_usd_x18, close_usd_x18::text AS close_usd_x18,
+              usd_volume_x18::text AS usd_volume_x18
        FROM candles
        WHERE chain_id = $1 AND pool_id = $2 AND interval = '1m' AND bucket_start = $3`,
       [chainId, poolId, bucketStart],
     );
-    const prev: MinuteCandle | null = existingCandle.rows[0]
+    const prevRow = existingCandle.rows[0];
+    const prevHasUsd =
+      prevRow != null &&
+      prevRow.open_usd_x18 != null &&
+      prevRow.high_usd_x18 != null &&
+      prevRow.low_usd_x18 != null &&
+      prevRow.close_usd_x18 != null &&
+      prevRow.usd_volume_x18 != null;
+    const prev: MinuteCandle | null = prevRow
       ? {
           bucketStart,
-          openQuoteX18: BigInt(existingCandle.rows[0].open_quote_x18),
-          highQuoteX18: BigInt(existingCandle.rows[0].high_quote_x18),
-          lowQuoteX18: BigInt(existingCandle.rows[0].low_quote_x18),
-          closeQuoteX18: BigInt(existingCandle.rows[0].close_quote_x18),
-          quoteVolumeRaw: BigInt(existingCandle.rows[0].quote_volume_raw),
-          tokenVolumeRaw: BigInt(existingCandle.rows[0].token_volume_raw),
-          tradeCount: existingCandle.rows[0].trade_count,
-          buyCount: existingCandle.rows[0].buy_count,
-          sellCount: existingCandle.rows[0].sell_count,
-          firstTradeBlock: existingCandle.rows[0].first_trade_block
-            ? Number(existingCandle.rows[0].first_trade_block)
+          openQuoteX18: BigInt(prevRow.open_quote_x18),
+          highQuoteX18: BigInt(prevRow.high_quote_x18),
+          lowQuoteX18: BigInt(prevRow.low_quote_x18),
+          closeQuoteX18: BigInt(prevRow.close_quote_x18),
+          quoteVolumeRaw: BigInt(prevRow.quote_volume_raw),
+          tokenVolumeRaw: BigInt(prevRow.token_volume_raw),
+          tradeCount: prevRow.trade_count,
+          buyCount: prevRow.buy_count,
+          sellCount: prevRow.sell_count,
+          firstTradeBlock: prevRow.first_trade_block
+            ? Number(prevRow.first_trade_block)
             : null,
-          lastTradeBlock: existingCandle.rows[0].last_trade_block
-            ? Number(existingCandle.rows[0].last_trade_block)
+          lastTradeBlock: prevRow.last_trade_block
+            ? Number(prevRow.last_trade_block)
             : null,
+          usdComplete: prevHasUsd,
+          openUsdX18: prevHasUsd ? BigInt(prevRow.open_usd_x18!) : null,
+          highUsdX18: prevHasUsd ? BigInt(prevRow.high_usd_x18!) : null,
+          lowUsdX18: prevHasUsd ? BigInt(prevRow.low_usd_x18!) : null,
+          closeUsdX18: prevHasUsd ? BigInt(prevRow.close_usd_x18!) : null,
+          usdVolumeX18: prevHasUsd ? BigInt(prevRow.usd_volume_x18!) : null,
         }
       : null;
 
@@ -428,6 +464,8 @@ export async function processBlock(
       side,
       blockNumber: Number(blockNumber),
       bucketStart,
+      priceUsdX18: tradeUsd.executionPriceUsdX18,
+      usdValueX18: tradeUsd.usdValueX18,
     });
     await upsertMinuteAndRollups(db, {
       chainId,

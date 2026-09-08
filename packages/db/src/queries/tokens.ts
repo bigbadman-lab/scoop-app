@@ -125,6 +125,7 @@ export async function getToken(
       m.price_quote_x18::text AS price_quote_x18,
       m.fdv_usd_x18::text AS fdv_usd_x18,
       m.volume_24h_quote_raw::text AS volume_24h_quote_raw,
+      m.volume_24h_usd_x18::text AS volume_24h_usd_x18,
       m.trade_count_24h,
       m.holder_count_all,
       m.holder_count_retail,

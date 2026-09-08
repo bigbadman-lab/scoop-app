@@ -30,9 +30,16 @@ export interface MinuteCandle {
   sellCount: number;
   firstTradeBlock?: number | null;
   lastTradeBlock?: number | null;
+  /** True only when every trade merged so far had trade-time USD. */
+  usdComplete: boolean;
+  openUsdX18: bigint | null;
+  highUsdX18: bigint | null;
+  lowUsdX18: bigint | null;
+  closeUsdX18: bigint | null;
+  usdVolumeX18: bigint | null;
 }
 
-/** Merge a trade into an existing 1m candle (pure). */
+/** Merge a trade into an existing 1m candle (pure). Missing USD → incomplete USD OHLC (null). */
 export function mergeTradeIntoMinuteCandle(
   existing: MinuteCandle | null,
   trade: {
@@ -42,8 +49,16 @@ export function mergeTradeIntoMinuteCandle(
     side: 'buy' | 'sell';
     blockNumber: number;
     bucketStart: number;
+    priceUsdX18?: bigint | null;
+    usdValueX18?: bigint | null;
   },
 ): MinuteCandle {
+  const hasUsd =
+    trade.priceUsdX18 != null &&
+    trade.priceUsdX18 >= 0n &&
+    trade.usdValueX18 != null &&
+    trade.usdValueX18 >= 0n;
+
   if (!existing) {
     return {
       bucketStart: trade.bucketStart,
@@ -58,9 +73,16 @@ export function mergeTradeIntoMinuteCandle(
       sellCount: trade.side === 'sell' ? 1 : 0,
       firstTradeBlock: trade.blockNumber,
       lastTradeBlock: trade.blockNumber,
+      usdComplete: hasUsd,
+      openUsdX18: hasUsd ? trade.priceUsdX18! : null,
+      highUsdX18: hasUsd ? trade.priceUsdX18! : null,
+      lowUsdX18: hasUsd ? trade.priceUsdX18! : null,
+      closeUsdX18: hasUsd ? trade.priceUsdX18! : null,
+      usdVolumeX18: hasUsd ? trade.usdValueX18! : null,
     };
   }
-  return {
+
+  const quoteMerged = {
     bucketStart: existing.bucketStart,
     openQuoteX18: existing.openQuoteX18,
     highQuoteX18:
@@ -75,6 +97,30 @@ export function mergeTradeIntoMinuteCandle(
     sellCount: existing.sellCount + (trade.side === 'sell' ? 1 : 0),
     firstTradeBlock: existing.firstTradeBlock ?? trade.blockNumber,
     lastTradeBlock: trade.blockNumber,
+  };
+
+  if (!existing.usdComplete || !hasUsd) {
+    return {
+      ...quoteMerged,
+      usdComplete: false,
+      openUsdX18: null,
+      highUsdX18: null,
+      lowUsdX18: null,
+      closeUsdX18: null,
+      usdVolumeX18: null,
+    };
+  }
+
+  const px = trade.priceUsdX18!;
+  return {
+    ...quoteMerged,
+    usdComplete: true,
+    openUsdX18: existing.openUsdX18,
+    highUsdX18:
+      existing.highUsdX18 != null && px > existing.highUsdX18 ? px : existing.highUsdX18,
+    lowUsdX18: existing.lowUsdX18 != null && px < existing.lowUsdX18 ? px : existing.lowUsdX18,
+    closeUsdX18: px,
+    usdVolumeX18: (existing.usdVolumeX18 ?? 0n) + trade.usdValueX18!,
   };
 }
 
@@ -96,6 +142,7 @@ export function rollupMinuteCandles(
     const sorted = list.sort((a, b) => a.bucketStart - b.bucketStart);
     const first = sorted[0]!;
     const last = sorted[sorted.length - 1]!;
+    const usdComplete = sorted.every((c) => c.usdComplete);
     out.push({
       bucketStart,
       openQuoteX18: first.openQuoteX18,
@@ -115,6 +162,26 @@ export function rollupMinuteCandles(
       sellCount: sorted.reduce((s, c) => s + c.sellCount, 0),
       firstTradeBlock: first.firstTradeBlock ?? null,
       lastTradeBlock: last.lastTradeBlock ?? null,
+      usdComplete,
+      openUsdX18: usdComplete ? first.openUsdX18 : null,
+      highUsdX18: usdComplete
+        ? sorted.reduce(
+            (h, c) =>
+              c.highUsdX18 != null && (h == null || c.highUsdX18 > h) ? c.highUsdX18 : h,
+            first.highUsdX18,
+          )
+        : null,
+      lowUsdX18: usdComplete
+        ? sorted.reduce(
+            (l, c) =>
+              c.lowUsdX18 != null && (l == null || c.lowUsdX18 < l) ? c.lowUsdX18 : l,
+            first.lowUsdX18,
+          )
+        : null,
+      closeUsdX18: usdComplete ? last.closeUsdX18 : null,
+      usdVolumeX18: usdComplete
+        ? sorted.reduce((s, c) => s + (c.usdVolumeX18 ?? 0n), 0n)
+        : null,
     });
   }
   return out;
@@ -148,13 +215,17 @@ export async function upsertMinuteAndRollups(
     tradeCount: c.tradeCount,
     buyCount: c.buyCount,
     sellCount: c.sellCount,
+    openUsdX18: c.usdComplete ? c.openUsdX18 : null,
+    highUsdX18: c.usdComplete ? c.highUsdX18 : null,
+    lowUsdX18: c.usdComplete ? c.lowUsdX18 : null,
+    closeUsdX18: c.usdComplete ? c.closeUsdX18 : null,
+    usdVolumeX18: c.usdComplete ? c.usdVolumeX18 : null,
     firstTradeBlock: c.firstTradeBlock ?? null,
     lastTradeBlock: c.lastTradeBlock ?? null,
   });
 
   await upsertCandle(db, toRow('1m', args.candle));
 
-  // Load neighboring 1m candles for the higher buckets that include this minute
   const higher: Array<Exclude<CandleInterval, '1m'>> = ['5m', '15m', '1h', '4h', '1d'];
   for (const interval of higher) {
     const size = CANDLE_INTERVAL_SECONDS[interval];
@@ -173,31 +244,52 @@ export async function upsertMinuteAndRollups(
       sell_count: number;
       first_trade_block: string | null;
       last_trade_block: string | null;
+      open_usd_x18: string | null;
+      high_usd_x18: string | null;
+      low_usd_x18: string | null;
+      close_usd_x18: string | null;
+      usd_volume_x18: string | null;
     }>(
       `SELECT bucket_start, open_quote_x18, high_quote_x18, low_quote_x18, close_quote_x18,
               quote_volume_raw, token_volume_raw, trade_count, buy_count, sell_count,
-              first_trade_block, last_trade_block
+              first_trade_block, last_trade_block,
+              open_usd_x18::text AS open_usd_x18, high_usd_x18::text AS high_usd_x18,
+              low_usd_x18::text AS low_usd_x18, close_usd_x18::text AS close_usd_x18,
+              usd_volume_x18::text AS usd_volume_x18
        FROM candles
        WHERE chain_id = $1 AND pool_id = $2 AND interval = '1m'
          AND bucket_start >= $3 AND bucket_start < $4
        ORDER BY bucket_start ASC`,
       [args.chainId, args.poolId, parentStart, parentEnd],
     );
-    const minutes: MinuteCandle[] = result.rows.map((r) => ({
-      bucketStart: Number(r.bucket_start),
-      openQuoteX18: BigInt(r.open_quote_x18),
-      highQuoteX18: BigInt(r.high_quote_x18),
-      lowQuoteX18: BigInt(r.low_quote_x18),
-      closeQuoteX18: BigInt(r.close_quote_x18),
-      quoteVolumeRaw: BigInt(r.quote_volume_raw),
-      tokenVolumeRaw: BigInt(r.token_volume_raw),
-      tradeCount: r.trade_count,
-      buyCount: r.buy_count,
-      sellCount: r.sell_count,
-      firstTradeBlock: r.first_trade_block == null ? null : Number(r.first_trade_block),
-      lastTradeBlock: r.last_trade_block == null ? null : Number(r.last_trade_block),
-    }));
-    // Ensure the just-written candle is represented even if read-your-writes lags
+    const minutes: MinuteCandle[] = result.rows.map((r) => {
+      const hasUsd =
+        r.open_usd_x18 != null &&
+        r.high_usd_x18 != null &&
+        r.low_usd_x18 != null &&
+        r.close_usd_x18 != null &&
+        r.usd_volume_x18 != null;
+      return {
+        bucketStart: Number(r.bucket_start),
+        openQuoteX18: BigInt(r.open_quote_x18),
+        highQuoteX18: BigInt(r.high_quote_x18),
+        lowQuoteX18: BigInt(r.low_quote_x18),
+        closeQuoteX18: BigInt(r.close_quote_x18),
+        quoteVolumeRaw: BigInt(r.quote_volume_raw),
+        tokenVolumeRaw: BigInt(r.token_volume_raw),
+        tradeCount: r.trade_count,
+        buyCount: r.buy_count,
+        sellCount: r.sell_count,
+        firstTradeBlock: r.first_trade_block == null ? null : Number(r.first_trade_block),
+        lastTradeBlock: r.last_trade_block == null ? null : Number(r.last_trade_block),
+        usdComplete: hasUsd,
+        openUsdX18: hasUsd ? BigInt(r.open_usd_x18!) : null,
+        highUsdX18: hasUsd ? BigInt(r.high_usd_x18!) : null,
+        lowUsdX18: hasUsd ? BigInt(r.low_usd_x18!) : null,
+        closeUsdX18: hasUsd ? BigInt(r.close_usd_x18!) : null,
+        usdVolumeX18: hasUsd ? BigInt(r.usd_volume_x18!) : null,
+      };
+    });
     if (!minutes.some((m) => m.bucketStart === args.candle.bucketStart)) {
       minutes.push(args.candle);
     }

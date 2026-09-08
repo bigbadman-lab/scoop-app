@@ -70,6 +70,8 @@ export async function getTrades(
       tr.quote_amount_raw::text AS quote_amount_raw,
       tr.token_amount_raw::text AS token_amount_raw,
       tr.execution_price_quote_x18::text AS execution_price_quote_x18,
+      tr.quote_usd_x18::text AS quote_usd_x18,
+      tr.execution_price_usd_x18::text AS execution_price_usd_x18,
       tr.usd_value_x18::text AS usd_value_x18,
       tr.is_initial_buy,
       COALESCE(rce.confirmation_status, 'confirmed') AS confirmation_status
@@ -89,6 +91,9 @@ export async function getTrades(
     const quoteAmountRaw = String(row.quote_amount_raw);
     const tokenAmountRaw = String(row.token_amount_raw);
     const priceX18 = String(row.execution_price_quote_x18);
+    const quoteUsdX18 = row.quote_usd_x18 == null ? null : String(row.quote_usd_x18);
+    const executionPriceUsdX18 =
+      row.execution_price_usd_x18 == null ? null : String(row.execution_price_usd_x18);
     const usdValueX18 = row.usd_value_x18 == null ? null : String(row.usd_value_x18);
 
     return {
@@ -110,6 +115,9 @@ export async function getTrades(
       tokenAmountDisplay: formatRawAmount(tokenAmountRaw, tokenDecimals),
       executionPriceQuoteX18: priceX18,
       executionPriceQuoteDisplay: formatX18(priceX18) ?? '0',
+      quoteUsdX18,
+      executionPriceUsdX18,
+      executionPriceUsdDisplay: formatX18(executionPriceUsdX18),
       usdValueX18,
       usdValueDisplay: formatX18(usdValueX18),
       isInitialBuy: Boolean(row.is_initial_buy),

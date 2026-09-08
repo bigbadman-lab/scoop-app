@@ -39,6 +39,8 @@ function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
     fdvUsdDisplay: null,
     volume24hQuoteRaw: '3200000000000000000',
     volume24hQuoteDisplay: '3.2',
+    volume24hUsdX18: null,
+    volume24hUsdDisplay: null,
     tradeCount24h: 4,
     holderCountAll: 130,
     holderCountRetail: 124,

@@ -106,6 +106,8 @@ export async function refreshTokenMarketFromTrades(
     buy_count: string;
     sell_count: string;
     quote_volume: string;
+    usd_volume: string | null;
+    usd_valued_count: string;
     first_price: string | null;
     last_price: string | null;
   }>(
@@ -114,6 +116,12 @@ export async function refreshTokenMarketFromTrades(
       COUNT(*) FILTER (WHERE side = 'buy')::text AS buy_count,
       COUNT(*) FILTER (WHERE side = 'sell')::text AS sell_count,
       COALESCE(SUM(quote_amount_raw), 0)::text AS quote_volume,
+      COUNT(usd_value_x18)::text AS usd_valued_count,
+      CASE
+        WHEN COUNT(*) = 0 THEN '0'
+        WHEN COUNT(usd_value_x18) = COUNT(*) THEN COALESCE(SUM(usd_value_x18), 0)::text
+        ELSE NULL
+      END AS usd_volume,
       (ARRAY_AGG(execution_price_quote_x18 ORDER BY block_number ASC, log_index ASC))[1]::text AS first_price,
       (ARRAY_AGG(execution_price_quote_x18 ORDER BY block_number DESC, log_index DESC))[1]::text AS last_price
      FROM trades
@@ -204,6 +212,7 @@ export async function refreshTokenMarketFromTrades(
     quoteVolumeAllTimeRaw: all?.quote_volume ?? '0',
     tokenVolumeAllTimeRaw: all?.token_volume ?? '0',
     volume24hQuoteRaw: day?.quote_volume ?? '0',
+    volume24hUsdX18: day?.usd_volume == null ? null : day.usd_volume,
     tradeCount24h: Number(day?.trade_count ?? 0),
     buyCount24h: Number(day?.buy_count ?? 0),
     sellCount24h: Number(day?.sell_count ?? 0),

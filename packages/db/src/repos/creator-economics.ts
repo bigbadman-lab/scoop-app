@@ -252,6 +252,88 @@ export async function getLatestQuotePriceUsd(
   };
 }
 
+/**
+ * Nearest snapshot at or before trade time (unix seconds), for trade-time USD.
+ * Caller must still apply freshness vs trade timestamp.
+ */
+export async function getQuotePriceUsdAtOrBefore(
+  db: Queryable,
+  chainId: number,
+  quoteAsset: string,
+  atOrBeforeUnixSec: number,
+): Promise<LatestQuotePriceRow | null> {
+  const asset = normalizeAddress(quoteAsset);
+  const result = await db.query<{
+    price_usd_x18: string;
+    observed_at: Date;
+    decimals: number | null;
+    oracle_max_age: number | null;
+  }>(
+    `SELECT s.price_usd_x18::text AS price_usd_x18, s.observed_at,
+            q.decimals, q.oracle_max_age
+     FROM quote_price_snapshots s
+     LEFT JOIN quote_assets q
+       ON q.chain_id = s.chain_id AND q.quote_asset = s.quote_asset
+     WHERE s.chain_id = $1 AND s.quote_asset = $2
+       AND s.observed_at <= to_timestamp($3::double precision)
+     ORDER BY s.observed_at DESC
+     LIMIT 1`,
+    [chainId, asset, atOrBeforeUnixSec],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    quoteAsset: asset,
+    priceUsdX18: String(row.price_usd_x18),
+    observedAt: row.observed_at,
+    quoteDecimals: row.decimals == null ? null : Number(row.decimals),
+    oracleMaxAge: row.oracle_max_age == null ? null : Number(row.oracle_max_age),
+  };
+}
+
+export interface SnapshotQuoteAssetRow {
+  quoteAsset: string;
+  symbol: string;
+  decimals: number;
+  oracleFeed: string;
+  oracleMaxAge: number | null;
+}
+
+/**
+ * Enabled registered quotes with a configured oracle feed (eligible for ScoopPriceOracle snapshots).
+ * Does not invent prices for assets without a feed.
+ */
+export async function listSnapshotEligibleQuoteAssets(
+  db: Queryable,
+  chainId: number,
+): Promise<SnapshotQuoteAssetRow[]> {
+  const zero = '0x0000000000000000000000000000000000000000';
+  const result = await db.query<{
+    quote_asset: string;
+    symbol: string;
+    decimals: number;
+    oracle_feed: string;
+    oracle_max_age: number | null;
+  }>(
+    `SELECT quote_asset, symbol, decimals, oracle_feed, oracle_max_age
+     FROM quote_assets
+     WHERE chain_id = $1
+       AND is_registered = TRUE
+       AND is_enabled = TRUE
+       AND oracle_feed IS NOT NULL
+       AND lower(oracle_feed) <> $2
+     ORDER BY sort_order ASC NULLS LAST, symbol ASC`,
+    [chainId, zero],
+  );
+  return result.rows.map((row) => ({
+    quoteAsset: normalizeAddress(row.quote_asset),
+    symbol: String(row.symbol),
+    decimals: Number(row.decimals),
+    oracleFeed: normalizeAddress(row.oracle_feed),
+    oracleMaxAge: row.oracle_max_age == null ? null : Number(row.oracle_max_age),
+  }));
+}
+
 /** Catalogue decimals for a quote asset; null if not registered. */
 export async function getQuoteAssetDecimals(
   db: Queryable,

@@ -149,6 +149,28 @@ export function priceUsdX18FromQuote(args: {
 }
 
 /**
+ * Trade USD notional from quote leg × quote/USD.
+ * notional_usd_x18 = quote_amount_raw * quote_usd_x18 / 10^quote_decimals
+ */
+export function notionalUsdX18FromQuoteAmount(args: {
+  quoteAmountRaw: bigint;
+  quoteUsdX18: bigint;
+  quoteDecimals: number;
+}): bigint {
+  if (args.quoteAmountRaw < 0n || args.quoteUsdX18 < 0n) {
+    throw new Error('USD notional inputs must be non-negative');
+  }
+  if (!Number.isInteger(args.quoteDecimals) || args.quoteDecimals < 0) {
+    throw new Error(`Invalid quoteDecimals: ${args.quoteDecimals}`);
+  }
+  return mulDiv(
+    args.quoteAmountRaw,
+    args.quoteUsdX18,
+    10n ** BigInt(args.quoteDecimals),
+  );
+}
+
+/**
  * Fully-diluted valuation in USD x18 using total supply (not circulating).
  * fdv_usd_x18 = price_usd_x18 * total_supply_raw / 10^tokenDecimals
  */
