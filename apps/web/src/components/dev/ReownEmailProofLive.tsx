@@ -92,23 +92,28 @@ export function ReownEmailProofLive() {
   }, [isConnected, address, embedded, chainId]);
 
   const runSiwe = useCallback(async () => {
-    if (!address) return;
+    if (!address || !connector) return;
     setBusy('siwe');
     setError(null);
     try {
-      const ok = await requestSiweSession(address, signMessageAsync, ROBINHOOD_CHAIN_ID);
+      const result = await requestSiweSession(
+        address,
+        async ({ message }) => signMessageAsync({ message, connector }),
+        ROBINHOOD_CHAIN_ID,
+        { connectedAddress: address },
+      );
       setSiweResult({
-        ok,
-        detail: ok
-          ? `session matches ${shortenWalletAddress(address)}`
-          : 'verify failed or address mismatch',
+        ok: result.ok,
+        detail: result.ok
+          ? `session matches ${shortenWalletAddress(result.address)} user ${result.userId.slice(0, 8)}`
+          : `${result.code}: ${result.message}`,
       });
       const status = await fetchScoopAuthStatus();
       setSessionResult(
         status.authenticated
           ? {
               ok: true,
-              detail: `authenticated ${shortenWalletAddress(status.address)} chain ${status.chainId}`,
+              detail: `authenticated ${shortenWalletAddress(status.address)} user ${status.userId.slice(0, 8)} chain ${status.chainId}`,
             }
           : { ok: false, detail: 'session unauthenticated' },
       );
@@ -119,7 +124,7 @@ export function ReownEmailProofLive() {
     } finally {
       setBusy(null);
     }
-  }, [address, signMessageAsync]);
+  }, [address, connector, signMessageAsync]);
 
   const runChainSwitch = useCallback(async () => {
     setBusy('chain');

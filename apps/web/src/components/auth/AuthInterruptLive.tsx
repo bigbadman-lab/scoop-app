@@ -7,10 +7,14 @@ import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { sanitizeAssistResumePath } from '@/lib/auth/siwe-client';
 
-type AuthInterruptProps = {
+export type AuthInterruptLiveProps = {
   resumePath: string;
   onAuthenticated: () => void;
   onCancel: () => void;
+  /** When true, show different-wallet copy. */
+  mismatch?: boolean;
+  /** Optional override for the intro paragraph. */
+  message?: string | null;
 };
 
 function AuthInterruptShell({
@@ -18,11 +22,15 @@ function AuthInterruptShell({
   error,
   primary,
   onCancel,
+  mismatch,
+  message,
 }: {
   configured: boolean;
   error: string | null;
   primary: React.ReactNode;
   onCancel: () => void;
+  mismatch?: boolean;
+  message?: string | null;
 }) {
   return (
     <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
@@ -30,13 +38,16 @@ function AuthInterruptShell({
         Sign in to continue
       </p>
       <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-        Connect a wallet to make a market
+        {mismatch
+          ? "You're connected with a different wallet"
+          : 'Connect a wallet to make a market'}
       </h1>
       <p className="text-sm text-[var(--muted)]">
-        Launch assist uses paid AI. Sign in with an existing wallet to generate
-        concepts and artwork. This is a free message signature — not a
-        transaction and not gas. Email and social wallets arrive after Robinhood
-        Chain embedded support is confirmed.
+        {message?.trim()
+          ? message
+          : mismatch
+            ? 'Sign in with this wallet to continue.'
+            : 'Launch assist uses paid AI. Sign in with an existing wallet to generate concepts and artwork. This is a free message signature — not a transaction and not gas.'}
       </p>
 
       {!configured ? (
@@ -71,26 +82,42 @@ export function AuthInterruptLive({
   resumePath,
   onAuthenticated,
   onCancel,
-}: AuthInterruptProps) {
+  mismatch = false,
+  message = null,
+}: AuthInterruptLiveProps) {
   const { open } = useAppKit();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector, status } = useAccount();
   const { signMessageAsync, isPending: signing } = useSignMessage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const safeResume = sanitizeAssistResumePath(resumePath);
+  const signerReady = status === 'connected' && Boolean(address) && Boolean(connector);
 
   async function completeSiwe() {
-    if (!address) return;
+    if (!signerReady || !address || !connector) {
+      setError('Wallet signer is not ready. Reconnect and try again.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const ok = await requestSiweSession(
+      const result = await requestSiweSession(
         address,
-        signMessageAsync,
+        async ({ message: siweMessage }) =>
+          signMessageAsync({ message: siweMessage, connector }),
         ROBINHOOD_CHAIN_ID,
+        {
+          connectedAddress: address,
+          onStep: (step, meta) => {
+            console.info('[scoop-siwe]', step, {
+              connector: connector.id,
+              ...meta,
+            });
+          },
+        },
       );
-      if (!ok) {
-        setError('Could not verify wallet signature. Try again.');
+      if (!result.ok) {
+        setError(result.message);
         return;
       }
       if (safeResume && typeof document !== 'undefined') {
@@ -98,7 +125,7 @@ export function AuthInterruptLive({
       }
       onAuthenticated();
     } catch {
-      setError('Sign-in was cancelled or failed.');
+      setError('Network error during sign-in. Try again.');
     } finally {
       setBusy(false);
     }
@@ -109,6 +136,8 @@ export function AuthInterruptLive({
       error={error}
       configured
       onCancel={onCancel}
+      mismatch={mismatch}
+      message={message}
       primary={
         !isConnected ? (
           <button
@@ -122,7 +151,7 @@ export function AuthInterruptLive({
         ) : (
           <button
             type="button"
-            disabled={busy || signing}
+            disabled={busy || signing || !signerReady}
             onClick={() => void completeSiwe()}
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
           >

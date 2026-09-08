@@ -12,11 +12,23 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** Nonce lifetime — 10 minutes. */
 export const NONCE_TTL_MS = 10 * 60 * 1000;
 
+/** Accept standard UUID strings from Postgres gen_random_uuid(). */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type ScoopAuthSession = {
+  /** Canonical scoop_users.id — server/DB only; never from the client. */
+  userId: string;
   address: `0x${string}`;
   chainId: number;
   issuedAt: number;
   expiresAt: number;
+};
+
+export type AuthenticatedScoopUser = {
+  userId: string;
+  address: `0x${string}`;
+  chainId: number;
 };
 
 function sessionSecret(env: NodeJS.ProcessEnv = process.env): string {
@@ -45,6 +57,10 @@ function fromB64url(raw: string): Buffer {
 
 function sign(payload: string, env?: NodeJS.ProcessEnv): string {
   return b64url(createHmac('sha256', sessionSecret(env)).update(payload).digest());
+}
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
 }
 
 export function createNonce(): string {
@@ -81,17 +97,23 @@ export function unsealNonce(
   }
 }
 
+/**
+ * Issue a C.3a session. Pre-C.3a address-only cookies are rejected on unseal (Option A).
+ */
 export function createSession(
+  userId: string,
   address: string,
   chainId: number,
   now = Date.now(),
 ): ScoopAuthSession | null {
+  if (!isUuid(userId)) return null;
   const normalized = sessionAddress(address);
   if (!normalized) return null;
   if (!Number.isInteger(chainId) || chainId <= 0) return null;
   // C.2: only Robinhood Chain sessions are authoritative.
   if (chainId !== ROBINHOOD_CHAIN_ID) return null;
   return {
+    userId: userId.toLowerCase(),
     address: normalized,
     chainId,
     issuedAt: now,
@@ -100,14 +122,30 @@ export function createSession(
 }
 
 /**
- * Canonical server identity resolver.
- * Browser-supplied addresses must never override this.
+ * Canonical server identity resolver (wallet address only).
+ * Prefer getAuthenticatedScoopUser when userId is required.
  */
 export function getAuthenticatedWallet(
   request: Request,
   env?: NodeJS.ProcessEnv,
 ): `0x${string}` | null {
   return readSessionFromRequest(request, env)?.address ?? null;
+}
+
+/**
+ * Preferred C.3a identity primitive for protected server actions.
+ */
+export function getAuthenticatedScoopUser(
+  request: Request,
+  env?: NodeJS.ProcessEnv,
+): AuthenticatedScoopUser | null {
+  const session = readSessionFromRequest(request, env);
+  if (!session) return null;
+  return {
+    userId: session.userId,
+    address: session.address,
+    chainId: session.chainId,
+  };
 }
 
 export function sealSession(
@@ -132,7 +170,10 @@ export function unsealSession(
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
     const parsed = JSON.parse(fromB64url(payload).toString('utf8')) as Partial<ScoopAuthSession>;
+    // Option A: reject pre-C.3a address-only sessions (missing/invalid userId).
     if (
+      typeof parsed.userId !== 'string' ||
+      !isUuid(parsed.userId) ||
       typeof parsed.address !== 'string' ||
       typeof parsed.chainId !== 'number' ||
       typeof parsed.issuedAt !== 'number' ||
@@ -140,10 +181,12 @@ export function unsealSession(
     ) {
       return null;
     }
+    if (parsed.chainId !== ROBINHOOD_CHAIN_ID) return null;
     const address = sessionAddress(parsed.address);
     if (!address) return null;
     if (now > parsed.expiresAt) return null;
     return {
+      userId: parsed.userId.toLowerCase(),
       address,
       chainId: parsed.chainId,
       issuedAt: parsed.issuedAt,

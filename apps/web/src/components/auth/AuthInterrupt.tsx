@@ -7,6 +7,8 @@ type AuthInterruptProps = {
   resumePath: string;
   onAuthenticated: () => void;
   onCancel: () => void;
+  mismatch?: boolean;
+  message?: string | null;
 };
 
 function AuthInterruptShell({

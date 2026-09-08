@@ -5,6 +5,7 @@ import {
   resolveSiweExpectedUri,
   verifySiweSignature,
 } from '@/lib/auth/siwe';
+import { resolveVerifiedWalletIdentity } from '@/lib/auth/identity';
 import {
   NONCE_COOKIE,
   SESSION_COOKIE,
@@ -24,24 +25,44 @@ type Body = {
   message?: unknown;
   signature?: unknown;
   address?: unknown;
+  userId?: unknown;
 };
+
+function clearNonceCookie(res: NextResponse): void {
+  res.cookies.set(NONCE_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 });
+}
+
+function errorJson(
+  status: number,
+  code: string,
+  error: string,
+): NextResponse {
+  const res = NextResponse.json({ ok: false, error, code }, { status });
+  // Consume nonce on every failed verify attempt so the next SIWE must fetch a fresh one.
+  clearNonceCookie(res);
+  return res;
+}
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => null)) as Body | null;
     if (!body || typeof body !== 'object') {
-      throw new ValidationError('Invalid JSON body');
+      return errorJson(400, 'VALIDATION', 'Invalid JSON body');
     }
 
     // Reject forge-by-address: identity comes only from verified signature.
     if (body.address != null && body.message == null) {
-      throw new ValidationError('Address alone cannot authenticate');
+      return errorJson(400, 'VALIDATION', 'Address alone cannot authenticate');
+    }
+    // Never trust client-supplied userId.
+    if (body.userId != null) {
+      return errorJson(400, 'VALIDATION', 'userId cannot be supplied by the client');
     }
 
     const message = String(body.message ?? '');
     const signature = String(body.signature ?? '');
     if (!message || !signature) {
-      throw new ValidationError('message and signature are required');
+      return errorJson(400, 'VALIDATION', 'message and signature are required');
     }
 
     const sealedNonce = parseCookieHeader(
@@ -50,7 +71,7 @@ export async function POST(request: Request) {
     );
     const expectedNonce = unsealNonce(sealedNonce);
     if (!expectedNonce) {
-      throw new ValidationError('Nonce missing or expired — request a new one');
+      return errorJson(400, 'NONCE_ERROR', 'Nonce missing or expired — request a new one');
     }
 
     const expectedDomain = resolveSiweExpectedDomain(request);
@@ -64,19 +85,36 @@ export async function POST(request: Request) {
       expectedChainId: ROBINHOOD_CHAIN_ID,
     });
     if (!verified) {
-      return NextResponse.json(
-        { error: 'Signature verification failed', code: 'VERIFY_FAILED' },
-        { status: 401 },
+      return errorJson(401, 'SIWE_VERIFY_FAILED', 'Signature verification failed');
+    }
+
+    let identity;
+    try {
+      identity = await resolveVerifiedWalletIdentity({
+        address: verified.address,
+        chainId: verified.chainId,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SCOOP_USER_DISABLED') {
+        return errorJson(403, 'USER_DISABLED', 'Account disabled');
+      }
+      console.error(
+        'POST /api/auth/verify identity',
+        error instanceof Error ? error.message.replace(/0x[a-fA-F0-9]{40,}/gi, '[ADDR]') : 'error',
       );
+      return errorJson(500, 'IDENTITY_RESOLUTION_FAILED', 'Could not resolve account');
     }
 
-    const session = createSession(verified.address, verified.chainId);
+    const session = createSession(identity.userId, identity.address, verified.chainId);
     if (!session) {
-      throw new ValidationError('Could not create session');
+      return errorJson(500, 'SESSION_CREATE_FAILED', 'Could not create session');
     }
 
+    // Existing scoop_session (if any) is replaced by writing the same cookie name/path.
     const res = NextResponse.json({
+      ok: true,
       authenticated: true,
+      userId: session.userId,
       address: session.address,
       chainId: session.chainId,
       expiresAt: new Date(session.expiresAt).toISOString(),
@@ -86,17 +124,16 @@ export async function POST(request: Request) {
       sealSession(session),
       sessionCookieOptions(Math.floor(SESSION_TTL_MS / 1000)),
     );
-    // Consume nonce — prevent replay.
-    res.cookies.set(NONCE_COOKIE, '', { ...sessionCookieOptions(0), maxAge: 0 });
+    clearNonceCookie(res);
     return res;
   } catch (error) {
     if (error instanceof ValidationError) {
-      return NextResponse.json({ error: error.message, code: 'VALIDATION' }, { status: 400 });
+      return errorJson(400, 'VALIDATION', error.message);
     }
     console.error(
       'POST /api/auth/verify',
       error instanceof Error ? error.message.replace(/0x[a-fA-F0-9]{64,}/g, '[SIG]') : 'error',
     );
-    return NextResponse.json({ error: 'Authentication failed', code: 'ERROR' }, { status: 500 });
+    return errorJson(500, 'ERROR', 'Authentication failed');
   }
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useRef } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConceptAssistFlow } from '@/components/launch-assist/ConceptAssistFlow';
 import { LAUNCH_ASSIST_HANDOFF_KEY } from '@/lib/launch-assist/types';
@@ -23,6 +24,32 @@ vi.mock('next/link', () => ({
     <a href={href} className={className}>
       {children}
     </a>
+  ),
+}));
+
+vi.mock('@/components/auth/AssistAuthGate', () => ({
+  AssistAuthGate: function MockAssistAuthGate({
+    onReady,
+    visible = true,
+  }: {
+    onReady: () => void;
+    visible?: boolean;
+  }) {
+    const done = useRef(false);
+    if (!done.current) {
+      done.current = true;
+      queueMicrotask(() => onReady());
+    }
+    if (!visible) return null;
+    return <div data-testid="assist-auth-gate">auth gate</div>;
+  },
+}));
+
+vi.mock('@/components/auth/AuthInterrupt', () => ({
+  AuthInterrupt: ({ onAuthenticated }: { onAuthenticated: () => void }) => (
+    <button type="button" onClick={onAuthenticated}>
+      mock auth
+    </button>
   ),
 }));
 
@@ -103,7 +130,9 @@ describe('ConceptAssistFlow', () => {
   it('shows making-a-market loading state', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
     render(<ConceptAssistFlow providerArticleId="77" catalogue={catalogue} />);
-    expect(screen.getByText(/making a market/i)).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText(/making a market/i)).toBeTruthy();
+    });
   });
 
   it('renders three concepts with story provenance', async () => {

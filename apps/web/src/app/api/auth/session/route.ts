@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   }
   return NextResponse.json({
     authenticated: true,
+    userId: session.userId,
     address: session.address,
     chainId: session.chainId,
     expiresAt: new Date(session.expiresAt).toISOString(),

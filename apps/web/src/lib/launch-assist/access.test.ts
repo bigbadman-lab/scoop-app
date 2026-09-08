@@ -3,6 +3,7 @@ import { resolveLaunchAssistAccess } from '@/lib/launch-assist/access';
 import type { ScoopAuthSession } from '@/lib/auth/session';
 
 const session: ScoopAuthSession = {
+  userId: '11111111-1111-4111-8111-111111111111',
   address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   chainId: 4663,
   issuedAt: Date.now(),

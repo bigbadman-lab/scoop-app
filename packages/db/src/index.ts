@@ -89,6 +89,15 @@ export {
   type AddressClassificationRow,
 } from './repos/address-classifications.js';
 export {
+  resolveOrCreateScoopUserForVerifiedWallet,
+  findScoopUserByWalletAddress,
+  type ScoopUserRecord,
+  type ScoopUserStatus,
+  type ScoopWalletType,
+  type ScoopWalletProvider,
+  type ResolveScoopUserInput,
+} from './repos/scoop-identity.js';
+export {
   upsertProcessedBlock,
   getProcessedBlock,
   deleteProcessedBlocksFrom,

@@ -2,11 +2,19 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
 import { ArtworkChooser } from '@/components/launch-assist/ArtworkChooser';
 import { AuthInterrupt } from '@/components/auth/AuthInterrupt';
+import { AssistAuthGate } from '@/components/auth/AssistAuthGate';
 import {
   saveAssistedLaunchHandoff,
   saveSelectedLaunchConcept,
@@ -157,15 +165,18 @@ function ImageErrorFallback({
 export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: 'loading_concepts' });
+  const [authReady, setAuthReady] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const artworkInFlight = useRef(false);
   const lastConcepts = useRef<PublicLaunchConcept[] | null>(null);
+  const startedRef = useRef(false);
 
   async function generateConcepts() {
     setState({ kind: 'loading_concepts' });
     try {
       const res = await fetch('/api/launch-assist/concepts', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerArticleId }),
       });
@@ -225,6 +236,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
     try {
       const res = await fetch('/api/launch-assist/artwork', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerArticleId, concept }),
       });
@@ -285,10 +297,17 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   }
 
   useEffect(() => {
-    void generateConcepts();
-    // Intentionally once per article id
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    startedRef.current = false;
+    setAuthReady(false);
   }, [providerArticleId]);
+
+  useEffect(() => {
+    if (!authReady || startedRef.current) return;
+    startedRef.current = true;
+    void generateConcepts();
+    // Intentionally once per authReady + article id
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, providerArticleId]);
 
   function selectConcept(concept: PublicLaunchConcept, article: LaunchAssistArticle) {
     if (!concept.pairEnabled || artworkInFlight.current) return;
@@ -312,6 +331,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
       try {
         await fetch('/api/launch-assist/artwork/select', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             draftId: image.draftId,
@@ -337,8 +357,36 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
     router.push('/launch?assist=1');
   }
 
+  const resumePath = `/news/${encodeURIComponent(providerArticleId)}/launch`;
+  const markAuthReady = useCallback(() => {
+    setAuthReady(true);
+  }, []);
+  const blockAuth = useCallback(() => {
+    setAuthReady(false);
+    startedRef.current = false;
+  }, []);
+  const cancelAuth = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const gate = (
+    <AssistAuthGate
+      resumePath={resumePath}
+      visible={!authReady}
+      onReady={markAuthReady}
+      onCancel={cancelAuth}
+      onBlocked={blockAuth}
+    />
+  );
+
+  if (!authReady) {
+    return gate;
+  }
+
+  let body: ReactNode = null;
+
   if (state.kind === 'loading_concepts') {
-    return (
+    body = (
       <div
         className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-16 text-center"
         role="status"
@@ -355,7 +403,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   }
 
   if (state.kind === 'creating_images') {
-    return (
+    body = (
       <div
         className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center px-4 py-16 text-center"
         role="status"
@@ -380,15 +428,15 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
 
   if (state.kind === 'rate_limited' || state.kind === 'auth' || state.kind === 'error') {
     if (state.kind === 'auth') {
-      return (
+      body = (
         <AuthInterrupt
-          resumePath={`/news/${encodeURIComponent(providerArticleId)}/launch`}
+          resumePath={resumePath}
           onAuthenticated={() => void generateConcepts()}
           onCancel={() => router.back()}
         />
       );
-    }
-    return (
+    } else {
+    body = (
       <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
         <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Launch assist
@@ -423,10 +471,11 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
         </div>
       </div>
     );
+    }
   }
 
   if (state.kind === 'image_error') {
-    return (
+    body = (
       <ImageErrorFallback
         article={state.article}
         concept={state.concept}
@@ -453,7 +502,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   }
 
   if (state.kind === 'images') {
-    return (
+    body = (
       <ArtworkChooser
         article={state.article}
         concept={state.concept}
@@ -467,123 +516,131 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
     );
   }
 
-  const { article, concepts } = state;
+  if (state.kind === 'concepts') {
+    const { article, concepts } = state;
+    body = (
+      <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
+        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+          Launch the story
+        </p>
+
+        <div className="mt-4 space-y-2 border-b border-[var(--divider)] pb-8">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
+            From the news
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {article.headline}
+          </h1>
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+            {article.sourceDomain}
+            <span className="text-[var(--muted-2)]"> · </span>
+            <NewsAge iso={article.publishedAt} />
+          </p>
+          {article.url ? (
+            <div className="pt-2">
+              <CtaLink href={article.url} external>
+                Read story ↗
+              </CtaLink>
+            </div>
+          ) : null}
+        </div>
+
+        <p className="mt-10 font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+          Choose your angle
+        </p>
+
+        <ul className="mt-6 divide-y divide-[var(--divider)]">
+          {concepts.map((concept, index) => {
+            const quote = resolveQuote(catalogue, concept.recommendedPairAddress);
+            const disabled = !concept.pairEnabled;
+            return (
+              <li key={concept.id} className="py-8 first:pt-2">
+                <article className={disabled ? 'opacity-50' : ''}>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
+                    {String(index + 1).padStart(2, '0')}
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight md:text-2xl">
+                    {concept.name}
+                  </h2>
+                  <p className="mt-1 font-mono text-[13px] tracking-wide text-[var(--muted)]">
+                    ${concept.ticker}
+                  </p>
+                  <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[var(--fg)]">
+                    {concept.description}
+                  </p>
+
+                  <div className="mt-5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+                      Pair with
+                    </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      {quote?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={quote.imageUrl}
+                          alt=""
+                          width={36}
+                          height={36}
+                          className="h-9 w-9 rounded-[var(--radius-sm)] object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[10px] text-[var(--scoop-orange-contrast)]">
+                          {(quote?.displaySymbol ?? concept.recommendedPairSymbol).slice(0, 3)}
+                        </span>
+                      )}
+                      <div>
+                        <p className="font-mono text-[13px]">
+                          {quote?.displaySymbol ?? concept.recommendedPairSymbol}
+                        </p>
+                        <p className="text-sm text-[var(--muted)]">
+                          {quote?.name ?? 'Quote unavailable'}
+                        </p>
+                      </div>
+                    </div>
+                    {disabled ? (
+                      <p className="mt-2 font-mono text-[11px] text-[#b42318]" role="status">
+                        This pair is no longer enabled — choose another angle or create manually.
+                      </p>
+                    ) : (
+                      <p className="mt-3 max-w-xl text-sm text-[var(--muted)]">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+                          Why this market ·{' '}
+                        </span>
+                        {concept.pairRationale}
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => selectConcept(concept, article)}
+                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Use this idea →
+                  </button>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-10 border-t border-[var(--divider)] pt-8">
+          <Link
+            href="/launch"
+            className="inline-flex min-h-11 items-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
+          >
+            Create manually →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-      <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-        Launch the story
-      </p>
-
-      <div className="mt-4 space-y-2 border-b border-[var(--divider)] pb-8">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
-          From the news
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {article.headline}
-        </h1>
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
-          {article.sourceDomain}
-          <span className="text-[var(--muted-2)]"> · </span>
-          <NewsAge iso={article.publishedAt} />
-        </p>
-        {article.url ? (
-          <div className="pt-2">
-            <CtaLink href={article.url} external>
-              Read story ↗
-            </CtaLink>
-          </div>
-        ) : null}
-      </div>
-
-      <p className="mt-10 font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-        Choose your angle
-      </p>
-
-      <ul className="mt-6 divide-y divide-[var(--divider)]">
-        {concepts.map((concept, index) => {
-          const quote = resolveQuote(catalogue, concept.recommendedPairAddress);
-          const disabled = !concept.pairEnabled;
-          return (
-            <li key={concept.id} className="py-8 first:pt-2">
-              <article className={disabled ? 'opacity-50' : ''}>
-                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
-                  {String(index + 1).padStart(2, '0')}
-                </p>
-                <h2 className="mt-2 text-xl font-semibold tracking-tight md:text-2xl">
-                  {concept.name}
-                </h2>
-                <p className="mt-1 font-mono text-[13px] tracking-wide text-[var(--muted)]">
-                  ${concept.ticker}
-                </p>
-                <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[var(--fg)]">
-                  {concept.description}
-                </p>
-
-                <div className="mt-5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-                    Pair with
-                  </p>
-                  <div className="mt-2 flex items-center gap-3">
-                    {quote?.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={quote.imageUrl}
-                        alt=""
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-[var(--radius-sm)] object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[10px] text-[var(--scoop-orange-contrast)]">
-                        {(quote?.displaySymbol ?? concept.recommendedPairSymbol).slice(0, 3)}
-                      </span>
-                    )}
-                    <div>
-                      <p className="font-mono text-[13px]">
-                        {quote?.displaySymbol ?? concept.recommendedPairSymbol}
-                      </p>
-                      <p className="text-sm text-[var(--muted)]">
-                        {quote?.name ?? 'Quote unavailable'}
-                      </p>
-                    </div>
-                  </div>
-                  {disabled ? (
-                    <p className="mt-2 font-mono text-[11px] text-[#b42318]" role="status">
-                      This pair is no longer enabled — choose another angle or create manually.
-                    </p>
-                  ) : (
-                    <p className="mt-3 max-w-xl text-sm text-[var(--muted)]">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-                        Why this market ·{' '}
-                      </span>
-                      {concept.pairRationale}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => selectConcept(concept, article)}
-                  className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Use this idea →
-                </button>
-              </article>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-10 border-t border-[var(--divider)] pt-8">
-        <Link
-          href="/launch"
-          className="inline-flex min-h-11 items-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-        >
-          Create manually →
-        </Link>
-      </div>
-    </div>
+    <>
+      {gate}
+      {body}
+    </>
   );
 }
