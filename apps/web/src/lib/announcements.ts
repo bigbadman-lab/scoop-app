@@ -1,15 +1,17 @@
 /**
- * Homepage announcement bar entries.
+ * Global announcement bar entries (AppShell).
  * Enable one (or more) events here — the bar shows the first currently active item.
  */
 
 export type Announcement = {
   id: string;
-  /** Short mono eyebrow, e.g. "Event" or "Now". */
+  /** Short mono eyebrow, e.g. "Event" or "Now". Optional when image + full message is used. */
   label: string;
   /** Main line shown in the bar. */
   message: string;
   href: string;
+  /** Optional leading marker image (public path), e.g. `/house/live.png`. */
+  imageSrc?: string;
   /** Open in a new tab when true. */
   external?: boolean;
   enabled: boolean;
@@ -20,10 +22,11 @@ export type Announcement = {
 
 export const ANNOUNCEMENTS: readonly Announcement[] = [
   {
-    id: 'welcome-launch-desk',
-    label: 'New',
-    message: 'Launch desk is live — turn news into a market.',
-    href: '/launch',
+    id: 'live-news-desk',
+    label: 'Live',
+    message: 'LIVE NEWS DESK — Stock-moving stories, as they break →',
+    href: '/news',
+    imageSrc: '/house/live.png',
     enabled: true,
   },
 ];

@@ -1,6 +1,6 @@
 import type { Queryable } from '@scoop/db';
 import type { NewsIngestionCheckpoint } from '../types.js';
-import { TIINGO_PROVIDER } from '../normalize.js';
+import { STOCKNEWS_PROVIDER } from '../normalize.js';
 
 type CheckpointRow = {
   provider: string;
@@ -31,7 +31,7 @@ function mapRow(row: CheckpointRow): NewsIngestionCheckpoint {
 
 export async function getNewsCheckpoint(
   db: Queryable,
-  provider: string = TIINGO_PROVIDER,
+  provider: string = STOCKNEWS_PROVIDER,
 ): Promise<NewsIngestionCheckpoint | null> {
   const result = await db.query<CheckpointRow>(
     `SELECT provider, last_crawl_date, last_provider_article_id,
@@ -46,7 +46,7 @@ export async function getNewsCheckpoint(
 
 export async function ensureNewsCheckpoint(
   db: Queryable,
-  provider: string = TIINGO_PROVIDER,
+  provider: string = STOCKNEWS_PROVIDER,
 ): Promise<NewsIngestionCheckpoint> {
   await db.query(
     `INSERT INTO news_ingestion_checkpoints (provider, updated_at)

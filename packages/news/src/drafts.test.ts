@@ -207,7 +207,7 @@ describe('draft service (mocked db)', () => {
               {
                 id: draftId,
                 source_type: 'news',
-                provider: 'tiingo',
+                provider: 'stocknewsapi',
                 provider_article_id: article.providerArticleId,
                 name: concept.name,
                 symbol: concept.ticker,
@@ -302,7 +302,7 @@ describe('draft service (mocked db)', () => {
               {
                 id: draftId,
                 source_type: 'news',
-                provider: 'tiingo',
+                provider: 'stocknewsapi',
                 provider_article_id: article.providerArticleId,
                 name: concept.name,
                 symbol: concept.ticker,
@@ -396,7 +396,7 @@ describe('draft service (mocked db)', () => {
               {
                 id: draftId,
                 source_type: 'news',
-                provider: 'tiingo',
+                provider: 'stocknewsapi',
                 provider_article_id: article.providerArticleId,
                 name: concept.name,
                 symbol: concept.ticker,
@@ -483,7 +483,7 @@ describe('draft service (mocked db)', () => {
               {
                 id: draftId,
                 source_type: 'news',
-                provider: 'tiingo',
+                provider: 'stocknewsapi',
                 provider_article_id: article.providerArticleId,
                 name: concept.name,
                 symbol: concept.ticker,

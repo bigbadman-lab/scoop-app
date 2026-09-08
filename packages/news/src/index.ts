@@ -1,5 +1,5 @@
 export type {
-  TiingoNewsArticleRaw,
+  StockNewsArticleRaw,
   ProviderNewsArticle,
   NewsFeedItem,
   NewsFeedCursor,
@@ -9,29 +9,46 @@ export type {
 } from './types.js';
 
 export {
+  STOCKNEWS_PROVIDER,
   TIINGO_PROVIDER,
   DEFAULT_BACKFILL_LAG_SECONDS,
   normalizeNewsDomain,
   normalizeProviderTickers,
   normalizeProviderTags,
+  parseProviderDate,
   parseTiingoDate,
   computeCrawlPublishLagSeconds,
   isBackfillCandidate,
   computeContentHash,
   canonicalizeUrl,
-  normalizeTiingoArticle,
+  stockNewsArticleId,
+  normalizeStockNewsArticle,
 } from './normalize.js';
 
 export {
-  TIINGO_NEWS_ENDPOINT,
-  TiingoNewsError,
-  createTiingoNewsClient,
+  STOCK_NEWS_API_BASE,
+  StockNewsApiError,
+  createStockNewsClient,
   sanitizeErrorMessage,
-} from './tiingo-client.js';
+} from './stocknews-client.js';
+
+export {
+  classifyMentionInstrument,
+  filterEquityMentions,
+  curatedEquityMentions,
+  CURATED_EQUITY_SEED,
+} from './instruments.js';
 
 export { isNewsPublicDisplayEnabled, assertNewsPublicDisplayAllowed } from './gate.js';
 export { loadNewsConfig } from './config.js';
 export { getLatestNews } from './query.js';
+export {
+  evaluateScoopNewsRelevance,
+  filterEquityTickers,
+  type ScoopNewsRelevance,
+  type ScoopNewsRelevanceClass,
+} from './relevance.js';
+export { partitionByScoopRelevance, attachRelevance } from './relevance-partition.js';
 export { getEnabledQuoteAssets } from './repos/quotes.js';
 export { getNewsArticleForConcepts } from './repos/article.js';
 
@@ -87,7 +104,7 @@ export {
   catchupNews,
   selectCatchupPage,
   normalizeBatch,
-  createDefaultTiingoClient,
+  createDefaultStockNewsClient,
 } from './ingest.js';
 
 export {

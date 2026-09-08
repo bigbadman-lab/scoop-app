@@ -8,11 +8,25 @@ import { CtaLink } from '@/components/ui/CtaLink';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import type { LeadNewsResult } from '@/lib/news/load-home';
 import type { NewsFeedItem } from '@scoop/news';
+import {
+  HOMEPAGE_NEWS_FADE_MS,
+  HOMEPAGE_NEWS_ROTATION_MS,
+  HOMEPAGE_VISIBLE_NEWS_SLOTS,
+  homepageArticlesSignature,
+  nextHomepageNewsOffset,
+  shouldRotateHomepageNews,
+  visibleHomepageArticles,
+} from '@/lib/news/homepage-rotation';
 
 export const HOUSE_ROTATE_MS = 10_000;
 export const HOUSE_FADE_MS = 500;
 /** Cooldown so hover doesn't thrash through the set. */
 export const HOUSE_HOVER_ADVANCE_MS = 900;
+
+export {
+  HOMEPAGE_NEWS_ROTATION_MS,
+  HOMEPAGE_NEWS_FADE_MS,
+} from '@/lib/news/homepage-rotation';
 
 type Props = {
   news: LeadNewsResult;
@@ -77,44 +91,122 @@ function OverlayCopy({
 }
 
 /**
- * Editorial NOW lead: rotating evergreen house imagery with live story overlay
- * and story actions overlaid on the image.
+ * Editorial NOW lead: rotating evergreen house imagery with live story overlay.
+ * Story pool rotates client-side every HOMEPAGE_NEWS_ROTATION_MS — no network.
  */
 export function HouseLeadHero({ news }: Props) {
   const images = HOUSE_IMAGE_SET;
-  const article = news.article;
+  const articles =
+    news.status === 'ok'
+      ? news.articles.length > 0
+        ? news.articles
+        : news.article
+          ? [news.article]
+          : []
+      : [];
+  const articlesSig = homepageArticlesSignature(articles);
   const reducedMotion = usePrefersReducedMotion();
-  const [index, setIndex] = useState(0);
+
+  const [imageIndex, setImageIndex] = useState(0);
   /** Bumps to restart the auto-rotate timer after a manual advance. */
-  const [rotateEpoch, setRotateEpoch] = useState(0);
+  const [imageRotateEpoch, setImageRotateEpoch] = useState(0);
   const lastHoverAdvanceAt = useRef(0);
-  const canAutoRotate = !reducedMotion && images.length > 1;
-  const canManualRotate = images.length > 1;
+
+  const [storyOffset, setStoryOffset] = useState(0);
+  const [storyOpacity, setStoryOpacity] = useState(1);
+  const [tabHidden, setTabHidden] = useState(false);
+
+  const canAutoRotateImages = !reducedMotion && images.length > 1;
+  const canManualRotateImages = images.length > 1;
+  const canRotateStories = shouldRotateHomepageNews(
+    articles.length,
+    HOMEPAGE_VISIBLE_NEWS_SLOTS,
+  );
+
+  // Reset story offset when the server-provided pool changes.
+  useEffect(() => {
+    setStoryOffset(0);
+    setStoryOpacity(1);
+  }, [articlesSig]);
 
   useEffect(() => {
-    if (!canAutoRotate) return;
+    if (!canAutoRotateImages) return;
     const id = window.setInterval(() => {
-      setIndex((current) => (current + 1) % images.length);
+      setImageIndex((current) => (current + 1) % images.length);
     }, HOUSE_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [canAutoRotate, images.length, rotateEpoch]);
+  }, [canAutoRotateImages, images.length, imageRotateEpoch]);
 
-  function advance() {
-    if (!canManualRotate) return;
-    setIndex((current) => (current + 1) % images.length);
-    setRotateEpoch((n) => n + 1);
+  useEffect(() => {
+    const onVisibility = () => setTabHidden(document.hidden);
+    onVisibility();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  useEffect(() => {
+    // Rotate while the tab is visible — do NOT pause on hero hover
+    // (desktop cursors often rest over the large hero and would freeze the desk).
+    if (!canRotateStories || tabHidden) return;
+    const id = window.setInterval(() => {
+      setStoryOffset((current) =>
+        nextHomepageNewsOffset(
+          current,
+          articles.length,
+          HOMEPAGE_VISIBLE_NEWS_SLOTS,
+        ),
+      );
+    }, HOMEPAGE_NEWS_ROTATION_MS);
+    return () => window.clearInterval(id);
+  }, [canRotateStories, tabHidden, articles.length, articlesSig]);
+
+  const visible = visibleHomepageArticles(
+    articles,
+    storyOffset,
+    HOMEPAGE_VISIBLE_NEWS_SLOTS,
+  );
+  const targetArticle = visible[0] ?? null;
+  const [displayedArticle, setDisplayedArticle] = useState<NewsFeedItem | null>(
+    targetArticle,
+  );
+  const displayedId = displayedArticle?.providerArticleId ?? null;
+  const targetId = targetArticle?.providerArticleId ?? null;
+
+  useEffect(() => {
+    if (targetId === displayedId) {
+      setStoryOpacity(1);
+      return;
+    }
+    if (reducedMotion || !displayedId) {
+      setDisplayedArticle(targetArticle);
+      setStoryOpacity(1);
+      return;
+    }
+    setStoryOpacity(0);
+    const id = window.setTimeout(() => {
+      setDisplayedArticle(targetArticle);
+      setStoryOpacity(1);
+    }, HOMEPAGE_NEWS_FADE_MS / 2);
+    return () => window.clearTimeout(id);
+  }, [targetId, targetArticle, displayedId, reducedMotion]);
+
+  function advanceImage() {
+    if (!canManualRotateImages) return;
+    setImageIndex((current) => (current + 1) % images.length);
+    setImageRotateEpoch((n) => n + 1);
   }
 
   function advanceFromHover() {
-    if (!canManualRotate) return;
+    if (!canManualRotateImages) return;
     const now = Date.now();
     if (now - lastHoverAdvanceAt.current < HOUSE_HOVER_ADVANCE_MS) return;
     lastHoverAdvanceAt.current = now;
-    advance();
+    advanceImage();
   }
 
+  const article = news.status === 'ok' ? displayedArticle : null;
   const href = article?.url?.trim() ? article.url.trim() : null;
-  const activeIndex = images.length === 0 ? 0 : index % images.length;
+  const activeImageIndex = images.length === 0 ? 0 : imageIndex % images.length;
   const showActions = news.status === 'ok' && article != null;
 
   return (
@@ -125,7 +217,7 @@ export function HouseLeadHero({ news }: Props) {
       >
         {images.length > 0 ? (
           images.map((src, i) => {
-            const active = i === activeIndex;
+            const active = i === activeImageIndex;
             return (
               <Image
                 key={src}
@@ -164,7 +256,17 @@ export function HouseLeadHero({ news }: Props) {
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/50 to-transparent"
         />
 
-        <div className="absolute inset-x-0 bottom-0 space-y-3 p-4 pt-10 md:space-y-5 md:p-7 md:pt-7 lg:p-8">
+        <div
+          className="absolute inset-x-0 bottom-0 space-y-3 p-4 pt-10 md:space-y-5 md:p-7 md:pt-7 lg:p-8"
+          data-testid="house-lead-story"
+          data-story-id={article?.providerArticleId ?? ''}
+          data-story-offset={String(storyOffset)}
+          style={{
+            opacity: storyOpacity,
+            transitionProperty: reducedMotion ? 'none' : 'opacity',
+            transitionDuration: `${HOMEPAGE_NEWS_FADE_MS}ms`,
+          }}
+        >
           <OverlayCopy article={article} news={news} />
 
           {showActions ? (
@@ -182,7 +284,7 @@ export function HouseLeadHero({ news }: Props) {
           ) : null}
         </div>
 
-        {canManualRotate ? (
+        {canManualRotateImages ? (
           <button
             type="button"
             data-testid="house-lead-rotate"
@@ -191,7 +293,7 @@ export function HouseLeadHero({ news }: Props) {
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              advance();
+              advanceImage();
             }}
             onMouseEnter={advanceFromHover}
           />

@@ -24,6 +24,7 @@
     "indexer:catchup": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-catchup.ts",
     "indexer:once": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-once.ts",
     "news:ingest:once": "pnpm --filter @scoop/news run ingest:once",
+    "news:ingest": "pnpm --filter @scoop/news run ingest",
     "news:catchup": "pnpm --filter @scoop/news run catchup",
     "news:smoke": "pnpm --filter @scoop/news run smoke",
     "news:concepts": "pnpm --filter @scoop/news run concepts --",

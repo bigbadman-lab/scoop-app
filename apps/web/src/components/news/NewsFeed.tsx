@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
+import { NewsFreshnessBadge } from '@/components/news/NewsFreshnessBadge';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import {
   NEWS_PAGE_SIZE,
@@ -10,6 +11,7 @@ import {
   type PublicNewsFeedResponse,
   type PublicNewsItem,
 } from '@/lib/news/public';
+import { classifyNewsFreshness, isNewsFresh } from '@/lib/news/freshness';
 
 type Props = {
   initial: PublicNewsFeedResponse;
@@ -23,6 +25,89 @@ function mergeUnique(
   const seen = new Set(existing.map((item) => item.id));
   const fresh = incoming.filter((item) => !seen.has(item.id));
   return mode === 'prepend' ? [...fresh, ...existing] : [...existing, ...fresh];
+}
+
+function NewsFeedItemRow({
+  item,
+  index,
+}: {
+  item: PublicNewsItem;
+  index: number;
+}) {
+  const isLead = index === 0;
+  const freshness = classifyNewsFreshness(item.publishedAt);
+  const fresh = isLead || isNewsFresh(freshness);
+
+  return (
+    <li
+      className={[
+        'py-6 first:pt-0 md:py-7',
+        isLead ? 'md:pb-9' : '',
+      ].join(' ')}
+    >
+      <article
+        className={[
+          'space-y-2',
+          isLead
+            ? 'border-l-[3px] border-[var(--scoop-live)] pl-4 md:pl-5'
+            : fresh
+              ? 'border-l-2 border-[var(--scoop-live)]/45 pl-3.5 md:pl-4'
+              : '',
+        ].join(' ')}
+        data-testid="news-feed-item"
+        data-lead={isLead ? 'true' : undefined}
+        data-freshness={isLead ? 'latest' : freshness}
+      >
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <NewsFreshnessBadge publishedAt={item.publishedAt} isLead={isLead} />
+          <p
+            className={[
+              'font-mono text-[11px] uppercase tracking-[0.16em]',
+              fresh ? 'text-[var(--scoop-live)]' : 'text-[var(--muted)]',
+            ].join(' ')}
+          >
+            <NewsAge
+              iso={item.publishedAt}
+              className={fresh ? 'text-[var(--scoop-live)]' : undefined}
+            />
+            <span className={fresh ? 'text-[var(--scoop-live)]/55' : 'text-[var(--muted-2)]'}>
+              {' '}
+              ·{' '}
+            </span>
+            <span className={fresh ? 'text-[var(--muted)]' : undefined}>
+              {item.sourceDomain}
+            </span>
+          </p>
+        </div>
+
+        <h2
+          className={[
+            'max-w-3xl tracking-tight',
+            isLead
+              ? 'text-2xl font-semibold text-[var(--fg)] md:text-3xl'
+              : fresh
+                ? 'text-xl font-semibold text-[var(--fg)] md:text-2xl'
+                : 'text-lg font-semibold text-[var(--fg)]/90 md:text-xl',
+          ].join(' ')}
+        >
+          {item.headline}
+        </h2>
+
+        {item.tickers.length > 0 ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+            {item.tickers.slice(0, 6).join(' · ')}
+          </p>
+        ) : null}
+
+        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+          <LaunchAsTokenLink providerArticleId={item.id} />
+          <CtaLink href={item.url} external>
+            Read story ↗
+          </CtaLink>
+        </div>
+      </article>
+    </li>
+  );
 }
 
 export function NewsFeed({ initial }: Props) {
@@ -220,36 +305,7 @@ export function NewsFeed({ initial }: Props) {
 
       <ul className="divide-y divide-[var(--divider)]" aria-label="News feed">
         {items.map((item, index) => (
-          <li key={item.id} className="py-6 first:pt-0 md:py-7">
-            <article className="space-y-2">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-                <NewsAge iso={item.publishedAt} />
-                <span className="text-[var(--muted-2)]"> · </span>
-                <span>{item.sourceDomain}</span>
-              </p>
-              <h2
-                className={[
-                  'max-w-3xl tracking-tight text-[var(--fg)]',
-                  index === 0
-                    ? 'text-2xl font-semibold md:text-3xl'
-                    : 'text-xl font-semibold md:text-2xl',
-                ].join(' ')}
-              >
-                {item.headline}
-              </h2>
-              {item.tickers.length > 0 ? (
-                <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-                  {item.tickers.slice(0, 6).join(' · ')}
-                </p>
-              ) : null}
-              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-                <LaunchAsTokenLink providerArticleId={item.id} variant="feed" />
-                <CtaLink href={item.url} external>
-                  Read story ↗
-                </CtaLink>
-              </div>
-            </article>
-          </li>
+          <NewsFeedItemRow key={item.id} item={item} index={index} />
         ))}
       </ul>
 

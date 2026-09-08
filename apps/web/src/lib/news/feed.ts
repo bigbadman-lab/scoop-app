@@ -23,7 +23,7 @@ export type LoadPublicNewsOptions = {
 
 /**
  * Canonical public news read — homepage + `/news` + `/api/news`.
- * Always DB-backed; never calls Tiingo.
+ * Always DB-backed; never calls the upstream news provider.
  * Orders by authoritative `provider_published_at` (fallback tie-break id).
  */
 export async function loadPublicNewsFeed(
@@ -49,6 +49,7 @@ export async function loadPublicNewsFeed(
     const rows: NewsFeedItem[] = await getLatestNews(serverDb(), {
       limit,
       excludeBackfill: true,
+      stockRelevantOnly: true,
       orderBy: 'published',
       cursor: options.cursor ?? undefined,
     });

@@ -66,4 +66,12 @@ describe('getLatestNews', () => {
     const params = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as unknown[];
     expect(params?.[params.length - 1]).toBe(500);
   });
+
+  it('applies stockRelevantOnly predicate for public feeds', async () => {
+    const db = mockDb([]);
+    await getLatestNews(db, { stockRelevantOnly: true, orderBy: 'published' });
+    const sql = String((db.query as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]);
+    expect(sql).toContain('market_relevance_score');
+    expect(sql).toContain("relevance_class <> 'reject'");
+  });
 });

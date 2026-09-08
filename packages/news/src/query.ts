@@ -1,5 +1,5 @@
 import type { Queryable } from '@scoop/db';
-import { TIINGO_PROVIDER } from './normalize.js';
+import { STOCKNEWS_PROVIDER } from './normalize.js';
 import type { GetLatestNewsOptions, NewsFeedItem } from './types.js';
 
 type Row = {
@@ -8,6 +8,7 @@ type Row = {
   description: string | null;
   source_domain: string;
   url: string;
+  image_url: string | null;
   provider_published_at: Date | string;
   provider_crawled_at: Date | string;
   provider_tickers: string[] | null;
@@ -31,6 +32,7 @@ function mapRow(row: Row): NewsFeedItem {
     tickers: row.provider_tickers ?? [],
     tags: row.provider_tags ?? [],
     isBackfillCandidate: row.is_backfill_candidate,
+    imageUrl: row.image_url,
   };
 }
 
@@ -42,13 +44,16 @@ function mapRow(row: Row): NewsFeedItem {
  * - `crawled` (default): `provider_crawled_at DESC` — matches ingest watermark
  * - `published`: `provider_published_at DESC` — preferred for public UI
  * Tie-break always `provider_article_id DESC`.
+ *
+ * Public stock feed uses `stockRelevantOnly` so legacy unfiltered rows stay hidden
+ * until re-scored or replaced by D.1 ingest.
  */
 export async function getLatestNews(
   db: Queryable,
   options: GetLatestNewsOptions = {},
 ): Promise<NewsFeedItem[]> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 500);
-  const provider = options.provider ?? TIINGO_PROVIDER;
+  const provider = options.provider ?? STOCKNEWS_PROVIDER;
   const orderBy = options.orderBy ?? 'crawled';
   const sortColumn =
     orderBy === 'published' ? 'provider_published_at' : 'provider_crawled_at';
@@ -61,6 +66,15 @@ export async function getLatestNews(
   }
   if (options.onlyWithTickers) {
     where.push('cardinality(provider_tickers) > 0');
+  }
+  if (options.stockRelevantOnly) {
+    // Accepted D.1 rows, or legacy ticker-bearing rows not yet rescored.
+    where.push(`(
+      (market_relevance_score IS NOT NULL AND market_relevance_score >= 20
+        AND relevance_class IS NOT NULL AND relevance_class <> 'reject')
+      OR
+      (market_relevance_score IS NULL AND cardinality(provider_tickers) > 0)
+    )`);
   }
   if (options.ticker) {
     params.push(options.ticker.trim().toUpperCase());
@@ -84,7 +98,7 @@ export async function getLatestNews(
   const limitParam = `$${params.length}`;
 
   const result = await db.query<Row>(
-    `SELECT provider_article_id, title, description, source_domain, url,
+    `SELECT provider_article_id, title, description, source_domain, url, image_url,
             provider_published_at, provider_crawled_at,
             provider_tickers, provider_tags, is_backfill_candidate
      FROM provider_news_articles

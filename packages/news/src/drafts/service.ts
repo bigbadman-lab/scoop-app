@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Queryable } from '@scoop/db';
-import { TIINGO_PROVIDER } from '../normalize.js';
+import { STOCKNEWS_PROVIDER } from '../normalize.js';
 import { getEnabledQuoteAssets } from '../repos/quotes.js';
 import { getNewsArticleForConcepts } from '../repos/article.js';
 import {
@@ -205,7 +205,7 @@ export async function createNewsLaunchDraft(
      )
      RETURNING id`,
     [
-      TIINGO_PROVIDER,
+      STOCKNEWS_PROVIDER,
       article.providerArticleId,
       concept.name,
       concept.ticker,
@@ -253,7 +253,7 @@ export async function generateDraftArtwork(
   const article = await getNewsArticleForConcepts(
     deps.db,
     row.provider_article_id,
-    row.provider ?? TIINGO_PROVIDER,
+    row.provider ?? STOCKNEWS_PROVIDER,
   );
   if (!article) {
     throw new ConceptValidationError('Source article missing for draft');

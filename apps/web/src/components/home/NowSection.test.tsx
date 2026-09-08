@@ -34,6 +34,20 @@ describe('NowSection news lead', () => {
             tags: [],
             isBackfillCandidate: false,
           },
+          articles: [
+            {
+              providerArticleId: '77',
+              headline: 'Markets react to rate decision',
+              description: null,
+              sourceDomain: 'reuters.com',
+              url: 'https://reuters.com/markets/rate-decision',
+              publishedAt: new Date().toISOString(),
+              crawledAt: new Date().toISOString(),
+              tickers: [],
+              tags: [],
+              isBackfillCandidate: false,
+            },
+          ],
         }}
         activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}
         catalogue={[]}
@@ -60,6 +74,7 @@ describe('NowSection news lead', () => {
         news={{
           status: 'empty',
           article: null,
+          articles: [],
           message: 'No stories yet.',
         }}
         activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}
@@ -75,6 +90,7 @@ describe('NowSection news lead', () => {
         news={{
           status: 'gated',
           article: null,
+          articles: [],
           message: 'Latest story display is not enabled yet.',
         }}
         activity={{ status: 'empty', items: [], message: 'No live market activity yet.' }}

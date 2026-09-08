@@ -1,13 +1,16 @@
 /** News package config from env. Never logs secrets. */
 
 export type NewsConfig = {
-  tiingoApiToken: string;
+  stockNewsApiToken: string;
   databaseUrl: string;
-  newsLimit: number;
-  newsMaxPages: number;
+  itemsPerCall: number;
+  batchSize: number;
+  dateWindow: string;
+  fallbackDateWindow: string;
   backfillLagSeconds: number;
   requestTimeoutMs: number;
   maxRetries: number;
+  maxAgeHoursWithoutDate: number;
   publicDisplayEnabled: boolean;
 };
 
@@ -19,9 +22,9 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 }
 
 export function loadNewsConfig(env: NodeJS.ProcessEnv = process.env): NewsConfig {
-  const tiingoApiToken = (env.TIINGO_API_TOKEN ?? '').trim();
-  if (!tiingoApiToken) {
-    throw new Error('TIINGO_API_TOKEN is required');
+  const stockNewsApiToken = (env.STOCK_NEWS_API_TOKEN ?? '').trim();
+  if (!stockNewsApiToken) {
+    throw new Error('STOCK_NEWS_API_TOKEN is required');
   }
 
   const databaseUrl = (env.DATABASE_URL ?? '').trim();
@@ -32,13 +35,17 @@ export function loadNewsConfig(env: NodeJS.ProcessEnv = process.env): NewsConfig
   const publicRaw = (env.SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED ?? 'false').trim().toLowerCase();
 
   return {
-    tiingoApiToken,
+    stockNewsApiToken,
     databaseUrl,
-    newsLimit: parsePositiveInt(env.TIINGO_NEWS_LIMIT, 100),
-    newsMaxPages: parsePositiveInt(env.TIINGO_NEWS_MAX_PAGES, 10),
-    backfillLagSeconds: parsePositiveInt(env.TIINGO_BACKFILL_LAG_SECONDS, 21_600),
-    requestTimeoutMs: parsePositiveInt(env.TIINGO_REQUEST_TIMEOUT_MS, 15_000),
-    maxRetries: parsePositiveInt(env.TIINGO_MAX_RETRIES, 3),
+    // Paid plans support up to 100; trial auto-falls back to 3 inside ingest.
+    itemsPerCall: parsePositiveInt(env.STOCK_NEWS_ITEMS_PER_CALL, 50),
+    batchSize: parsePositiveInt(env.STOCK_NEWS_BATCH_SIZE, 8),
+    dateWindow: (env.STOCK_NEWS_TOP_MENTION_DATE ?? 'today').trim() || 'today',
+    fallbackDateWindow: (env.STOCK_NEWS_FALLBACK_DATE ?? 'last7days').trim() || 'last7days',
+    backfillLagSeconds: parsePositiveInt(env.STOCK_NEWS_BACKFILL_LAG_SECONDS, 21_600),
+    requestTimeoutMs: parsePositiveInt(env.STOCK_NEWS_REQUEST_TIMEOUT_MS, 15_000),
+    maxRetries: parsePositiveInt(env.STOCK_NEWS_MAX_RETRIES, 3),
+    maxAgeHoursWithoutDate: parsePositiveInt(env.STOCK_NEWS_MAX_AGE_HOURS, 48),
     publicDisplayEnabled: publicRaw === 'true' || publicRaw === '1' || publicRaw === 'yes',
   };
 }

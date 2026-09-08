@@ -1,6 +1,5 @@
-# Render — SCOOP Indexer Worker
+# Render — SCOOP Indexer Worker + News Ingest Cron
 
-# Background worker built from docker/indexer.Dockerfile.
 # Do NOT put secret values in this file — configure them in the Render dashboard.
 
 services:
@@ -50,4 +49,41 @@ services:
       - key: ROBINHOOD_RPC_URL
         sync: false
       - key: ROBINHOOD_WS_URL
+        sync: false
+
+  # Phase D.2 — scheduled Stock News API ingest (equity universe + relevance filter + DB upsert)
+  # Cadence: every 5 minutes UTC. Adjust if API quota requires a longer interval.
+  # See docs/RENDER_NEWS_INGEST_CHECKLIST.md — do NOT activate until product asks.
+  - type: cron
+    name: scoop-news-ingest
+    runtime: docker
+    plan: starter
+    schedule: "*/5 * * * *"
+    dockerfilePath: ./docker/news.Dockerfile
+    dockerContext: .
+    dockerCommand: node dist/commands/ingest-once.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: STOCK_NEWS_ITEMS_PER_CALL
+        value: "50"
+      - key: STOCK_NEWS_BATCH_SIZE
+        value: "8"
+      - key: STOCK_NEWS_TOP_MENTION_DATE
+        value: "today"
+      - key: STOCK_NEWS_FALLBACK_DATE
+        value: "last7days"
+      - key: STOCK_NEWS_BACKFILL_LAG_SECONDS
+        value: "21600"
+      # Display gate is for the web app; worker only needs ingest secrets.
+      - key: SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED
+        value: "false"
+      # Secrets — set in Render dashboard (never commit):
+      # DATABASE_URL
+      # STOCK_NEWS_API_TOKEN
+      - key: DATABASE_URL
+        sync: false
+      - key: STOCK_NEWS_API_TOKEN
         sync: false

@@ -1,5 +1,5 @@
 import type { Queryable } from '@scoop/db';
-import { TIINGO_PROVIDER } from '../normalize.js';
+import { STOCKNEWS_PROVIDER } from '../normalize.js';
 import type { ConceptArticleContext } from '../ai/types.js';
 import { truncate } from '../ai/prompt.js';
 
@@ -21,7 +21,7 @@ function toIso(value: Date | string): string {
 export async function getNewsArticleForConcepts(
   db: Queryable,
   providerArticleId: string,
-  provider: string = TIINGO_PROVIDER,
+  provider: string = STOCKNEWS_PROVIDER,
 ): Promise<ConceptArticleContext | null> {
   const id = providerArticleId.trim();
   if (!id) return null;

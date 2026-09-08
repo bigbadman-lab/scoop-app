@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 /**
- * Public news feed — DB-backed only. Never calls Tiingo.
+ * Public news feed — DB-backed only. Never calls the upstream news provider.
  * Respects SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED via loadPublicNewsFeed.
  */
 export async function GET(request: Request) {

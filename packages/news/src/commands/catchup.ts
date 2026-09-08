@@ -1,17 +1,19 @@
 import { createPool } from '@scoop/db';
 import { loadLocalEnv } from '../load-env.js';
 import { loadNewsConfig } from '../config.js';
-import { createTiingoNewsClient } from '../tiingo-client.js';
+import { createStockNewsClient } from '../stocknews-client.js';
 import { catchupNews } from '../ingest.js';
 import { isNewsPublicDisplayEnabled } from '../gate.js';
 
 loadLocalEnv();
 
+/** Alias of news:ingest — Stock News API has no Tiingo-style watermark catch-up. */
 async function main(): Promise<void> {
+  const started = Date.now();
   const config = loadNewsConfig();
   const pool = createPool(config.databaseUrl);
-  const client = createTiingoNewsClient({
-    token: config.tiingoApiToken,
+  const client = createStockNewsClient({
+    token: config.stockNewsApiToken,
     timeoutMs: config.requestTimeoutMs,
     maxRetries: config.maxRetries,
   });
@@ -20,9 +22,11 @@ async function main(): Promise<void> {
     const result = await catchupNews({
       db: pool,
       client,
-      tokenForSanitize: config.tiingoApiToken,
-      limit: config.newsLimit,
-      maxPages: config.newsMaxPages,
+      tokenForSanitize: config.stockNewsApiToken,
+      itemsPerCall: config.itemsPerCall,
+      batchSize: config.batchSize,
+      dateWindow: config.dateWindow,
+      fallbackDateWindow: config.fallbackDateWindow,
       backfillLagSeconds: config.backfillLagSeconds,
     });
 
@@ -30,13 +34,19 @@ async function main(): Promise<void> {
       JSON.stringify({
         level: result.error ? 'error' : 'info',
         command: 'news:catchup',
+        provider: 'stocknewsapi',
+        note: 'alias_of_news_ingest',
         fetched: result.fetched,
+        accepted: result.accepted,
+        rejected: result.rejected,
         upserted: result.upserted,
         pages: result.pages,
         newestCrawlDate: result.newestCrawlDate,
         checkpointAdvanced: result.checkpointAdvanced,
         stoppedReason: result.stoppedReason,
+        rejectReasonCounts: result.rejectReasonCounts ?? {},
         publicDisplayEnabled: isNewsPublicDisplayEnabled(),
+        duration_ms: Date.now() - started,
         ...(result.error ? { error: result.error } : {}),
       }),
     );

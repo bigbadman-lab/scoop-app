@@ -13,6 +13,9 @@
   /* Locked SCOOP orange from SCOOPMASTER.png */
   --scoop-orange: #fc4c00;
   --scoop-orange-contrast: #0a0a0a;
+  /* Desk / freshness accent (matches live market up) */
+  --scoop-live: #2f9e44;
+  --scoop-live-soft: color-mix(in srgb, var(--scoop-live) 14%, transparent);
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -219,6 +222,28 @@ w3m-router-container {
   }
 }
 
+.news-fresh-dot {
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-live) 45%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .news-fresh-dot[data-pulse='true'] {
+    animation: news-fresh-pulse 2.2s ease-out infinite;
+  }
+}
+
+@keyframes news-fresh-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-live) 50%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -231,6 +256,11 @@ w3m-router-container {
 
   .desk-live-dot {
     animation: none;
+    box-shadow: none;
+  }
+
+  .news-fresh-dot {
+    animation: none !important;
     box-shadow: none;
   }
 

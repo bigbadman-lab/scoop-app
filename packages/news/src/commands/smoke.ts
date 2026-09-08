@@ -2,7 +2,7 @@ import { createPool } from '@scoop/db';
 import { loadLocalEnv } from '../load-env.js';
 import { getNewsCheckpoint } from '../repos/checkpoints.js';
 import { getNewsSmokeStats } from '../repos/articles.js';
-import { TIINGO_PROVIDER } from '../normalize.js';
+import { STOCKNEWS_PROVIDER } from '../normalize.js';
 import { isNewsPublicDisplayEnabled } from '../gate.js';
 
 loadLocalEnv();
@@ -15,8 +15,8 @@ async function main(): Promise<void> {
   const pool = createPool(databaseUrl);
 
   try {
-    const stats = await getNewsSmokeStats(pool, TIINGO_PROVIDER);
-    const checkpoint = await getNewsCheckpoint(pool, TIINGO_PROVIDER);
+    const stats = await getNewsSmokeStats(pool, STOCKNEWS_PROVIDER);
+    const checkpoint = await getNewsCheckpoint(pool, STOCKNEWS_PROVIDER);
 
     console.log(
       JSON.stringify({

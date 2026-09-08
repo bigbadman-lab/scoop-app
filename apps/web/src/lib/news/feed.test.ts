@@ -37,6 +37,7 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
       expect.objectContaining({
         limit: 20,
         excludeBackfill: true,
+        stockRelevantOnly: true,
         orderBy: 'published',
       }),
     );
@@ -70,7 +71,7 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
     expect(JSON.stringify(feed)).not.toContain('description');
   });
 
-  it('loadLeadNews uses same published order + gate', async () => {
+  it('loadLeadNews loads a rotation pool with published order + gate', async () => {
     isNewsPublicDisplayEnabled.mockReturnValue(true);
     getLatestNews.mockResolvedValue([
       {
@@ -85,14 +86,33 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
         tags: [],
         isBackfillCandidate: false,
       },
+      {
+        providerArticleId: '2',
+        headline: 'Second',
+        description: null,
+        sourceDomain: 'bbc.com',
+        url: 'https://bbc.com/b',
+        publishedAt: '2026-09-07T10:00:00.000Z',
+        crawledAt: '2026-09-07T10:00:00.000Z',
+        tickers: [],
+        tags: [],
+        isBackfillCandidate: false,
+      },
     ]);
     const { loadLeadNews } = await import('@/lib/news/load-home');
+    const { HOMEPAGE_NEWS_ROTATION_POOL } = await import('@/lib/news/homepage-rotation');
     const lead = await loadLeadNews();
     expect(lead.status).toBe('ok');
     expect(lead.article?.headline).toBe('Home lead');
+    expect(lead.articles).toHaveLength(2);
     expect(getLatestNews).toHaveBeenCalledWith(
       {},
-      expect.objectContaining({ limit: 1, orderBy: 'published', excludeBackfill: true }),
+      expect.objectContaining({
+        limit: HOMEPAGE_NEWS_ROTATION_POOL,
+        orderBy: 'published',
+        excludeBackfill: true,
+        stockRelevantOnly: true,
+      }),
     );
   });
 });

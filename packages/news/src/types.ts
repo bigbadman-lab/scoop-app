@@ -1,25 +1,30 @@
-/** Tiingo raw article from GET https://api.tiingo.com/tiingo/news */
-export type TiingoNewsArticleRaw = {
-  id: number | string;
+/** Stock News API article row from GET /api/v1 */
+export type StockNewsArticleRaw = {
+  news_url?: string | null;
+  image_url?: string | null;
   title?: string | null;
-  description?: string | null;
-  url?: string | null;
-  publishedDate?: string | null;
-  crawlDate?: string | null;
-  source?: string | null;
+  text?: string | null;
+  source_name?: string | null;
+  date?: string | null;
+  topics?: string[] | null;
+  sentiment?: string | null;
+  type?: string | null;
   tickers?: string[] | null;
-  tags?: string[] | null;
+  news_id?: string | number | null;
+  newsid?: string | number | null;
+  rank_score?: number | null;
 };
 
 /** Canonical shape for provider_news_articles upsert. */
 export type ProviderNewsArticle = {
-  provider: 'tiingo';
+  provider: 'stocknewsapi';
   providerArticleId: string;
   title: string;
   description: string | null;
   sourceDomain: string;
   url: string;
   canonicalUrl: string | null;
+  imageUrl: string | null;
   providerPublishedAt: Date;
   providerCrawledAt: Date;
   providerTickers: string[];
@@ -27,6 +32,9 @@ export type ProviderNewsArticle = {
   crawlPublishLagSeconds: number | null;
   isBackfillCandidate: boolean;
   contentHash: string | null;
+  marketRelevanceScore?: number | null;
+  relevanceClass?: string | null;
+  relevanceReasons?: string[];
 };
 
 export type NewsFeedItem = {
@@ -40,11 +48,11 @@ export type NewsFeedItem = {
   tickers: string[];
   tags: string[];
   isBackfillCandidate: boolean;
+  imageUrl?: string | null;
 };
 
 /** Keyset cursor for newest-first pagination. */
 export type NewsFeedCursor = {
-  /** ISO timestamp of the sort column on the last seen row. */
   at: string;
   providerArticleId: string;
 };
@@ -53,15 +61,10 @@ export type GetLatestNewsOptions = {
   limit?: number;
   ticker?: string;
   onlyWithTickers?: boolean;
+  stockRelevantOnly?: boolean;
   excludeBackfill?: boolean;
   provider?: string;
-  /**
-   * Sort key for newest-first feed.
-   * - `crawled` (default): ingestion/recency watermark order
-   * - `published`: authoritative publication time (preferred for public UI)
-   */
   orderBy?: 'crawled' | 'published';
-  /** Exclusive keyset cursor — returns rows strictly older than this position. */
   cursor?: NewsFeedCursor;
 };
 
@@ -77,10 +80,21 @@ export type NewsIngestionCheckpoint = {
 
 export type NewsIngestResult = {
   fetched: number;
+  accepted: number;
+  rejected: number;
   upserted: number;
   newestCrawlDate: string | null;
   checkpointAdvanced: boolean;
   pages: number;
   stoppedReason: 'complete' | 'max_pages' | 'watermark' | 'empty' | 'error';
   error?: string;
+  rejectReasonCounts?: Record<string, number>;
+  /** D.2 Stock News API run stats */
+  topMentions?: number;
+  equitiesRetained?: number;
+  nonEquitiesRemoved?: number;
+  articleCalls?: number;
+  deduped?: number;
+  dateWindow?: string;
+  universeSource?: 'top_mention' | 'curated_seed';
 };

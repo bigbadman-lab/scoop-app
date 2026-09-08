@@ -15,6 +15,7 @@
     "test": "vitest run",
     "lint": "eslint src --max-warnings=0",
     "ingest:once": "tsx src/commands/ingest-once.ts",
+    "ingest": "tsx src/commands/ingest-once.ts",
     "catchup": "tsx src/commands/catchup.ts",
     "smoke": "tsx src/commands/smoke.ts",
     "concepts": "tsx src/commands/concepts.ts",

@@ -1,6 +1,6 @@
 import type { NewsFeedCursor, NewsFeedItem } from '@scoop/news';
 
-/** How often `/news` polls SCOOP's own DB-backed API (not Tiingo). */
+/** How often `/news` polls SCOOP's own DB-backed API (not the upstream provider). */
 export const NEWS_UI_POLL_MS = 60_000;
 
 /** Default page size for the public news feed. */

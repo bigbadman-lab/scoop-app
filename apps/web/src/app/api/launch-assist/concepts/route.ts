@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
     const urlRow = await pool.query<{ url: string }>(
       `SELECT url FROM provider_news_articles
-       WHERE provider = 'tiingo' AND provider_article_id = $1
+       WHERE provider = 'stocknewsapi' AND provider_article_id = $1
        LIMIT 1`,
       [providerArticleId],
     );
