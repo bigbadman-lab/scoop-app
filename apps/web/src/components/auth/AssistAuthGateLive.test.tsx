@@ -19,13 +19,16 @@ vi.mock('@/lib/auth/siwe-session-client', () => ({
 vi.mock('@/components/auth/AuthInterruptLive', () => ({
   AuthInterruptLive: ({
     mismatch,
+    title,
     message,
   }: {
     mismatch?: boolean;
+    title?: string | null;
     message?: string | null;
   }) => (
-    <div data-testid="siwe-required">
-      {mismatch ? 'mismatch' : 'unsigned'}
+    <div data-testid="assist-gate-blocked">
+      {mismatch ? 'mismatch' : 'blocked'}
+      {title ? <h1>{title}</h1> : null}
       {message ? <p>{message}</p> : null}
     </div>
   ),
@@ -56,7 +59,34 @@ describe('AssistAuthGateLive', () => {
       />,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    expect(screen.queryByTestId('siwe-required')).toBeNull();
+    expect(screen.queryByTestId('assist-gate-blocked')).toBeNull();
+  });
+
+  it('blocks session_only with connect-wallet copy and does not call onReady', async () => {
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: A,
+      userId: 'u1',
+    });
+    const onReady = vi.fn();
+    render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    });
+    expect(screen.getByText(/connect a wallet to launch/i)).toBeTruthy();
+    expect(screen.getByText(/session is still active/i)).toBeTruthy();
+    expect(onReady).not.toHaveBeenCalled();
   });
 
   it('requires SIWE on wallet_mismatch and does not call onReady', async () => {
@@ -79,10 +109,10 @@ describe('AssistAuthGateLive', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('siwe-required')).toBeTruthy();
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
     });
     expect(screen.getByText('mismatch')).toBeTruthy();
-    expect(screen.getByText(/different wallet/i)).toBeTruthy();
+    expect(screen.getAllByText(/different wallet/i).length).toBeGreaterThan(0);
     expect(onReady).not.toHaveBeenCalled();
   });
 
@@ -102,12 +132,33 @@ describe('AssistAuthGateLive', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('siwe-required')).toBeTruthy();
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
     });
     expect(onReady).not.toHaveBeenCalled();
   });
 
-  it('allows session_only without SIWE', async () => {
+  it('blocks signed_out without calling onReady', async () => {
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
+    const onReady = vi.fn();
+    render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    });
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('session_only → reconnect same wallet → onReady without SIWE', async () => {
     useAccount.mockReturnValue({
       address: undefined,
       isConnected: false,
@@ -119,7 +170,24 @@ describe('AssistAuthGateLive', () => {
       userId: 'u1',
     });
     const onReady = vi.fn();
-    render(
+    const { rerender } = render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    });
+    expect(onReady).not.toHaveBeenCalled();
+
+    useAccount.mockReturnValue({
+      address: A,
+      isConnected: true,
+      status: 'connected',
+    });
+    rerender(
       <AssistAuthGateLive
         resumePath="/news/1/launch"
         onReady={onReady}
@@ -127,6 +195,89 @@ describe('AssistAuthGateLive', () => {
       />,
     );
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('assist-gate-blocked')).toBeNull();
+  });
+
+  it('session_only → connect different wallet → mismatch SIWE, no onReady', async () => {
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: A,
+      userId: 'u1',
+    });
+    const onReady = vi.fn();
+    const { rerender } = render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    });
+
+    useAccount.mockReturnValue({
+      address: B,
+      isConnected: true,
+      status: 'connected',
+    });
+    rerender(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('mismatch')).toBeTruthy();
+    });
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('calls onBlocked when wallet disconnects mid-flow (match → session_only)', async () => {
+    useAccount.mockReturnValue({
+      address: A,
+      isConnected: true,
+      status: 'connected',
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: A,
+      userId: 'u1',
+    });
+    const onReady = vi.fn();
+    const onBlocked = vi.fn();
+    const { rerender } = render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onBlocked={onBlocked}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    rerender(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onBlocked={onBlocked}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(onBlocked).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    expect(screen.getByText(/connect a wallet to launch/i)).toBeTruthy();
   });
 
   it('calls onBlocked when switching from match to mismatch', async () => {
@@ -166,6 +317,6 @@ describe('AssistAuthGateLive', () => {
       />,
     );
     await waitFor(() => expect(onBlocked).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId('siwe-required')).toBeTruthy();
+    expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
   });
 });

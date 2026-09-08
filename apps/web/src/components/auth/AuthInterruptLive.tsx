@@ -13,6 +13,8 @@ export type AuthInterruptLiveProps = {
   onCancel: () => void;
   /** When true, show different-wallet copy. */
   mismatch?: boolean;
+  /** Optional override for the headline. */
+  title?: string | null;
   /** Optional override for the intro paragraph. */
   message?: string | null;
 };
@@ -23,6 +25,7 @@ function AuthInterruptShell({
   primary,
   onCancel,
   mismatch,
+  title,
   message,
 }: {
   configured: boolean;
@@ -30,6 +33,7 @@ function AuthInterruptShell({
   primary: React.ReactNode;
   onCancel: () => void;
   mismatch?: boolean;
+  title?: string | null;
   message?: string | null;
 }) {
   return (
@@ -38,9 +42,11 @@ function AuthInterruptShell({
         Sign in to continue
       </p>
       <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-        {mismatch
-          ? "You're connected with a different wallet"
-          : 'Connect a wallet to make a market'}
+        {title?.trim()
+          ? title
+          : mismatch
+            ? "You're connected with a different wallet"
+            : 'Connect a wallet to make a market'}
       </h1>
       <p className="text-sm text-[var(--muted)]">
         {message?.trim()
@@ -83,6 +89,7 @@ export function AuthInterruptLive({
   onAuthenticated,
   onCancel,
   mismatch = false,
+  title = null,
   message = null,
 }: AuthInterruptLiveProps) {
   const { open } = useAppKit();
@@ -137,6 +144,7 @@ export function AuthInterruptLive({
       configured
       onCancel={onCancel}
       mismatch={mismatch}
+      title={title}
       message={message}
       primary={
         !isConnected ? (

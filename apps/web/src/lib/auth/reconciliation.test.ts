@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   launchAssistAuthMessage,
+  launchAssistAuthTitle,
+  launchAssistMayProceed,
   launchAssistRequiresSiwe,
   resolveScoopAuthState,
 } from '@/lib/auth/reconciliation';
@@ -77,13 +79,27 @@ describe('resolveScoopAuthState', () => {
   });
 });
 
-describe('launchAssistRequiresSiwe', () => {
-  it('requires SIWE for mismatch/unsigned/signed_out only', () => {
+describe('launch-assist policy', () => {
+  it('may proceed only on authenticated_match', () => {
+    expect(launchAssistMayProceed('authenticated_match')).toBe(true);
+    expect(launchAssistMayProceed('session_only')).toBe(false);
+    expect(launchAssistMayProceed('wallet_mismatch')).toBe(false);
+    expect(launchAssistMayProceed('connected_unsigned')).toBe(false);
+    expect(launchAssistMayProceed('signed_out')).toBe(false);
+  });
+
+  it('requires SIWE for mismatch/unsigned/signed_out (not session_only)', () => {
     expect(launchAssistRequiresSiwe('authenticated_match')).toBe(false);
     expect(launchAssistRequiresSiwe('session_only')).toBe(false);
     expect(launchAssistRequiresSiwe('wallet_mismatch')).toBe(true);
     expect(launchAssistRequiresSiwe('connected_unsigned')).toBe(true);
     expect(launchAssistRequiresSiwe('signed_out')).toBe(true);
+  });
+
+  it('uses connect-wallet copy for session_only without signing the user out', () => {
+    expect(launchAssistAuthTitle('session_only')).toMatch(/connect a wallet to launch/i);
+    expect(launchAssistAuthMessage('session_only')).toMatch(/session is still active/i);
+    expect(launchAssistAuthMessage('session_only')).not.toMatch(/signed out/i);
   });
 
   it('uses mismatch copy for wallet_mismatch', () => {

@@ -6,7 +6,8 @@ import { AuthInterruptLive } from '@/components/auth/AuthInterruptLive';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import {
   launchAssistAuthMessage,
-  launchAssistRequiresSiwe,
+  launchAssistAuthTitle,
+  launchAssistMayProceed,
   resolveScoopAuthState,
   type ScoopAuthReconciliationState,
 } from '@/lib/auth/reconciliation';
@@ -14,6 +15,8 @@ import type { AssistAuthGateProps } from '@/components/auth/AssistAuthGate';
 
 /**
  * Heavy reconciler — wagmi account + scoop_session.
+ * Launch-assist proceeds only on authenticated_match.
+ * session_only → connect wallet (session stays valid; no AI until connected).
  * Same-wallet reconnect → ready without SIWE.
  * Different wallet → require SIWE before assist proceeds.
  */
@@ -25,7 +28,7 @@ export function AssistAuthGateLive({
   visible = true,
 }: AssistAuthGateProps) {
   const { address, isConnected, status } = useAccount();
-  const [phase, setPhase] = useState<'checking' | 'need_siwe' | 'ready'>('checking');
+  const [phase, setPhase] = useState<'checking' | 'blocked' | 'ready'>('checking');
   const [authState, setAuthState] = useState<ScoopAuthReconciliationState | null>(null);
   const readyOnce = useRef(false);
 
@@ -41,12 +44,12 @@ export function AssistAuthGateLive({
     });
     setAuthState(next);
 
-    if (launchAssistRequiresSiwe(next)) {
+    if (!launchAssistMayProceed(next)) {
       if (readyOnce.current) {
         readyOnce.current = false;
         onBlocked?.();
       }
-      setPhase('need_siwe');
+      setPhase('blocked');
       return;
     }
 
@@ -72,12 +75,14 @@ export function AssistAuthGateLive({
     );
   }
 
-  if (phase === 'need_siwe') {
+  if (phase === 'blocked') {
+    const state = authState ?? 'signed_out';
     return (
       <AuthInterruptLive
         resumePath={resumePath}
-        mismatch={authState === 'wallet_mismatch'}
-        message={launchAssistAuthMessage(authState ?? 'signed_out')}
+        mismatch={state === 'wallet_mismatch'}
+        title={launchAssistAuthTitle(state)}
+        message={launchAssistAuthMessage(state)}
         onCancel={onCancel}
         onAuthenticated={() => {
           readyOnce.current = false;

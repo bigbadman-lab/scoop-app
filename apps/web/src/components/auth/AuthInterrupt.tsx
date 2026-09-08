@@ -8,6 +8,7 @@ type AuthInterruptProps = {
   onAuthenticated: () => void;
   onCancel: () => void;
   mismatch?: boolean;
+  title?: string | null;
   message?: string | null;
 };
 

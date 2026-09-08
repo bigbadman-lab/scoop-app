@@ -42,12 +42,17 @@ export function resolveScoopAuthState(
 }
 
 /**
- * Launch-assist / wallet-driven actions may proceed only when session is valid
- * and there is no conflicting live wallet.
- *
- * - authenticated_match → proceed
- * - session_only → proceed (session survives disconnect; no conflicting signer)
- * - wallet_mismatch / connected_unsigned / signed_out → require SIWE
+ * Launch-assist may generate concepts/artwork only with a live reconciled wallet.
+ * session_only remains a valid SCOOP account state — but not for this flow.
+ */
+export function launchAssistMayProceed(
+  state: ScoopAuthReconciliationState,
+): boolean {
+  return state === 'authenticated_match';
+}
+
+/**
+ * True when the connected wallet still needs a fresh SIWE (not merely connect).
  */
 export function launchAssistRequiresSiwe(
   state: ScoopAuthReconciliationState,
@@ -59,9 +64,22 @@ export function launchAssistRequiresSiwe(
   );
 }
 
+export function launchAssistAuthTitle(
+  state: ScoopAuthReconciliationState,
+): string {
+  if (state === 'session_only') return 'Connect a wallet to launch';
+  if (state === 'wallet_mismatch') {
+    return "You're connected with a different wallet";
+  }
+  return 'Connect a wallet to make a market';
+}
+
 export function launchAssistAuthMessage(
   state: ScoopAuthReconciliationState,
 ): string {
+  if (state === 'session_only') {
+    return 'Your SCOOP session is still active, but a connected wallet is required to create and launch a token.';
+  }
   if (state === 'wallet_mismatch') {
     return "You're connected with a different wallet. Sign in with this wallet to continue.";
   }
