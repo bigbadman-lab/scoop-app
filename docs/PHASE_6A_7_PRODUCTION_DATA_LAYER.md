@@ -79,10 +79,12 @@ Client realtime allowlist stub: `apps/web/src/lib/realtime/tables.ts`.
 
 ## Indexer guardrails
 
-- `pg_try_advisory_lock(hashtext('scoop_indexer'))` on a dedicated session; release on exit
+- `pg_try_advisory_lock(hashtext('scoop_indexer'))` on a **dedicated direct** Postgres session (`INDEXER_LOCK_DATABASE_URL`); pooled `DATABASE_URL` is for normal reads/writes only
+- Rolling deploy: retry lock acquisition (`INDEXER_LOCK_RETRY_MS` / `INDEXER_LOCK_WAIT_TIMEOUT_MS`) instead of immediate non-zero exit
 - Startup check: `token_market_state.launch_progress_bps` must exist
-- SIGTERM/SIGINT finish the **current batch**, then unlock + exit
-- Lock failure → clear error, non-zero exit
+- SIGTERM/SIGINT finish the **current batch**, then unlock + close dedicated lock session, then exit
+- Unexpected lock-session loss → stop indexing (fail closed); never continue without ownership
+- Lock acquisition timeout → clear error, non-zero exit
 
 ## Render
 

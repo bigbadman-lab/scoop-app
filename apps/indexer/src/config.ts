@@ -25,8 +25,24 @@ const optionalPositiveInt = z
     return n;
   });
 
+/** Positive integer env with a default; rejects zero/negative/non-integer. */
+function positiveIntWithDefault(defaultValue: number) {
+  return z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined || value === '') return defaultValue;
+      const n = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+        throw new Error(`Invalid positive integer: ${value}`);
+      }
+      return n;
+    });
+}
+
 const indexerEnvSchema = z
   .object({
+    NODE_ENV: z.string().optional(),
     SCOOP_CHAIN_ID: z.coerce.number().int().default(SCOOP_CHAIN_ID),
     SCOOP_INDEXING_ENABLED: boolFromEnv,
     SCOOP_START_BLOCK: z.coerce.number().int().positive().default(55863290),
@@ -59,6 +75,17 @@ const indexerEnvSchema = z
       .url()
       .default('https://rpc.mainnet.chain.robinhood.com'),
     DATABASE_URL: z.string().optional().or(z.literal('')).transform((v) => v || undefined),
+    /**
+     * Direct/non-pooled Postgres URL used only for the indexer singleton advisory lock.
+     * Required in production when indexing is enabled — never the Supavisor pooler URL.
+     */
+    INDEXER_LOCK_DATABASE_URL: z
+      .string()
+      .optional()
+      .or(z.literal(''))
+      .transform((v) => v || undefined),
+    INDEXER_LOCK_RETRY_MS: positiveIntWithDefault(5000),
+    INDEXER_LOCK_WAIT_TIMEOUT_MS: positiveIntWithDefault(120_000),
     SUPABASE_SERVICE_ROLE_KEY: z
       .string()
       .optional()
@@ -90,6 +117,15 @@ const indexerEnvSchema = z
           message: 'DATABASE_URL is required when SCOOP_INDEXING_ENABLED=true',
         });
       }
+      // Production must not silently fall back to a pooled DATABASE_URL for the lock.
+      if (env.NODE_ENV === 'production' && !env.INDEXER_LOCK_DATABASE_URL) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['INDEXER_LOCK_DATABASE_URL'],
+          message:
+            'INDEXER_LOCK_DATABASE_URL is required when SCOOP_INDEXING_ENABLED=true in production (use Supabase direct/non-pooled Postgres URL)',
+        });
+      }
     }
   });
 
@@ -106,6 +142,26 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): IndexerConfig 
     throw new Error(`Invalid indexer configuration: ${details}`);
   }
   return parsed.data;
+}
+
+/**
+ * Resolve the dedicated lock connection URL.
+ * Production never falls back to pooled DATABASE_URL (enforced in loadConfig).
+ * Non-production may fall back to DATABASE_URL for local/dev convenience.
+ */
+export function resolveIndexerLockDatabaseUrl(config: IndexerConfig): string {
+  if (config.INDEXER_LOCK_DATABASE_URL) {
+    return config.INDEXER_LOCK_DATABASE_URL;
+  }
+  if (config.NODE_ENV === 'production') {
+    throw new Error(
+      'INDEXER_LOCK_DATABASE_URL is required in production (Supabase direct/non-pooled Postgres URL)',
+    );
+  }
+  if (!config.DATABASE_URL) {
+    throw new Error('DATABASE_URL is required for indexer lock fallback outside production');
+  }
+  return config.DATABASE_URL;
 }
 
 /** Redacted view for startup logs — never includes secrets. */
@@ -132,6 +188,9 @@ export function publicConfigView(config: IndexerConfig) {
     hasWsRpc: Boolean(config.ROBINHOOD_WS_URL),
     fallbackRpc: config.ROBINHOOD_FALLBACK_RPC_URL,
     hasDatabaseUrl: Boolean(config.DATABASE_URL),
+    hasIndexerLockDatabaseUrl: Boolean(config.INDEXER_LOCK_DATABASE_URL),
+    indexerLockRetryMs: config.INDEXER_LOCK_RETRY_MS,
+    indexerLockWaitTimeoutMs: config.INDEXER_LOCK_WAIT_TIMEOUT_MS,
     hasServiceRoleKey: Boolean(config.SUPABASE_SERVICE_ROLE_KEY),
     logLevel: config.LOG_LEVEL,
   };

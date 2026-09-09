@@ -1,6 +1,11 @@
 import { createPool, withTransaction, getIndexerCheckpoint, upsertIndexerHealth } from '@scoop/db';
 import type { IndexerConfig } from '../config.js';
-import { MAIN_STREAM_NAME, publicConfigView, sanitizeRpcLabel } from '../config.js';
+import {
+  MAIN_STREAM_NAME,
+  publicConfigView,
+  resolveIndexerLockDatabaseUrl,
+  sanitizeRpcLabel,
+} from '../config.js';
 import { createFailoverRpc } from './rpc/failover.js';
 import { loadWatchlist, watchlistSize } from './watchlist.js';
 import { processBlock } from './processBlock.js';
@@ -72,16 +77,44 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     indexToBlock: indexToBlock ?? null,
   });
 
+  const lockDatabaseUrl = resolveIndexerLockDatabaseUrl(config);
+  let lockSessionLost = false;
+  let stopRequested = false;
+  let stopReason = 'running';
   let lock: AdvisoryLockHandle | null = null;
   try {
-    lock = await acquireIndexerAdvisoryLock(config.DATABASE_URL);
+    lock = await acquireIndexerAdvisoryLock({
+      databaseUrl: lockDatabaseUrl,
+      retryMs: config.INDEXER_LOCK_RETRY_MS,
+      waitTimeoutMs: config.INDEXER_LOCK_WAIT_TIMEOUT_MS,
+      onRetry: ({ attempt, waitedMs, remainingMs }) => {
+        // Concise progress — one log per retry interval, not a tight spam loop.
+        logJson('info', 'indexer singleton lock busy — waiting for prior owner', {
+          attempt,
+          waitedMs,
+          remainingMs,
+          retryMs: config.INDEXER_LOCK_RETRY_MS,
+        });
+      },
+      onLockSessionLost: () => {
+        lockSessionLost = true;
+        stopRequested = true;
+        stopReason = 'lock_session_lost';
+        logJson('error', 'indexer dedicated lock session lost — stopping safely', {
+          key: "hashtext('scoop_indexer')",
+        });
+      },
+    });
   } catch (error) {
     logJson('error', 'indexer singleton lock failed', {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
-  logJson('info', 'indexer advisory lock acquired', { key: "hashtext('scoop_indexer')" });
+  logJson('info', 'indexer advisory lock acquired', {
+    key: "hashtext('scoop_indexer')",
+    lockConnection: 'dedicated',
+  });
 
   const rpc = createFailoverRpc({
     primaryUrl: config.ROBINHOOD_RPC_URL,
@@ -100,8 +133,6 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     throw error;
   }
 
-  let stopRequested = false;
-  let stopReason = 'running';
   const onSignal = (sig: string) => {
     stopRequested = true;
     stopReason = sig;
@@ -389,7 +420,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         });
       });
 
-      if (stopRequested) {
+      if (stopRequested || lockSessionLost) {
         break;
       }
 
@@ -402,11 +433,18 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     wsCleanup?.();
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');
-    await pool.end();
+    // Unlock + close dedicated lock session before pooled DB resources.
     if (lock) {
       await lock.release();
       logJson('info', 'indexer advisory lock released');
     }
+    await pool.end();
+  }
+
+  if (lockSessionLost) {
+    throw new Error(
+      'Indexer dedicated lock session lost; refusing to continue without singleton ownership. Exit non-zero.',
+    );
   }
 
   logJson('info', 'indexer runner stopped', {

@@ -7,7 +7,10 @@ Staged enablement for the SCOOP background worker on Render.
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | yes (when indexing) | Session pooler URI preferred for Render IPv4 |
+| `DATABASE_URL` | yes (when indexing) | Session pooler URI preferred for Render IPv4 (normal indexer traffic) |
+| `INDEXER_LOCK_DATABASE_URL` | yes in production (when indexing) | Supabase **direct/non-pooled** URI only — singleton advisory lock session |
+| `INDEXER_LOCK_RETRY_MS` | optional | default `5000` — wait between lock acquisition attempts |
+| `INDEXER_LOCK_WAIT_TIMEOUT_MS` | optional | default `120000` — fail closed if lock not acquired |
 | `ROBINHOOD_RPC_URL` | yes (when indexing) | Alchemy HTTPS |
 | `ROBINHOOD_WS_URL` | optional | Wake only; poll remains canonical |
 | `ROBINHOOD_FALLBACK_RPC_URL` | recommended | Public fallback |
@@ -51,6 +54,8 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 1. Apply migrations through `20260906160000_phase_6a7_data_layer.sql` on the target Supabase project.
 2. Confirm `token_market_state.launch_progress_bps` exists (worker checks this at startup).
 3. Set `DATABASE_URL` (session pooler) in Render secrets.
+4. Set `INDEXER_LOCK_DATABASE_URL` to the Supabase **direct** connection string (not `*.pooler.supabase.com`).
+5. Optionally set `INDEXER_LOCK_RETRY_MS=5000` and `INDEXER_LOCK_WAIT_TIMEOUT_MS=120000`.
 
 ## Stage 2 — HELLO verify (local or one-off)
 
@@ -64,7 +69,7 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 2. Run a one-off / local `indexer:catchup` or `indexer:once` with indexing enabled against the same DB.
 3. With large lag, expect `fast catchup batch starting` logs and sparse empty-range advances (see `docs/PHASE_6A_7B_FAST_CATCHUP.md`).
 4. Watch `/api/indexer/health` lag and heartbeat.
-5. Confirm singleton advisory lock: a second live runner must exit non-zero.
+5. Confirm singleton advisory lock: a second live runner waits then exits non-zero after `INDEXER_LOCK_WAIT_TIMEOUT_MS` if the first still holds the lock.
 
 ## Stage 4 — Enable continuous indexing
 
@@ -89,6 +94,8 @@ Do **not** put service-role keys or RPC URLs in `NEXT_PUBLIC_*` or client bundle
 
 ## Notes
 
-- Advisory lock key: `hashtext('scoop_indexer')`.
+- Advisory lock key: `hashtext('scoop_indexer')` on a **dedicated direct** Postgres session (`INDEXER_LOCK_DATABASE_URL`).
+- Normal indexer queries use pooled `DATABASE_URL`; never acquire the singleton lock through the pooler.
+- Rolling deploys: replacement worker retries lock acquisition up to `INDEXER_LOCK_WAIT_TIMEOUT_MS` while the old worker drains SIGTERM and unlocks.
 - Realtime publication tables: launches, trades, token_market_state, candles, creator_credits, creator_claimable_state.
 - Frontend uses anon key + views / server routes — never raw_chain_events.

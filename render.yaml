@@ -42,12 +42,19 @@ services:
       - key: ROBINHOOD_FALLBACK_RPC_URL
         value: https://rpc.mainnet.chain.robinhood.com
       # Secrets — set in Render dashboard (never commit):
-      # DATABASE_URL
+      # DATABASE_URL — session pooler (normal indexer traffic)
+      # INDEXER_LOCK_DATABASE_URL — Supabase direct/non-pooled (singleton advisory lock only)
       # ROBINHOOD_RPC_URL
       # ROBINHOOD_WS_URL (optional)
       # SUPABASE_SERVICE_ROLE_KEY (optional; indexer prefers DATABASE_URL)
       - key: DATABASE_URL
         sync: false
+      - key: INDEXER_LOCK_DATABASE_URL
+        sync: false
+      - key: INDEXER_LOCK_RETRY_MS
+        value: "5000"
+      - key: INDEXER_LOCK_WAIT_TIMEOUT_MS
+        value: "120000"
       - key: ROBINHOOD_RPC_URL
         sync: false
       - key: ROBINHOOD_WS_URL
