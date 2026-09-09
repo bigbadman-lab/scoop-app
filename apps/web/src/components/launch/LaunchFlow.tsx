@@ -1,7 +1,13 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useAccount,
+  usePublicClient,
+  useSwitchChain,
+  useWalletClient,
+} from 'wagmi';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   createInitialLaunchState,
@@ -17,6 +23,24 @@ import {
   validateMarketStep,
   validateTokenStep,
 } from '@/lib/launch/validation';
+import { LAUNCH_WRITE_ENABLED } from '@/lib/launch/execute';
+import { runWalletLaunch } from '@/lib/launch/orchestrate';
+import { runLaunchCompletion } from '@/lib/launch/complete-launch';
+import { activateNewsArticleMarket } from '@/lib/news/activate-article-market';
+import {
+  clearPendingLaunchCompletion,
+  loadPendingLaunchCompletion,
+  savePendingLaunchCompletion,
+} from '@/lib/launch/pending-completion';
+import {
+  INITIAL_LAUNCH_TX_STATE,
+  isLaunchCompletionActive,
+  isLaunchTxBusy,
+  isMarketLivePhase,
+  tokenMarketPath,
+  type LaunchTxState,
+} from '@/lib/launch/tx-state';
+import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { consumeAssistedLaunchHandoff } from '@/lib/launch-assist/handoff';
 import type { LaunchAssistArticle } from '@/lib/launch-assist/types';
 import { LaunchProgress } from '@/components/launch/LaunchProgress';
@@ -25,6 +49,8 @@ import { TokenStep } from '@/components/launch/steps/TokenStep';
 import { MarketStep } from '@/components/launch/steps/MarketStep';
 import { EarningsStep } from '@/components/launch/steps/EarningsStep';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
+
+const MARKET_LIVE_NAV_DELAY_MS = 1_500;
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -45,6 +71,7 @@ function imageFromHandoff(
       mimeType: null,
       byteSize: null,
       persistence: 'local_only',
+      ipfsUri: null,
       source: 'ai_pending',
       artworkStatus: 'pending',
       artworkError: null,
@@ -58,6 +85,7 @@ function imageFromHandoff(
       mimeType: handoff.image.mimeType,
       byteSize: handoff.image.byteSize,
       persistence: 'local_only',
+      ipfsUri: null,
       source: 'user',
       artworkStatus: 'ready',
       artworkError: null,
@@ -70,6 +98,7 @@ function imageFromHandoff(
     mimeType: handoff.image.mimeType,
     byteSize: handoff.image.byteSize,
     persistence: 'local_only',
+    ipfsUri: null,
     source: 'ai',
     artworkStatus: 'ready',
     artworkError: null,
@@ -196,8 +225,26 @@ function ArtworkFlowNotice({
 
 function LaunchFlowInner({ catalogue }: Props) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const assist = searchParams.get('assist') === '1';
+  const { address: connectedAddress, chainId: accountChainId } = useAccount();
+  const publicClient = usePublicClient({ chainId: ROBINHOOD_CHAIN_ID });
+  const { data: walletClient } = useWalletClient({ chainId: ROBINHOOD_CHAIN_ID });
+  const { switchChainAsync } = useSwitchChain();
   const applied = useRef(false);
+  const launchInFlight = useRef(false);
+  const completionAbortRef = useRef<AbortController | null>(null);
+  const completionKeyRef = useRef<string | null>(null);
+  const navigatedKeyRef = useRef<string | null>(null);
+  const resumeTriedRef = useRef(false);
+  const accountRef = useRef<{
+    address: `0x${string}` | undefined;
+    chainId: number | undefined;
+  }>({ address: undefined, chainId: undefined });
+  accountRef.current = {
+    address: connectedAddress,
+    chainId: accountChainId,
+  };
   /** Box avoids TS narrowing the ref from the poll effect's `source !== 'user'` guard. */
   const imageSourceRef = useRef<{ source: TokenImageState['source'] }>({
     source: 'none',
@@ -215,10 +262,103 @@ function LaunchFlowInner({ catalogue }: Props) {
   const [quoteWarning, setQuoteWarning] = useState<string | null>(null);
   const [artworkNotice, setArtworkNotice] = useState<ArtworkNotice | null>(null);
   const [artworkJobBusy, setArtworkJobBusy] = useState(false);
+  const [tx, setTx] = useState<LaunchTxState>(INITIAL_LAUNCH_TX_STATE);
 
   imageSourceRef.current.source = state.image.source;
   stepRef.current = state.step;
   regeneratingRef.current = state.image.artworkStatus === 'regenerating';
+
+  function patchTx(partial: Partial<LaunchTxState>) {
+    setTx((prev) => ({ ...prev, ...partial }));
+  }
+
+  function startCompletionFromTx(base: LaunchTxState) {
+    if (!base.decoded?.token || !base.txHash) return;
+    const key = `${base.txHash}:${base.decoded.token}`.toLowerCase();
+    if (completionKeyRef.current === key) return;
+    if (
+      base.phase === 'market_live' ||
+      base.phase === 'index_mismatch'
+    ) {
+      return;
+    }
+
+    completionAbortRef.current?.abort();
+    const ac = new AbortController();
+    completionAbortRef.current = ac;
+    completionKeyRef.current = key;
+
+    savePendingLaunchCompletion({
+      chainId: ROBINHOOD_CHAIN_ID,
+      tokenAddress: base.decoded.token,
+      txHash: base.txHash,
+      expectedCreatorId: base.expectedCreatorId,
+      expectedDeployer: base.expectedDeployer,
+      decoded: base.decoded,
+      provenance: base.provenance,
+    });
+
+    void runLaunchCompletion({
+      chainId: ROBINHOOD_CHAIN_ID,
+      tokenAddress: base.decoded.token,
+      txHash: base.txHash,
+      decoded: base.decoded,
+      expectedCreatorId: base.expectedCreatorId,
+      expectedDeployer: base.expectedDeployer,
+      provenance: base.provenance,
+      signal: ac.signal,
+      callbacks: {
+        onPhase: (partial) => {
+          patchTx(partial);
+        },
+      },
+    }).then((result) => {
+      if (result.status === 'market_live') {
+        clearPendingLaunchCompletion();
+      }
+      if (result.status === 'aborted') {
+        if (completionKeyRef.current === key) {
+          completionKeyRef.current = null;
+        }
+      }
+    });
+  }
+
+  function retryIndexCheck() {
+    completionKeyRef.current = null;
+    if (!tx.decoded || !tx.txHash) return;
+    startCompletionFromTx({
+      ...tx,
+      phase: 'receipt_success',
+      error: null,
+    });
+  }
+
+  async function retryNewsLink() {
+    if (!tx.decoded?.token || !tx.provenance) return;
+    patchTx({ newsActivation: 'pending', phase: 'activating_news' });
+    const result = await activateNewsArticleMarket({
+      chainId: ROBINHOOD_CHAIN_ID,
+      tokenAddress: tx.decoded.token,
+      providerArticleId: tx.provenance.sourceProviderArticleId,
+      draftId: tx.provenance.sourceDraftId,
+    });
+    if (result.ok) {
+      patchTx({ newsActivation: 'ok', phase: 'market_live' });
+    } else {
+      patchTx({ newsActivation: 'failed', phase: 'market_live' });
+    }
+  }
+
+  function viewMarket() {
+    const addr =
+      tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
+    if (!addr) return;
+    const key = `${tx.txHash ?? ''}:${addr}`.toLowerCase();
+    navigatedKeyRef.current = key;
+    clearPendingLaunchCompletion();
+    router.replace(tokenMarketPath(addr));
+  }
 
   useEffect(() => {
     if (!assist || applied.current) return;
@@ -230,6 +370,66 @@ function LaunchFlowInner({ catalogue }: Props) {
     setProvenance(story);
     setQuoteWarning(warning);
   }, [assist, catalogue]);
+
+  /** Resume pending indexer wait after refresh (sessionStorage). */
+  useEffect(() => {
+    if (resumeTriedRef.current) return;
+    resumeTriedRef.current = true;
+    const pending = loadPendingLaunchCompletion();
+    if (!pending) return;
+    dispatch({ type: 'SET_STEP', step: 4 });
+    const restored: LaunchTxState = {
+      ...INITIAL_LAUNCH_TX_STATE,
+      phase: 'receipt_success',
+      txHash: pending.txHash,
+      expectedCreatorId: pending.expectedCreatorId,
+      expectedDeployer: pending.expectedDeployer,
+      decoded: pending.decoded,
+      detailsPending: false,
+      provenance: pending.provenance,
+    };
+    setTx(restored);
+    startCompletionFromTx(restored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only resume
+  }, []);
+
+  /** After receipt_success with decoded token, start indexer completion once. */
+  useEffect(() => {
+    if (tx.phase !== 'receipt_success' || !tx.decoded?.token || !tx.txHash) {
+      return;
+    }
+    startCompletionFromTx(tx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by phase+hash+token
+  }, [tx.phase, tx.txHash, tx.decoded?.token]);
+
+  /** Auto-navigate shortly after MARKET LIVE. */
+  useEffect(() => {
+    if (!isMarketLivePhase(tx.phase)) return;
+    const addr =
+      tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
+    if (!addr || !tx.txHash) return;
+    const key = `${tx.txHash}:${addr}`.toLowerCase();
+    if (navigatedKeyRef.current === key) return;
+    const id = window.setTimeout(() => {
+      if (navigatedKeyRef.current === key) return;
+      navigatedKeyRef.current = key;
+      clearPendingLaunchCompletion();
+      router.replace(tokenMarketPath(addr));
+    }, MARKET_LIVE_NAV_DELAY_MS);
+    return () => window.clearTimeout(id);
+  }, [
+    tx.phase,
+    tx.txHash,
+    tx.indexedLaunch?.tokenAddress,
+    tx.decoded?.token,
+    router,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      completionAbortRef.current?.abort();
+    };
+  }, []);
 
   /** Poll durable draft artwork; merge image fields only (never text/pair). */
   useEffect(() => {
@@ -289,6 +489,7 @@ function LaunchFlowInner({ catalogue }: Props) {
               mimeType: data.mimeType ?? 'image/png',
               byteSize: null,
               persistence: 'local_only',
+              ipfsUri: null,
               source: 'ai',
               artworkStatus: 'ready',
               artworkError: null,
@@ -328,6 +529,7 @@ function LaunchFlowInner({ catalogue }: Props) {
               mimeType: null,
               byteSize: null,
               persistence: 'local_only',
+              ipfsUri: null,
               source: 'ai_pending',
               artworkStatus: 'failed',
               artworkError: data.artworkError ?? 'Artwork generation failed',
@@ -393,7 +595,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
     if (state.step === 3) {
-      const next = validateEarningsStep(state);
+      const next = validateEarningsStep(state, connectedAddress);
       setErrors(next);
       if (Object.keys(next).length) return;
       dispatch({ type: 'SET_STEP', step: 4 });
@@ -443,6 +645,7 @@ function LaunchFlowInner({ catalogue }: Props) {
           mimeType: null,
           byteSize: null,
           persistence: 'local_only',
+          ipfsUri: null,
           source: 'ai_pending',
           artworkStatus: 'pending',
           artworkError: null,
@@ -476,6 +679,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             mimeType: null,
             byteSize: null,
             persistence: 'local_only',
+            ipfsUri: null,
             source: 'ai_pending',
             artworkStatus: 'failed',
             artworkError: 'Could not start artwork.',
@@ -490,8 +694,92 @@ function LaunchFlowInner({ catalogue }: Props) {
     state.step === 4
       ? artworkBlockingLaunch
         ? 'Finishing your token image…'
-        : 'Wallet write infrastructure is not available — launch cannot be submitted.'
+        : isLaunchCompletionActive(tx.phase)
+          ? isMarketLivePhase(tx.phase)
+            ? 'Market is live'
+            : tx.phase === 'indexing_timeout'
+              ? 'Launch confirmed — indexing delayed'
+              : tx.phase === 'index_mismatch'
+                ? 'Indexed launch mismatch'
+                : 'Launch transaction already confirmed'
+          : isLaunchTxBusy(tx.phase)
+            ? launchTxBusyReason(tx.phase)
+            : !LAUNCH_WRITE_ENABLED
+              ? 'Launch submission is disabled.'
+              : !connectedAddress
+                ? 'Connect a wallet to launch'
+                : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
+                  ? 'Switch to Robinhood Chain (4663)'
+                  : undefined
       : undefined;
+
+  async function submitLaunch() {
+    if (state.step !== 4) return;
+    if (launchInFlight.current || isLaunchTxBusy(tx.phase)) return;
+    if (artworkBlockingLaunch) return;
+    if (isLaunchCompletionActive(tx.phase)) {
+      return;
+    }
+
+    if (!connectedAddress) {
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'failed',
+        error: 'Connect a wallet to launch.',
+      });
+      return;
+    }
+
+    let effectiveChainId = accountChainId;
+    if (accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID) {
+      try {
+        await switchChainAsync?.({ chainId: ROBINHOOD_CHAIN_ID });
+        effectiveChainId = ROBINHOOD_CHAIN_ID;
+      } catch {
+        setTx({
+          ...INITIAL_LAUNCH_TX_STATE,
+          phase: 'failed',
+          error: 'Switch to Robinhood Chain (4663) to launch.',
+        });
+        return;
+      }
+    }
+
+    if (!publicClient || !walletClient) {
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'failed',
+        error: 'Wallet client not ready. Reconnect and try again.',
+      });
+      return;
+    }
+
+    launchInFlight.current = true;
+    setTx({ ...INITIAL_LAUNCH_TX_STATE, phase: 'preparing_artwork' });
+    try {
+      await runWalletLaunch({
+        state,
+        liveAddress: connectedAddress,
+        liveChainId: effectiveChainId,
+        publicClient,
+        walletClient,
+        getLiveAccount: () => ({
+          address: accountRef.current.address,
+          chainId: accountRef.current.chainId,
+        }),
+        callbacks: {
+          onPhase: (partial) => {
+            setTx((prev) => ({ ...prev, ...partial }));
+          },
+          onImagePinned: (image) => {
+            dispatch({ type: 'SET_IMAGE', image });
+          },
+        },
+      });
+    } finally {
+      launchInFlight.current = false;
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[680px]">
@@ -549,30 +837,90 @@ function LaunchFlowInner({ catalogue }: Props) {
         <EarningsStep
           state={state}
           errors={visibleErrors}
+          connectedAddress={connectedAddress}
           onMode={(mode) => dispatch({ type: 'SET_CREATOR_MODE', mode })}
           onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
         />
       ) : null}
 
-      {state.step === 4 ? <ReviewStep state={state} catalogue={catalogue} /> : null}
+      {state.step === 4 ? (
+        <ReviewStep
+          state={state}
+          catalogue={catalogue}
+          connectedAddress={connectedAddress}
+          tx={tx}
+          onRetryIndex={retryIndexCheck}
+          onRetryNews={() => {
+            void retryNewsLink();
+          }}
+          onViewMarket={viewMarket}
+        />
+      ) : null}
 
       <LaunchNav
-        onBack={state.step > 1 ? goBack : undefined}
+        onBack={
+          state.step > 1 &&
+          !isLaunchTxBusy(tx.phase) &&
+          !isLaunchCompletionActive(tx.phase)
+            ? goBack
+            : undefined
+        }
         onContinue={
           state.step < 4
             ? goContinue
-            : () => {
-                /* intentionally no-op — writes deferred */
-              }
+            : isMarketLivePhase(tx.phase) || tx.phase === 'indexing_timeout'
+              ? viewMarket
+              : () => {
+                  void submitLaunch();
+                }
         }
         continueLabel={
-          state.step === 3 ? 'Review →' : state.step === 4 ? 'Launch token →' : 'Continue →'
+          state.step === 3
+            ? 'Review →'
+            : state.step === 4
+              ? isMarketLivePhase(tx.phase)
+                ? 'View market →'
+                : tx.phase === 'indexing_timeout'
+                  ? 'View market →'
+                  : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
+                    ? isLaunchTxBusy(tx.phase)
+                      ? launchTxBusyReason(tx.phase)
+                      : 'Confirmed'
+                    : 'Launch token →'
+              : 'Continue →'
         }
-        continueDisabled={state.step === 4}
+        continueDisabled={
+          state.step === 4 &&
+          (Boolean(launchDisabledReason) ||
+            isLaunchTxBusy(tx.phase) ||
+            (isLaunchCompletionActive(tx.phase) &&
+              !isMarketLivePhase(tx.phase) &&
+              tx.phase !== 'indexing_timeout'))
+        }
         continueDisabledReason={launchDisabledReason}
       />
     </div>
   );
+}
+
+function launchTxBusyReason(phase: LaunchTxState['phase']): string {
+  switch (phase) {
+    case 'preparing_artwork':
+      return 'Preparing artwork…';
+    case 'simulating':
+      return 'Simulating launch…';
+    case 'awaiting_wallet':
+      return 'Confirm in your wallet…';
+    case 'submitted':
+    case 'confirming':
+      return 'Confirming transaction…';
+    case 'waiting_for_indexer':
+      return 'Getting your market ready…';
+    case 'activating_news':
+      return 'Linking News article…';
+    default:
+      return 'Launch in progress…';
+  }
 }
 
 export function LaunchFlow({ catalogue }: Props) {

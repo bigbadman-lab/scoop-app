@@ -7,33 +7,115 @@ import {
   type LaunchFormState,
 } from '@/lib/launch/types';
 import { hasDevBuy } from '@/lib/launch/validation';
+import {
+  creatorRecipientLabel,
+  isCreatorResolved,
+  resolveCreatorRecipient,
+} from '@/lib/launch/creator-recipient';
+import {
+  isLaunchTxBusy,
+  isMarketLivePhase,
+  launchTxStatusLabel,
+  tokenMarketPath,
+  type LaunchTxState,
+} from '@/lib/launch/tx-state';
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
+import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import { truncateAddress } from '@/lib/format';
 
 type Props = {
   state: LaunchFormState;
   catalogue: readonly PublicQuoteCatalogueItem[];
+  connectedAddress: string | null | undefined;
+  tx: LaunchTxState;
+  onRetryIndex?: () => void;
+  onRetryNews?: () => void;
+  onViewMarket?: () => void;
 };
 
-export function ReviewStep({ state, catalogue }: Props) {
+export function ReviewStep({
+  state,
+  catalogue,
+  connectedAddress,
+  tx,
+  onRetryIndex,
+  onRetryNews,
+  onViewMarket,
+}: Props) {
   const quote = catalogue.find(
     (q) => q.quoteAsset.toLowerCase() === state.quoteAsset?.toLowerCase(),
   );
   const quoteSymbol = state.quoteSymbol ?? quote?.displaySymbol ?? '—';
   const buy = hasDevBuy(state);
+  const recipient = resolveCreatorRecipient(state, connectedAddress);
+  const busy = isLaunchTxBusy(tx.phase);
+  const ticker =
+    tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
+  const tokenAddr =
+    tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
+  const marketHref = tokenAddr ? tokenMarketPath(tokenAddr) : null;
+
+  let creatorLines: string[] = ['Unresolved'];
+  if (isCreatorResolved(recipient) && recipient.type === 'wallet') {
+    creatorLines = [
+      creatorRecipientLabel(recipient),
+      truncateAddress(recipient.address),
+    ];
+  }
+
+  const showPostReceipt =
+    tx.phase === 'receipt_success' ||
+    tx.phase === 'receipt_success_details_pending' ||
+    tx.phase === 'waiting_for_indexer' ||
+    tx.phase === 'indexed' ||
+    tx.phase === 'activating_news' ||
+    tx.phase === 'market_live' ||
+    tx.phase === 'indexing_timeout' ||
+    tx.phase === 'news_activation_failed' ||
+    tx.phase === 'index_mismatch';
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Launch ticket — confirm configuration before submitting. Writes stay
-          disabled until wallet infrastructure is wired.
+          Confirm deployer and creator rewards, then submit. Simulation runs before
+          your wallet opens.
         </p>
       </div>
 
+      {showPostReceipt ? (
+        <CompletionPanel
+          tx={tx}
+          ticker={ticker}
+          marketHref={marketHref}
+          onRetryIndex={onRetryIndex}
+          onRetryNews={onRetryNews}
+          onViewMarket={onViewMarket}
+        />
+      ) : null}
+
+      {tx.phase === 'failed' && tx.error ? (
+        <p
+          className="rounded-[var(--radius-md)] border border-[#b42318]/40 px-4 py-3 font-mono text-[12px] text-[#b42318]"
+          role="alert"
+          data-testid="launch-tx-error"
+        >
+          {tx.error}
+        </p>
+      ) : null}
+
+      {busy && !showPostReceipt ? (
+        <p
+          className="font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)]"
+          role="status"
+          data-testid="launch-tx-phase"
+        >
+          {launchTxStatusLabel(tx.phase)}
+        </p>
+      ) : null}
+
       <div className="space-y-0 divide-y divide-[var(--divider)] border border-[var(--divider)] rounded-[var(--radius-xl)]">
-        {/* Token */}
         <TicketBlock title="Token">
           <div className="flex gap-4">
             {state.image.previewUrl ? (
@@ -52,18 +134,19 @@ export function ReviewStep({ state, catalogue }: Props) {
               <p className="font-mono text-[12px] text-[var(--muted)]">${state.ticker}</p>
               <p className="text-[17px] font-semibold tracking-tight">{state.name}</p>
               <p className="line-clamp-3 text-sm text-[var(--muted)]">{state.description}</p>
-              {(state.twitter || state.telegram) && (
-                <p className="font-mono text-[11px] text-[var(--muted-2)]">
-                  {[state.twitter && 'X', state.telegram && 'Telegram']
-                    .filter(Boolean)
-                    .join(' · ')}
+              {state.image.ipfsUri ? (
+                <p className="font-mono text-[10px] text-[var(--muted-2)]">
+                  IPFS ready
+                </p>
+              ) : (
+                <p className="font-mono text-[10px] text-[var(--muted-2)]">
+                  Will pin to IPFS on launch
                 </p>
               )}
             </div>
           </div>
         </TicketBlock>
 
-        {/* Market */}
         <TicketBlock title="Market">
           <div className="flex items-center gap-3">
             {quote?.imageUrl ? (
@@ -83,20 +166,32 @@ export function ReviewStep({ state, catalogue }: Props) {
           </div>
         </TicketBlock>
 
-        {/* Earnings */}
-        <TicketBlock title="Earnings">
-          <dl className="space-y-2 text-sm">
-            <Row
-              label="Creator rewards"
-              value={`${PROTOCOL_FEE_SPLIT.creatorRewardsBps / 100}% → ${
-                state.creatorMode === 'different'
-                  ? truncateAddress(state.creatorAddress)
-                  : state.creatorMode
-              }`}
-            />
+        <TicketBlock title="Wallets">
+          <dl className="space-y-3 text-sm">
+            <div>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+                Deployed by
+              </dt>
+              <dd className="mt-1 font-mono text-[14px]" data-testid="review-deployer-wallet">
+                {connectedAddress
+                  ? truncateAddress(connectedAddress)
+                  : 'Connect a wallet'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+                Creator rewards · {PROTOCOL_FEE_SPLIT.creatorRewardsBps / 100}%
+              </dt>
+              <dd
+                className="mt-1 whitespace-pre-line font-mono text-[14px] text-[var(--fg)]"
+                data-testid="review-creator-recipient"
+              >
+                {creatorLines.join('\n')}
+              </dd>
+            </div>
             <Row
               label="Deployer fees"
-              value={`${PROTOCOL_FEE_SPLIT.deployerBps / 100}% → launching wallet (protocol-fixed)`}
+              value={`${PROTOCOL_FEE_SPLIT.deployerBps / 100}% → launching wallet`}
             />
             <Row
               label="Protocol · buybacks"
@@ -109,60 +204,180 @@ export function ReviewStep({ state, catalogue }: Props) {
           </dl>
         </TicketBlock>
 
-        {/* Dev buy */}
         <TicketBlock title="Dev buy">
           {buy ? (
-            <p className="font-mono text-[14px] tabular-nums">
-              {state.devBuyAmount} {quoteSymbol}
-            </p>
+            <>
+              <p className="font-mono text-[14px] tabular-nums">
+                {state.devBuyAmount} {quoteSymbol}
+              </p>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                Initial buy is not included in this launch. V2.C submits{' '}
+                <span className="font-mono">launch</span> only (no{' '}
+                <span className="font-mono">launchAndBuy</span>).
+              </p>
+            </>
           ) : (
             <p className="text-sm text-[var(--muted)]">No initial buy</p>
           )}
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-            Approval state · deferred (no wallet write path)
-          </p>
         </TicketBlock>
 
-        {/* Costs */}
         <TicketBlock title="Costs">
           <dl className="space-y-2 text-sm">
             <Row label="Launch fee" value={`${LAUNCH_FEE_ETH} ETH`} />
-            {buy ? (
-              <Row
-                label="Dev buy"
-                value={`${state.devBuyAmount} ${quoteSymbol}`}
-              />
-            ) : null}
-            <Row label="Gas estimate" value="Unavailable until wallet simulation" />
-            <Row
-              label="Native value"
-              value={
-                quoteSymbol === 'ETH' && buy
-                  ? `${LAUNCH_FEE_ETH} ETH + ${state.devBuyAmount} ETH (exact msg.value)`
-                  : `${LAUNCH_FEE_ETH} ETH launch fee` +
-                    (buy ? ` · ERC-20 buy requires approval (deferred)` : '')
-              }
-            />
+            <Row label="Native value" value={`${LAUNCH_FEE_ETH} ETH (msg.value)`} />
+            <Row label="Network" value={`${ROBINHOOD_CHAIN_LABEL} · ${ROBINHOOD_CHAIN_ID}`} />
           </dl>
         </TicketBlock>
-
-        {/* Network */}
-        <TicketBlock title="Network">
-          <p className="text-sm">{ROBINHOOD_CHAIN_LABEL}</p>
-          <p className="mt-1 font-mono text-[12px] text-[var(--muted)]">
-            Chain ID {ROBINHOOD_CHAIN_ID}
-          </p>
-        </TicketBlock>
       </div>
+    </div>
+  );
+}
 
-      <p
-        className="rounded-[var(--radius-md)] border border-dashed border-[var(--divider)] px-4 py-3 font-mono text-[11px] text-[var(--muted)]"
-        role="status"
-      >
-        Launch writes are deferred. Connect / switch / approve / submit require wallet
-        infrastructure that is not present in this app yet. The CTA below cannot fake
-        a launch.
-      </p>
+function CompletionPanel({
+  tx,
+  ticker,
+  marketHref,
+  onRetryIndex,
+  onRetryNews,
+  onViewMarket,
+}: {
+  tx: LaunchTxState;
+  ticker: string;
+  marketHref: string | null;
+  onRetryIndex?: () => void;
+  onRetryNews?: () => void;
+  onViewMarket?: () => void;
+}) {
+  const live = isMarketLivePhase(tx.phase);
+  const indexing =
+    tx.phase === 'receipt_success' ||
+    tx.phase === 'waiting_for_indexer' ||
+    tx.phase === 'indexed' ||
+    tx.phase === 'activating_news';
+
+  let title = 'Launch transaction confirmed';
+  let body = 'Waiting for market indexing… MARKET LIVE is not claimed yet.';
+  let testId = 'launch-receipt-success';
+
+  if (tx.phase === 'waiting_for_indexer' || tx.phase === 'receipt_success') {
+    title = 'Launch confirmed';
+    body = 'Getting your market ready…';
+    testId = 'launch-waiting-indexer';
+  } else if (tx.phase === 'activating_news') {
+    title = 'Market indexed';
+    body = 'Linking News article…';
+    testId = 'launch-activating-news';
+  } else if (tx.phase === 'indexed') {
+    title = 'Market indexed';
+    body = 'Preparing MARKET LIVE…';
+    testId = 'launch-indexed';
+  } else if (live) {
+    title = 'MARKET LIVE';
+    body = `$${ticker} is now live on SCOOP.`;
+    testId = 'launch-market-live';
+  } else if (tx.phase === 'indexing_timeout') {
+    title = 'Your launch is confirmed on-chain.';
+    body =
+      'SCOOP is still indexing the market. You can retry or open the transaction.';
+    testId = 'launch-indexing-timeout';
+  } else if (tx.phase === 'index_mismatch') {
+    title = 'Indexed data mismatch';
+    body =
+      tx.error ??
+      'Canonical indexed launch does not match the receipt. Navigation blocked.';
+    testId = 'launch-index-mismatch';
+  } else if (tx.phase === 'receipt_success_details_pending') {
+    title = 'Launch transaction confirmed';
+    body =
+      'Confirmed on-chain — launch details pending decode. Indexing cannot start without the token address.';
+    testId = 'launch-receipt-success';
+  }
+
+  return (
+    <div
+      className="rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-4 py-3"
+      role="status"
+      data-testid={testId}
+    >
+      <p className="text-[15px] font-semibold tracking-tight">{title}</p>
+      <p className="mt-1 text-sm text-[var(--muted)]">{body}</p>
+
+      {tx.newsActivation === 'failed' && live ? (
+        <p
+          className="mt-2 text-sm text-[var(--muted)]"
+          data-testid="launch-news-sync-warning"
+        >
+          Market is live. News link is still syncing.
+        </p>
+      ) : null}
+
+      {tx.txHash ? (
+        <p className="mt-2 font-mono text-[11px] break-all text-[var(--muted-2)]">
+          {tx.txHash}
+        </p>
+      ) : null}
+
+      {tx.decoded?.token && !live ? (
+        <p className="mt-2 font-mono text-[12px] text-[var(--fg)]">
+          Token {truncateAddress(tx.decoded.token)}
+        </p>
+      ) : null}
+
+      {indexing ? (
+        <p
+          className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]"
+          data-testid="launch-tx-phase"
+        >
+          {launchTxStatusLabel(tx.phase)}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap gap-3">
+        {tx.phase === 'indexing_timeout' && onRetryIndex ? (
+          <button
+            type="button"
+            className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            onClick={onRetryIndex}
+            data-testid="launch-retry-index"
+          >
+            Retry indexing check
+          </button>
+        ) : null}
+
+        {tx.newsActivation === 'failed' && onRetryNews ? (
+          <button
+            type="button"
+            className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            onClick={onRetryNews}
+            data-testid="launch-retry-news"
+          >
+            Retry News link
+          </button>
+        ) : null}
+
+        {(live || tx.phase === 'indexing_timeout') && marketHref ? (
+          <button
+            type="button"
+            className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            onClick={onViewMarket}
+            data-testid="launch-view-market"
+          >
+            View market
+          </button>
+        ) : null}
+
+        {tx.txHash && tx.phase === 'indexing_timeout' ? (
+          <a
+            className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:underline"
+            href={robinhoodTxUrl(tx.txHash)}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="launch-open-tx"
+          >
+            Open transaction
+          </a>
+        ) : null}
+      </div>
     </div>
   );
 }

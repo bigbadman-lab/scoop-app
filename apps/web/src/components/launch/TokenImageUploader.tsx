@@ -53,6 +53,7 @@ export function TokenImageUploader({
         mimeType: file.type,
         byteSize: file.size,
         persistence: 'local_only',
+        ipfsUri: null,
         source: 'user',
         artworkStatus: 'ready',
         artworkError: null,

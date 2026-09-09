@@ -1,4 +1,8 @@
 import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
+import {
+  isCreatorResolved,
+  resolveCreatorRecipient,
+} from '@/lib/launch/creator-recipient';
 
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -24,6 +28,7 @@ export function isArtworkInFlight(image: TokenImageState): boolean {
 /**
  * Final Launch requires a resolved token image (existing product rule).
  * Pending/regenerating blocks launch; steps 1–3 do not.
+ * Protocol also requires ipfs:// — enforced by buildLaunchParams, not step nav.
  */
 export function isArtworkBlockingLaunch(state: LaunchFormState): boolean {
   const { image } = state;
@@ -88,20 +93,27 @@ export function validateMarketStep(state: LaunchFormState): FieldErrors {
   return errors;
 }
 
-export function validateEarningsStep(state: LaunchFormState): FieldErrors {
+/**
+ * Earnings step validation.
+ * @param liveConnectedAddress — wagmi account; required when mode is connected.
+ */
+export function validateEarningsStep(
+  state: LaunchFormState,
+  liveConnectedAddress?: string | null,
+): FieldErrors {
   const errors: FieldErrors = {};
 
-  if (state.creatorMode === 'connected') {
+  if (state.creatorMode === 'x') {
     errors.creatorMode =
-      'Connected wallet is not available yet — wallet write infrastructure is deferred.';
-  } else if (state.creatorMode === 'x_handle') {
-    errors.creatorMode =
-      'X handle creator identity is not available yet — claim/resolution is deferred.';
-  } else if (state.creatorMode === 'different') {
-    if (!state.creatorAddress.trim()) {
-      errors.creatorAddress = 'Enter a recipient wallet address.';
-    } else if (!isValidEvmAddress(state.creatorAddress)) {
-      errors.creatorAddress = 'Enter a valid 0x address.';
+      'X creator rewards are coming next. Profiles will be resolved by immutable X user ID.';
+  } else {
+    const recipient = resolveCreatorRecipient(state, liveConnectedAddress ?? null);
+    if (!isCreatorResolved(recipient)) {
+      if (state.creatorMode === 'connected') {
+        errors.creatorMode = recipient.reason;
+      } else {
+        errors.creatorCustomAddress = recipient.reason;
+      }
     }
   }
 
@@ -117,10 +129,14 @@ export function validateEarningsStep(state: LaunchFormState): FieldErrors {
   return errors;
 }
 
-export function canAdvanceFromStep(step: 1 | 2 | 3, state: LaunchFormState): boolean {
+export function canAdvanceFromStep(
+  step: 1 | 2 | 3,
+  state: LaunchFormState,
+  liveConnectedAddress?: string | null,
+): boolean {
   if (step === 1) return Object.keys(validateTokenStep(state)).length === 0;
   if (step === 2) return Object.keys(validateMarketStep(state)).length === 0;
-  return Object.keys(validateEarningsStep(state)).length === 0;
+  return Object.keys(validateEarningsStep(state, liveConnectedAddress)).length === 0;
 }
 
 /** Human decimal → whether this is a positive dev buy. */

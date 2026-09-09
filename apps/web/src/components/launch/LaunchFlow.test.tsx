@@ -11,6 +11,24 @@ const searchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
+const mockConnectedAddress = vi.fn(
+  (): `0x${string}` | undefined =>
+    '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
+);
+
+vi.mock('wagmi', () => ({
+  useAccount: () => ({
+    address: mockConnectedAddress(),
+    chainId: 4663,
+    isConnected: Boolean(mockConnectedAddress()),
+    status: mockConnectedAddress() ? 'connected' : 'disconnected',
+  }),
+  usePublicClient: () => ({}),
+  useWalletClient: () => ({ data: {} }),
+  useSwitchChain: () => ({ switchChainAsync: vi.fn() }),
 }));
 
 beforeAll(() => {
@@ -99,6 +117,9 @@ describe('LaunchFlow', () => {
   beforeEach(() => {
     sessionStorage.clear();
     searchParams.delete('assist');
+    mockConnectedAddress.mockReturnValue(
+      '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
+    );
   });
 
   it('starts on TOKEN and blocks continue until required fields are valid', () => {

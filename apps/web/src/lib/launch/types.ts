@@ -1,4 +1,7 @@
-/** Launch flow types — Phase 2 four-step desk. */
+/** Launch flow types — Phase 2 four-step desk + V2.B creator identity. */
+
+import type { Hex } from 'viem';
+import { generateLaunchSalt } from '@/lib/launch/salt';
 
 export type LaunchStepId = 1 | 2 | 3 | 4;
 
@@ -9,10 +12,33 @@ export const LAUNCH_STEPS = [
   { id: 4 as const, key: 'REVIEW', label: 'Review & Launch' },
 ] as const;
 
-export type CreatorRecipientMode = 'connected' | 'different' | 'x_handle';
+/**
+ * Creator reward recipient mode (UI).
+ * - connected: live wagmi account → walletCreatorId (re-resolved every time)
+ * - custom: typed EVM address → walletCreatorId
+ * - x: requires future server-resolved numeric X user ID (disabled in V2.B UI)
+ */
+export type CreatorRecipientMode = 'connected' | 'custom' | 'x';
+
+/**
+ * Future X identity slot. Financially inert until status === 'resolved'
+ * with a trusted numeric xUserId (never from a typed @handle alone).
+ */
+export type ResolvedXCreator =
+  | { status: 'unresolved'; handleSnapshot?: string }
+  | {
+      status: 'resolved';
+      /** Immutable numeric X user ID (decimal string). Canonical. */
+      xUserId: string;
+      handleSnapshot?: string;
+      displayNameSnapshot?: string;
+      avatarUrlSnapshot?: string;
+    };
 
 /** Ownership — late AI must not overwrite `user`. */
 export type TokenImageSource = 'none' | 'ai_pending' | 'ai' | 'user';
+
+export type TokenImagePersistence = 'local_only' | 'ipfs_ready';
 
 export type TokenImageState = {
   /** Object URL for local preview — revoked on replace/remove. */
@@ -20,8 +46,12 @@ export type TokenImageState = {
   fileName: string | null;
   mimeType: string | null;
   byteSize: number | null;
-  /** Persistence deferred until IPFS / storage write path exists. */
-  persistence: 'local_only';
+  /**
+   * local_only until pinned. Factory requires ipfs:// — see lib/launch/ipfs.ts.
+   */
+  persistence: TokenImagePersistence;
+  /** Protocol imageUri once pinned (ipfs://…). Null until V2.C pin path. */
+  ipfsUri: string | null;
   source: TokenImageSource;
   artworkStatus: 'idle' | 'pending' | 'generating' | 'regenerating' | 'ready' | 'failed';
   artworkError: string | null;
@@ -37,17 +67,29 @@ export type LaunchFormState = {
   twitter: string;
   telegram: string;
   image: TokenImageState;
-  // Step 2 — Market
+  // Step 2 — Market — canonical quote token address (ETH = zero address)
   quoteAsset: string | null;
   quoteSymbol: string | null;
   // Step 3 — Earnings & Buy
   creatorMode: CreatorRecipientMode;
-  creatorAddress: string;
+  /** Typed custom recipient — only used when creatorMode === 'custom'. */
+  creatorCustomAddress: string;
+  /**
+   * Future X slot. Must not be populated from a client-typed handle for economics.
+   * Remains unresolved in V2.B.
+   */
+  creatorX: ResolvedXCreator;
+  /**
+   * CREATE2 user salt (bytes32). Generated once per wizard session; preserved
+   * across steps. Regenerating requires explicit action (not done automatically).
+   */
+  salt: Hex;
   /** Optional initial buy in selected quote units (human decimal string). Empty or 0 = no buy. */
   devBuyAmount: string;
   /**
    * Explicit news provenance (News Page V2). Survives to launch success linking.
    * Never inferred from headline/ticker — only set from assist handoff.
+   * Not part of Factory calldata.
    */
   sourceProvider: string | null;
   sourceProviderArticleId: string | null;
@@ -62,6 +104,7 @@ export const INITIAL_IMAGE: TokenImageState = {
   mimeType: null,
   byteSize: null,
   persistence: 'local_only',
+  ipfsUri: null,
   source: 'none',
   artworkStatus: 'idle',
   artworkError: null,
@@ -71,7 +114,7 @@ export const INITIAL_IMAGE: TokenImageState = {
 export function createInitialLaunchState(
   prefill?: Partial<LaunchFormState>,
 ): LaunchFormState {
-  return {
+  const base: LaunchFormState = {
     step: 1,
     name: '',
     ticker: '',
@@ -81,13 +124,22 @@ export function createInitialLaunchState(
     image: { ...INITIAL_IMAGE },
     quoteAsset: null,
     quoteSymbol: null,
-    creatorMode: 'different',
-    creatorAddress: '',
+    creatorMode: 'connected',
+    creatorCustomAddress: '',
+    creatorX: { status: 'unresolved' },
+    salt: generateLaunchSalt(),
     devBuyAmount: '',
     sourceProvider: null,
     sourceProviderArticleId: null,
     sourceDraftId: null,
-    ...prefill,
+  };
+  if (!prefill) return base;
+  const { image: imagePrefill, ...rest } = prefill;
+  return {
+    ...base,
+    ...rest,
+    image: imagePrefill ? { ...INITIAL_IMAGE, ...imagePrefill } : base.image,
+    salt: rest.salt ?? base.salt,
   };
 }
 
@@ -100,11 +152,15 @@ export const PROTOCOL_FEE_SPLIT = {
   denominator: 10_000,
 } as const;
 
-/** Factory LAUNCH_FEE — 0.0005 ETH (HELLO / live ScoopFactory). */
+/**
+ * Factory LAUNCH_FEE — public immutable constant on ScoopFactory (0.0005 ether).
+ * V2.C may also read via publicClient.readContract({ functionName: 'LAUNCH_FEE' }).
+ * App constant matches deployed bytecode; do not diverge.
+ */
 export const LAUNCH_FEE_ETH = '0.0005' as const;
 export const LAUNCH_FEE_WEI = BigInt('500000000000000');
 
-/** On-chain metadata byte limits (ScoopFactory). */
+/** On-chain metadata byte limits (ScoopFactory) + app file limits. */
 export const META_LIMITS = {
   nameMax: 48,
   tickerMin: 2,

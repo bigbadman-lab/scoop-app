@@ -14,6 +14,8 @@ import {
 import { createInitialLaunchState, PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import { launchReducer } from '@/lib/launch/state';
 
+const WALLET = '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C';
+
 function validTokenState() {
   return createInitialLaunchState({
     name: 'Meme Name',
@@ -25,6 +27,7 @@ function validTokenState() {
       mimeType: 'image/png',
       byteSize: 1200,
       persistence: 'local_only',
+      ipfsUri: null,
       source: 'user',
       artworkStatus: 'ready',
       artworkError: null,
@@ -44,6 +47,7 @@ function pendingAiImageState() {
       mimeType: null,
       byteSize: null,
       persistence: 'local_only',
+      ipfsUri: null,
       source: 'ai_pending',
       artworkStatus: 'pending',
       artworkError: null,
@@ -79,6 +83,7 @@ describe('launch token validation', () => {
             mimeType: 'image/png',
             byteSize: null,
             persistence: 'local_only',
+            ipfsUri: null,
             source: 'ai',
             artworkStatus: 'regenerating',
             artworkError: null,
@@ -118,27 +123,40 @@ describe('launch market + earnings', () => {
     expect(validateMarketStep(createInitialLaunchState()).quoteAsset).toBeTruthy();
   });
 
-  it('blocks unsupported creator modes', () => {
-    expect(
-      validateEarningsStep(createInitialLaunchState({ creatorMode: 'connected' }))
-        .creatorMode,
-    ).toMatch(/deferred/i);
-    expect(
-      validateEarningsStep(createInitialLaunchState({ creatorMode: 'x_handle' }))
-        .creatorMode,
-    ).toMatch(/deferred/i);
+  it('allows connected mode when live wallet is present', () => {
+    const errors = validateEarningsStep(
+      createInitialLaunchState({ creatorMode: 'connected' }),
+      WALLET,
+    );
+    expect(errors.creatorMode).toBeUndefined();
   });
 
-  it('validates different-wallet address', () => {
+  it('blocks connected mode without wallet', () => {
+    expect(
+      validateEarningsStep(createInitialLaunchState({ creatorMode: 'connected' }), null)
+        .creatorMode,
+    ).toMatch(/connect/i);
+  });
+
+  it('blocks X mode (unresolved / disabled)', () => {
+    expect(
+      validateEarningsStep(createInitialLaunchState({ creatorMode: 'x' }), WALLET)
+        .creatorMode,
+    ).toMatch(/coming next|immutable/i);
+  });
+
+  it('validates custom wallet address', () => {
     expect(isValidEvmAddress('0x35afc8a0c2f5e6a1b2c3d4e5f60718293a4b5c6d')).toBe(true);
     const missing = validateEarningsStep(
-      createInitialLaunchState({ creatorMode: 'different', creatorAddress: '' }),
+      createInitialLaunchState({ creatorMode: 'custom', creatorCustomAddress: '' }),
+      WALLET,
     );
-    expect(missing.creatorAddress).toBeTruthy();
+    expect(missing.creatorCustomAddress).toBeTruthy();
     const bad = validateEarningsStep(
-      createInitialLaunchState({ creatorMode: 'different', creatorAddress: '0x123' }),
+      createInitialLaunchState({ creatorMode: 'custom', creatorCustomAddress: '0x123' }),
+      WALLET,
     );
-    expect(bad.creatorAddress).toBeTruthy();
+    expect(bad.creatorCustomAddress).toBeTruthy();
   });
 
   it('treats empty/zero as no dev buy; quote controls denomination label elsewhere', () => {
@@ -147,10 +165,11 @@ describe('launch market + earnings', () => {
     expect(hasDevBuy(createInitialLaunchState({ devBuyAmount: '0.01' }))).toBe(true);
     const bad = validateEarningsStep(
       createInitialLaunchState({
-        creatorMode: 'different',
-        creatorAddress: '0x35afc8a0c2f5e6a1b2c3d4e5f60718293a4b5c6d',
+        creatorMode: 'custom',
+        creatorCustomAddress: '0x35afc8a0c2f5e6a1b2c3d4e5f60718293a4b5c6d',
         devBuyAmount: 'abc',
       }),
+      WALLET,
     );
     expect(bad.devBuyAmount).toBeTruthy();
   });
@@ -166,6 +185,23 @@ describe('launch reducer navigation', () => {
     expect(state.name).toBe('Alpha');
     state = launchReducer(state, { type: 'SET_STEP', step: 1 });
     expect(state.name).toBe('Alpha');
+  });
+
+  it('preserves salt and news provenance across creator mode changes', () => {
+    let state = createInitialLaunchState({
+      sourceProvider: 'stocknewsapi',
+      sourceProviderArticleId: 'a1',
+      sourceDraftId: '11111111-1111-1111-1111-111111111111',
+    });
+    const salt = state.salt;
+    state = launchReducer(state, { type: 'SET_CREATOR_MODE', mode: 'custom' });
+    state = launchReducer(state, {
+      type: 'PATCH',
+      patch: { creatorCustomAddress: WALLET },
+    });
+    expect(state.salt).toBe(salt);
+    expect(state.sourceProviderArticleId).toBe('a1');
+    expect(state.creatorMode).toBe('custom');
   });
 
   it('resets dev buy when quote changes', () => {
@@ -186,6 +222,13 @@ describe('launch reducer navigation', () => {
   it('only advances when step is valid', () => {
     expect(canAdvanceFromStep(1, createInitialLaunchState())).toBe(false);
     expect(canAdvanceFromStep(1, validTokenState())).toBe(true);
+    expect(
+      canAdvanceFromStep(
+        3,
+        createInitialLaunchState({ creatorMode: 'connected' }),
+        WALLET,
+      ),
+    ).toBe(true);
   });
 });
 

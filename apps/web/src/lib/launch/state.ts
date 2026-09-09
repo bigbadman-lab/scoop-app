@@ -22,8 +22,19 @@ export function launchReducer(state: LaunchFormState, action: LaunchAction): Lau
   switch (action.type) {
     case 'SET_STEP':
       return { ...state, step: action.step };
-    case 'PATCH':
-      return { ...state, ...action.patch };
+    case 'PATCH': {
+      // Salt is session-stable — ignore PATCH salt so assist/prefill cannot rotate it.
+      const { image, salt: _ignoreSalt, ...safe } = action.patch;
+      void _ignoreSalt;
+      let next: LaunchFormState = { ...state, ...safe };
+      if (image) {
+        if (state.image.previewUrl && state.image.previewUrl !== image.previewUrl) {
+          URL.revokeObjectURL(state.image.previewUrl);
+        }
+        next = { ...next, image: { ...INITIAL_IMAGE, ...image } };
+      }
+      return next;
+    }
     case 'SET_TICKER':
       return { ...state, ticker: normalizeTicker(action.ticker) };
     case 'SET_IMAGE': {
@@ -51,7 +62,12 @@ export function launchReducer(state: LaunchFormState, action: LaunchAction): Lau
       return {
         ...state,
         creatorMode: action.mode,
-        creatorAddress: action.mode === 'different' ? state.creatorAddress : '',
+        // Clear custom address when leaving custom mode; preserve news provenance.
+        creatorCustomAddress:
+          action.mode === 'custom' ? state.creatorCustomAddress : '',
+        // X remains unresolved until server resolution (never fabricate from handle).
+        creatorX:
+          action.mode === 'x' ? state.creatorX : { status: 'unresolved' },
       };
     case 'RESET':
       if (state.image.previewUrl) URL.revokeObjectURL(state.image.previewUrl);

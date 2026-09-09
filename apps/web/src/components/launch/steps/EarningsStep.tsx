@@ -3,10 +3,18 @@
 import type { FieldErrors, LaunchFormState } from '@/lib/launch/types';
 import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import type { CreatorRecipientMode } from '@/lib/launch/types';
+import {
+  creatorRecipientLabel,
+  isCreatorResolved,
+  resolveCreatorRecipient,
+} from '@/lib/launch/creator-recipient';
+import { truncateAddress } from '@/lib/format';
 
 type Props = {
   state: LaunchFormState;
   errors: FieldErrors;
+  /** Live wagmi account — drives connected creator mode. */
+  connectedAddress: string | null | undefined;
   onMode: (mode: CreatorRecipientMode) => void;
   onPatch: (patch: Partial<LaunchFormState>) => void;
 };
@@ -19,26 +27,34 @@ const MODE_OPTIONS: {
 }[] = [
   {
     mode: 'connected',
-    label: 'Connected wallet',
-    description: 'Deferred — wallet connect is not wired in this app yet.',
-    supported: false,
-  },
-  {
-    mode: 'different',
-    label: 'Different wallet',
-    description: 'Send creator rewards (70%) to a specified EVM address.',
+    label: 'My connected wallet',
+    description: 'Creator rewards go to the wallet currently connected to SCOOP.',
     supported: true,
   },
   {
-    mode: 'x_handle',
-    label: 'X handle',
-    description: 'Deferred — on-chain X identity claim/resolution is not exposed yet.',
+    mode: 'custom',
+    label: 'Another wallet',
+    description: 'Send creator rewards (70%) to a different EVM address.',
+    supported: true,
+  },
+  {
+    mode: 'x',
+    label: 'X account',
+    description:
+      'X creator rewards are coming next. Profiles will be resolved by immutable X user ID.',
     supported: false,
   },
 ];
 
-export function EarningsStep({ state, errors, onMode, onPatch }: Props) {
+export function EarningsStep({
+  state,
+  errors,
+  connectedAddress,
+  onMode,
+  onPatch,
+}: Props) {
   const quoteLabel = state.quoteSymbol ?? 'QUOTE';
+  const recipient = resolveCreatorRecipient(state, connectedAddress);
 
   return (
     <div className="space-y-5">
@@ -47,12 +63,10 @@ export function EarningsStep({ state, errors, onMode, onPatch }: Props) {
           Configure how you participate economically
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Choose where creator rewards go, and optionally buy at launch. Only
-          supported recipient paths can proceed.
+          Who receives creator rewards? Only supported recipient paths can proceed.
         </p>
       </div>
 
-      {/* Creator fee sharing */}
       <section aria-labelledby="creator-fee-heading" className="space-y-2.5">
         <div>
           <h3
@@ -62,12 +76,11 @@ export function EarningsStep({ state, errors, onMode, onPatch }: Props) {
             Creator fee sharing · {PROTOCOL_FEE_SPLIT.creatorRewardsBps / 100}%
           </h3>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Trading fees allocated to the creator rewards vault, credited by{' '}
-            <span className="font-mono">creatorId</span>.
+            Trading fees allocated to the creator rewards vault.
           </p>
         </div>
 
-        <div className="space-y-1.5" role="radiogroup" aria-label="Creator recipient">
+        <div className="space-y-1.5" role="radiogroup" aria-label="Who receives creator rewards?">
           {MODE_OPTIONS.map((opt) => {
             const selected = state.creatorMode === opt.mode;
             return (
@@ -107,21 +120,42 @@ export function EarningsStep({ state, errors, onMode, onPatch }: Props) {
           })}
         </div>
 
-        {state.creatorMode === 'different' ? (
+        {state.creatorMode === 'connected' ? (
+          <div className="rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-2.5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+              Creator rewards will go to
+            </p>
+            {isCreatorResolved(recipient) && recipient.type === 'wallet' ? (
+              <p className="mt-1 font-mono text-[14px]" data-testid="creator-connected-address">
+                {truncateAddress(recipient.address)}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-[var(--muted)]">Connect a wallet to continue.</p>
+            )}
+          </div>
+        ) : null}
+
+        {state.creatorMode === 'custom' ? (
           <div>
+            <label
+              htmlFor="creator-address"
+              className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]"
+            >
+              Creator rewards will go to
+            </label>
             <input
               id="creator-address"
-              value={state.creatorAddress}
-              onChange={(e) => onPatch({ creatorAddress: e.target.value.trim() })}
+              value={state.creatorCustomAddress}
+              onChange={(e) => onPatch({ creatorCustomAddress: e.target.value.trim() })}
               spellCheck={false}
               autoComplete="off"
               placeholder="Recipient address · 0x…"
-              aria-label="Recipient address"
-              className="w-full min-h-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 font-mono text-[14px] outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--fg)]"
+              aria-label="Creator reward recipient address"
+              className="mt-1.5 w-full min-h-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 font-mono text-[14px] outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--fg)]"
             />
-            {errors.creatorAddress ? (
+            {errors.creatorCustomAddress ? (
               <p className="mt-1 font-mono text-[11px] text-[#b42318]" role="alert">
-                {errors.creatorAddress}
+                {errors.creatorCustomAddress}
               </p>
             ) : null}
           </div>
@@ -132,9 +166,14 @@ export function EarningsStep({ state, errors, onMode, onPatch }: Props) {
             {errors.creatorMode}
           </p>
         ) : null}
+
+        {isCreatorResolved(recipient) ? (
+          <p className="font-mono text-[10px] text-[var(--muted-2)]" data-testid="creator-recipient-kind">
+            {creatorRecipientLabel(recipient)}
+          </p>
+        ) : null}
       </section>
 
-      {/* Dev buy */}
       <section aria-labelledby="dev-buy-heading" className="space-y-2 border-t border-[var(--divider)] pt-4">
         <h3
           id="dev-buy-heading"
