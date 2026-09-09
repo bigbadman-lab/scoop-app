@@ -6,21 +6,27 @@ import {
   displayCompactUsdMarketValue,
   displayFdv,
   displayHolderCount,
-  displayMarketVolume24h,
   displayPriceChangeBps,
   displayTokenPrice,
+  displayVolume24hMetric,
   formatCompactAge,
 } from '@/lib/format';
-import { ContractCopy } from '@/components/ui/ContractCopy';
 import { TokenImage } from '@/components/ui/TokenImage';
+import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 
 type Props = {
   token: TokenDiscoveryItem;
   quoteSymbol: string;
+  /** Catalogue image for the quote asset; null → monogram fallback. */
+  quoteImageUrl?: string | null;
 };
 
-export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
+export function TokenDiscoveryItemCard({
+  token,
+  quoteSymbol,
+  quoteImageUrl = null,
+}: Props) {
   const href = `/token/${token.tokenAddress}`;
   const price = displayTokenPrice({
     priceUsdDisplay: token.priceUsdDisplay,
@@ -29,7 +35,7 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
   });
   const change = displayPriceChangeBps(token.priceChange24hBps);
   const fdv = displayCompactUsdMarketValue(token.fdvUsdDisplay);
-  const volume = displayMarketVolume24h({
+  const volume = displayVolume24hMetric({
     volume24hUsdDisplay: token.volume24hUsdDisplay,
     volume24hQuoteDisplay: token.volume24hQuoteDisplay,
     quoteSymbol,
@@ -50,25 +56,38 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
     <article className="group min-w-0" data-token-address={token.tokenAddress}>
       <Link
         href={href}
-        className="block focus-visible:outline-offset-4"
+        className={[
+          'block overflow-hidden rounded-[var(--radius-xl)] border border-[var(--divider)]',
+          'bg-[var(--bg-elevated)] transition-colors',
+          'hover:border-[color-mix(in_srgb,var(--fg)_22%,var(--divider))]',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]',
+        ].join(' ')}
         data-testid="token-discovery-item"
       >
-        <TokenImage
-          src={pickTokenImageSrc(token.displayImageUrl, token.imageUri)}
-          alt={token.name}
-          className="w-full rounded-[var(--radius-xl)]"
-          size={320}
-        />
-        <div className="mt-3 space-y-1.5">
-          <p className="font-mono text-[12px] tracking-wide text-[var(--muted)]">
-            ${token.symbol} / {quoteSymbol}
-          </p>
-          <h3 className="truncate text-[15px] font-semibold tracking-tight text-[var(--fg)]">
-            {token.name}
-          </h3>
+        <div className="relative aspect-square overflow-hidden bg-[var(--bg)]">
+          <TokenImage
+            src={pickTokenImageSrc(token.displayImageUrl, token.imageUri)}
+            alt={token.name}
+            className="h-full w-full rounded-none"
+            size={320}
+          />
+          <div className="pointer-events-none absolute left-2 top-2 z-10">
+            <QuoteAssetBadge symbol={quoteSymbol} imageUrl={quoteImageUrl} />
+          </div>
+        </div>
 
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 pt-0.5">
-            <p className="tabular text-[15px] font-semibold tracking-tight">
+        <div className="space-y-2 px-3 py-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-[15px] font-semibold tracking-tight text-[var(--fg)]">
+              {token.name}
+            </h3>
+            <p className="mt-0.5 truncate font-mono text-[12px] tracking-wide text-[var(--muted)]">
+              ${token.symbol}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+            <p className="tabular text-[15px] font-semibold tracking-tight text-[var(--fg)]">
               {price ?? '—'}
             </p>
             <p
@@ -81,22 +100,25 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
             {fdv ? (
               <p className="tabular text-[13px] text-[var(--muted)]">
                 <span className="font-semibold text-[var(--fg)]">{fdv}</span>{' '}
-                <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                   FDV
                 </span>
               </p>
             ) : (
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                 FDV unavailable
               </p>
             )}
             {volume ? (
-              <p className="tabular font-mono text-[11px] tracking-wide text-[var(--muted)]">
-                {volume}
+              <p className="tabular text-[13px] text-[var(--muted)]">
+                <span className="font-semibold text-[var(--fg)]">{volume}</span>{' '}
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+                  VOL
+                </span>
               </p>
             ) : null}
           </div>
@@ -106,9 +128,6 @@ export function TokenDiscoveryItemCard({ token, quoteSymbol }: Props) {
           </p>
         </div>
       </Link>
-      <div className="mt-2">
-        <ContractCopy address={token.tokenAddress} />
-      </div>
     </article>
   );
 }

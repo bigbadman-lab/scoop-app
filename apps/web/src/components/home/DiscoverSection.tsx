@@ -10,7 +10,7 @@ import {
   type DiscoverTabId,
 } from '@/lib/discovery/tabs';
 import type { DiscoverTabResult } from '@/lib/discovery/load-home';
-import { quoteDisplaySymbol } from '@/lib/quotes/resolve';
+import { buildQuoteLookup, quoteDisplaySymbol } from '@/lib/quotes/resolve';
 import { TokenDiscoveryItemCard } from '@/components/home/TokenDiscoveryItem';
 
 /** Lightweight discovery refresh — not trading-surface realtime. */
@@ -76,9 +76,17 @@ export function DiscoverSection({
     message: DISCOVER_TABS.find((t) => t.id === tab)?.emptyMessage,
   };
 
+  const quoteLookup = useMemo(() => buildQuoteLookup(catalogue), [catalogue]);
   const quoteFor = useMemo(
-    () => (quoteAsset: string) => quoteDisplaySymbol(quoteAsset, catalogue),
-    [catalogue],
+    () => (quoteAsset: string) => {
+      const key = quoteAsset.trim().toLowerCase();
+      const hit = quoteLookup.get(key);
+      return {
+        symbol: quoteDisplaySymbol(quoteAsset, catalogue),
+        imageUrl: hit?.imageUrl ?? null,
+      };
+    },
+    [catalogue, quoteLookup],
   );
 
   const refreshTab = useCallback(async (tabId: DiscoverTabId) => {
@@ -147,16 +155,20 @@ export function DiscoverSection({
         >
           {result.status === 'ok' && result.items.length > 0 ? (
             <div
-              className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 xl:grid-cols-3"
+              className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               data-testid="discover-grid"
             >
-              {result.items.map((token) => (
-                <TokenDiscoveryItemCard
-                  key={token.tokenAddress}
-                  token={token}
-                  quoteSymbol={quoteFor(token.quoteAsset)}
-                />
-              ))}
+              {result.items.map((token) => {
+                const quote = quoteFor(token.quoteAsset);
+                return (
+                  <TokenDiscoveryItemCard
+                    key={token.tokenAddress}
+                    token={token}
+                    quoteSymbol={quote.symbol}
+                    quoteImageUrl={quote.imageUrl}
+                  />
+                );
+              })}
             </div>
           ) : (
             <DiscoverEmpty result={result} />

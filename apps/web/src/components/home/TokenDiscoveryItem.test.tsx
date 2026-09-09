@@ -51,15 +51,29 @@ function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
 }
 
 describe('TokenDiscoveryItemCard', () => {
-  it('renders identity, quote pair, contract, and links to token page', () => {
-    render(<TokenDiscoveryItemCard token={baseToken()} quoteSymbol="ETH" />);
-    expect(screen.getByText('$MEME / ETH')).toBeTruthy();
+  it('renders identity, quote badge, and links to token page without contract copy', () => {
+    render(
+      <TokenDiscoveryItemCard
+        token={baseToken()}
+        quoteSymbol="ETH"
+        quoteImageUrl="https://cdn.example/eth.png"
+      />,
+    );
     expect(screen.getByText('Meme Name')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /copy contract/i })).toBeTruthy();
+    expect(screen.getByText('$MEME')).toBeTruthy();
+    expect(screen.queryByText('$MEME / ETH')).toBeNull();
+    expect(screen.getByTestId('quote-asset-badge').textContent).toMatch(/ETH/);
+    expect(screen.queryByRole('button', { name: /copy contract/i })).toBeNull();
     const link = screen.getByTestId('token-discovery-item');
     expect(link.getAttribute('href')).toBe(
       '/token/0x71f1234567890abcdef82a000000000000000001',
     );
+  });
+
+  it('shows quote monogram fallback when quote image missing', () => {
+    render(<TokenDiscoveryItemCard token={baseToken()} quoteSymbol="HOOD" quoteImageUrl={null} />);
+    expect(screen.getByTestId('quote-asset-monogram').textContent).toBe('H');
+    expect(screen.getByTestId('quote-asset-badge').textContent).toMatch(/HOOD/);
   });
 
   it('shows quote price when USD is null', () => {
@@ -113,9 +127,11 @@ describe('TokenDiscoveryItemCard', () => {
     expect(screen.queryByText('$0.00')).toBeNull();
   });
 
-  it('renders 24h volume in quote units when USD volume missing', () => {
+  it('renders 24h volume metric in quote units when USD volume missing', () => {
     render(<TokenDiscoveryItemCard token={baseToken()} quoteSymbol="ETH" />);
-    expect(screen.getByText('24h vol 3.2 ETH')).toBeTruthy();
+    expect(screen.getByText('3.2 ETH')).toBeTruthy();
+    expect(screen.getByText('VOL')).toBeTruthy();
+    expect(screen.queryByText(/24h vol/i)).toBeNull();
   });
 
   it('prefers compact USD 24h volume when present', () => {
@@ -125,8 +141,9 @@ describe('TokenDiscoveryItemCard', () => {
         quoteSymbol="ETH"
       />,
     );
-    expect(screen.getByText('24h vol $270.44')).toBeTruthy();
-    expect(screen.queryByText('24h vol 3.2 ETH')).toBeNull();
+    expect(screen.getByText('$270.44')).toBeTruthy();
+    expect(screen.getByText('VOL')).toBeTruthy();
+    expect(screen.queryByText('3.2 ETH')).toBeNull();
   });
 
   it('renders positive and negative 24h change; null as em dash', () => {
@@ -164,7 +181,7 @@ describe('TokenDiscoveryItemCard', () => {
         quoteSymbol="USDG"
       />,
     );
-    expect(screen.queryByText(/24h vol/i)).toBeNull();
+    expect(screen.queryByText('VOL')).toBeNull();
     expect(screen.queryByText('$0')).toBeNull();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
