@@ -9,7 +9,7 @@ const getCreatorEarnings = vi.fn();
 const getRankings = vi.fn();
 const getIndexerStatus = vi.fn();
 const assertCandleInterval = vi.fn((v: string) => {
-  if (!['1m', '5m', '15m', '1h', '4h', '1d'].includes(v)) throw new Error('bad');
+  if (!['5s', '1m', '5m', '15m', '1h', '4h', '1d'].includes(v)) throw new Error('bad');
   return v;
 });
 const assertRankingType = vi.fn((v: string) => {

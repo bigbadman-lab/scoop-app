@@ -4,6 +4,7 @@ import { resolveTradeUsdFields } from './usd.js';
 import {
   bucketStartFor,
   mergeTradeIntoMinuteCandle,
+  upsertLeafCandle,
   upsertMinuteAndRollups,
   type MinuteCandle,
 } from './candles.js';
@@ -220,25 +221,49 @@ export async function enrichTokenHistoricalUsd(
       [options.chainId, poolId],
     );
 
+    const byFiveSec = new Map<number, MinuteCandle>();
     const byMinute = new Map<number, MinuteCandle>();
     for (const trade of enrichedTrades) {
-      const bucketStart = bucketStartFor(
-        '1m',
-        parseTradeTimestampSec(trade.block_timestamp),
-      );
-      const prev = byMinute.get(bucketStart) ?? null;
+      const ts = parseTradeTimestampSec(trade.block_timestamp);
       const priceQuote = BigInt(trade.execution_price_quote_x18);
-      const merged = mergeTradeIntoMinuteCandle(prev, {
+      const mergeArgs = {
         priceQuoteX18: priceQuote,
         quoteAmountRaw: BigInt(trade.quote_amount_raw),
         tokenAmountRaw: BigInt(trade.token_amount_raw),
         side: trade.side,
         blockNumber: Number(trade.block_number),
-        bucketStart,
         priceUsdX18: trade.resolvedExecUsd,
         usdValueX18: trade.resolvedUsdValue,
+      };
+
+      const fiveStart = bucketStartFor('5s', ts);
+      byFiveSec.set(
+        fiveStart,
+        mergeTradeIntoMinuteCandle(byFiveSec.get(fiveStart) ?? null, {
+          ...mergeArgs,
+          bucketStart: fiveStart,
+        }),
+      );
+
+      const minuteStart = bucketStartFor('1m', ts);
+      byMinute.set(
+        minuteStart,
+        mergeTradeIntoMinuteCandle(byMinute.get(minuteStart) ?? null, {
+          ...mergeArgs,
+          bucketStart: minuteStart,
+        }),
+      );
+    }
+
+    const fives = [...byFiveSec.values()].sort((a, b) => a.bucketStart - b.bucketStart);
+    for (const candle of fives) {
+      await upsertLeafCandle(db, {
+        chainId: options.chainId,
+        tokenAddress: token,
+        poolId,
+        interval: '5s',
+        candle,
       });
-      byMinute.set(bucketStart, merged);
     }
 
     const minutes = [...byMinute.values()].sort((a, b) => a.bucketStart - b.bucketStart);
@@ -253,6 +278,7 @@ export async function enrichTokenHistoricalUsd(
 
     log('token usd enrich candles rebuilt', {
       token,
+      fiveSecCandles: fives.length,
       minuteCandles: minutes.length,
     });
 

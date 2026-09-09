@@ -255,6 +255,8 @@ describe('query validation / SQL mapping', () => {
 
   it('assertCandleInterval and assertRankingType reject unknowns', () => {
     expect(() => assertCandleInterval('2m')).toThrow(/interval/);
+    expect(assertCandleInterval('5s')).toBe('5s');
+    expect(assertCandleInterval('1m')).toBe('1m');
     expect(() => assertRankingType('foo')).toThrow(/ranking/);
     expect(assertRankingType('volume24h')).toBe('volume24h');
   });

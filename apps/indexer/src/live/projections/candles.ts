@@ -1,9 +1,17 @@
 import type { Queryable } from '@scoop/db';
 import { upsertCandle, type CandleRow } from '@scoop/db';
 
-export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+/** All stored candle intervals. `5s` is a parallel leaf; higher TFs roll up from `1m` only. */
+export type CandleInterval = '5s' | '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+
+/** Intervals rolled up from 1m (never from 5s). */
+export type RollupCandleInterval = '5m' | '15m' | '1h' | '4h' | '1d';
+
+/** Trade-aggregated leaf intervals written directly from trades. */
+export type LeafCandleInterval = '5s' | '1m';
 
 export const CANDLE_INTERVAL_SECONDS: Record<CandleInterval, number> = {
+  '5s': 5,
   '1m': 60,
   '5m': 300,
   '15m': 900,
@@ -11,6 +19,14 @@ export const CANDLE_INTERVAL_SECONDS: Record<CandleInterval, number> = {
   '4h': 14400,
   '1d': 86400,
 };
+
+export const ROLLUP_INTERVALS: readonly RollupCandleInterval[] = [
+  '5m',
+  '15m',
+  '1h',
+  '4h',
+  '1d',
+] as const;
 
 export function bucketStartFor(interval: CandleInterval, timestampSec: number): number {
   const size = CANDLE_INTERVAL_SECONDS[interval];
@@ -39,7 +55,11 @@ export interface MinuteCandle {
   usdVolumeX18: bigint | null;
 }
 
-/** Merge a trade into an existing 1m candle (pure). Missing USD → incomplete USD OHLC (null). */
+/**
+ * Merge a trade into an existing leaf candle (pure).
+ * Canonical OHLC price = trade execution quote (x18), never post-swap sqrt spot.
+ * Missing USD → incomplete USD OHLC (null).
+ */
 export function mergeTradeIntoMinuteCandle(
   existing: MinuteCandle | null,
   trade: {
@@ -127,7 +147,7 @@ export function mergeTradeIntoMinuteCandle(
 /** Roll up 1m candles into a higher interval (pure — empty periods omitted). */
 export function rollupMinuteCandles(
   minutes: MinuteCandle[],
-  interval: Exclude<CandleInterval, '1m'>,
+  interval: RollupCandleInterval,
 ): MinuteCandle[] {
   const size = CANDLE_INTERVAL_SECONDS[interval];
   const groups = new Map<number, MinuteCandle[]>();
@@ -187,22 +207,136 @@ export function rollupMinuteCandles(
   return out;
 }
 
-export async function upsertMinuteAndRollups(
+/** Load an existing leaf candle row as MinuteCandle, or null. */
+export async function loadLeafCandle(
+  db: Queryable,
+  args: {
+    chainId: number;
+    poolId: string;
+    interval: LeafCandleInterval;
+    bucketStart: number;
+  },
+): Promise<MinuteCandle | null> {
+  const existingCandle = await db.query<{
+    open_quote_x18: string;
+    high_quote_x18: string;
+    low_quote_x18: string;
+    close_quote_x18: string;
+    quote_volume_raw: string;
+    token_volume_raw: string;
+    trade_count: number;
+    buy_count: number;
+    sell_count: number;
+    first_trade_block: string | null;
+    last_trade_block: string | null;
+    open_usd_x18: string | null;
+    high_usd_x18: string | null;
+    low_usd_x18: string | null;
+    close_usd_x18: string | null;
+    usd_volume_x18: string | null;
+  }>(
+    `SELECT open_quote_x18, high_quote_x18, low_quote_x18, close_quote_x18,
+            quote_volume_raw, token_volume_raw, trade_count, buy_count, sell_count,
+            first_trade_block, last_trade_block,
+            open_usd_x18::text AS open_usd_x18, high_usd_x18::text AS high_usd_x18,
+            low_usd_x18::text AS low_usd_x18, close_usd_x18::text AS close_usd_x18,
+            usd_volume_x18::text AS usd_volume_x18
+     FROM candles
+     WHERE chain_id = $1 AND pool_id = $2 AND interval = $3 AND bucket_start = $4`,
+    [args.chainId, args.poolId, args.interval, args.bucketStart],
+  );
+  const prevRow = existingCandle.rows[0];
+  if (!prevRow) return null;
+  const prevHasUsd =
+    prevRow.open_usd_x18 != null &&
+    prevRow.high_usd_x18 != null &&
+    prevRow.low_usd_x18 != null &&
+    prevRow.close_usd_x18 != null &&
+    prevRow.usd_volume_x18 != null;
+  return {
+    bucketStart: args.bucketStart,
+    openQuoteX18: BigInt(prevRow.open_quote_x18),
+    highQuoteX18: BigInt(prevRow.high_quote_x18),
+    lowQuoteX18: BigInt(prevRow.low_quote_x18),
+    closeQuoteX18: BigInt(prevRow.close_quote_x18),
+    quoteVolumeRaw: BigInt(prevRow.quote_volume_raw),
+    tokenVolumeRaw: BigInt(prevRow.token_volume_raw),
+    tradeCount: prevRow.trade_count,
+    buyCount: prevRow.buy_count,
+    sellCount: prevRow.sell_count,
+    firstTradeBlock: prevRow.first_trade_block ? Number(prevRow.first_trade_block) : null,
+    lastTradeBlock: prevRow.last_trade_block ? Number(prevRow.last_trade_block) : null,
+    usdComplete: prevHasUsd,
+    openUsdX18: prevHasUsd ? BigInt(prevRow.open_usd_x18!) : null,
+    highUsdX18: prevHasUsd ? BigInt(prevRow.high_usd_x18!) : null,
+    lowUsdX18: prevHasUsd ? BigInt(prevRow.low_usd_x18!) : null,
+    closeUsdX18: prevHasUsd ? BigInt(prevRow.close_usd_x18!) : null,
+    usdVolumeX18: prevHasUsd ? BigInt(prevRow.usd_volume_x18!) : null,
+  };
+}
+
+/**
+ * Apply one trade into a leaf interval using execution price (canonical candle OHLC).
+ */
+export async function mergeTradeIntoLeafAndPersist(
   db: Queryable,
   args: {
     chainId: number;
     tokenAddress: string;
     poolId: string;
-    candle: MinuteCandle;
+    interval: LeafCandleInterval;
+    blockTimestampSec: number;
+    blockNumber: number;
+    priceQuoteX18: bigint;
+    quoteAmountRaw: bigint;
+    tokenAmountRaw: bigint;
+    side: 'buy' | 'sell';
+    priceUsdX18?: bigint | null;
+    usdValueX18?: bigint | null;
   },
-): Promise<void> {
-  const base = {
+): Promise<MinuteCandle> {
+  const bucketStart = bucketStartFor(args.interval, args.blockTimestampSec);
+  const prev = await loadLeafCandle(db, {
     chainId: args.chainId,
-    tokenAddress: args.tokenAddress,
     poolId: args.poolId,
-  };
+    interval: args.interval,
+    bucketStart,
+  });
+  const merged = mergeTradeIntoMinuteCandle(prev, {
+    priceQuoteX18: args.priceQuoteX18,
+    quoteAmountRaw: args.quoteAmountRaw,
+    tokenAmountRaw: args.tokenAmountRaw,
+    side: args.side,
+    blockNumber: args.blockNumber,
+    bucketStart,
+    priceUsdX18: args.priceUsdX18,
+    usdValueX18: args.usdValueX18,
+  });
+  if (args.interval === '1m') {
+    await upsertMinuteAndRollups(db, {
+      chainId: args.chainId,
+      tokenAddress: args.tokenAddress,
+      poolId: args.poolId,
+      candle: merged,
+    });
+  } else {
+    await upsertLeafCandle(db, {
+      chainId: args.chainId,
+      tokenAddress: args.tokenAddress,
+      poolId: args.poolId,
+      interval: args.interval,
+      candle: merged,
+    });
+  }
+  return merged;
+}
 
-  const toRow = (interval: CandleInterval, c: MinuteCandle): CandleRow => ({
+function candleToRow(
+  base: { chainId: number; tokenAddress: string; poolId: string },
+  interval: CandleInterval,
+  c: MinuteCandle,
+): CandleRow {
+  return {
     ...base,
     interval,
     bucketStart: c.bucketStart,
@@ -222,12 +356,55 @@ export async function upsertMinuteAndRollups(
     usdVolumeX18: c.usdComplete ? c.usdVolumeX18 : null,
     firstTradeBlock: c.firstTradeBlock ?? null,
     lastTradeBlock: c.lastTradeBlock ?? null,
-  });
+  };
+}
+
+/** Upsert a leaf candle (`5s` or `1m`) without rolling up higher intervals. */
+export async function upsertLeafCandle(
+  db: Queryable,
+  args: {
+    chainId: number;
+    tokenAddress: string;
+    poolId: string;
+    interval: LeafCandleInterval;
+    candle: MinuteCandle;
+  },
+): Promise<void> {
+  await upsertCandle(
+    db,
+    candleToRow(
+      {
+        chainId: args.chainId,
+        tokenAddress: args.tokenAddress,
+        poolId: args.poolId,
+      },
+      args.interval,
+      args.candle,
+    ),
+  );
+}
+
+export async function upsertMinuteAndRollups(
+  db: Queryable,
+  args: {
+    chainId: number;
+    tokenAddress: string;
+    poolId: string;
+    candle: MinuteCandle;
+  },
+): Promise<void> {
+  const base = {
+    chainId: args.chainId,
+    tokenAddress: args.tokenAddress,
+    poolId: args.poolId,
+  };
+
+  const toRow = (interval: CandleInterval, c: MinuteCandle): CandleRow =>
+    candleToRow(base, interval, c);
 
   await upsertCandle(db, toRow('1m', args.candle));
 
-  const higher: Array<Exclude<CandleInterval, '1m'>> = ['5m', '15m', '1h', '4h', '1d'];
-  for (const interval of higher) {
+  for (const interval of ROLLUP_INTERVALS) {
     const size = CANDLE_INTERVAL_SECONDS[interval];
     const parentStart = Math.floor(args.candle.bucketStart / size) * size;
     const parentEnd = parentStart + size;

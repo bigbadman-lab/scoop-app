@@ -9,7 +9,6 @@ import {
   upsertTransfer,
   upsertHolderBalance,
   upsertTokenMarketState,
-  upsertCandle,
   upsertAddressClassification,
   getQuoteAssetDecimals,
 } from '@scoop/db';
@@ -28,6 +27,12 @@ import {
 } from '@scoop/shared';
 import type { DecodedChainEvent } from './decode.js';
 import { resolveUsdMarketFields, resolveTradeUsdFields } from './projections/usd.js';
+import {
+  bucketStartFor,
+  mergeTradeIntoMinuteCandle,
+  upsertLeafCandle,
+  upsertMinuteAndRollups,
+} from './projections/candles.js';
 
 export interface TokenMetadataInput {
   name: string;
@@ -401,21 +406,12 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   }
 
   const openingSqrt = BigInt(String(input.launch.openingSqrtPriceX96));
-  const openQuote = priceQuoteX18FromSqrt({
-    sqrtPriceX96: openingSqrt,
-    tokenIsCurrency1,
-    quoteDecimals,
-    tokenDecimals,
-  });
   const closeQuote = priceQuoteX18FromSqrt({
     sqrtPriceX96: sqrtAfter,
     tokenIsCurrency1,
     quoteDecimals,
     tokenDecimals,
   });
-  const highQuote = openQuote > closeQuote ? openQuote : closeQuote;
-  const lowQuote = openQuote < closeQuote ? openQuote : closeQuote;
-  const bucketStart = Math.floor(Number(blockTimestamp) / 60) * 60;
 
   const sqrtLower = getSqrtRatioAtTick(input.launch.tickLower);
   const sqrtUpper = getSqrtRatioAtTick(input.launch.tickUpper);
@@ -489,28 +485,39 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
 
   if (hasTrade) {
     const hasUsd = tradeUsd.reason === 'ok' && tradeUsd.usdValueX18 != null;
-    await upsertCandle(db, {
+    // Canonical candle OHLC = execution price (same as live swap + enrich rebuild).
+    const candle = mergeTradeIntoMinuteCandle(null, {
+      priceQuoteX18: executionPrice,
+      quoteAmountRaw,
+      tokenAmountRaw,
+      side,
+      blockNumber: Number(blockNumber),
+      bucketStart: bucketStartFor('1m', Number(blockTimestamp)),
+      priceUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      usdValueX18: hasUsd ? tradeUsd.usdValueX18 : null,
+    });
+    const fiveSec = mergeTradeIntoMinuteCandle(null, {
+      priceQuoteX18: executionPrice,
+      quoteAmountRaw,
+      tokenAmountRaw,
+      side,
+      blockNumber: Number(blockNumber),
+      bucketStart: bucketStartFor('5s', Number(blockTimestamp)),
+      priceUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
+      usdValueX18: hasUsd ? tradeUsd.usdValueX18 : null,
+    });
+    await upsertLeafCandle(db, {
       chainId,
       tokenAddress: token,
       poolId,
-      interval: '1m',
-      bucketStart,
-      openQuoteX18: openQuote,
-      highQuoteX18: highQuote,
-      lowQuoteX18: lowQuote,
-      closeQuoteX18: closeQuote,
-      quoteVolumeRaw: quoteAmountRaw,
-      tokenVolumeRaw: tokenAmountRaw,
-      tradeCount: 1,
-      buyCount: side === 'buy' ? 1 : 0,
-      sellCount: side === 'sell' ? 1 : 0,
-      openUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
-      highUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
-      lowUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
-      closeUsdX18: hasUsd ? tradeUsd.executionPriceUsdX18 : null,
-      usdVolumeX18: hasUsd ? tradeUsd.usdValueX18 : null,
-      firstTradeBlock: blockNumber,
-      lastTradeBlock: blockNumber,
+      interval: '5s',
+      candle: fiveSec,
+    });
+    await upsertMinuteAndRollups(db, {
+      chainId,
+      tokenAddress: token,
+      poolId,
+      candle,
     });
   }
 

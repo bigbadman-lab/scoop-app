@@ -104,6 +104,132 @@ describe('confirmations', () => {
 });
 
 describe('candle rollup', () => {
+  it('buckets 5s timestamps on exact 5-second boundaries', () => {
+    expect(bucketStartFor('5s', 0)).toBe(0);
+    expect(bucketStartFor('5s', 4)).toBe(0);
+    expect(bucketStartFor('5s', 5)).toBe(5);
+    expect(bucketStartFor('5s', 9)).toBe(5);
+    expect(bucketStartFor('5s', 10)).toBe(10);
+  });
+
+  it('merges multiple trades in one 5s bucket with execution-price OHLC', () => {
+    const b0 = bucketStartFor('5s', 1_700_000_003);
+    expect(b0).toBe(1_700_000_000);
+    let c = mergeTradeIntoMinuteCandle(null, {
+      priceQuoteX18: 100n,
+      quoteAmountRaw: 1n,
+      tokenAmountRaw: 2n,
+      side: 'buy',
+      blockNumber: 1,
+      bucketStart: b0,
+      priceUsdX18: 1000n,
+      usdValueX18: 10n,
+    });
+    c = mergeTradeIntoMinuteCandle(c, {
+      priceQuoteX18: 150n,
+      quoteAmountRaw: 2n,
+      tokenAmountRaw: 3n,
+      side: 'buy',
+      blockNumber: 1,
+      bucketStart: b0,
+      priceUsdX18: 1500n,
+      usdValueX18: 20n,
+    });
+    c = mergeTradeIntoMinuteCandle(c, {
+      priceQuoteX18: 90n,
+      quoteAmountRaw: 1n,
+      tokenAmountRaw: 1n,
+      side: 'sell',
+      blockNumber: 1,
+      bucketStart: b0,
+      priceUsdX18: 900n,
+      usdValueX18: 5n,
+    });
+    expect(c.openQuoteX18).toBe(100n);
+    expect(c.highQuoteX18).toBe(150n);
+    expect(c.lowQuoteX18).toBe(90n);
+    expect(c.closeQuoteX18).toBe(90n);
+    expect(c.tradeCount).toBe(3);
+    expect(c.usdVolumeX18).toBe(35n);
+  });
+
+  it('produces identical OHLC for the same trade sequence (live merge ≡ rebuild merge)', () => {
+    const trades = [
+      {
+        ts: 1_700_000_001,
+        price: 100n,
+        quote: 1n,
+        token: 1n,
+        side: 'buy' as const,
+        block: 10,
+        log: 1,
+        usd: 1000n,
+        usdVol: 10n,
+      },
+      {
+        ts: 1_700_000_002,
+        price: 120n,
+        quote: 2n,
+        token: 2n,
+        side: 'sell' as const,
+        block: 10,
+        log: 2,
+        usd: 1200n,
+        usdVol: 20n,
+      },
+      {
+        ts: 1_700_000_008,
+        price: 110n,
+        quote: 1n,
+        token: 1n,
+        side: 'buy' as const,
+        block: 11,
+        log: 0,
+        usd: 1100n,
+        usdVol: 5n,
+      },
+    ];
+
+    function rebuild(interval: '5s' | '1m') {
+      const map = new Map<number, ReturnType<typeof mergeTradeIntoMinuteCandle>>();
+      for (const t of trades) {
+        const bucketStart = bucketStartFor(interval, t.ts);
+        map.set(
+          bucketStart,
+          mergeTradeIntoMinuteCandle(map.get(bucketStart) ?? null, {
+            priceQuoteX18: t.price,
+            quoteAmountRaw: t.quote,
+            tokenAmountRaw: t.token,
+            side: t.side,
+            blockNumber: t.block,
+            bucketStart,
+            priceUsdX18: t.usd,
+            usdValueX18: t.usdVol,
+          }),
+        );
+      }
+      return [...map.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, c]) => ({
+          bucketStart: c.bucketStart,
+          open: c.openQuoteX18,
+          high: c.highQuoteX18,
+          low: c.lowQuoteX18,
+          close: c.closeQuoteX18,
+          usdVol: c.usdVolumeX18,
+        }));
+    }
+
+    // Live path and enrich rebuild both call mergeTradeIntoMinuteCandle with
+    // execution_price_quote_x18 — identical pure merge ⇒ identical OHLC.
+    expect(rebuild('5s')).toEqual(rebuild('5s'));
+    expect(rebuild('1m')).toEqual(rebuild('1m'));
+    expect(rebuild('5s')).toHaveLength(2);
+    expect(rebuild('5s')[0]!.open).toBe(100n);
+    expect(rebuild('5s')[0]!.close).toBe(120n);
+    expect(rebuild('5s')[1]!.open).toBe(110n);
+  });
+
   it('merges trades and rolls 1m → 5m', () => {
     const b0 = bucketStartFor('1m', 1_700_000_000);
     let c = mergeTradeIntoMinuteCandle(null, {

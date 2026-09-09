@@ -3,7 +3,15 @@ import { normalizeAddress } from '../hex.js';
 import { clampLimit, formatX18 } from '../decimal.js';
 import type { CandleInterval, CandleItem } from '../dto.js';
 
-const ALLOWED_INTERVALS = new Set<CandleInterval>(['1m', '5m', '15m', '1h', '4h', '1d']);
+const ALLOWED_INTERVALS = new Set<CandleInterval>([
+  '5s',
+  '1m',
+  '5m',
+  '15m',
+  '1h',
+  '4h',
+  '1d',
+]);
 
 export interface GetCandlesOptions {
   from?: number;

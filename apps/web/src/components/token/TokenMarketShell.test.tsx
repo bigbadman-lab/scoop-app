@@ -163,8 +163,13 @@ describe('TokenMarketShell', () => {
     expect(screen.getByTestId('token-price-panel').className).toMatch(/lg:col-span-8/);
     expect(screen.getByTestId('token-market-details').className).toMatch(/lg:col-span-4/);
     expect(screen.getByTestId('token-about').textContent).toMatch(/Hello from SCOOP/);
+    // ABOUT sits under identity and before the chart/market main block
     expect(
-      screen.getByTestId('token-price-panel').compareDocumentPosition(screen.getByTestId('token-about')) &
+      screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-price-panel')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-metrics')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });

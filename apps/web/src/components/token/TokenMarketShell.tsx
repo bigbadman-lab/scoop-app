@@ -158,34 +158,70 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
             </div>
           </div>
         </div>
-
-        {/* Compact stats strip */}
-        <div
-          className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-[var(--divider)] pt-2.5 font-mono text-[11px] tracking-wide text-[var(--muted)]"
-          data-testid="token-metrics"
-        >
-          {metrics.map((m, i) => (
-            <span key={m.label} className="inline-flex items-baseline gap-1.5">
-              {i > 0 ? (
-                <span className="mr-1 text-[var(--divider)]" aria-hidden>
-                  ·
-                </span>
-              ) : null}
-              <span className="uppercase tracking-[0.12em] text-[var(--muted-2)]">{m.label}</span>
-              <span className="tabular font-semibold text-[var(--fg)]">{m.value}</span>
-            </span>
-          ))}
-        </div>
-        {!fdv ? (
-          <p className="sr-only" data-testid="token-fdv-unavailable">
-            FDV unavailable
-          </p>
-        ) : (
-          <p className="sr-only" data-testid="token-fdv-label">
-            FDV
-          </p>
-        )}
       </header>
+
+      {showAbout ? (
+        <section
+          className="mt-3 border-b border-[var(--divider)] pb-3"
+          aria-labelledby="token-about-heading"
+          data-testid="token-about"
+        >
+          <h2
+            id="token-about-heading"
+            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+          >
+            About
+          </h2>
+          {description ? (
+            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]">
+              {description}
+            </p>
+          ) : null}
+          {aboutLinks.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+              {aboutLinks.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* Compact stats strip */}
+      <div
+        className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-[var(--divider)] pb-2.5 font-mono text-[11px] tracking-wide text-[var(--muted)]"
+        data-testid="token-metrics"
+      >
+        {metrics.map((m, i) => (
+          <span key={m.label} className="inline-flex items-baseline gap-1.5">
+            {i > 0 ? (
+              <span className="mr-1 text-[var(--divider)]" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            <span className="uppercase tracking-[0.12em] text-[var(--muted-2)]">{m.label}</span>
+            <span className="tabular font-semibold text-[var(--fg)]">{m.value}</span>
+          </span>
+        ))}
+      </div>
+      {!fdv ? (
+        <p className="sr-only" data-testid="token-fdv-unavailable">
+          FDV unavailable
+        </p>
+      ) : (
+        <p className="sr-only" data-testid="token-fdv-label">
+          FDV
+        </p>
+      )}
 
       {/* Chart + market details — aligned block */}
       <div
@@ -201,6 +237,10 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
             tokenAddress={token.tokenAddress}
             symbol={token.symbol}
             quoteSymbol={quoteSymbol}
+            totalSupplyRaw={token.totalSupplyRaw}
+            tokenDecimals={token.decimals}
+            currentPriceUsdX18={token.priceUsdX18}
+            currentPriceQuoteX18={token.priceQuoteX18}
           />
         </section>
 
@@ -260,42 +300,6 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
           </dl>
         </section>
       </div>
-
-      {showAbout ? (
-        <section
-          className="mt-6 border-t border-[var(--divider)] pt-5"
-          aria-labelledby="token-about-heading"
-          data-testid="token-about"
-        >
-          <h2
-            id="token-about-heading"
-            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
-          >
-            About
-          </h2>
-          {description ? (
-            <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-[var(--fg)]">
-              {description}
-            </p>
-          ) : null}
-          {aboutLinks.length > 0 ? (
-            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-              {aboutLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
     </div>
   );
 }

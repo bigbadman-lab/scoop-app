@@ -22,7 +22,7 @@ export type RankingType =
   | 'soon'
   | 'bonded';
 
-export type CandleInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
+export type CandleInterval = '5s' | '1m' | '5m' | '15m' | '1h' | '4h' | '1d';
 
 export type TradeSide = 'buy' | 'sell';
 

@@ -41,7 +41,7 @@ export async function fetchTokenCandles(args: {
   }
   const chainId = args.chainId ?? SCOOP_CHAIN_ID;
   const nowSec = args.nowSec ?? Math.floor(Date.now() / 1000);
-  const nowBucketMin = Math.floor(nowSec / 60);
+  const nowBucketMin = Math.floor(nowSec / 5);
   const key = candleCacheKey(args.tokenAddress, interval, nowBucketMin);
 
   if (!args.bypassCache && cache.has(key)) {
@@ -54,7 +54,8 @@ export async function fetchTokenCandles(args: {
     interval: q.interval,
     limit: String(q.limit),
   });
-  if (q.from != null) params.set('from', String(q.from));
+  // No wall-clock `from`: interval is aggregation, not a recent-only lookback.
+  // API returns latest historical candles (DESC + limit), so idle tokens still chart.
 
   const url = `/api/tokens/${encodeURIComponent(args.tokenAddress)}/candles?${params}`;
   try {
