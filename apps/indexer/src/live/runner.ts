@@ -12,6 +12,11 @@ import { processBlock } from './processBlock.js';
 import { processFastCatchupRange, shouldUseFastCatchup } from './fastCatchup.js';
 import { handleReorgIfNeeded } from './reorg.js';
 import { promoteConfirmations, type ConfirmationHeads } from './confirmations.js';
+import {
+  resolveConfirmLagBlocks,
+  resolveTargetHead,
+  type ConfirmMode,
+} from './targetHead.js';
 import { maybeSnapshotQuoteUsd } from './quoteSnapshot.js';
 import {
   acquireIndexerAdvisoryLock,
@@ -220,6 +225,16 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       }
 
       const heads: ConfirmationHeads = { latest, safe, finalized };
+      const confirmMode = config.SCOOP_CONFIRM_MODE as ConfirmMode;
+      const confirmLagBlocks = resolveConfirmLagBlocks(
+        confirmMode,
+        config.SCOOP_CONFIRM_LAG_BLOCKS,
+      );
+      const targetHead = resolveTargetHead({
+        mode: confirmMode,
+        heads,
+        confirmLagBlocks,
+      });
 
       const checkpoint = await withTransaction(pool, (db) =>
         getIndexerCheckpoint(db, config.SCOOP_CHAIN_ID, MAIN_STREAM_NAME),
@@ -261,10 +276,22 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         }
       }
 
-      const targetHead = safe;
       if (nextBlock > targetHead) {
+        const indexed = BigInt(checkpoint?.lastBlockNumber ?? 0);
+        const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
         await withTransaction(pool, async (db) => {
-          await promoteConfirmations(db, { chainId: config.SCOOP_CHAIN_ID, heads });
+          const promoted = await promoteConfirmations(db, {
+            chainId: config.SCOOP_CHAIN_ID,
+            heads,
+          });
+          if (promoted.rawUpdated > 0) {
+            logJson('info', 'confirmation promotion', {
+              rawUpdated: promoted.rawUpdated,
+              tradesUpdated: promoted.tradesUpdated,
+              safe: safe.toString(),
+              finalized: finalized.toString(),
+            });
+          }
           await maybeSnapshotQuoteUsd({
             db,
             client,
@@ -281,14 +308,24 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             chainLatest: latest,
             chainSafe: safe,
             chainFinalized: finalized,
-            lagBlocks: latest - BigInt(checkpoint?.lastBlockNumber ?? 0),
+            // Primary lag = indexed vs configured target (not latest).
+            lagBlocks: targetLag,
             lastRpcOkAt: new Date(),
             reorgCount,
             dirtyProjections: false,
             watchlistSize: watchlistSize(watchlist),
             activeRpc: rpc.activeLabel(),
             wsConnected: Boolean(wsCleanup),
-            notes: 'caught up — waiting for new blocks',
+            notes: [
+              'caught up — waiting for new blocks',
+              `confirmMode=${confirmMode}`,
+              confirmLagBlocks != null ? `confirmLagBlocks=${confirmLagBlocks}` : null,
+              `targetHead=${targetHead.toString()}`,
+              `latestLag=${(latest - indexed).toString()}`,
+              `safeLag=${(latest - safe).toString()}`,
+            ]
+              .filter(Boolean)
+              .join(' '),
           });
         });
 
@@ -335,6 +372,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           from: nextBlock.toString(),
           to: batchEnd.toString(),
           lagBlocks: lagBlocks.toString(),
+          targetHead: targetHead.toString(),
+          confirmMode,
+          confirmLagBlocks,
           threshold: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
           range: config.SCOOP_FAST_CATCHUP_RANGE,
         });
@@ -393,7 +433,18 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
 
       batches += 1;
       await withTransaction(pool, async (db) => {
-        await promoteConfirmations(db, { chainId: config.SCOOP_CHAIN_ID, heads });
+        const promoted = await promoteConfirmations(db, {
+          chainId: config.SCOOP_CHAIN_ID,
+          heads,
+        });
+        if (promoted.rawUpdated > 0) {
+          logJson('info', 'confirmation promotion', {
+            rawUpdated: promoted.rawUpdated,
+            tradesUpdated: promoted.tradesUpdated,
+            safe: safe.toString(),
+            finalized: finalized.toString(),
+          });
+        }
         const snap = await maybeSnapshotQuoteUsd({
           db,
           client,
@@ -402,6 +453,8 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           lastSnapshotAtMs: lastQuoteAtMs,
         });
         lastQuoteAtMs = snap.nextLastAtMs;
+        const indexed = lastBlock ?? 0n;
+        const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
         await upsertIndexerHealth(db, {
           chainId: config.SCOOP_CHAIN_ID,
           heartbeatAt: new Date(),
@@ -409,14 +462,23 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           chainLatest: latest,
           chainSafe: safe,
           chainFinalized: finalized,
-          lagBlocks: lastBlock != null ? latest - lastBlock : null,
+          lagBlocks: lastBlock != null ? targetLag : null,
           lastRpcOkAt: new Date(),
           reorgCount,
           dirtyProjections: false,
           watchlistSize: watchlistSize(watchlist),
           activeRpc: rpc.activeLabel(),
           wsConnected: Boolean(wsCleanup),
-          notes: useFast ? `fast batch ${batches}` : `live batch ${batches}`,
+          notes: [
+            useFast ? `fast batch ${batches}` : `live batch ${batches}`,
+            `confirmMode=${confirmMode}`,
+            confirmLagBlocks != null ? `confirmLagBlocks=${confirmLagBlocks}` : null,
+            `targetHead=${targetHead.toString()}`,
+            lastBlock != null ? `latestLag=${(latest - lastBlock).toString()}` : null,
+            `safeLag=${(latest - safe).toString()}`,
+          ]
+            .filter(Boolean)
+            .join(' '),
         });
       });
 

@@ -46,7 +46,18 @@ const indexerEnvSchema = z
     SCOOP_CHAIN_ID: z.coerce.number().int().default(SCOOP_CHAIN_ID),
     SCOOP_INDEXING_ENABLED: boolFromEnv,
     SCOOP_START_BLOCK: z.coerce.number().int().positive().default(55863290),
-    SCOOP_CONFIRM_MODE: z.enum(['safe', 'latest', 'finalized']).default('safe'),
+    /**
+     * Live ingest head policy:
+     * - safe / finalized / latest — use that RPC head as target
+     * - fixed-lag — target = latest - SCOOP_CONFIRM_LAG_BLOCKS (low-latency UX)
+     */
+    SCOOP_CONFIRM_MODE: z
+      .enum(['safe', 'latest', 'finalized', 'fixed-lag'])
+      .default('safe'),
+    /**
+     * Tip lag for `fixed-lag` mode (also RPC safe/finalized tag fallback).
+     * When mode=fixed-lag and unset, runner uses DEFAULT_FIXED_LAG_BLOCKS (16).
+     */
     SCOOP_CONFIRM_LAG_BLOCKS: z.coerce.number().int().nonnegative().optional(),
     SCOOP_NEW_WINDOW_SECONDS: z.coerce
       .number()
@@ -166,12 +177,16 @@ export function resolveIndexerLockDatabaseUrl(config: IndexerConfig): string {
 
 /** Redacted view for startup logs — never includes secrets. */
 export function publicConfigView(config: IndexerConfig) {
+  const confirmLag =
+    config.SCOOP_CONFIRM_MODE === 'fixed-lag'
+      ? (config.SCOOP_CONFIRM_LAG_BLOCKS ?? 16)
+      : (config.SCOOP_CONFIRM_LAG_BLOCKS ?? null);
   return {
     chainId: config.SCOOP_CHAIN_ID,
     indexingEnabled: config.SCOOP_INDEXING_ENABLED,
     startBlock: config.SCOOP_START_BLOCK,
     confirmMode: config.SCOOP_CONFIRM_MODE,
-    confirmLagBlocks: config.SCOOP_CONFIRM_LAG_BLOCKS ?? null,
+    confirmLagBlocks: confirmLag,
     newWindowSeconds: config.SCOOP_NEW_WINDOW_SECONDS,
     soonThresholdBps: config.SCOOP_SOON_THRESHOLD_BPS,
     reorgWindowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,

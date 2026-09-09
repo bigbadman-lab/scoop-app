@@ -4,16 +4,19 @@ import type { TradeItem } from '@scoop/db';
 import { clearTradeCache } from '@/lib/token/fetch-trades';
 
 const setData = vi.fn();
+const update = vi.fn();
 const createPriceLine = vi.fn(() => ({ remove: vi.fn() }));
 const removePriceLine = vi.fn();
 const priceScaleApply = vi.fn();
 const addSeries = vi.fn(() => ({
   setData,
+  update,
   createPriceLine,
   removePriceLine,
   priceScale: () => ({ applyOptions: priceScaleApply }),
 }));
 const setVisibleLogicalRange = vi.fn();
+const getVisibleLogicalRange = vi.fn(() => null);
 const addPane = vi.fn();
 const setHeight = vi.fn();
 const subscribeCrosshairMove = vi.fn();
@@ -27,6 +30,7 @@ vi.mock('lightweight-charts', () => ({
     timeScale: () => ({
       fitContent: vi.fn(),
       setVisibleLogicalRange,
+      getVisibleLogicalRange,
     }),
     subscribeCrosshairMove,
     unsubscribeCrosshairMove,

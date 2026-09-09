@@ -49,6 +49,16 @@ export async function getIndexerStatus(
   const heartbeatAt = toIso(row.heartbeat_at as Date | string | null);
   const heartbeatMs = heartbeatAt ? Date.parse(heartbeatAt) : NaN;
   const lagBlocks = toNum(row.lag_blocks as string | null);
+  const latestIndexedBlock = toNum(row.latest_indexed_block as string | null);
+  const chainLatest = toNum(row.chain_latest as string | null);
+  const chainSafe = toNum(row.chain_safe as string | null);
+  const latestLagBlocks =
+    chainLatest != null && latestIndexedBlock != null
+      ? Math.max(0, chainLatest - latestIndexedBlock)
+      : null;
+  const safeLagBlocks =
+    chainLatest != null && chainSafe != null ? Math.max(0, chainLatest - chainSafe) : null;
+  // Healthy vs configured target lag (runner stores targetHead − indexed in lag_blocks).
   const healthy =
     Boolean(heartbeatAt) &&
     !Number.isNaN(heartbeatMs) &&
@@ -59,11 +69,13 @@ export async function getIndexerStatus(
   return {
     chainId: Number(row.chain_id),
     heartbeatAt,
-    latestIndexedBlock: toNum(row.latest_indexed_block as string | null),
-    chainLatest: toNum(row.chain_latest as string | null),
-    chainSafe: toNum(row.chain_safe as string | null),
+    latestIndexedBlock,
+    chainLatest,
+    chainSafe,
     chainFinalized: toNum(row.chain_finalized as string | null),
     lagBlocks,
+    latestLagBlocks,
+    safeLagBlocks,
     lastRpcOkAt: toIso(row.last_rpc_ok_at as Date | string | null),
     reorgCount: Number(row.reorg_count ?? 0),
     dirtyProjections: Boolean(row.dirty_projections),

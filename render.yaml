@@ -23,6 +23,10 @@ services:
         value: "55863290"
       - key: SCOOP_CONFIRM_MODE
         value: safe
+      # For low-latency UX set SCOOP_CONFIRM_MODE=fixed-lag and SCOOP_CONFIRM_LAG_BLOCKS=16
+      # in the Render dashboard (do not commit production secrets / live toggles blindly).
+      # - key: SCOOP_CONFIRM_LAG_BLOCKS
+      #   value: "16"
       - key: SCOOP_NEW_WINDOW_SECONDS
         value: "604800"
       - key: SCOOP_SOON_THRESHOLD_BPS

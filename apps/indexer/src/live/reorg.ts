@@ -7,7 +7,7 @@ import {
 } from '@scoop/db';
 import { normalizeBytes32 } from '@scoop/shared';
 import { MAIN_STREAM_NAME } from '../config.js';
-import { refreshTokenMarketFromTrades } from './projections/market.js';
+import { rebuildProjectionsAfterReorg } from './projections/rebuildAfterReorg.js';
 
 export interface CanonicalBlockHash {
   blockNumber: bigint;
@@ -62,7 +62,7 @@ export async function deleteFactsFromBlock(
 }
 
 /**
- * Detect reorg in window, rollback facts, reset checkpoint, return replayFrom.
+ * Detect reorg in window, rollback facts, rebuild projections, reset checkpoint.
  */
 export async function handleReorgIfNeeded(
   db: Queryable,
@@ -120,52 +120,11 @@ export async function handleReorgIfNeeded(
     lastLogIndex: -1,
   });
 
-  // Rebuild projections for affected tokens from remaining trades
-  for (const row of affected.rows) {
-    const launch = await db.query<{
-      tick_lower: number;
-      tick_upper: number;
-      opening_sqrt_price_x96: string;
-      pool_id: string;
-    }>(
-      `SELECT tick_lower, tick_upper, opening_sqrt_price_x96, pool_id
-       FROM launches WHERE chain_id = $1 AND token_address = $2`,
-      [args.chainId, row.token_address],
-    );
-    const L = launch.rows[0];
-    if (!L) continue;
-    const lastTrade = await db.query<{
-      sqrt_price_x96_after: string;
-      tick_after: number;
-      liquidity_after_raw: string;
-      block_number: string;
-      tx_hash: string;
-      log_index: number;
-    }>(
-      `SELECT sqrt_price_x96_after, tick_after, liquidity_after_raw, block_number, tx_hash, log_index
-       FROM trades
-       WHERE chain_id = $1 AND token_address = $2
-       ORDER BY block_number DESC, log_index DESC LIMIT 1`,
-      [args.chainId, row.token_address],
-    );
-    const t = lastTrade.rows[0];
-    if (!t) continue;
-    await refreshTokenMarketFromTrades(db, {
-      chainId: args.chainId,
-      tokenAddress: row.token_address,
-      poolId: L.pool_id,
-      tickLower: L.tick_lower,
-      tickUpper: L.tick_upper,
-      openingSqrtPriceX96: BigInt(L.opening_sqrt_price_x96),
-      liquidityRaw: BigInt(t.liquidity_after_raw),
-      sqrtPriceX96: BigInt(t.sqrt_price_x96_after),
-      tick: t.tick_after,
-      sourceBlock: BigInt(t.block_number),
-      sourceTxHash: t.tx_hash,
-      sourceLogIndex: t.log_index,
-      quoteUsdMaxAgeSeconds: args.quoteUsdMaxAgeSeconds,
-    });
-  }
+  await rebuildProjectionsAfterReorg(db, {
+    chainId: args.chainId,
+    affected: affected.rows,
+    quoteUsdMaxAgeSeconds: args.quoteUsdMaxAgeSeconds,
+  });
 
   return { replayFrom, reorg: true };
 }

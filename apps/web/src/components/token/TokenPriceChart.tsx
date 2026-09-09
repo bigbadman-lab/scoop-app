@@ -13,6 +13,8 @@ import {
   type MouseEventParams,
   type UTCTimestamp,
 } from 'lightweight-charts';
+import type { TradeItem } from '@scoop/db';
+import { useTokenMarketLiveOptional } from '@/components/token/TokenMarketLiveProvider';
 import { fetchTokenTrades } from '@/lib/token/fetch-trades';
 import {
   type ChartBasis,
@@ -33,6 +35,7 @@ import {
   formatTradeMovementTooltip,
   tradeBarsToCandles,
   tradeBarsToVolume,
+  tradeIdentity,
 } from '@/lib/token/trade-series';
 
 type Props = {
@@ -54,6 +57,10 @@ type ReadyState = {
   candles: ChartCandle[];
   tradeBars: TradeMovementBar[];
   barCount: number;
+  /** Chronological trade ids backing the series (for incremental diffs). */
+  tradeIds: string[];
+  apply: 'reseed' | 'append' | 'unchanged';
+  appendedTradeIds: string[];
 };
 
 type LoadState =
@@ -95,9 +102,39 @@ const BEARISH_RED = '#c44c3a';
 const BEARISH_RED_VOL = 'rgba(196, 76, 58, 0.38)';
 const BULLISH_VOL = 'rgba(47, 158, 68, 0.38)';
 
+function seriesFromTrades(
+  tradesChronoOrNewest: readonly TradeItem[],
+  fdvContext: TradeFdvContext,
+  apply: ReadyState['apply'] = 'reseed',
+  appended: readonly TradeItem[] = [],
+): LoadState {
+  if (tradesChronoOrNewest.length === 0) {
+    return { status: 'empty', message: 'No trade history yet' };
+  }
+
+  const series = buildTradeMovementSeries(tradesChronoOrNewest, fdvContext);
+  if (series.bars.length === 0) {
+    return { status: 'empty', message: '1 trade recorded' };
+  }
+
+  const appendedIds = new Set(appended.map((t) => tradeIdentity(t)));
+  return {
+    status: 'ready',
+    basis: series.basis,
+    candles: tradeBarsToCandles(series.bars),
+    tradeBars: series.bars,
+    barCount: series.bars.length,
+    tradeIds: series.trades.map((t) => tradeIdentity(t)),
+    apply,
+    appendedTradeIds: series.bars
+      .filter((b) => appendedIds.has(b.tradeId))
+      .map((b) => b.tradeId),
+  };
+}
+
 /**
  * MVP PRICE chart: trade-derived execution-to-execution movement.
- * Timeframe selector hidden; OHLC intervals remain in backend for later.
+ * Prefers shared TokenMarketLive trades; falls back to one-shot fetch for isolated mounts.
  */
 export function TokenPriceChart({
   tokenAddress,
@@ -108,11 +145,16 @@ export function TokenPriceChart({
   currentPriceUsdX18 = null,
   currentPriceQuoteX18 = null,
 }: Props) {
+  const live = useTokenMarketLiveOptional();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const lastGoodRef = useRef<LoadState | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const priceLineRef = useRef<IPriceLine | null>(null);
+  const realTimeByPlotRef = useRef<Map<number, number>>(new Map());
   const hoverByPlotRef = useRef<Map<number, HoverMeta>>(new Map());
+  const lastGoodRef = useRef<LoadState | null>(null);
+  const plottedBarCountRef = useRef(0);
 
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [tooltip, setTooltip] = useState<{
@@ -122,7 +164,45 @@ export function TokenPriceChart({
 
   const fdvContext: TradeFdvContext = { totalSupplyRaw, tokenDecimals };
 
+  // Shared live layer path.
   useEffect(() => {
+    if (!live) return;
+    if (live.tradesStatus === 'loading') {
+      if (!lastGoodRef.current) setState({ status: 'loading' });
+      return;
+    }
+    if (live.tradesStatus === 'error') {
+      if (lastGoodRef.current?.status === 'ready') {
+        setState(lastGoodRef.current);
+      } else {
+        setState({ status: 'error', message: live.tradesError ?? 'Chart unavailable' });
+      }
+      return;
+    }
+
+    const next = seriesFromTrades(
+      live.tradesChronoAsc,
+      fdvContext,
+      live.tradesApply,
+      live.appendedTrades,
+    );
+    setState(next);
+    lastGoodRef.current = next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    live,
+    live?.tradesChronoAsc,
+    live?.tradesStatus,
+    live?.tradesApply,
+    live?.appendedTrades,
+    live?.tradesError,
+    totalSupplyRaw,
+    tokenDecimals,
+  ]);
+
+  // Fallback one-shot fetch when mounted outside the live provider (tests / isolated).
+  useEffect(() => {
+    if (live) return;
     const ac = new AbortController();
     let cancelled = false;
 
@@ -145,38 +225,9 @@ export function TokenPriceChart({
         return;
       }
 
-      if (result.items.length === 0) {
-        const empty: LoadState = {
-          status: 'empty',
-          message: 'No trade history yet',
-        };
-        setState(empty);
-        lastGoodRef.current = empty;
-        setTooltip(null);
-        return;
-      }
-
-      const series = buildTradeMovementSeries(result.items, fdvContext);
-      if (series.bars.length === 0) {
-        const empty: LoadState = {
-          status: 'empty',
-          message: '1 trade recorded',
-        };
-        setState(empty);
-        lastGoodRef.current = empty;
-        setTooltip(null);
-        return;
-      }
-
-      const ready: ReadyState = {
-        status: 'ready',
-        basis: series.basis,
-        candles: tradeBarsToCandles(series.bars),
-        tradeBars: series.bars,
-        barCount: series.bars.length,
-      };
-      setState(ready);
-      lastGoodRef.current = ready;
+      const next = seriesFromTrades(result.items, fdvContext, 'reseed');
+      setState(next);
+      lastGoodRef.current = next;
     }
 
     void load();
@@ -184,13 +235,19 @@ export function TokenPriceChart({
       cancelled = true;
       ac.abort();
     };
-    // fdvContext fields are primitives from props
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokenAddress, totalSupplyRaw, tokenDecimals]);
+  }, [live, tokenAddress, totalSupplyRaw, tokenDecimals]);
 
+  // Create chart once when entering ready; tear down on leave/unmount.
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || state.status !== 'ready') return;
+    if (!el || state.status !== 'ready') {
+      return;
+    }
+
+    if (chartRef.current) {
+      return;
+    }
 
     const fg = readCssVar('--fg', '#0a0a0a');
     const muted = readCssVar('--muted-2', '#8a8a8a');
@@ -200,12 +257,12 @@ export function TokenPriceChart({
 
     const volumeBars = tradeBarsToVolume(state.tradeBars);
     const plot = buildActivityCentricPlot(state.candles, volumeBars);
-    const realTimeByPlot = plot.realTimeByPlot;
+    realTimeByPlotRef.current = plot.realTimeByPlot;
 
     const tradeByRealTime = new Map(state.tradeBars.map((b) => [b.time, b]));
     const map = new Map<number, HoverMeta>();
     for (const c of plot.candles) {
-      const real = realTimeByPlot.get(c.time) ?? c.time;
+      const real = plot.realTimeByPlot.get(c.time) ?? c.time;
       const tradeBar = tradeByRealTime.get(real);
       if (!tradeBar) continue;
       map.set(c.time, {
@@ -231,7 +288,7 @@ export function TokenPriceChart({
       },
       localization: {
         timeFormatter: (time: number) => {
-          const real = realTimeByPlot.get(Number(time));
+          const real = realTimeByPlotRef.current.get(Number(time));
           return formatCrosshairTime(real ?? Number(time));
         },
       },
@@ -252,7 +309,7 @@ export function TokenPriceChart({
         maxBarSpacing: CHART_MAX_BAR_SPACING,
         rightOffset: 0,
         tickMarkFormatter: (time: number) => {
-          const real = realTimeByPlot.get(Number(time));
+          const real = realTimeByPlotRef.current.get(Number(time));
           if (real == null) return '';
           return formatAxisTick(real);
         },
@@ -294,12 +351,10 @@ export function TokenPriceChart({
       })),
     );
 
-    let priceLine: IPriceLine | null = null;
-    const spotRaw =
-      state.basis === 'usd' ? currentPriceUsdX18 : currentPriceQuoteX18;
+    const spotRaw = state.basis === 'usd' ? currentPriceUsdX18 : currentPriceQuoteX18;
     const spot = x18ToChartNumber(spotRaw);
     if (spot != null && spot > 0) {
-      priceLine = series.createPriceLine({
+      priceLineRef.current = series.createPriceLine({
         price: spot,
         color: fg,
         lineWidth: 1,
@@ -337,6 +392,7 @@ export function TokenPriceChart({
           color: d.up ? BULLISH_VOL : BEARISH_RED_VOL,
         })),
       );
+      volumeSeriesRef.current = volumeSeries;
     }
 
     const applyViewport = () => {
@@ -348,6 +404,7 @@ export function TokenPriceChart({
       chart.timeScale().setVisibleLogicalRange(range);
     };
     applyViewport();
+    plottedBarCountRef.current = plot.candles.length;
 
     const onMove = (param: MouseEventParams) => {
       if (!param.time || !param.point) {
@@ -369,7 +426,12 @@ export function TokenPriceChart({
     let ro: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(() => {
-        applyViewport();
+        const width = el.clientWidth || undefined;
+        const range = activityVisibleLogicalRange(plottedBarCountRef.current, {
+          containerWidthPx: width,
+          maxBarSpacing: CHART_MAX_BAR_SPACING,
+        });
+        chart.timeScale().setVisibleLogicalRange(range);
       });
       ro.observe(el);
     }
@@ -379,19 +441,154 @@ export function TokenPriceChart({
 
     return () => {
       ro?.disconnect();
-      if (priceLine) {
+      if (priceLineRef.current && seriesRef.current) {
         try {
-          series.removePriceLine(priceLine);
+          seriesRef.current.removePriceLine(priceLineRef.current);
         } catch {
           /* chart may already be removed */
         }
       }
+      priceLineRef.current = null;
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      volumeSeriesRef.current = null;
+      plottedBarCountRef.current = 0;
     };
-  }, [state, quoteSymbol, currentPriceUsdX18, currentPriceQuoteX18]);
+    // Intentionally only (re)create when readiness flips or basis/symbol identity changes.
+    // Data updates are handled by the incremental effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status === 'ready', state.status === 'ready' ? state.basis : null, quoteSymbol]);
+
+  // Incremental / reseed data updates on an existing chart instance.
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series) return;
+
+    const volumeBars = tradeBarsToVolume(state.tradeBars);
+    const plot = buildActivityCentricPlot(state.candles, volumeBars);
+    realTimeByPlotRef.current = plot.realTimeByPlot;
+
+    const tradeByRealTime = new Map(state.tradeBars.map((b) => [b.time, b]));
+    const map = new Map<number, HoverMeta>();
+    for (const c of plot.candles) {
+      const real = plot.realTimeByPlot.get(c.time) ?? c.time;
+      const tradeBar = tradeByRealTime.get(real);
+      if (!tradeBar) continue;
+      map.set(c.time, {
+        candle: { ...c, time: real },
+        tradeBar,
+      });
+    }
+    hoverByPlotRef.current = map;
+
+    const prevBarCount = plottedBarCountRef.current;
+    const appendedBarCount = state.appendedTradeIds.length;
+    const canAppend =
+      state.apply === 'append' &&
+      appendedBarCount > 0 &&
+      prevBarCount > 0 &&
+      plot.candles.length === prevBarCount + appendedBarCount;
+
+    if (canAppend) {
+      for (let i = prevBarCount; i < plot.candles.length; i += 1) {
+        const c = plot.candles[i]!;
+        series.update({
+          time: c.time as UTCTimestamp,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        });
+        const v = plot.volume.find((bar) => bar.time === c.time);
+        if (v && volumeSeriesRef.current) {
+          volumeSeriesRef.current.update({
+            time: v.time as UTCTimestamp,
+            value: v.value,
+            color: v.up ? BULLISH_VOL : BEARISH_RED_VOL,
+          });
+        }
+      }
+    } else if (state.apply !== 'unchanged' || prevBarCount !== plot.candles.length) {
+      series.setData(
+        plot.candles.map((d) => ({
+          time: d.time as UTCTimestamp,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+        })),
+      );
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.setData(
+          plot.volume.map((d) => ({
+            time: d.time as UTCTimestamp,
+            value: d.value,
+            color: d.up ? BULLISH_VOL : BEARISH_RED_VOL,
+          })),
+        );
+      }
+    }
+
+    plottedBarCountRef.current = plot.candles.length;
+
+    const fg = readCssVar('--fg', '#0a0a0a');
+    const spotRaw = state.basis === 'usd' ? currentPriceUsdX18 : currentPriceQuoteX18;
+    const spot = x18ToChartNumber(spotRaw);
+    if (priceLineRef.current) {
+      try {
+        series.removePriceLine(priceLineRef.current);
+      } catch {
+        /* ignore */
+      }
+      priceLineRef.current = null;
+    }
+    if (spot != null && spot > 0) {
+      priceLineRef.current = series.createPriceLine({
+        price: spot,
+        color: fg,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: '',
+      });
+    }
+
+    const el = containerRef.current;
+    const width = el?.clientWidth || undefined;
+    const range = activityVisibleLogicalRange(plot.candles.length, {
+      containerWidthPx: width,
+      maxBarSpacing: CHART_MAX_BAR_SPACING,
+    });
+    // Preserve viewport when appending if user is near the live edge.
+    if (canAppend) {
+      const visible = chart.timeScale().getVisibleLogicalRange();
+      const delta = plot.candles.length - prevBarCount;
+      if (visible && delta > 0 && visible.to >= prevBarCount - 2) {
+        chart.timeScale().setVisibleLogicalRange({
+          from: visible.from + delta,
+          to: visible.to + delta,
+        });
+      }
+    } else if (state.apply === 'reseed') {
+      chart.timeScale().setVisibleLogicalRange(range);
+    }
+  }, [state, currentPriceUsdX18, currentPriceQuoteX18]);
+
+  // Tear down chart when leaving ready.
+  useEffect(() => {
+    if (state.status === 'ready') return;
+    if (!chartRef.current) return;
+    chartRef.current.remove();
+    chartRef.current = null;
+    seriesRef.current = null;
+    volumeSeriesRef.current = null;
+    priceLineRef.current = null;
+    plottedBarCountRef.current = 0;
+  }, [state.status]);
 
   const basis = state.status === 'ready' ? state.basis : null;
   const basisText = basis ? chartBasisLabel(basis, quoteSymbol) : null;

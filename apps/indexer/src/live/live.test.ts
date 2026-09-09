@@ -27,8 +27,29 @@ describe('config 6A.6', () => {
     expect(config.SCOOP_MAX_BLOCK_BATCH).toBe(20);
     expect(config.SCOOP_LAUNCH_DUST_RAW).toBe(1000n);
     expect(config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS).toBe(300);
+    expect(config.SCOOP_CONFIRM_MODE).toBe('safe');
     expect(publicConfigView(config).hasDatabaseUrl).toBe(false);
     expect(publicConfigView(config).quoteUsdMaxAgeSeconds).toBe(300);
+  });
+
+  it('accepts fixed-lag mode and surfaces effective lag in public view', () => {
+    const config = loadConfig({
+      SCOOP_CHAIN_ID: '4663',
+      SCOOP_CONFIRM_MODE: 'fixed-lag',
+      SCOOP_CONFIRM_LAG_BLOCKS: '16',
+    });
+    expect(config.SCOOP_CONFIRM_MODE).toBe('fixed-lag');
+    expect(config.SCOOP_CONFIRM_LAG_BLOCKS).toBe(16);
+    expect(publicConfigView(config).confirmMode).toBe('fixed-lag');
+    expect(publicConfigView(config).confirmLagBlocks).toBe(16);
+  });
+
+  it('defaults confirmLagBlocks to 16 in public view when fixed-lag and unset', () => {
+    const config = loadConfig({
+      SCOOP_CHAIN_ID: '4663',
+      SCOOP_CONFIRM_MODE: 'fixed-lag',
+    });
+    expect(publicConfigView(config).confirmLagBlocks).toBe(16);
   });
 
   it('requires DATABASE_URL when indexing enabled', () => {

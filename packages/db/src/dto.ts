@@ -228,7 +228,15 @@ export interface IndexerStatus {
   chainLatest: number | null;
   chainSafe: number | null;
   chainFinalized: number | null;
+  /**
+   * Primary lag used for `healthy`: configured target head − indexed.
+   * Under fixed-lag this stays near 0 when caught up even if latest ≫ safe.
+   */
   lagBlocks: number | null;
+  /** Observability: chain latest − indexed (tip distance). */
+  latestLagBlocks: number | null;
+  /** Observability: chain latest − safe (RPC safe tip distance). */
+  safeLagBlocks: number | null;
   lastRpcOkAt: string | null;
   reorgCount: number;
   dirtyProjections: boolean;

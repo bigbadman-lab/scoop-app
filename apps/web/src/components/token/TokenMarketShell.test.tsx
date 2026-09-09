@@ -28,6 +28,36 @@ vi.mock('@/components/token/TokenBuySell', () => ({
   TokenBuySell: () => <div data-testid="token-buy-sell-stub">Trade</div>,
 }));
 
+/** Shell tests assert SSR-seeded UI; stub the live poll so no network runs. */
+vi.mock('@/lib/token/token-market-live-poll', () => ({
+  createTokenMarketLivePoll: (opts: {
+    initialToken: TokenDetail;
+    onSnapshot: (snap: {
+      token: TokenDetail;
+      tradesChronoAsc: [];
+      tradesApply: 'unchanged';
+      appendedTrades: [];
+      tradesStatus: 'empty';
+      tradesError: null;
+    }) => void;
+  }) => {
+    const snap = {
+      token: opts.initialToken,
+      tradesChronoAsc: [] as [],
+      tradesApply: 'unchanged' as const,
+      appendedTrades: [] as [],
+      tradesStatus: 'empty' as const,
+      tradesError: null,
+    };
+    return {
+      start: () => opts.onSnapshot(snap),
+      stop: () => undefined,
+      refreshNow: () => undefined,
+      getSnapshot: () => snap,
+    };
+  },
+}));
+
 function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
   return {
     chainId: 4663,

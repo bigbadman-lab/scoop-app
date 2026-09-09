@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { TradeItem } from '@scoop/db';
 import { ContractCopy } from '@/components/ui/ContractCopy';
+import { useTokenMarketLiveOptional } from '@/components/token/TokenMarketLiveProvider';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import { clearTradeCache, fetchTokenTrades } from '@/lib/token/fetch-trades';
 import {
@@ -37,14 +38,40 @@ const SELL_COLOR = 'text-[#c44c3a]';
 
 /**
  * Recent Trades beneath PRICE — newest-first indexed executions.
- * Independent client fetch; ready for future ~2s prepend/dedupe.
+ * Consumes the shared token live layer when present (no separate poll).
  */
 export function TokenRecentTrades({ tokenAddress, quoteSymbol }: Props) {
+  const live = useTokenMarketLiveOptional();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
   const [retryKey, setRetryKey] = useState(0);
 
+  // Shared live layer.
   useEffect(() => {
+    if (!live) return;
+    if (live.tradesStatus === 'loading') {
+      setState((prev) => (prev.status === 'ready' ? prev : { status: 'loading' }));
+      return;
+    }
+    if (live.tradesStatus === 'error') {
+      setState((prev) =>
+        prev.status === 'ready'
+          ? prev
+          : { status: 'error', message: live.tradesError ?? 'Trades unavailable' },
+      );
+      return;
+    }
+    if (live.tradesStatus === 'empty' || live.recentTrades.length === 0) {
+      setState({ status: 'empty' });
+      return;
+    }
+    setState({ status: 'ready', items: live.recentTrades });
+    setNowSec(Math.floor(Date.now() / 1000));
+  }, [live, live?.recentTrades, live?.tradesStatus, live?.tradesError]);
+
+  // Fallback fetch outside provider (tests / isolated mounts).
+  useEffect(() => {
+    if (live) return;
     const ac = new AbortController();
     let cancelled = false;
 
@@ -78,9 +105,13 @@ export function TokenRecentTrades({ tokenAddress, quoteSymbol }: Props) {
       cancelled = true;
       ac.abort();
     };
-  }, [tokenAddress, retryKey]);
+  }, [live, tokenAddress, retryKey]);
 
   function retry() {
+    if (live) {
+      live.refreshNow();
+      return;
+    }
     clearTradeCache();
     setRetryKey((k) => k + 1);
   }

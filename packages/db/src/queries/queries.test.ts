@@ -313,15 +313,16 @@ describe('query validation / SQL mapping', () => {
     expect(rankings[0]?.type).toBe('volume24h');
   });
 
-  it('getIndexerStatus derives healthy flag', async () => {
+  it('getIndexerStatus derives healthy from target lag and exposes latest/safe lags', async () => {
     const db = mockDb([
       {
         chain_id: 4663,
         heartbeat_at: new Date(),
-        latest_indexed_block: '10',
-        chain_latest: '12',
-        chain_safe: '11',
-        chain_finalized: '10',
+        latest_indexed_block: '1000',
+        chain_latest: '7000',
+        chain_safe: '1200',
+        chain_finalized: '1100',
+        // target lag near 0 while latest is far ahead (fixed-lag caught up)
         lag_blocks: '2',
         last_rpc_ok_at: new Date(),
         reorg_count: '0',
@@ -329,12 +330,14 @@ describe('query validation / SQL mapping', () => {
         watchlist_size: 1,
         active_rpc: 'primary',
         ws_connected: false,
-        notes: 'ok',
+        notes: 'confirmMode=fixed-lag targetHead=1002',
       },
     ]);
     const status = await getIndexerStatus(db, 4663);
     expect(status?.healthy).toBe(true);
     expect(status?.lagBlocks).toBe(2);
+    expect(status?.latestLagBlocks).toBe(6000);
+    expect(status?.safeLagBlocks).toBe(5800);
   });
 
   it('canonical quote catalogue count is 22', () => {
