@@ -107,11 +107,21 @@ export async function enrichTokenHistoricalUsd(
   const poolId = normalizeBytes32(L.pool_id);
   const quoteAsset = normalizeAddress(L.quote_asset);
 
-  const quoteMeta = await db.query<{ decimals: number | null }>(
-    `SELECT decimals FROM quote_assets WHERE chain_id = $1 AND quote_asset = $2`,
+  const quoteMeta = await db.query<{ decimals: number | null; oracle_max_age: number | null }>(
+    `SELECT decimals, oracle_max_age FROM quote_assets WHERE chain_id = $1 AND quote_asset = $2`,
     [options.chainId, quoteAsset],
   );
   const quoteDecimals = quoteMeta.rows[0]?.decimals ?? 18;
+  const oracleMaxAge = quoteMeta.rows[0]?.oracle_max_age;
+  /**
+   * Historical trade USD uses protocol oracle freshness (catalogue oracle_max_age),
+   * not the stricter live product window alone — Chainlink rounds can be older than
+   * SCOOP_QUOTE_USD_MAX_AGE_SECONDS while still valid on-chain.
+   */
+  const tradeUsdMaxAgeSeconds = Math.max(
+    options.quoteUsdMaxAgeSeconds,
+    oracleMaxAge != null && oracleMaxAge > 0 ? Number(oracleMaxAge) : 0,
+  );
 
   const tradesResult = await db.query<TradeRow>(
     `SELECT
@@ -155,7 +165,7 @@ export async function enrichTokenHistoricalUsd(
       executionPriceQuoteX18: BigInt(trade.execution_price_quote_x18),
       quoteDecimals,
       tradeTimestampSec,
-      maxAgeSeconds: options.quoteUsdMaxAgeSeconds,
+      maxAgeSeconds: tradeUsdMaxAgeSeconds,
     });
 
     if (resolved.reason !== 'ok' || resolved.usdValueX18 == null) {

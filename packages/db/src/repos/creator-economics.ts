@@ -199,7 +199,8 @@ export async function insertQuotePriceSnapshot(
   await db.query(
     `INSERT INTO quote_price_snapshots (
       chain_id, quote_asset, price_usd_x18, source_block, observed_at
-    ) VALUES ($1,$2,$3,$4,COALESCE($5::timestamptz, NOW()))`,
+    ) VALUES ($1,$2,$3,$4,COALESCE($5::timestamptz, NOW()))
+     ON CONFLICT (chain_id, quote_asset, observed_at) DO NOTHING`,
     [
       row.chainId,
       normalizeAddress(row.quoteAsset),

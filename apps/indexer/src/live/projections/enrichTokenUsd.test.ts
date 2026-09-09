@@ -31,7 +31,7 @@ describe('enrichTokenHistoricalUsd', () => {
         };
       }
       if (sql.includes('FROM quote_assets')) {
-        return { rows: [{ decimals: 18 }] };
+        return { rows: [{ decimals: 18, oracle_max_age: 86400 }] };
       }
       if (sql.includes('FROM trades') && sql.includes('ORDER BY block_number ASC')) {
         return {
@@ -146,7 +146,7 @@ describe('enrichTokenHistoricalUsd', () => {
         };
       }
       if (sql.includes('FROM quote_assets')) {
-        return { rows: [{ decimals: 18 }] };
+        return { rows: [{ decimals: 18, oracle_max_age: 86400 }] };
       }
       if (sql.includes('FROM trades') && sql.includes('ORDER BY block_number ASC')) {
         return {
