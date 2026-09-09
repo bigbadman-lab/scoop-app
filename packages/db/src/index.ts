@@ -51,6 +51,8 @@ export {
   getRankings,
   assertRankingType,
   getIndexerStatus,
+  getNewsArticleMarketsForArticles,
+  listNewsArticleMarkets,
   getPublicQuoteCatalogue,
   CANONICAL_QUOTE_CATALOGUE_COUNT,
   SCOOP_CHAIN_ID,
@@ -65,6 +67,8 @@ export {
   type ScoopFeeAssetLine,
   type ScoopProfileRecord,
   type ScoopAccountWallet,
+  type NewsArticleMarketSummary,
+  type NewsArticleMarketBundle,
 } from './queries/index.js';
 export type {
   DatabaseClientMode,
@@ -77,6 +81,11 @@ export type {
 } from './types.js';
 export { upsertRawChainEvent, type RawChainEventRow } from './repos/raw-chain-events.js';
 export { upsertLaunch, type LaunchRow } from './repos/launches.js';
+export {
+  linkNewsArticleMarket,
+  resolveArticleFromDraft,
+  type NewsArticleMarketLink,
+} from './repos/news-article-markets.js';
 export { upsertToken, setTokenDisplayImageUrl, applyDraftDisplayImageToToken, type TokenRow } from './repos/tokens.js';
 export { upsertCreator, type CreatorRow } from './repos/creators.js';
 export { upsertPool, type PoolRow } from './repos/pools.js';

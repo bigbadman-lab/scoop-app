@@ -135,6 +135,9 @@ describe('LaunchFlow', () => {
     );
     expect(screen.getByText(/from the news/i)).toBeTruthy();
     expect(screen.getByText(/markets react to rate decision/i)).toBeTruthy();
+    const provenance = screen.getByTestId('launch-news-provenance');
+    expect(provenance.getAttribute('data-source-article-id')).toBe('77');
+    expect(provenance.getAttribute('data-source-draft-id')).toBe('draft-1');
     expect(screen.getByAltText('Token preview').getAttribute('src')).toBe(
       'https://signed.example/1.png',
     );

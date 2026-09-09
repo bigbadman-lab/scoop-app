@@ -63,6 +63,9 @@ function applyAssistedPrefill(
       description: handoff.concept.description,
       quoteAsset,
       quoteSymbol,
+      sourceProvider: 'stocknewsapi',
+      sourceProviderArticleId: handoff.providerArticleId,
+      sourceDraftId: handoff.draftId,
       image: {
         previewUrl: handoff.image.previewUrl,
         fileName: handoff.image.fileName,

@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 type Props = {
   providerArticleId: string;
-  variant?: 'primary' | 'feed';
+  variant?: 'primary' | 'feed' | 'another';
   className?: string;
 };
 
@@ -18,6 +18,8 @@ export function LaunchAsTokenLink({
   if (!id) return null;
 
   const href = `/news/${encodeURIComponent(id)}/launch`;
+  const label =
+    variant === 'another' ? 'Launch another market →' : 'Launch as token →';
 
   if (variant === 'primary') {
     return (
@@ -28,7 +30,7 @@ export function LaunchAsTokenLink({
           className,
         ].join(' ')}
       >
-        Launch as token →
+        {label}
       </Link>
     );
   }
@@ -37,11 +39,11 @@ export function LaunchAsTokenLink({
     <Link
       href={href}
       className={[
-        'inline-flex min-h-11 items-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--scoop-orange)] focus-visible:text-[var(--scoop-orange)]',
+        'inline-flex min-h-9 items-center font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--scoop-orange)] focus-visible:text-[var(--scoop-orange)]',
         className,
       ].join(' ')}
     >
-      Launch as token →
+      {label}
     </Link>
   );
 }

@@ -1,7 +1,7 @@
 import type { NewsFeedCursor, NewsFeedItem } from '@scoop/news';
 
-/** How often `/news` polls SCOOP's own DB-backed API (not the upstream provider). */
-export const NEWS_UI_POLL_MS = 60_000;
+/** Coordinated News poll — faster than before so MARKET LIVE appears promptly. */
+export const NEWS_UI_POLL_MS = 8_000;
 
 /** Default page size for the public news feed. */
 export const NEWS_PAGE_SIZE = 20;
@@ -9,14 +9,34 @@ export const NEWS_PAGE_SIZE = 20;
 /** Hard cap for GET /api/news `limit`. */
 export const NEWS_API_MAX_LIMIT = 50;
 
+/** Compact market chip for feed (one→many; never inferred). */
+export type PublicNewsMarketSummary = {
+  chainId: number;
+  tokenAddress: string;
+  symbol: string;
+  name: string;
+  quoteAsset: string;
+  launchedAt: number;
+  ageSeconds: number;
+  priceUsdDisplay: string | null;
+  fdvUsdDisplay: string | null;
+  volume24hUsdDisplay: string | null;
+};
+
 /** Public JSON shape — no backfill/internal flags. */
 export type PublicNewsItem = {
   id: string;
   headline: string;
+  /** Concise story blurb when available. */
+  summary: string | null;
   sourceDomain: string;
   url: string;
   publishedAt: string;
   tickers: string[];
+  /** Indexed markets launched from this article (0…N). */
+  marketCount: number;
+  /** Up to a few newest markets for badge/primary link; full list via markets API. */
+  markets: PublicNewsMarketSummary[];
 };
 
 export type PublicNewsFeedResponse = {
@@ -27,14 +47,36 @@ export type PublicNewsFeedResponse = {
   asOf: string;
 };
 
-export function toPublicNewsItem(item: NewsFeedItem): PublicNewsItem {
+const SUMMARY_MAX = 160;
+
+export function truncateNewsSummary(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.replace(/\s+/g, ' ').trim();
+  if (!trimmed) return null;
+  if (trimmed.length <= SUMMARY_MAX) return trimmed;
+  const cut = trimmed.slice(0, SUMMARY_MAX - 1);
+  const lastSpace = cut.lastIndexOf(' ');
+  const base = lastSpace > 80 ? cut.slice(0, lastSpace) : cut;
+  return `${base}…`;
+}
+
+export function toPublicNewsItem(
+  item: NewsFeedItem,
+  markets?: {
+    marketCount: number;
+    markets: PublicNewsMarketSummary[];
+  },
+): PublicNewsItem {
   return {
     id: item.providerArticleId,
     headline: item.headline,
+    summary: truncateNewsSummary(item.description),
     sourceDomain: item.sourceDomain,
     url: item.url,
     publishedAt: item.publishedAt,
     tickers: item.tickers,
+    marketCount: markets?.marketCount ?? 0,
+    markets: markets?.markets ?? [],
   };
 }
 

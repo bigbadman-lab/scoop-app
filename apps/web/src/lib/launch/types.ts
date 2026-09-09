@@ -38,6 +38,13 @@ export type LaunchFormState = {
   creatorAddress: string;
   /** Optional initial buy in selected quote units (human decimal string). Empty or 0 = no buy. */
   devBuyAmount: string;
+  /**
+   * Explicit news provenance (News Page V2). Survives to launch success linking.
+   * Never inferred from headline/ticker — only set from assist handoff.
+   */
+  sourceProvider: string | null;
+  sourceProviderArticleId: string | null;
+  sourceDraftId: string | null;
 };
 
 export type FieldErrors = Partial<Record<string, string>>;
@@ -66,6 +73,9 @@ export function createInitialLaunchState(
     creatorMode: 'different',
     creatorAddress: '',
     devBuyAmount: '',
+    sourceProvider: null,
+    sourceProviderArticleId: null,
+    sourceDraftId: null,
     ...prefill,
   };
 }

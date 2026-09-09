@@ -20,6 +20,12 @@ export {
 export { getRankings, assertRankingType, type GetRankingsOptions } from './rankings.js';
 export { getIndexerStatus } from './health.js';
 export {
+  getNewsArticleMarketsForArticles,
+  listNewsArticleMarkets,
+  type NewsArticleMarketSummary,
+  type NewsArticleMarketBundle,
+} from './news-article-markets.js';
+export {
   getPublicQuoteCatalogue,
   CANONICAL_QUOTE_CATALOGUE_COUNT,
   SCOOP_CHAIN_ID,

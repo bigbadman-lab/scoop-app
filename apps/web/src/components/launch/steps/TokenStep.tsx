@@ -64,7 +64,14 @@ export function TokenStep({
       </div>
 
       {provenance ? (
-        <div className="mb-2 space-y-1 border-b border-[var(--divider)] pb-4">
+        <div
+          className="mb-2 space-y-1 border-b border-[var(--divider)] pb-4"
+          data-testid="launch-news-provenance"
+          data-source-article-id={
+            state.sourceProviderArticleId ?? provenance.providerArticleId
+          }
+          data-source-draft-id={state.sourceDraftId ?? undefined}
+        >
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
             From the news
           </p>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
 import { NewsFreshnessBadge } from '@/components/news/NewsFreshnessBadge';
+import { NewsMarketLiveControl } from '@/components/news/NewsMarketLiveControl';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import {
   NEWS_PAGE_SIZE,
@@ -12,9 +13,11 @@ import {
   type PublicNewsItem,
 } from '@/lib/news/public';
 import { classifyNewsFreshness, isNewsFresh } from '@/lib/news/freshness';
+import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
 type Props = {
   initial: PublicNewsFeedResponse;
+  quoteCatalogue?: readonly PublicQuoteCatalogueItem[];
 };
 
 function mergeUnique(
@@ -22,47 +25,61 @@ function mergeUnique(
   incoming: PublicNewsItem[],
   mode: 'prepend' | 'append',
 ): PublicNewsItem[] {
-  const seen = new Set(existing.map((item) => item.id));
-  const fresh = incoming.filter((item) => !seen.has(item.id));
-  return mode === 'prepend' ? [...fresh, ...existing] : [...existing, ...fresh];
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    const prev = byId.get(item.id);
+    // Prefer fresher market counts from polls while preserving order mode.
+    byId.set(item.id, prev ? { ...prev, ...item, markets: item.markets } : item);
+  }
+  if (mode === 'prepend') {
+    const incomingIds = new Set(incoming.map((i) => i.id));
+    const head = incoming.map((i) => byId.get(i.id)!);
+    const tail = existing.filter((i) => !incomingIds.has(i.id)).map((i) => byId.get(i.id)!);
+    return [...head, ...tail];
+  }
+  const existingIds = new Set(existing.map((i) => i.id));
+  const head = existing.map((i) => byId.get(i.id)!);
+  const tail = incoming.filter((i) => !existingIds.has(i.id)).map((i) => byId.get(i.id)!);
+  return [...head, ...tail];
 }
 
 function NewsFeedItemRow({
   item,
   index,
+  quoteCatalogue,
 }: {
   item: PublicNewsItem;
   index: number;
+  quoteCatalogue: readonly PublicQuoteCatalogueItem[];
 }) {
   const isLead = index === 0;
   const freshness = classifyNewsFreshness(item.publishedAt);
   const fresh = isLead || isNewsFresh(freshness);
+  const hasMarkets = item.marketCount > 0;
 
   return (
     <li
-      className={[
-        'py-6 first:pt-0 md:py-7',
-        isLead ? 'md:pb-9' : '',
-      ].join(' ')}
+      className={['py-3.5 first:pt-0 md:py-4', isLead ? 'md:pb-5' : ''].join(' ')}
     >
       <article
         className={[
-          'space-y-2',
+          'space-y-1.5',
           isLead
-            ? 'border-l-[3px] border-[var(--scoop-live)] pl-4 md:pl-5'
+            ? 'border-l-[3px] border-[var(--scoop-live)] pl-3 md:pl-3.5'
             : fresh
-              ? 'border-l-2 border-[var(--scoop-live)]/45 pl-3.5 md:pl-4'
+              ? 'border-l-2 border-[var(--scoop-live)]/45 pl-2.5 md:pl-3'
               : '',
         ].join(' ')}
         data-testid="news-feed-item"
         data-lead={isLead ? 'true' : undefined}
         data-freshness={isLead ? 'latest' : freshness}
+        data-market-count={String(item.marketCount)}
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <NewsFreshnessBadge publishedAt={item.publishedAt} isLead={isLead} />
           <p
             className={[
-              'font-mono text-[11px] uppercase tracking-[0.16em]',
+              'font-mono text-[10px] uppercase tracking-[0.14em]',
               fresh ? 'text-[var(--scoop-live)]' : 'text-[var(--muted)]',
             ].join(' ')}
           >
@@ -77,6 +94,14 @@ function NewsFeedItemRow({
             <span className={fresh ? 'text-[var(--muted)]' : undefined}>
               {item.sourceDomain}
             </span>
+            {item.tickers.length > 0 ? (
+              <>
+                <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
+                <span className="text-[var(--muted-2)]">
+                  {item.tickers.slice(0, 4).join(' · ')}
+                </span>
+              </>
+            ) : null}
           </p>
         </div>
 
@@ -84,24 +109,38 @@ function NewsFeedItemRow({
           className={[
             'max-w-3xl tracking-tight',
             isLead
-              ? 'text-2xl font-semibold text-[var(--fg)] md:text-3xl'
+              ? 'text-xl font-semibold text-[var(--fg)] md:text-2xl'
               : fresh
-                ? 'text-xl font-semibold text-[var(--fg)] md:text-2xl'
-                : 'text-lg font-semibold text-[var(--fg)]/90 md:text-xl',
+                ? 'text-lg font-semibold text-[var(--fg)] md:text-xl'
+                : 'text-base font-semibold text-[var(--fg)]/90 md:text-lg',
           ].join(' ')}
         >
           {item.headline}
         </h2>
 
-        {item.tickers.length > 0 ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-            {item.tickers.slice(0, 6).join(' · ')}
+        {item.summary ? (
+          <p
+            className="max-w-2xl text-[13px] leading-snug text-[var(--muted)] md:text-sm"
+            data-testid="news-feed-summary"
+          >
+            {item.summary}
           </p>
         ) : null}
 
-        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-          <LaunchAsTokenLink providerArticleId={item.id} />
-          <CtaLink href={item.url} external>
+        <div className="flex flex-col gap-1.5 pt-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+          {hasMarkets ? (
+            <NewsMarketLiveControl
+              providerArticleId={item.id}
+              marketCount={item.marketCount}
+              markets={item.markets}
+              quoteCatalogue={quoteCatalogue}
+            />
+          ) : null}
+          <LaunchAsTokenLink
+            providerArticleId={item.id}
+            variant={hasMarkets ? 'another' : 'feed'}
+          />
+          <CtaLink href={item.url} external className="min-h-9 text-[11px]">
             Read story ↗
           </CtaLink>
         </div>
@@ -110,7 +149,7 @@ function NewsFeedItemRow({
   );
 }
 
-export function NewsFeed({ initial }: Props) {
+export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   const [status, setStatus] = useState(initial.status);
   const [message, setMessage] = useState(initial.message);
   const [items, setItems] = useState(initial.items);
@@ -179,6 +218,8 @@ export function NewsFeed({ initial }: Props) {
         if (novel.length > 0) {
           setPendingNew((prev) => mergeUnique(prev, novel, 'prepend'));
         }
+        // Still refresh market state on visible rows without jumping scroll.
+        setItems((prev) => mergeUnique(prev, data.items, 'prepend'));
         return;
       }
 
@@ -199,6 +240,22 @@ export function NewsFeed({ initial }: Props) {
       void poll();
     }, NEWS_UI_POLL_MS);
     return () => window.clearInterval(id);
+  }, [poll, status]);
+
+  useEffect(() => {
+    if (status === 'gated') return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void poll();
+    };
+    const onFocus = () => {
+      void poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [poll, status]);
 
   function revealPending() {
@@ -240,11 +297,11 @@ export function NewsFeed({ initial }: Props) {
 
   if (status === 'gated') {
     return (
-      <div className="space-y-3 py-10">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+      <div className="space-y-2 py-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Desk
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight">News display pending</h2>
+        <h2 className="text-xl font-semibold tracking-tight">News display pending</h2>
         <p className="max-w-md text-sm text-[var(--muted)]">
           {message ?? 'Public news display is not enabled yet.'}
         </p>
@@ -254,18 +311,18 @@ export function NewsFeed({ initial }: Props) {
 
   if (status === 'error' && items.length === 0) {
     return (
-      <div className="space-y-3 py-10">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+      <div className="space-y-2 py-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Desk
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight">Stories unavailable</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Stories unavailable</h2>
         <p className="max-w-md text-sm text-[var(--muted)]">
           {message ?? 'Could not load news.'}
         </p>
         <button
           type="button"
           onClick={() => void poll()}
-          className="font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-4 hover:underline"
+          className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-4 hover:underline"
         >
           Retry
         </button>
@@ -275,11 +332,11 @@ export function NewsFeed({ initial }: Props) {
 
   if (status === 'empty' || items.length === 0) {
     return (
-      <div className="space-y-3 py-10">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+      <div className="space-y-2 py-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Desk
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight">No stories yet.</h2>
+        <h2 className="text-xl font-semibold tracking-tight">No stories yet.</h2>
         <p className="max-w-md text-sm text-[var(--muted)]">
           {message ?? 'Fresh stories will appear here after ingestion.'}
         </p>
@@ -290,7 +347,7 @@ export function NewsFeed({ initial }: Props) {
   return (
     <div className="relative">
       {pendingNew.length > 0 ? (
-        <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-6 flex justify-center">
+        <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
           <button
             type="button"
             onClick={revealPending}
@@ -303,26 +360,29 @@ export function NewsFeed({ initial }: Props) {
         </div>
       ) : null}
 
-      <ul className="divide-y divide-[var(--divider)]" aria-label="News feed">
+      <ul className="divide-y divide-[var(--divider)]" data-testid="news-feed-list">
         {items.map((item, index) => (
-          <NewsFeedItemRow key={item.id} item={item} index={index} />
+          <NewsFeedItemRow
+            key={item.id}
+            item={item}
+            index={index}
+            quoteCatalogue={quoteCatalogue}
+          />
         ))}
       </ul>
 
       {nextCursor ? (
-        <div className="border-t border-[var(--divider)] pt-8">
+        <div className="mt-6 flex flex-col items-stretch gap-2 sm:items-start">
           <button
             type="button"
             onClick={() => void loadMore()}
             disabled={loadingMore}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50 sm:w-auto sm:px-6"
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-4 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50 sm:w-auto"
           >
             {loadingMore ? 'Loading…' : 'Load more'}
           </button>
           {loadError ? (
-            <p className="mt-3 font-mono text-[11px] text-[#b42318]" role="alert">
-              {loadError}
-            </p>
+            <p className="font-mono text-[11px] text-[var(--muted)]">{loadError}</p>
           ) : null}
         </div>
       ) : null}
