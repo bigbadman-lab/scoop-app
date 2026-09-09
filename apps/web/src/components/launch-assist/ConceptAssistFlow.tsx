@@ -5,14 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
-import { ArtworkChooser } from '@/components/launch-assist/ArtworkChooser';
 import { AuthInterrupt } from '@/components/auth/AuthInterrupt';
 import { AssistAuthGate } from '@/components/auth/AssistAuthGate';
 import {
@@ -22,12 +20,9 @@ import {
 import { ASSISTED_LAUNCH_MARKER } from '@/lib/launch-assist/types';
 import type {
   LaunchAssistArticle,
-  PublicArtworkOption,
   PublicLaunchConcept,
-  SelectedTokenImage,
 } from '@/lib/launch-assist/types';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
-import { validateImageFile } from '@/lib/launch/validation';
 
 type Props = {
   providerArticleId: string;
@@ -37,24 +32,22 @@ type Props = {
 type ViewState =
   | { kind: 'loading_concepts' }
   | { kind: 'concepts'; article: LaunchAssistArticle; concepts: PublicLaunchConcept[] }
-  | { kind: 'creating_images'; article: LaunchAssistArticle; concept: PublicLaunchConcept }
-  | {
-      kind: 'images';
-      article: LaunchAssistArticle;
-      concept: PublicLaunchConcept;
-      draftId: string;
-      images: PublicArtworkOption[];
-    }
   | { kind: 'rate_limited'; message: string }
   | { kind: 'auth'; message: string }
-  | { kind: 'error'; message: string; retryable: boolean; retry: 'concepts' | 'images' }
+  | { kind: 'error'; message: string; retryable: boolean }
   | {
-      kind: 'image_error';
+      kind: 'start_error';
       article: LaunchAssistArticle;
-      concept: PublicLaunchConcept;
+      concepts: PublicLaunchConcept[];
       message: string;
       rateLimited?: boolean;
     };
+
+const LOADING_STAGES = [
+  'Reading the story…',
+  'Finding the market angle…',
+  'Generating token ideas…',
+] as const;
 
 function resolveQuote(
   catalogue: readonly PublicQuoteCatalogueItem[],
@@ -64,100 +57,28 @@ function resolveQuote(
   return catalogue.find((q) => q.quoteAsset.toLowerCase() === needle) ?? null;
 }
 
-function ImageErrorFallback({
-  article,
-  concept,
-  message,
-  rateLimited,
-  onRetry,
-  onBackToIdeas,
-  onUploadContinue,
-}: {
-  article: LaunchAssistArticle;
-  concept: PublicLaunchConcept;
-  message: string;
-  rateLimited?: boolean;
-  onRetry: () => void;
-  onBackToIdeas: () => void;
-  onUploadContinue: (image: SelectedTokenImage) => void;
-}) {
-  const inputId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+function StagedConceptLoading() {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setStage((s) => Math.min(s + 1, LOADING_STAGES.length - 1));
+    }, 1600);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
-      <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-        Launch assist
+    <div
+      className="flex min-h-[40vh] flex-col items-center justify-center px-4 py-12 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--scoop-orange)]">
+        Making a market
       </p>
-      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-        {rateLimited ? 'Limit reached' : 'Could not create images'}
-      </h1>
-      <p className="text-sm text-[var(--muted)]">{message}</p>
-      <p className="text-sm text-[var(--muted)]">
-        {concept.name} · ${concept.ticker}
+      <p className="mt-3 max-w-sm text-sm text-[var(--muted)] motion-safe:animate-pulse motion-reduce:animate-none">
+        {LOADING_STAGES[stage]}
       </p>
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {!rateLimited ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
-          >
-            Try again
-          </button>
-        ) : null}
-        <input
-          id={inputId}
-          ref={inputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const validation = validateImageFile(file);
-            if (validation) {
-              setUploadError(validation);
-              return;
-            }
-            setUploadError(null);
-            onUploadContinue({
-              source: 'upload',
-              previewUrl: URL.createObjectURL(file),
-              fileName: file.name,
-              mimeType: file.type,
-              byteSize: file.size,
-            });
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="inline-flex min-h-11 items-center justify-center border border-[var(--divider)] px-5 font-mono text-[12px] uppercase tracking-[0.14em]"
-        >
-          Upload your own
-        </button>
-        <Link
-          href="/launch"
-          className="inline-flex min-h-11 items-center justify-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--fg)]"
-        >
-          Continue manually →
-        </Link>
-        <button
-          type="button"
-          onClick={onBackToIdeas}
-          className="inline-flex min-h-11 items-center justify-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--fg)]"
-        >
-          ← Back to ideas
-        </button>
-      </div>
-      {uploadError ? (
-        <p className="font-mono text-[11px] text-[#b42318]" role="alert">
-          {uploadError}
-        </p>
-      ) : null}
-      <p className="sr-only">{article.headline}</p>
     </div>
   );
 }
@@ -166,13 +87,14 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: 'loading_concepts' });
   const [authReady, setAuthReady] = useState(false);
-  const [continuing, setContinuing] = useState(false);
-  const artworkInFlight = useRef(false);
-  const lastConcepts = useRef<PublicLaunchConcept[] | null>(null);
+  const [selectingId, setSelectingId] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const artworkStartGuard = useRef(false);
 
   async function generateConcepts() {
     setState({ kind: 'loading_concepts' });
+    const t0 =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
     try {
       const res = await fetch('/api/launch-assist/concepts', {
         method: 'POST',
@@ -210,95 +132,33 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
           kind: 'error',
           message: data.error ?? 'Could not generate launch concepts for this story.',
           retryable: res.status !== 400 || data.code === 'CONCEPT_FAILED',
-          retry: 'concepts',
         });
         return;
       }
+      console.info(
+        JSON.stringify({
+          event: 'launch_assist_concepts_ready',
+          ms: Math.round(
+            (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0,
+          ),
+          providerArticleId,
+        }),
+      );
       setState({ kind: 'concepts', article: data.article, concepts: data.concepts });
-      lastConcepts.current = data.concepts;
     } catch {
       setState({
         kind: 'error',
         message: 'Could not generate launch concepts for this story.',
         retryable: true,
-        retry: 'concepts',
       });
-    }
-  }
-
-  async function generateImages(
-    article: LaunchAssistArticle,
-    concept: PublicLaunchConcept,
-  ) {
-    if (artworkInFlight.current) return;
-    artworkInFlight.current = true;
-    setState({ kind: 'creating_images', article, concept });
-    try {
-      const res = await fetch('/api/launch-assist/artwork', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerArticleId, concept }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        code?: string;
-        draftId?: string;
-        images?: PublicArtworkOption[];
-      };
-
-      if (res.status === 429) {
-        setState({
-          kind: 'image_error',
-          article,
-          concept,
-          rateLimited: true,
-          message:
-            data.error ??
-            "You've reached the current generation limit. Try again shortly.",
-        });
-        return;
-      }
-      if (res.status === 401 || data.code === 'AUTH_REQUIRED') {
-        setState({
-          kind: 'auth',
-          message:
-            data.error ??
-            'Sign in with your wallet to use launch assist.',
-        });
-        return;
-      }
-      if (!res.ok || !data.draftId || !data.images || data.images.length !== 3) {
-        setState({
-          kind: 'image_error',
-          article,
-          concept,
-          message: data.error ?? 'Could not create token images for this idea.',
-        });
-        return;
-      }
-      setState({
-        kind: 'images',
-        article,
-        concept,
-        draftId: data.draftId,
-        images: data.images,
-      });
-    } catch {
-      setState({
-        kind: 'image_error',
-        article,
-        concept,
-        message: 'Could not create token images for this idea.',
-      });
-    } finally {
-      artworkInFlight.current = false;
     }
   }
 
   useEffect(() => {
     startedRef.current = false;
     setAuthReady(false);
+    artworkStartGuard.current = false;
+    setSelectingId(null);
   }, [providerArticleId]);
 
   useEffect(() => {
@@ -309,52 +169,117 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, providerArticleId]);
 
-  function selectConcept(concept: PublicLaunchConcept, article: LaunchAssistArticle) {
-    if (!concept.pairEnabled || artworkInFlight.current) return;
+  async function handleUseThisIdea(
+    concept: PublicLaunchConcept,
+    article: LaunchAssistArticle,
+    concepts: PublicLaunchConcept[],
+  ) {
+    if (!concept.pairEnabled || artworkStartGuard.current) return;
+    artworkStartGuard.current = true;
+    setSelectingId(concept.id);
+
+    const clickAt =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+
     saveSelectedLaunchConcept({
       providerArticleId,
       article,
       concept,
       selectedAt: new Date().toISOString(),
     });
-    void generateImages(article, concept);
-  }
 
-  async function continueToLaunch(
-    article: LaunchAssistArticle,
-    concept: PublicLaunchConcept,
-    draftId: string | null,
-    image: SelectedTokenImage,
-  ) {
-    setContinuing(true);
-    if (image.source === 'generated') {
-      try {
-        await fetch('/api/launch-assist/artwork/select', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            draftId: image.draftId,
-            artworkId: image.artworkAssetId,
-          }),
+    try {
+      const res = await fetch('/api/launch-assist/artwork/start', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerArticleId, concept }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+        draftId?: string;
+      };
+
+      if (res.status === 429) {
+        artworkStartGuard.current = false;
+        setSelectingId(null);
+        setState({
+          kind: 'start_error',
+          article,
+          concepts,
+          rateLimited: true,
+          message:
+            data.error ??
+            "You've reached the current generation limit. Try again shortly.",
         });
-      } catch {
-        // Prefill still works from session image URL even if select fails.
+        return;
       }
-    }
+      if (res.status === 401 || data.code === 'AUTH_REQUIRED') {
+        artworkStartGuard.current = false;
+        setSelectingId(null);
+        setState({
+          kind: 'auth',
+          message:
+            data.error ??
+            'Sign in with your wallet to use launch assist.',
+        });
+        return;
+      }
+      if (!res.ok || !data.draftId) {
+        artworkStartGuard.current = false;
+        setSelectingId(null);
+        setState({
+          kind: 'start_error',
+          article,
+          concepts,
+          message: data.error ?? 'Could not start artwork for this idea.',
+        });
+        return;
+      }
 
-    saveAssistedLaunchHandoff({
-      marker: ASSISTED_LAUNCH_MARKER,
-      providerArticleId,
-      article,
-      concept,
-      draftId,
-      quoteAsset: concept.recommendedPairAddress,
-      quoteSymbol: concept.recommendedPairSymbol,
-      image,
-      createdAt: new Date().toISOString(),
-    });
-    router.push('/launch?assist=1');
+      saveAssistedLaunchHandoff({
+        marker: ASSISTED_LAUNCH_MARKER,
+        providerArticleId,
+        article,
+        concept,
+        draftId: data.draftId,
+        quoteAsset: concept.recommendedPairAddress,
+        quoteSymbol: concept.recommendedPairSymbol,
+        image: {
+          source: 'pending',
+          previewUrl: null,
+          fileName: null,
+          mimeType: null,
+          byteSize: null,
+          draftId: data.draftId,
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      console.info(
+        JSON.stringify({
+          event: 'launch_assist_use_idea_nav',
+          ms: Math.round(
+            (typeof performance !== 'undefined' ? performance.now() : Date.now()) -
+              clickAt,
+          ),
+          draftId: data.draftId,
+          providerArticleId,
+        }),
+      );
+
+      router.push('/launch?assist=1');
+    } catch {
+      artworkStartGuard.current = false;
+      setSelectingId(null);
+      setState({
+        kind: 'start_error',
+        article,
+        concepts,
+        message: 'Could not start artwork for this idea.',
+      });
+    }
   }
 
   const resumePath = `/news/${encodeURIComponent(providerArticleId)}/launch`;
@@ -386,44 +311,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
   let body: ReactNode = null;
 
   if (state.kind === 'loading_concepts') {
-    body = (
-      <div
-        className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-16 text-center"
-        role="status"
-        aria-live="polite"
-      >
-        <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-[var(--scoop-orange)]">
-          Making a market
-        </p>
-        <p className="mt-3 max-w-sm text-sm text-[var(--muted)] motion-safe:animate-pulse motion-reduce:animate-none">
-          Reading the story. Finding the angle.
-        </p>
-      </div>
-    );
-  }
-
-  if (state.kind === 'creating_images') {
-    body = (
-      <div
-        className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center px-4 py-16 text-center"
-        role="status"
-        aria-live="polite"
-      >
-        <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-[var(--scoop-orange)]">
-          Creating your token
-        </p>
-        <p className="mt-3 max-w-sm text-sm text-[var(--muted)] motion-safe:animate-pulse motion-reduce:animate-none">
-          Creating three visual directions for your idea.
-        </p>
-        <p className="mt-8 max-w-md text-sm text-[var(--muted)]">
-          <span className="font-semibold text-[var(--fg)]">{state.concept.name}</span>
-          <span className="font-mono text-[var(--muted-2)]"> · ${state.concept.ticker}</span>
-        </p>
-        <p className="mt-2 line-clamp-2 max-w-md text-sm text-[var(--muted-2)]">
-          {state.article.headline}
-        </p>
-      </div>
-    );
+    body = <StagedConceptLoading />;
   }
 
   if (state.kind === 'rate_limited' || state.kind === 'auth' || state.kind === 'error') {
@@ -436,188 +324,169 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
         />
       );
     } else {
+      body = (
+        <div className="mx-auto max-w-xl space-y-5 px-4 py-12">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            Launch assist
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {state.kind === 'rate_limited' ? 'Limit reached' : 'Could not make a market'}
+          </h1>
+          <p className="text-sm text-[var(--muted)]">{state.message}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            {state.kind === 'error' && state.retryable ? (
+              <button
+                type="button"
+                onClick={() => void generateConcepts()}
+                className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+              >
+                Try again
+              </button>
+            ) : null}
+            <Link
+              href="/launch"
+              className="inline-flex min-h-10 items-center justify-center border border-[var(--divider)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+            >
+              Create manually →
+            </Link>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex min-h-10 items-center justify-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--fg)]"
+            >
+              ← Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  if (state.kind === 'start_error') {
     body = (
-      <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-12">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
           Launch assist
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {state.kind === 'rate_limited' ? 'Limit reached' : 'Could not make a market'}
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {state.rateLimited ? 'Limit reached' : 'Could not start launch'}
         </h1>
         <p className="text-sm text-[var(--muted)]">{state.message}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          {state.kind === 'error' && state.retryable ? (
+          {!state.rateLimited ? (
             <button
               type="button"
-              onClick={() => void generateConcepts()}
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+              onClick={() =>
+                setState({
+                  kind: 'concepts',
+                  article: state.article,
+                  concepts: state.concepts,
+                })
+              }
+              className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
             >
-              Try again
+              Back to ideas
             </button>
           ) : null}
           <Link
             href="/launch"
-            className="inline-flex min-h-11 items-center justify-center border border-[var(--divider)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+            className="inline-flex min-h-10 items-center justify-center border border-[var(--divider)] px-5 font-mono text-[12px] uppercase tracking-[0.14em]"
           >
             Create manually →
           </Link>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex min-h-11 items-center justify-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--fg)]"
-          >
-            ← Back
-          </button>
         </div>
       </div>
-    );
-    }
-  }
-
-  if (state.kind === 'image_error') {
-    body = (
-      <ImageErrorFallback
-        article={state.article}
-        concept={state.concept}
-        message={state.message}
-        rateLimited={state.rateLimited}
-        onRetry={() => void generateImages(state.article, state.concept)}
-        onBackToIdeas={() => {
-          const concepts = lastConcepts.current;
-          if (concepts && concepts.length === 3) {
-            setState({
-              kind: 'concepts',
-              article: state.article,
-              concepts,
-            });
-            return;
-          }
-          void generateConcepts();
-        }}
-        onUploadContinue={(image) =>
-          void continueToLaunch(state.article, state.concept, null, image)
-        }
-      />
-    );
-  }
-
-  if (state.kind === 'images') {
-    body = (
-      <ArtworkChooser
-        article={state.article}
-        concept={state.concept}
-        draftId={state.draftId}
-        images={state.images}
-        continuing={continuing}
-        onContinue={(image) =>
-          void continueToLaunch(state.article, state.concept, state.draftId, image)
-        }
-      />
     );
   }
 
   if (state.kind === 'concepts') {
     const { article, concepts } = state;
     body = (
-      <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          Launch the story
-        </p>
-
-        <div className="mt-4 space-y-2 border-b border-[var(--divider)] pb-8">
+      <div className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8">
+        <div className="border-b border-[var(--divider)] pb-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
             From the news
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">
             {article.headline}
           </h1>
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
             {article.sourceDomain}
             <span className="text-[var(--muted-2)]"> · </span>
             <NewsAge iso={article.publishedAt} />
+            {article.url ? (
+              <>
+                <span className="text-[var(--muted-2)]"> · </span>
+                <CtaLink href={article.url} external>
+                  Read ↗
+                </CtaLink>
+              </>
+            ) : null}
           </p>
-          {article.url ? (
-            <div className="pt-2">
-              <CtaLink href={article.url} external>
-                Read story ↗
-              </CtaLink>
-            </div>
-          ) : null}
         </div>
 
-        <p className="mt-10 font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          Choose your angle
+        <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+          Choose a token idea
         </p>
 
-        <ul className="mt-6 divide-y divide-[var(--divider)]">
-          {concepts.map((concept, index) => {
+        <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-3">
+          {concepts.map((concept) => {
             const quote = resolveQuote(catalogue, concept.recommendedPairAddress);
-            const disabled = !concept.pairEnabled;
+            const disabled = !concept.pairEnabled || selectingId !== null;
+            const busy = selectingId === concept.id;
             return (
-              <li key={concept.id} className="py-8 first:pt-2">
-                <article className={disabled ? 'opacity-50' : ''}>
-                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
-                    {String(index + 1).padStart(2, '0')}
-                  </p>
-                  <h2 className="mt-2 text-xl font-semibold tracking-tight md:text-2xl">
-                    {concept.name}
-                  </h2>
-                  <p className="mt-1 font-mono text-[13px] tracking-wide text-[var(--muted)]">
-                    ${concept.ticker}
-                  </p>
-                  <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[var(--fg)]">
+              <li key={concept.id}>
+                <article
+                  className={[
+                    'flex h-full flex-col rounded-[var(--radius-md)] border border-[var(--divider)] p-3.5',
+                    !concept.pairEnabled ? 'opacity-50' : '',
+                  ].join(' ')}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-[15px] font-semibold leading-snug tracking-tight">
+                      {concept.name}
+                    </h2>
+                    <p className="shrink-0 font-mono text-[12px] tracking-wide text-[var(--muted)]">
+                      ${concept.ticker}
+                    </p>
+                  </div>
+                  <p className="mt-2 line-clamp-2 flex-1 text-[13px] leading-snug text-[var(--muted)]">
                     {concept.description}
                   </p>
 
-                  <div className="mt-5">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-                      Pair with
-                    </p>
-                    <div className="mt-2 flex items-center gap-3">
-                      {quote?.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={quote.imageUrl}
-                          alt=""
-                          width={36}
-                          height={36}
-                          className="h-9 w-9 rounded-[var(--radius-sm)] object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[10px] text-[var(--scoop-orange-contrast)]">
-                          {(quote?.displaySymbol ?? concept.recommendedPairSymbol).slice(0, 3)}
-                        </span>
-                      )}
-                      <div>
-                        <p className="font-mono text-[13px]">
-                          {quote?.displaySymbol ?? concept.recommendedPairSymbol}
-                        </p>
-                        <p className="text-sm text-[var(--muted)]">
-                          {quote?.name ?? 'Quote unavailable'}
-                        </p>
-                      </div>
-                    </div>
-                    {disabled ? (
-                      <p className="mt-2 font-mono text-[11px] text-[#b42318]" role="status">
-                        This pair is no longer enabled — choose another angle or create manually.
-                      </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    {quote?.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={quote.imageUrl}
+                        alt=""
+                        width={22}
+                        height={22}
+                        className="h-[22px] w-[22px] rounded-[var(--radius-sm)] object-cover"
+                      />
                     ) : (
-                      <p className="mt-3 max-w-xl text-sm text-[var(--muted)]">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-                          Why this market ·{' '}
-                        </span>
-                        {concept.pairRationale}
-                      </p>
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[8px] text-[var(--scoop-orange-contrast)]">
+                        {(quote?.displaySymbol ?? concept.recommendedPairSymbol).slice(0, 3)}
+                      </span>
                     )}
+                    <p className="font-mono text-[11px] text-[var(--fg)]">
+                      Pair · {quote?.displaySymbol ?? concept.recommendedPairSymbol}
+                    </p>
                   </div>
+                  {!concept.pairEnabled ? (
+                    <p className="mt-2 font-mono text-[10px] text-[#b42318]" role="status">
+                      Pair unavailable
+                    </p>
+                  ) : null}
 
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => selectConcept(concept, article)}
-                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-busy={busy}
+                    onClick={() => void handleUseThisIdea(concept, article, concepts)}
+                    className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-3 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Use this idea →
+                    {busy ? 'Opening…' : 'Use this idea'}
                   </button>
                 </article>
               </li>
@@ -625,10 +494,10 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
           })}
         </ul>
 
-        <div className="mt-10 border-t border-[var(--divider)] pt-8">
+        <div className="mt-6 border-t border-[var(--divider)] pt-4">
           <Link
             href="/launch"
-            className="inline-flex min-h-11 items-center font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
+            className="inline-flex min-h-9 items-center font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
           >
             Create manually →
           </Link>

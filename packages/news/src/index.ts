@@ -101,9 +101,14 @@ export {
   createNewsLaunchDraft,
   getLaunchDraft,
   generateDraftArtwork,
+  generateSingleDraftArtwork,
+  markDraftArtworkPending,
+  getDraftArtworkStatus,
   selectDraftArtwork,
   updateLaunchDraft,
   type DraftServiceDeps,
+  type ArtworkStatus,
+  type DraftArtworkStatusView,
 } from './drafts/service.js';
 
 export {

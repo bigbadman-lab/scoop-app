@@ -16,6 +16,9 @@ type Props = {
   onTicker: (ticker: string) => void;
   onImage: (image: TokenImageState) => void;
   onClearImage: () => void;
+  onRetryArtwork?: () => void;
+  onGenerateAnother?: () => void;
+  generateAnotherDisabled?: boolean;
 };
 
 function Field({
@@ -53,6 +56,9 @@ export function TokenStep({
   onTicker,
   onImage,
   onClearImage,
+  onRetryArtwork,
+  onGenerateAnother,
+  generateAnotherDisabled,
 }: Props) {
   return (
     <div className="space-y-2.5">
@@ -162,6 +168,9 @@ export function TokenStep({
         error={errors.image}
         onChange={onImage}
         onClear={onClearImage}
+        onRetryArtwork={onRetryArtwork}
+        onGenerateAnother={onGenerateAnother}
+        generateAnotherDisabled={generateAnotherDisabled}
       />
     </div>
   );

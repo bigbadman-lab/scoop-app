@@ -14,7 +14,7 @@ import {
   sanitizePathSegment,
   isUuid,
 } from './ai/images/client.js';
-import { generateTokenArtworkOptions } from './ai/images/generate.js';
+import { generateTokenArtworkOptions, generateSingleTokenArtwork } from './ai/images/generate.js';
 import { ARTWORK_STYLES } from './ai/images/types.js';
 import type { EnabledQuoteAsset, LaunchConcept, ConceptArticleContext } from './ai/types.js';
 import {
@@ -140,6 +140,25 @@ describe('generateTokenArtworkOptions', () => {
       ARTWORK_STYLES.map((s) => s.style),
     );
     expect(callImage).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('generateSingleTokenArtwork', () => {
+  it('returns exactly one iconic image', async () => {
+    const callImage = vi.fn(async () => ({
+      bytes: Buffer.from('png'),
+      mimeType: 'image/png' as const,
+    }));
+    const result = await generateSingleTokenArtwork({
+      article,
+      concept,
+      callImage,
+      model: 'gpt-image-2',
+      quality: 'medium',
+    });
+    expect(result.image.id).toBe('art_1');
+    expect(result.image.style).toBe(ARTWORK_STYLES[0]!.style);
+    expect(callImage).toHaveBeenCalledTimes(1);
   });
 });
 

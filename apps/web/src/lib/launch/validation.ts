@@ -1,4 +1,4 @@
-import { META_LIMITS, type FieldErrors, type LaunchFormState } from '@/lib/launch/types';
+import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
 
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -9,6 +9,29 @@ export function normalizeTicker(raw: string): string {
 
 export function isValidEvmAddress(value: string): boolean {
   return EVM_ADDRESS_RE.test(value.trim());
+}
+
+/** AI artwork still running — wizard steps must stay navigable. */
+export function isArtworkInFlight(image: TokenImageState): boolean {
+  if (image.source === 'user') return false;
+  return (
+    image.artworkStatus === 'pending' ||
+    image.artworkStatus === 'generating' ||
+    image.artworkStatus === 'regenerating'
+  );
+}
+
+/**
+ * Final Launch requires a resolved token image (existing product rule).
+ * Pending/regenerating blocks launch; steps 1–3 do not.
+ */
+export function isArtworkBlockingLaunch(state: LaunchFormState): boolean {
+  const { image } = state;
+  if (image.source === 'user' && image.previewUrl) return false;
+  if (isArtworkInFlight(image)) return true;
+  if (image.artworkStatus === 'failed') return true;
+  if (!image.previewUrl) return true;
+  return false;
 }
 
 export function validateTokenStep(state: LaunchFormState): FieldErrors {
@@ -49,7 +72,8 @@ export function validateTokenStep(state: LaunchFormState): FieldErrors {
     }
   }
 
-  if (!state.image.previewUrl) {
+  // Allow Continue while AI artwork generates; image still required at final Launch.
+  if (!state.image.previewUrl && !isArtworkInFlight(state.image)) {
     errors.image = 'Token image is required.';
   }
 

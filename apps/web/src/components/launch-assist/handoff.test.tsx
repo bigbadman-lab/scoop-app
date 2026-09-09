@@ -65,6 +65,30 @@ describe('launch-assist handoff', () => {
     expect(consumeAssistedLaunchHandoff()).toBeNull();
   });
 
+  it('accepts pending artwork handoff without previewUrl', () => {
+    saveAssistedLaunchHandoff({
+      marker: ASSISTED_LAUNCH_MARKER,
+      providerArticleId: '77',
+      article,
+      concept,
+      draftId: 'draft-pending',
+      quoteAsset: concept.recommendedPairAddress,
+      quoteSymbol: 'NVDA',
+      image: {
+        source: 'pending',
+        previewUrl: null,
+        fileName: null,
+        mimeType: null,
+        byteSize: null,
+        draftId: 'draft-pending',
+      },
+      createdAt: new Date().toISOString(),
+    });
+    const handoff = readAssistedLaunchHandoff();
+    expect(handoff?.image.source).toBe('pending');
+    expect(handoff?.draftId).toBe('draft-pending');
+  });
+
   it('rejects handoff without marker', () => {
     sessionStorage.setItem(
       ASSISTED_LAUNCH_HANDOFF_KEY,

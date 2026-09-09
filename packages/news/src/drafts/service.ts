@@ -9,7 +9,7 @@ import {
   validateDraftTextFields,
 } from '../ai/validation.js';
 import type { LaunchConcept } from '../ai/types.js';
-import { generateTokenArtworkOptions, type ImageModelCaller } from '../ai/images/generate.js';
+import { generateTokenArtworkOptions, generateSingleTokenArtwork, type ImageModelCaller } from '../ai/images/generate.js';
 import {
   buildArtworkStoragePath,
   isUuid,
@@ -40,8 +40,24 @@ type DraftRow = {
   concept_image_direction: string;
   selected_artwork_asset_id: string | null;
   status: 'draft';
+  artwork_status?: ArtworkStatus;
+  artwork_error?: string | null;
+  artwork_started_at?: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+};
+
+export type ArtworkStatus = 'none' | 'pending' | 'generating' | 'ready' | 'failed';
+
+export type DraftArtworkStatusView = {
+  draftId: string;
+  artworkStatus: ArtworkStatus;
+  artworkError: string | null;
+  previewUrl: string | null;
+  artworkAssetId: string | null;
+  mimeType: string | null;
+  width: number | null;
+  height: number | null;
 };
 
 type ArtworkRow = {
@@ -205,9 +221,9 @@ export async function createNewsLaunchDraft(
        source_type, provider, provider_article_id,
        name, symbol, description,
        quote_asset_address, quote_asset_symbol,
-       concept_image_direction, status
+       concept_image_direction, status, artwork_status
      ) VALUES (
-       'news', $1, $2, $3, $4, $5, $6, $7, $8, 'draft'
+       'news', $1, $2, $3, $4, $5, $6, $7, $8, 'draft', 'none'
      )
      RETURNING id`,
     [
@@ -334,6 +350,233 @@ export async function generateDraftArtwork(
     model: generated.model,
     quality: generated.quality,
     imageCount: 3,
+  };
+}
+
+export async function markDraftArtworkPending(
+  draftId: string,
+  deps: DraftServiceDeps,
+): Promise<void> {
+  if (!isUuid(draftId)) {
+    throw new ConceptValidationError('Malformed draft id');
+  }
+  await deps.db.query(
+    `UPDATE launch_drafts
+     SET artwork_status = 'pending',
+         artwork_error = NULL,
+         artwork_started_at = NOW(),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [draftId],
+  );
+}
+
+/**
+ * Funnel V2 — generate exactly one image, auto-select it, mark ready/failed.
+ * Safe to call from a background `after()` task.
+ */
+export async function generateSingleDraftArtwork(
+  draftId: string,
+  deps: DraftServiceDeps,
+): Promise<{
+  draft: LaunchDraft;
+  generationId: string;
+  latencyMs: number;
+  model: string;
+  quality: string;
+}> {
+  const storage = deps.storage ?? createSupabaseDraftAssetStorage();
+  if (!isUuid(draftId)) {
+    throw new ConceptValidationError('Malformed draft id');
+  }
+
+  const claimed = await deps.db.query<{ id: string }>(
+    `UPDATE launch_drafts
+     SET artwork_status = 'generating',
+         artwork_error = NULL,
+         artwork_started_at = COALESCE(artwork_started_at, NOW()),
+         updated_at = NOW()
+     WHERE id = $1
+       AND artwork_status IN ('pending', 'failed')
+     RETURNING id`,
+    [draftId],
+  );
+  if (!claimed.rows[0]) {
+    const existing = await getLaunchDraft(draftId, { ...deps, storage });
+    return {
+      draft: existing,
+      generationId: existing.selectedArtworkId ?? draftId,
+      latencyMs: 0,
+      model: '',
+      quality: '',
+    };
+  }
+
+  try {
+    const row = await loadDraftRow(deps.db, draftId);
+    if (row.status !== 'draft') {
+      throw new ConceptValidationError('Draft is not editable');
+    }
+    if (row.source_type !== 'news' || !row.provider_article_id) {
+      throw new ConceptValidationError('Draft has no news source article');
+    }
+
+    const article = await getNewsArticleForConcepts(
+      deps.db,
+      row.provider_article_id,
+      row.provider ?? STOCKNEWS_PROVIDER,
+    );
+    if (!article) {
+      throw new ConceptValidationError('Source article missing for draft');
+    }
+
+    const enabledQuotes = await getEnabledQuoteAssets(deps.db);
+    const concept: LaunchConcept = revalidateLaunchConcept(
+      {
+        id: 'concept_1',
+        name: row.name,
+        ticker: row.symbol,
+        description: row.description,
+        recommendedPairAddress: row.quote_asset_address,
+        recommendedPairSymbol: row.quote_asset_symbol,
+        pairRationale: 'Stored draft quote',
+        imageDirection: row.concept_image_direction || row.description,
+      },
+      enabledQuotes,
+    );
+
+    const generationId = randomUUID();
+    const generated = await generateSingleTokenArtwork({
+      article,
+      concept,
+      callImage: deps.callImage,
+      model: deps.imageModel,
+      quality: deps.imageQuality,
+    });
+
+    const image = generated.image;
+    const path = buildArtworkStoragePath({
+      providerArticleId: article.providerArticleId,
+      generationId,
+      styleId: image.id,
+    });
+    await storage.uploadArtwork({
+      path,
+      bytes: image.bytes,
+      mimeType: image.mimeType,
+    });
+
+    const inserted = await deps.db.query<{ id: string }>(
+      `INSERT INTO launch_draft_artworks (
+         draft_id, generation_id, style_id, style,
+         storage_path, mime_type, width, height, model, quality, selected
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, FALSE)
+       RETURNING id`,
+      [
+        draftId,
+        generationId,
+        image.id,
+        image.style,
+        path,
+        image.mimeType,
+        image.width,
+        image.height,
+        image.model,
+        image.quality,
+      ],
+    );
+    const artworkId = inserted.rows[0]?.id;
+    if (!artworkId) throw new Error('Failed to insert artwork row');
+
+    await selectDraftArtwork(draftId, artworkId, { ...deps, storage });
+
+    await deps.db.query(
+      `UPDATE launch_drafts
+       SET artwork_status = 'ready',
+           artwork_error = NULL,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [draftId],
+    );
+
+    const draft = await getLaunchDraft(draftId, { ...deps, storage });
+    return {
+      draft,
+      generationId,
+      latencyMs: generated.latencyMs,
+      model: generated.model,
+      quality: generated.quality,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message.slice(0, 280)
+        : 'Artwork generation failed';
+    await deps.db.query(
+      `UPDATE launch_drafts
+       SET artwork_status = 'failed',
+           artwork_error = $2,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [draftId, message],
+    );
+    throw error;
+  }
+}
+
+export async function getDraftArtworkStatus(
+  draftId: string,
+  deps: DraftServiceDeps,
+): Promise<DraftArtworkStatusView> {
+  const storage = deps.storage ?? createSupabaseDraftAssetStorage();
+  if (!isUuid(draftId)) {
+    throw new ConceptValidationError('Malformed draft id');
+  }
+
+  const draftResult = await deps.db.query<{
+    artwork_status: string | null;
+    artwork_error: string | null;
+    selected_artwork_asset_id: string | null;
+  }>(
+    `SELECT artwork_status, artwork_error, selected_artwork_asset_id
+     FROM launch_drafts WHERE id = $1`,
+    [draftId],
+  );
+  const draft = draftResult.rows[0];
+  if (!draft) {
+    throw new ConceptValidationError('Draft not found');
+  }
+
+  const status = (draft.artwork_status ?? 'none') as ArtworkStatus;
+  let previewUrl: string | null = null;
+  let artworkAssetId: string | null = draft.selected_artwork_asset_id;
+  let mimeType: string | null = null;
+  let width: number | null = null;
+  let height: number | null = null;
+
+  if (status === 'ready' && artworkAssetId) {
+    const art = await deps.db.query<ArtworkRow>(
+      `SELECT * FROM launch_draft_artworks WHERE id = $1 AND draft_id = $2`,
+      [artworkAssetId, draftId],
+    );
+    const row = art.rows[0];
+    if (row) {
+      mimeType = row.mime_type;
+      width = row.width;
+      height = row.height;
+      previewUrl = await storage.createSignedPreviewUrl(row.storage_path, 3600);
+    }
+  }
+
+  return {
+    draftId,
+    artworkStatus: status,
+    artworkError: draft.artwork_error ?? null,
+    previewUrl,
+    artworkAssetId,
+    mimeType,
+    width,
+    height,
   };
 }
 

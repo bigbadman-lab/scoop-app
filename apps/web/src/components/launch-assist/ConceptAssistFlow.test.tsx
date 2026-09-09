@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRef } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConceptAssistFlow } from '@/components/launch-assist/ConceptAssistFlow';
-import { LAUNCH_ASSIST_HANDOFF_KEY } from '@/lib/launch-assist/types';
+import {
+  ASSISTED_LAUNCH_HANDOFF_KEY,
+  LAUNCH_ASSIST_HANDOFF_KEY,
+} from '@/lib/launch-assist/types';
 
 const push = vi.fn();
 const back = vi.fn();
@@ -127,15 +130,16 @@ describe('ConceptAssistFlow', () => {
     global.fetch = vi.fn();
   });
 
-  it('shows making-a-market loading state', async () => {
+  it('shows staged loading messaging', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
     render(<ConceptAssistFlow providerArticleId="77" catalogue={catalogue} />);
     await waitFor(() => {
       expect(screen.getByText(/making a market/i)).toBeTruthy();
+      expect(screen.getByText(/reading the story/i)).toBeTruthy();
     });
   });
 
-  it('renders three concepts with story provenance', async () => {
+  it('renders three compact concepts with pair', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       status: 200,
@@ -143,77 +147,92 @@ describe('ConceptAssistFlow', () => {
     });
     render(<ConceptAssistFlow providerArticleId="77" catalogue={catalogue} />);
     await waitFor(() => {
-      expect(screen.getByText('Choose your angle')).toBeTruthy();
+      expect(screen.getByText('Choose a token idea')).toBeTruthy();
     });
     expect(screen.getByText('Rate Spike')).toBeTruthy();
     expect(screen.getByText('Fed Fade')).toBeTruthy();
     expect(screen.getByText('Desk Heat')).toBeTruthy();
+    expect(screen.getAllByText(/Pair · NVDA/).length).toBe(3);
+    expect(screen.queryByText(/choose your look/i)).toBeNull();
   });
 
-  it('starts image generation after Use this idea', async () => {
+  it('starts one artwork job and navigates immediately without awaiting images', async () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    let artworkResolve: ((v: unknown) => void) | null = null;
     fetchMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/concepts')) {
         return { ok: true, status: 200, json: async () => okConcepts() };
       }
-      return new Promise(() => {});
+      if (String(url).includes('/artwork/start')) {
+        return new Promise((resolve) => {
+          artworkResolve = resolve;
+        });
+      }
+      return { ok: false, status: 500, json: async () => ({}) };
     });
+
     render(<ConceptAssistFlow providerArticleId="77" catalogue={catalogue} />);
     await waitFor(() => screen.getByText('Rate Spike'));
     fireEvent.click(screen.getAllByRole('button', { name: /use this idea/i })[0]!);
-    await waitFor(() => screen.getByText(/creating your token/i));
+
+    expect(screen.queryByText(/creating three visual/i)).toBeNull();
+    expect(screen.queryByText(/choose your look/i)).toBeNull();
     expect(sessionStorage.getItem(LAUNCH_ASSIST_HANDOFF_KEY)).toBeTruthy();
+
+    artworkResolve?.({
+      ok: true,
+      status: 200,
+      json: async () => ({ draftId: '11111111-1111-1111-1111-111111111111', artworkStatus: 'pending' }),
+    });
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith('/launch?assist=1');
+    });
+
+    const handoff = JSON.parse(sessionStorage.getItem(ASSISTED_LAUNCH_HANDOFF_KEY)!);
+    expect(handoff.image.source).toBe('pending');
+    expect(handoff.draftId).toBe('11111111-1111-1111-1111-111111111111');
+    expect(handoff.providerArticleId).toBe('77');
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/launch-assist/artwork',
+      '/api/launch-assist/artwork/start',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes('/artwork') && !String(c[0]).includes('/start'))
+        .length,
+    ).toBe(0);
   });
 
-  it('shows image chooser after successful artwork generation', async () => {
+  it('guards duplicate Use this idea clicks', async () => {
     const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    let starts = 0;
     fetchMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/concepts')) {
         return { ok: true, status: 200, json: async () => okConcepts() };
       }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          draftId: 'draft-1',
-          images: [
-            {
-              assetId: 'a1',
-              index: 1,
-              previewUrl: 'https://signed.example/1.png',
-              mimeType: 'image/png',
-              width: 1024,
-              height: 1024,
-            },
-            {
-              assetId: 'a2',
-              index: 2,
-              previewUrl: 'https://signed.example/2.png',
-              mimeType: 'image/png',
-              width: 1024,
-              height: 1024,
-            },
-            {
-              assetId: 'a3',
-              index: 3,
-              previewUrl: 'https://signed.example/3.png',
-              mimeType: 'image/png',
-              width: 1024,
-              height: 1024,
-            },
-          ],
-        }),
-      };
+      if (String(url).includes('/artwork/start')) {
+        starts += 1;
+        await new Promise((r) => setTimeout(r, 50));
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            draftId: '11111111-1111-1111-1111-111111111111',
+            artworkStatus: 'pending',
+          }),
+        };
+      }
+      return { ok: false, status: 500, json: async () => ({}) };
     });
+
     render(<ConceptAssistFlow providerArticleId="77" catalogue={catalogue} />);
     await waitFor(() => screen.getByText('Rate Spike'));
-    fireEvent.click(screen.getAllByRole('button', { name: /use this idea/i })[0]!);
-    await waitFor(() => screen.getByText(/choose your look/i));
-    expect(screen.getByLabelText(/select artwork 01/i)).toBeTruthy();
+    const buttons = screen.getAllByRole('button', { name: /use this idea/i });
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(buttons[1]!);
+    fireEvent.click(buttons[0]!);
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(starts).toBe(1);
   });
 
   it('shows rate-limit state without try-again for concepts', async () => {

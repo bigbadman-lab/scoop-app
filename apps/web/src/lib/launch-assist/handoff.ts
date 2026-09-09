@@ -41,7 +41,12 @@ export function readAssistedLaunchHandoff(): AssistedLaunchHandoff | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AssistedLaunchHandoff;
     if (parsed.marker !== ASSISTED_LAUNCH_MARKER) return null;
-    if (!parsed.image?.previewUrl || !parsed.concept?.name) return null;
+    if (!parsed.concept?.name || !parsed.image?.source) return null;
+    if (parsed.image.source === 'pending') {
+      if (!parsed.draftId && !parsed.image.draftId) return null;
+      return parsed;
+    }
+    if (!parsed.image.previewUrl) return null;
     return parsed;
   } catch {
     return null;

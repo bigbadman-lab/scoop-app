@@ -11,6 +11,9 @@ export const LAUNCH_STEPS = [
 
 export type CreatorRecipientMode = 'connected' | 'different' | 'x_handle';
 
+/** Ownership — late AI must not overwrite `user`. */
+export type TokenImageSource = 'none' | 'ai_pending' | 'ai' | 'user';
+
 export type TokenImageState = {
   /** Object URL for local preview — revoked on replace/remove. */
   previewUrl: string | null;
@@ -19,6 +22,10 @@ export type TokenImageState = {
   byteSize: number | null;
   /** Persistence deferred until IPFS / storage write path exists. */
   persistence: 'local_only';
+  source: TokenImageSource;
+  artworkStatus: 'idle' | 'pending' | 'generating' | 'regenerating' | 'ready' | 'failed';
+  artworkError: string | null;
+  artworkAssetId: string | null;
 };
 
 export type LaunchFormState = {
@@ -55,6 +62,10 @@ export const INITIAL_IMAGE: TokenImageState = {
   mimeType: null,
   byteSize: null,
   persistence: 'local_only',
+  source: 'none',
+  artworkStatus: 'idle',
+  artworkError: null,
+  artworkAssetId: null,
 };
 
 export function createInitialLaunchState(

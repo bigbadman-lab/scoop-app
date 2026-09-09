@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   canAdvanceFromStep,
   hasDevBuy,
+  isArtworkBlockingLaunch,
+  isArtworkInFlight,
   isValidEvmAddress,
   normalizeTicker,
   validateEarningsStep,
@@ -23,6 +25,29 @@ function validTokenState() {
       mimeType: 'image/png',
       byteSize: 1200,
       persistence: 'local_only',
+      source: 'user',
+      artworkStatus: 'ready',
+      artworkError: null,
+      artworkAssetId: null,
+    },
+  });
+}
+
+function pendingAiImageState() {
+  return createInitialLaunchState({
+    name: 'Meme Name',
+    ticker: 'MEME',
+    description: 'A short description of the market.',
+    image: {
+      previewUrl: null,
+      fileName: null,
+      mimeType: null,
+      byteSize: null,
+      persistence: 'local_only',
+      source: 'ai_pending',
+      artworkStatus: 'pending',
+      artworkError: null,
+      artworkAssetId: null,
     },
   });
 }
@@ -34,6 +59,34 @@ describe('launch token validation', () => {
     expect(errors.ticker).toBeTruthy();
     expect(errors.description).toBeTruthy();
     expect(errors.image).toBeTruthy();
+  });
+
+  it('allows continue while AI artwork is in flight without preview', () => {
+    const errors = validateTokenStep(pendingAiImageState());
+    expect(errors.image).toBeUndefined();
+    expect(isArtworkInFlight(pendingAiImageState().image)).toBe(true);
+    expect(isArtworkBlockingLaunch(pendingAiImageState())).toBe(true);
+  });
+
+  it('blocks final launch until artwork resolves', () => {
+    expect(isArtworkBlockingLaunch(validTokenState())).toBe(false);
+    expect(
+      isArtworkBlockingLaunch(
+        createInitialLaunchState({
+          image: {
+            previewUrl: 'https://x/a.png',
+            fileName: 'a.png',
+            mimeType: 'image/png',
+            byteSize: null,
+            persistence: 'local_only',
+            source: 'ai',
+            artworkStatus: 'regenerating',
+            artworkError: null,
+            artworkAssetId: 'a1',
+          },
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('normalizes and validates ticker', () => {

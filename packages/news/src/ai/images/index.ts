@@ -28,6 +28,7 @@ export {
 } from './prompt.js';
 export {
   generateTokenArtworkOptions,
+  generateSingleTokenArtwork,
   createOpenAiImageCaller,
   type ImageModelCaller,
   type GenerateTokenArtworkOptionsDeps,

@@ -48,6 +48,16 @@ export const ASSISTED_LAUNCH_MARKER = 'scoop-assist-v1' as const;
 
 export type SelectedTokenImage =
   | {
+      /** Funnel V2 — artwork still generating; launch form shows pending UI. */
+      source: 'pending';
+      previewUrl: null;
+      fileName: null;
+      mimeType: null;
+      byteSize: null;
+      draftId: string;
+      artworkAssetId?: null;
+    }
+  | {
       source: 'generated';
       previewUrl: string;
       fileName: string | null;

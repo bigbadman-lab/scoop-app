@@ -59,6 +59,7 @@ export {
   buildTokenArtworkPrompt,
   assertSafeImagePrompt,
   generateTokenArtworkOptions,
+  generateSingleTokenArtwork,
   createOpenAiImageCaller,
   createSupabaseDraftAssetStorage,
   TOKEN_IMAGE_BUCKET,

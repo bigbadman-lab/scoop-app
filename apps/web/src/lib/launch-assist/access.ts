@@ -40,7 +40,7 @@ export function resolveLaunchAssistAccess(
 
 /** Rate-limit key: authenticated address when present, else IP-only bucket. */
 export function launchAssistRateKey(
-  kind: 'concepts' | 'artwork' | 'select',
+  kind: 'concepts' | 'artwork' | 'select' | 'artwork-retry',
   ip: string,
   session: ScoopAuthSession | null,
 ): string {
