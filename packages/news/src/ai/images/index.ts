@@ -42,6 +42,8 @@ export {
   TOKEN_IMAGE_MAX_BYTES,
   TOKEN_IMAGE_MIME,
   buildTokenDisplayImagePath,
+  buildManualTokenDisplayImagePath,
+  isAllowedTokenDisplayImagePath,
   deriveTokenImagePublicUrl,
   validateTokenDisplayImage,
   createSupabaseTokenImageStorage,

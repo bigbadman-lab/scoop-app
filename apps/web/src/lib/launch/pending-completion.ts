@@ -10,7 +10,7 @@ const MAX_AGE_MS = 30 * 60 * 1000;
 let memoryFallback: string | null = null;
 
 export type PendingLaunchCompletion = {
-  version: 1;
+  version: 1 | 2;
   chainId: number;
   tokenAddress: `0x${string}`;
   txHash: `0x${string}`;
@@ -18,6 +18,8 @@ export type PendingLaunchCompletion = {
   expectedDeployer: `0x${string}` | null;
   decoded: DecodedTokenLaunched;
   provenance: LaunchTxState['provenance'];
+  /** Manual token-image path from pin (V2.F). */
+  displayImagePath: string | null;
   savedAt: number;
 };
 
@@ -61,12 +63,13 @@ function clearRaw(): void {
 }
 
 export function savePendingLaunchCompletion(
-  pending: Omit<PendingLaunchCompletion, 'version' | 'savedAt'> & {
+  pending: Omit<PendingLaunchCompletion, 'version' | 'savedAt' | 'displayImagePath'> & {
+    displayImagePath?: string | null;
     savedAt?: number;
   },
 ): void {
   const payload: PendingLaunchCompletion = {
-    version: 1,
+    version: 2,
     chainId: pending.chainId,
     tokenAddress: pending.tokenAddress,
     txHash: pending.txHash,
@@ -74,6 +77,7 @@ export function savePendingLaunchCompletion(
     expectedDeployer: pending.expectedDeployer,
     decoded: pending.decoded,
     provenance: pending.provenance,
+    displayImagePath: pending.displayImagePath ?? null,
     savedAt: pending.savedAt ?? Date.now(),
   };
   writeRaw(JSON.stringify(payload));
@@ -84,13 +88,16 @@ export function loadPendingLaunchCompletion(): PendingLaunchCompletion | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as PendingLaunchCompletion;
-    if (parsed.version !== 1) return null;
+    if (parsed.version !== 1 && parsed.version !== 2) return null;
     if (!parsed.tokenAddress || !parsed.txHash || !parsed.decoded) return null;
     if (Date.now() - parsed.savedAt > MAX_AGE_MS) {
       clearPendingLaunchCompletion();
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      displayImagePath: parsed.displayImagePath ?? null,
+    };
   } catch {
     return null;
   }

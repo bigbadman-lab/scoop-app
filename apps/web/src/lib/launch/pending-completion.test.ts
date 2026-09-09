@@ -44,6 +44,24 @@ describe('pending launch completion session', () => {
     expect(loaded?.tokenAddress).toBe(decoded.token);
     expect(loaded?.provenance?.sourceProviderArticleId).toBe('art-1');
     expect(loaded?.txHash.startsWith('0x')).toBe(true);
+    expect(loaded?.displayImagePath).toBeNull();
+  });
+
+  it('persists manual displayImagePath for resume', () => {
+    savePendingLaunchCompletion({
+      chainId: 4663,
+      tokenAddress: decoded.token,
+      txHash:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      expectedCreatorId: decoded.creatorId,
+      expectedDeployer: decoded.deployer,
+      decoded,
+      provenance: null,
+      displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+    });
+    expect(loadPendingLaunchCompletion()?.displayImagePath).toBe(
+      'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+    );
   });
 
   it('clears after explicit clear', () => {

@@ -1,15 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { encodeEventTopics, encodeAbiParameters, keccak256 } from 'viem';
+import {
+  encodeAbiParameters,
+  encodeEventTopics,
+  keccak256,
+  parseEther,
+  zeroAddress,
+} from 'viem';
 import {
   assertCreatorIdMatches,
   assertDeployerMatches,
+  assertInitialBuyMatches,
+  decodeInitialBuyFromReceipt,
   decodeTokenLaunchedFromReceipt,
+  initialBuyExecutedEventAbi,
   tokenLaunchedEventAbi,
 } from '@/lib/launch/decode-launch';
 import {
   LaunchAccountChangedError,
   LaunchChainChangedError,
   LAUNCH_WRITE_ENABLED,
+  prepareAndSimulateLaunchWrite,
+  prepareWalletLaunchAndBuyRequest,
   prepareWalletLaunchRequest,
   writeLaunchAfterSimulation,
   SCOOP_FACTORY_ADDRESS,
@@ -17,9 +28,7 @@ import {
 import { walletCreatorId } from '@/lib/launch/creator-id';
 import { buildLaunchParams } from '@/lib/launch/build-launch-params';
 import { createInitialLaunchState } from '@/lib/launch/types';
-import { zeroAddress } from 'viem';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
-
 const WALLET_A = '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C' as const;
 const WALLET_B = '0x1111111111111111111111111111111111111111' as const;
 const IPFS =
@@ -39,6 +48,7 @@ function readyState() {
       byteSize: 10,
       persistence: 'ipfs_ready',
       ipfsUri: IPFS,
+      displayImagePath: null,
       source: 'user',
       artworkStatus: 'ready',
       artworkError: null,
@@ -50,8 +60,8 @@ function readyState() {
   });
 }
 
-describe('V2.C wallet launch preparation', () => {
-  it('enables writes and prepares launch only (not launchAndBuy)', () => {
+describe('V2.G wallet launch preparation', () => {
+  it('enables writes and prepares launch for zero buy', () => {
     expect(LAUNCH_WRITE_ENABLED).toBe(true);
     const built = buildLaunchParams({
       state: readyState(),
@@ -68,7 +78,95 @@ describe('V2.C wallet launch preparation', () => {
     expect(req.address).toBe(SCOOP_FACTORY_ADDRESS);
     expect(req.chainId).toBe(ROBINHOOD_CHAIN_ID);
     expect(req.value).toBe(BigInt('500000000000000'));
+    expect(req.quoteAmountIn).toBe(BigInt(0));
     expect(req.args[0].creatorId).toBe(walletCreatorId(WALLET_A));
+  });
+
+  it('prepares launchAndBuy with fee + quoteAmountIn value', () => {
+    const built = buildLaunchParams({
+      state: readyState(),
+      liveConnectedAddress: WALLET_A,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const fee = parseEther('0.0005');
+    const buy = parseEther('0.01');
+    const req = prepareWalletLaunchAndBuyRequest({
+      params: built.params,
+      account: WALLET_A,
+      launchFeeWei: fee,
+      quoteAmountIn: buy,
+      minTokensOut: BigInt(9900),
+      expectedTokensOut: BigInt(10_000),
+    });
+    expect(req.functionName).toBe('launchAndBuy');
+    expect(req.value).toBe(parseEther('0.0105'));
+    expect(req.args[1]).toBe(buy);
+    expect(req.args[2]).toBe(BigInt(9900));
+  });
+
+  it('probe+final simulation uses slippage minTokensOut on write request', async () => {
+    const built = buildLaunchParams({
+      state: readyState(),
+      liveConnectedAddress: WALLET_A,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+
+    const fee = parseEther('0.0005');
+    const buy = parseEther('0.01');
+    const expected = BigInt(1_000_000);
+    let calls = 0;
+    const publicClient = {
+      chain: { id: ROBINHOOD_CHAIN_ID },
+      simulateContract: vi.fn(async (args: { args: unknown[] }) => {
+        calls += 1;
+        if (calls === 1) {
+          expect(args.args[2]).toBe(BigInt(1));
+          return {
+            request: { functionName: 'launchAndBuy', args: args.args },
+            result: [
+              '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+              '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+              '0xcccccccccccccccccccccccccccccccccccccccc',
+              BigInt(1),
+              '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+              expected,
+            ],
+          };
+        }
+        expect(args.args[2]).toBe(BigInt(990_000));
+        return {
+          request: {
+            functionName: 'launchAndBuy',
+            args: args.args,
+            value: fee + buy,
+          },
+          result: [
+            '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            '0xcccccccccccccccccccccccccccccccccccccccc',
+            BigInt(1),
+            '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+            expected,
+          ],
+        };
+      }),
+    };
+
+    const out = await prepareAndSimulateLaunchWrite({
+      publicClient: publicClient as never,
+      params: built.params,
+      account: WALLET_A,
+      launchFeeWei: fee,
+      quoteAmountIn: buy,
+    });
+    expect(calls).toBe(2);
+    expect(out.prepared.functionName).toBe('launchAndBuy');
+    expect(out.prepared.minTokensOut).toBe(BigInt(990_000));
+    expect(out.prepared.expectedTokensOut).toBe(expected);
+    expect(out.prepared.value).toBe(fee + buy);
+    expect(out.simulatedRequest.functionName).toBe('launchAndBuy');
   });
 
   it('connected switch A→B changes creatorId; custom C stays', () => {
@@ -219,5 +317,46 @@ describe('TokenLaunched decode', () => {
       logs: [],
     });
     expect(missing.ok).toBe(false);
+  });
+});
+
+describe('InitialBuyExecuted decode', () => {
+  it('decodes buy event and matches request', () => {
+    const token = '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373';
+    const quoteIn = parseEther('0.01');
+    const topics = encodeEventTopics({
+      abi: initialBuyExecutedEventAbi,
+      eventName: 'InitialBuyExecuted',
+      args: {
+        token,
+        deployer: WALLET_A,
+        quoteAsset: zeroAddress,
+      },
+    });
+    const data = encodeAbiParameters(
+      [{ type: 'uint256' }, { type: 'uint256' }],
+      [quoteIn, BigInt(4_900_000)],
+    );
+    const decoded = decodeInitialBuyFromReceipt({
+      status: 'success',
+      logs: [{ address: SCOOP_FACTORY_ADDRESS, data, topics }],
+    });
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(
+      assertInitialBuyMatches({
+        decoded: decoded.decoded,
+        token,
+        buyer: WALLET_A,
+        quoteAsset: zeroAddress,
+        quoteAmountIn: quoteIn,
+      }),
+    ).toBe(true);
+  });
+
+  it('missing InitialBuyExecuted is not fabricated', () => {
+    expect(
+      decodeInitialBuyFromReceipt({ status: 'success', logs: [] }).ok,
+    ).toBe(false);
   });
 });

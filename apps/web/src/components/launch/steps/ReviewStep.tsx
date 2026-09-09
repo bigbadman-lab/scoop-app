@@ -3,6 +3,7 @@
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   LAUNCH_FEE_ETH,
+  LAUNCH_FEE_WEI,
   PROTOCOL_FEE_SPLIT,
   type LaunchFormState,
 } from '@/lib/launch/types';
@@ -21,6 +22,11 @@ import {
 } from '@/lib/launch/tx-state';
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
+import {
+  formatEthWei,
+  isNativeEthQuote,
+  parseEthDevBuyWei,
+} from '@/lib/launch/dev-buy';
 import { truncateAddress } from '@/lib/format';
 
 type Props = {
@@ -47,6 +53,14 @@ export function ReviewStep({
   );
   const quoteSymbol = state.quoteSymbol ?? quote?.displaySymbol ?? '—';
   const buy = hasDevBuy(state);
+  const ethBuy =
+    buy && isNativeEthQuote(state.quoteAsset)
+      ? parseEthDevBuyWei(state.devBuyAmount)
+      : null;
+  const buyWei =
+    ethBuy && ethBuy.ok && ethBuy.wei > BigInt(0) ? ethBuy.wei : BigInt(0);
+  const totalWei = LAUNCH_FEE_WEI + buyWei;
+  const ethBuyActive = buyWei > BigInt(0);
   const recipient = resolveCreatorRecipient(state, connectedAddress);
   const busy = isLaunchTxBusy(tx.phase);
   const ticker =
@@ -189,6 +203,25 @@ export function ReviewStep({
                 {creatorLines.join('\n')}
               </dd>
             </div>
+            {ethBuyActive ? (
+              <div>
+                <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+                  Initial buy recipient
+                </dt>
+                <dd
+                  className="mt-1 font-mono text-[14px]"
+                  data-testid="review-buy-recipient"
+                >
+                  {connectedAddress
+                    ? truncateAddress(connectedAddress)
+                    : 'Connect a wallet'}
+                  <span className="mt-1 block text-[var(--muted)]">
+                    Purchased tokens go to the signing wallet (msg.sender), not
+                    the creator recipient unless they are the same.
+                  </span>
+                </dd>
+              </div>
+            ) : null}
             <Row
               label="Deployer fees"
               value={`${PROTOCOL_FEE_SPLIT.deployerBps / 100}% → launching wallet`}
@@ -205,26 +238,48 @@ export function ReviewStep({
         </TicketBlock>
 
         <TicketBlock title="Dev buy">
-          {buy ? (
+          {ethBuyActive ? (
             <>
-              <p className="font-mono text-[14px] tabular-nums">
-                {state.devBuyAmount} {quoteSymbol}
+              <p
+                className="font-mono text-[14px] tabular-nums"
+                data-testid="review-dev-buy-amount"
+              >
+                {formatEthWei(buyWei)} ETH
               </p>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                Initial buy is not included in this launch. V2.C submits{' '}
-                <span className="font-mono">launch</span> only (no{' '}
-                <span className="font-mono">launchAndBuy</span>).
+                Submitted atomically with launch via{' '}
+                <span className="font-mono">launchAndBuy</span>.
               </p>
             </>
+          ) : buy && !isNativeEthQuote(state.quoteAsset) ? (
+            <p className="text-sm text-[#b42318]" role="alert">
+              Initial buy is currently available for ETH pairs only. Clear the
+              amount or switch to ETH to continue.
+            </p>
           ) : (
-            <p className="text-sm text-[var(--muted)]">No initial buy</p>
+            <p className="text-sm text-[var(--muted)]" data-testid="review-dev-buy-none">
+              None
+            </p>
           )}
         </TicketBlock>
 
         <TicketBlock title="Costs">
           <dl className="space-y-2 text-sm">
             <Row label="Launch fee" value={`${LAUNCH_FEE_ETH} ETH`} />
-            <Row label="Native value" value={`${LAUNCH_FEE_ETH} ETH (msg.value)`} />
+            {ethBuyActive ? (
+              <Row
+                label="Initial dev buy"
+                value={`${formatEthWei(buyWei)} ETH`}
+              />
+            ) : null}
+            <Row
+              label="Total transaction value"
+              value={`${formatEthWei(totalWei)} ETH (msg.value)`}
+            />
+            <Row
+              label="Function"
+              value={ethBuyActive ? 'launchAndBuy' : 'launch'}
+            />
             <Row label="Network" value={`${ROBINHOOD_CHAIN_LABEL} · ${ROBINHOOD_CHAIN_ID}`} />
           </dl>
         </TicketBlock>

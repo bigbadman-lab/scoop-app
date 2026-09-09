@@ -37,6 +37,7 @@ export type PublicAccountResponse = {
     name: string;
     symbol: string;
     imageUri: string | null;
+    displayImageUrl: string | null;
     quoteAsset: string;
     launchedAt: string;
     launchComplete: boolean;
@@ -148,6 +149,7 @@ export async function loadAuthenticatedAccount(
           name: t.name,
           symbol: t.symbol,
           imageUri: t.imageUri,
+          displayImageUrl: t.displayImageUrl,
           quoteAsset: t.quoteAsset,
           launchedAt: new Date(t.launchedAt * 1000).toISOString(),
           launchComplete: t.launchComplete,

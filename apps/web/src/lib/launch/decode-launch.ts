@@ -39,6 +39,33 @@ export type DecodeLaunchResult =
   | { ok: true; decoded: DecodedTokenLaunched }
   | { ok: false; reason: string };
 
+export type DecodedInitialBuy = {
+  token: `0x${string}`;
+  buyer: `0x${string}`;
+  quoteAsset: `0x${string}`;
+  quoteAmountIn: string;
+  tokensOut: string;
+};
+
+export type DecodeInitialBuyResult =
+  | { ok: true; decoded: DecodedInitialBuy }
+  | { ok: false; reason: string };
+
+/** InitialBuyExecuted fragment (deployer indexed field = msg.sender buyer). */
+export const initialBuyExecutedEventAbi = [
+  {
+    type: 'event',
+    name: 'InitialBuyExecuted',
+    inputs: [
+      { name: 'token', type: 'address', indexed: true },
+      { name: 'deployer', type: 'address', indexed: true },
+      { name: 'quoteAsset', type: 'address', indexed: true },
+      { name: 'quoteAmountIn', type: 'uint256', indexed: false },
+      { name: 'tokensOut', type: 'uint256', indexed: false },
+    ],
+  },
+] as const;
+
 /**
  * Decode TokenLaunched from a successful receipt.
  * Does not fabricate addresses on failure.
@@ -109,6 +136,67 @@ export function decodeTokenLaunchedFromReceipt(
   }
 
   return { ok: false, reason: 'token_launched_not_found' };
+}
+
+/**
+ * Decode InitialBuyExecuted from a successful launchAndBuy receipt.
+ */
+export function decodeInitialBuyFromReceipt(
+  receipt: Pick<TransactionReceipt, 'logs' | 'status'>,
+  factoryAddress: string = DEFAULT_FACTORY,
+): DecodeInitialBuyResult {
+  if (receipt.status !== 'success') {
+    return { ok: false, reason: 'receipt_not_success' };
+  }
+
+  const factory = factoryAddress.toLowerCase();
+  for (const log of receipt.logs as Log[]) {
+    if (log.address.toLowerCase() !== factory) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: initialBuyExecutedEventAbi,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName !== 'InitialBuyExecuted') continue;
+      const args = decoded.args as {
+        token: Hex;
+        deployer: Hex;
+        quoteAsset: Hex;
+        quoteAmountIn: bigint;
+        tokensOut: bigint;
+      };
+      return {
+        ok: true,
+        decoded: {
+          token: args.token.toLowerCase() as `0x${string}`,
+          buyer: args.deployer.toLowerCase() as `0x${string}`,
+          quoteAsset: args.quoteAsset.toLowerCase() as `0x${string}`,
+          quoteAmountIn: args.quoteAmountIn.toString(),
+          tokensOut: args.tokensOut.toString(),
+        },
+      };
+    } catch {
+      // try next log
+    }
+  }
+
+  return { ok: false, reason: 'initial_buy_not_found' };
+}
+
+export function assertInitialBuyMatches(args: {
+  decoded: DecodedInitialBuy;
+  token: string;
+  buyer: string;
+  quoteAsset: string;
+  quoteAmountIn: bigint;
+}): boolean {
+  return (
+    args.decoded.token.toLowerCase() === args.token.toLowerCase() &&
+    args.decoded.buyer.toLowerCase() === args.buyer.toLowerCase() &&
+    args.decoded.quoteAsset.toLowerCase() === args.quoteAsset.toLowerCase() &&
+    args.decoded.quoteAmountIn === args.quoteAmountIn.toString()
+  );
 }
 
 export function assertCreatorIdMatches(

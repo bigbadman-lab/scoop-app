@@ -81,7 +81,103 @@ describe('runLaunchCompletion', () => {
       status: 'market_live',
       launch,
       news: 'skipped',
+      displayImage: 'skipped',
     });
+  });
+
+  it('applies display image after indexed and before News', async () => {
+    const order: string[] = [];
+    const ensureDisplayImage = vi.fn(async () => {
+      order.push('display');
+      return { ok: true as const, status: 'applied' as const };
+    });
+    const activateNews = vi.fn(async () => {
+      order.push('news');
+      return { ok: true };
+    });
+    await runLaunchCompletion({
+      chainId: 4663,
+      tokenAddress: decoded.token,
+      txHash: launch.launchTxHash as `0x${string}`,
+      decoded,
+      expectedCreatorId: decoded.creatorId,
+      expectedDeployer: decoded.deployer,
+      provenance: {
+        sourceProvider: 'stocknewsapi',
+        sourceProviderArticleId: 'art-1',
+        sourceDraftId: 'draft-1',
+      },
+      displayImagePath: null,
+      callbacks: { onPhase: () => {} },
+      waitForIndexed: async () => {
+        order.push('indexed');
+        return { status: 'ready', launch };
+      },
+      ensureDisplayImage,
+      activateNews,
+    });
+    expect(order).toEqual(['indexed', 'display', 'news']);
+    expect(ensureDisplayImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceDraftId: 'draft-1',
+        displayImagePath: null,
+      }),
+    );
+  });
+
+  it('manual displayImagePath wins over draftId (late AI must not overwrite)', async () => {
+    const ensureDisplayImage = vi.fn(async () => ({
+      ok: true as const,
+      status: 'applied' as const,
+    }));
+    await runLaunchCompletion({
+      chainId: 4663,
+      tokenAddress: decoded.token,
+      txHash: launch.launchTxHash as `0x${string}`,
+      decoded,
+      expectedCreatorId: decoded.creatorId,
+      expectedDeployer: decoded.deployer,
+      provenance: {
+        sourceProvider: 'stocknewsapi',
+        sourceProviderArticleId: 'art-1',
+        sourceDraftId: 'draft-ai',
+      },
+      displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+      callbacks: { onPhase: () => {} },
+      waitForIndexed: async () => ({ status: 'ready', launch }),
+      ensureDisplayImage,
+      activateNews: vi.fn(async () => ({ ok: true })),
+    });
+    expect(ensureDisplayImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+        sourceDraftId: null,
+      }),
+    );
+  });
+
+  it('display sync failure does not prevent MARKET LIVE', async () => {
+    const result = await runLaunchCompletion({
+      chainId: 4663,
+      tokenAddress: decoded.token,
+      txHash: launch.launchTxHash as `0x${string}`,
+      decoded,
+      expectedCreatorId: decoded.creatorId,
+      expectedDeployer: decoded.deployer,
+      provenance: {
+        sourceProvider: 'stocknewsapi',
+        sourceProviderArticleId: null,
+        sourceDraftId: 'draft-1',
+      },
+      callbacks: { onPhase: () => {} },
+      waitForIndexed: async () => ({ status: 'ready', launch }),
+      ensureDisplayImage: async () => ({ ok: false, error: 'network' }),
+      activateNews: async () => ({ ok: true }),
+    });
+    expect(result.status).toBe('market_live');
+    if (result.status === 'market_live') {
+      expect(result.displayImage).toBe('failed');
+    }
   });
 
   it('activates News only after indexed', async () => {

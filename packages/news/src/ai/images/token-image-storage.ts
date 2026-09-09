@@ -44,6 +44,29 @@ export function buildTokenDisplayImagePath(input: {
   return `drafts/${draftId}/${artworkId}/${hash}.${ext}`;
 }
 
+/**
+ * Manual upload path: manual/{hash16}/{hash16}.{ext}
+ * Same bytes → same path (upsert-idempotent).
+ */
+export function buildManualTokenDisplayImagePath(input: {
+  bytes: Buffer;
+  mimeType: string;
+}): string {
+  const hash = createHash('sha256').update(input.bytes).digest('hex').slice(0, 16);
+  const ext = extensionForMime(input.mimeType);
+  return `manual/${hash}/${hash}.${ext}`;
+}
+
+const ALLOWED_DISPLAY_PATH =
+  /^(drafts\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/[a-f0-9]{16}\.(png|jpg|webp)|manual\/[a-f0-9]{16}\/[a-f0-9]{16}\.(png|jpg|webp))$/;
+
+/** Server-side allowlist for client-supplied display object paths (never raw URLs). */
+export function isAllowedTokenDisplayImagePath(path: string): boolean {
+  const trimmed = path.trim().replace(/^\/+/, '');
+  if (!trimmed || trimmed.includes('..') || trimmed.includes('\\')) return false;
+  return ALLOWED_DISPLAY_PATH.test(trimmed);
+}
+
 export function validateTokenDisplayImage(input: {
   bytes: Buffer;
   mimeType: string;

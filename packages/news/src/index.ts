@@ -76,6 +76,8 @@ export {
   createSupabaseDraftAssetStorage,
   TOKEN_IMAGE_BUCKET,
   buildTokenDisplayImagePath,
+  buildManualTokenDisplayImagePath,
+  isAllowedTokenDisplayImagePath,
   deriveTokenImagePublicUrl,
   validateTokenDisplayImage,
   createSupabaseTokenImageStorage,

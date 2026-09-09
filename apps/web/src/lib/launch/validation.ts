@@ -3,7 +3,7 @@ import {
   isCreatorResolved,
   resolveCreatorRecipient,
 } from '@/lib/launch/creator-recipient';
-
+import { isNativeEthQuote, parseEthDevBuyWei } from '@/lib/launch/dev-buy';
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -123,6 +123,14 @@ export function validateEarningsStep(
       errors.devBuyAmount = 'Enter a valid amount.';
     } else if (Number(buy) < 0) {
       errors.devBuyAmount = 'Amount cannot be negative.';
+    } else if (hasDevBuy(state) && !isNativeEthQuote(state.quoteAsset)) {
+      errors.devBuyAmount =
+        'Initial buy is currently available for ETH pairs only.';
+    } else if (hasDevBuy(state) && isNativeEthQuote(state.quoteAsset)) {
+      const parsed = parseEthDevBuyWei(buy);
+      if (!parsed.ok) {
+        errors.devBuyAmount = parsed.error;
+      }
     }
   }
 

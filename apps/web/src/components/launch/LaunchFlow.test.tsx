@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { LaunchFlow } from '@/components/launch/LaunchFlow';
+import { LaunchFlowLive } from '@/components/launch/LaunchFlowLive';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   ASSISTED_LAUNCH_HANDOFF_KEY,
@@ -113,7 +113,7 @@ function seedAssistHandoff(quoteAsset = nvda.quoteAsset) {
   );
 }
 
-describe('LaunchFlow', () => {
+describe('LaunchFlowLive', () => {
   beforeEach(() => {
     sessionStorage.clear();
     searchParams.delete('assist');
@@ -123,20 +123,20 @@ describe('LaunchFlow', () => {
   });
 
   it('starts on TOKEN and blocks continue until required fields are valid', () => {
-    render(<LaunchFlow catalogue={[eth]} />);
+    render(<LaunchFlowLive catalogue={[eth]} />);
     expect(screen.getByText(/01 \/ 04 — TOKEN/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     expect(screen.getByText(/name is required/i)).toBeTruthy();
   });
 
   it('does not expose a live launch CTA on step 1', () => {
-    render(<LaunchFlow catalogue={[eth]} />);
+    render(<LaunchFlowLive catalogue={[eth]} />);
     expect(screen.queryByRole('button', { name: /launch token/i })).toBeNull();
   });
 
   it('manual launch stays blank even if assist handoff exists without ?assist=1', async () => {
     seedAssistHandoff();
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
     });
@@ -146,7 +146,7 @@ describe('LaunchFlow', () => {
   it('prefills assisted launch when ?assist=1 and consumes handoff', async () => {
     searchParams.set('assist', '1');
     seedAssistHandoff();
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
     });
@@ -168,7 +168,7 @@ describe('LaunchFlow', () => {
   it('does not silently substitute an invalid recommended quote', async () => {
     searchParams.set('assist', '1');
     seedAssistHandoff('0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead');
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
     });
@@ -242,7 +242,7 @@ describe('LaunchFlow', () => {
       return { ok: false, status: 404, json: async () => ({}) };
     });
 
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => {
       expect(screen.getByText(/generating your token image/i)).toBeTruthy();
       expect(screen.getByText(/you can continue setting up your token/i)).toBeTruthy();
@@ -335,7 +335,7 @@ describe('LaunchFlow', () => {
       return { ok: false, status: 404, json: async () => ({}) };
     });
 
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => screen.getByText(/generating your token image/i));
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
@@ -390,7 +390,7 @@ describe('LaunchFlow', () => {
       return { ok: false, status: 404, json: async () => ({}) };
     });
 
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => screen.getByRole('button', { name: /generate another/i }));
     fireEvent.click(screen.getByRole('button', { name: /generate another/i }));
 
@@ -463,7 +463,7 @@ describe('LaunchFlow', () => {
       return { ok: false, status: 404, json: async () => ({}) };
     });
 
-    render(<LaunchFlow catalogue={[eth, nvda]} />);
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => screen.getByText(/generating your token image/i));
 
     const file = new File([new Uint8Array([1, 2, 3])], 'mine.png', {

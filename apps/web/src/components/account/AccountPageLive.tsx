@@ -19,6 +19,8 @@ import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
+import { TokenImage } from '@/components/ui/TokenImage';
+import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 
 type LoadState =
   | { kind: 'loading' }
@@ -388,20 +390,12 @@ function AccountReady({
             <ul className="divide-y divide-[var(--divider)]">
               {account.tokensLaunched.map((token) => (
                 <li key={token.tokenAddress} className="flex items-center gap-4 py-4">
-                  {token.imageUri ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={token.imageUri}
-                      alt=""
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 rounded-[var(--radius-sm)] object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[10px] text-[var(--scoop-orange-contrast)]">
-                      {token.symbol.slice(0, 3)}
-                    </span>
-                  )}
+                  <TokenImage
+                    src={pickTokenImageSrc(token.displayImageUrl, token.imageUri)}
+                    alt={token.name}
+                    size={40}
+                    className="h-10 w-10 shrink-0 rounded-[var(--radius-sm)]"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold tracking-tight">{token.name}</p>
                     <p className="font-mono text-[12px] text-[var(--muted)]">

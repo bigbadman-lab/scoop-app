@@ -69,19 +69,27 @@ export type LaunchTxState = {
   indexedLaunch: IndexedLaunchSnapshot | null;
   /** News activation outcome after indexed (V2.D). */
   newsActivation: 'idle' | 'skipped' | 'ok' | 'failed' | 'pending';
+  /** Display image sync after indexed (V2.F) — never fails the launch. */
+  displayImageSync: 'idle' | 'skipped' | 'ok' | 'failed';
 };
 
 export type LaunchChecklist = {
   chainId: number;
   factory: `0x${string}`;
-  functionName: 'launch';
+  functionName: 'launch' | 'launchAndBuy';
   signer: `0x${string}`;
+  /** Initial buy recipient = msg.sender (signer). */
+  buyRecipient: `0x${string}`;
   creatorType: 'wallet';
   creatorSource: 'connected' | 'custom';
   creatorWallet: `0x${string}`;
   creatorId: `0x${string}`;
   quoteAsset: `0x${string}`;
   launchFeeWei: string;
+  quoteAmountInWei: string;
+  expectedTokensOut: string;
+  minTokensOut: string;
+  slippageBps: number;
   msgValueWei: string;
   salt: `0x${string}`;
   imageUri: string;
@@ -101,6 +109,7 @@ export const INITIAL_LAUNCH_TX_STATE: LaunchTxState = {
   checklist: null,
   indexedLaunch: null,
   newsActivation: 'idle',
+  displayImageSync: 'idle',
 };
 
 export function isLaunchTxBusy(phase: LaunchTxPhase): boolean {

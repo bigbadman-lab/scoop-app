@@ -28,6 +28,7 @@ function validTokenState() {
       byteSize: 1200,
       persistence: 'local_only',
       ipfsUri: null,
+      displayImagePath: null,
       source: 'user',
       artworkStatus: 'ready',
       artworkError: null,
@@ -48,6 +49,7 @@ function pendingAiImageState() {
       byteSize: null,
       persistence: 'local_only',
       ipfsUri: null,
+      displayImagePath: null,
       source: 'ai_pending',
       artworkStatus: 'pending',
       artworkError: null,
@@ -84,6 +86,7 @@ describe('launch token validation', () => {
             byteSize: null,
             persistence: 'local_only',
             ipfsUri: null,
+      displayImagePath: null,
             source: 'ai',
             artworkStatus: 'regenerating',
             artworkError: null,
@@ -217,6 +220,19 @@ describe('launch reducer navigation', () => {
     });
     expect(state.devBuyAmount).toBe('');
     expect(state.quoteSymbol).toBe('NVDA');
+  });
+
+  it('rejects non-ETH positive dev buy on earnings step', () => {
+    const errors = validateEarningsStep(
+      createInitialLaunchState({
+        creatorMode: 'connected',
+        quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        quoteSymbol: 'USDG',
+        devBuyAmount: '1',
+      }),
+      WALLET,
+    );
+    expect(errors.devBuyAmount).toMatch(/ETH pairs only/i);
   });
 
   it('only advances when step is valid', () => {

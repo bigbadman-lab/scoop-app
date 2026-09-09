@@ -8,6 +8,7 @@ import {
   isCreatorResolved,
   resolveCreatorRecipient,
 } from '@/lib/launch/creator-recipient';
+import { isNativeEthQuote } from '@/lib/launch/dev-buy';
 import { truncateAddress } from '@/lib/format';
 
 type Props = {
@@ -54,6 +55,7 @@ export function EarningsStep({
   onPatch,
 }: Props) {
   const quoteLabel = state.quoteSymbol ?? 'QUOTE';
+  const ethQuote = isNativeEthQuote(state.quoteAsset);
   const recipient = resolveCreatorRecipient(state, connectedAddress);
 
   return (
@@ -181,29 +183,40 @@ export function EarningsStep({
         >
           Dev buy · optional
         </h3>
-        <p className="text-sm text-[var(--muted)]">
-          Optional initial purchase in the same transaction as launch (
-          <span className="font-mono">launchAndBuy</span>). Leave empty or{' '}
-          <span className="font-mono">0</span> to launch without a buy. Amount is
-          denominated in <span className="font-mono">{quoteLabel}</span> — never
-          assumed to be ETH unless ETH is the selected quote.
-        </p>
-        <div>
-          <input
-            id="dev-buy"
-            inputMode="decimal"
-            value={state.devBuyAmount}
-            onChange={(e) => onPatch({ devBuyAmount: e.target.value })}
-            placeholder={`Amount (${quoteLabel}) · optional`}
-            aria-label={`Dev buy amount in ${quoteLabel}`}
-            className="w-full min-h-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 font-mono text-[15px] tabular-nums outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--fg)]"
-          />
-          {errors.devBuyAmount ? (
-            <p className="mt-1 font-mono text-[11px] text-[#b42318]" role="alert">
-              {errors.devBuyAmount}
+        {ethQuote ? (
+          <>
+            <p className="text-sm text-[var(--muted)]">
+              Optional initial ETH purchase in the same transaction (
+              <span className="font-mono">launchAndBuy</span>). Tokens go to your
+              connected wallet (the deployer). Leave empty or{' '}
+              <span className="font-mono">0</span> to launch without a buy.
             </p>
-          ) : null}
-        </div>
+            <div>
+              <input
+                id="dev-buy"
+                inputMode="decimal"
+                value={state.devBuyAmount}
+                onChange={(e) => onPatch({ devBuyAmount: e.target.value })}
+                placeholder="Amount (ETH) · optional"
+                aria-label="Dev buy amount in ETH"
+                data-testid="dev-buy-input"
+                className="w-full min-h-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 font-mono text-[15px] tabular-nums outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--fg)]"
+              />
+              {errors.devBuyAmount ? (
+                <p className="mt-1 font-mono text-[11px] text-[#b42318]" role="alert">
+                  {errors.devBuyAmount}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-[var(--muted)]" data-testid="dev-buy-disabled">
+            Initial buy is currently available for ETH pairs only.
+            {state.quoteAsset
+              ? ` Selected pair uses ${quoteLabel}.`
+              : ' Choose an ETH market pair to enable an initial buy.'}
+          </p>
+        )}
       </section>
     </div>
   );

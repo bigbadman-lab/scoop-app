@@ -29,7 +29,8 @@ describe('account attribution', () => {
           token_address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           name: 'Alpha',
           symbol: 'ALP',
-          image_uri: null,
+          image_uri: 'ipfs://bafybeiabc',
+          display_image_url: 'https://cdn.example/alpha.png',
           quote_asset: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
           launched_at: 1_700_000_000,
           launch_complete: false,
@@ -40,9 +41,12 @@ describe('account attribution', () => {
     const launches = await listLaunchesForScoopUser(db, USER_A, 4663);
     expect(launches).toHaveLength(1);
     expect(launches[0]?.symbol).toBe('ALP');
+    expect(launches[0]?.imageUri).toBe('ipfs://bafybeiabc');
+    expect(launches[0]?.displayImageUrl).toBe('https://cdn.example/alpha.png');
     const sql = String((db.query as ReturnType<typeof vi.fn>).mock.calls[0]![0]);
     expect(sql).toMatch(/deployer_address = w\.address/);
     expect(sql).toMatch(/w\.user_id = \$1/);
+    expect(sql).toMatch(/t\.display_image_url/);
     expect(sql).not.toMatch(/creator_id = \$1/);
   });
 

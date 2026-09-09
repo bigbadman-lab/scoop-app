@@ -1,6 +1,6 @@
 /**
- * Final launch orchestration (V2.C).
- * Pin → resolve creator → build params → fee → simulate → write → receipt.
+ * Final launch orchestration (V2.C / V2.G).
+ * Pin → resolve creator → build params → fee → resolve buy → simulate → write → receipt.
  */
 import type {
   Account,
@@ -18,17 +18,18 @@ import {
 import {
   assertCreatorIdMatches,
   assertDeployerMatches,
+  assertInitialBuyMatches,
+  decodeInitialBuyFromReceipt,
   decodeTokenLaunchedFromReceipt,
 } from '@/lib/launch/decode-launch';
+import { resolveDevBuyIntent } from '@/lib/launch/dev-buy';
 import { ensureArtworkPinned } from '@/lib/launch/ensure-ipfs';
 import {
-  prepareWalletLaunchRequest,
+  prepareAndSimulateLaunchWrite,
   readLaunchFeeWei,
   shortenLaunchError,
-  simulateLaunch,
   writeLaunchAfterSimulation,
   SCOOP_FACTORY_ADDRESS,
-  type PreparedLaunchRequest,
 } from '@/lib/launch/execute';
 import type { LaunchFormState, TokenImageState } from '@/lib/launch/types';
 import {
@@ -117,10 +118,12 @@ export async function runWalletLaunch(
       ...input.state.image,
       ipfsUri: pinned.ipfsUri,
       persistence: 'ipfs_ready',
+      displayImagePath:
+        pinned.displayImagePath ?? input.state.image.displayImagePath ?? null,
     };
-    if (!pinned.reused) {
-      callbacks.onImagePinned(imageAfterPin);
-    } else if (input.state.image.ipfsUri !== pinned.ipfsUri) {
+    const pathChanged =
+      imageAfterPin.displayImagePath !== input.state.image.displayImagePath;
+    if (!pinned.reused || pathChanged || input.state.image.ipfsUri !== pinned.ipfsUri) {
       callbacks.onImagePinned(imageAfterPin);
     }
 
@@ -154,26 +157,62 @@ export async function runWalletLaunch(
       return { ok: false, state: fail(callbacks, first) };
     }
 
-    // 3) Authoritative fee
+    // 3) Authoritative fee + ETH buy intent
     const { feeWei } = await readLaunchFeeWei(input.publicClient);
-    const request: PreparedLaunchRequest = prepareWalletLaunchRequest({
-      params: built.params,
-      account: input.liveAddress,
-      launchFeeWei: feeWei,
-    });
+    const buyIntent = resolveDevBuyIntent(stateForParams, built.params.quoteAsset);
+    if (!buyIntent.ok) {
+      return {
+        ok: false,
+        state: fail(callbacks, buyIntent.error, {
+          provenance: built.provenance,
+        }),
+      };
+    }
+
+    // 4) Simulate (probe+final for buy; single for launch)
+    patch({ phase: 'simulating' });
+    let simulatedRequest: WriteContractParameters;
+    let prepared: Awaited<
+      ReturnType<typeof prepareAndSimulateLaunchWrite>
+    >['prepared'];
+    try {
+      const sim = await prepareAndSimulateLaunchWrite({
+        publicClient: input.publicClient,
+        params: built.params,
+        account: input.liveAddress,
+        launchFeeWei: feeWei,
+        quoteAmountIn: buyIntent.quoteAmountInWei,
+      });
+      prepared = sim.prepared;
+      simulatedRequest = sim.simulatedRequest;
+    } catch (e) {
+      return {
+        ok: false,
+        state: fail(
+          callbacks,
+          e instanceof Error ? e.message : 'Simulation failed.',
+          { provenance: built.provenance },
+        ),
+      };
+    }
 
     const checklist: LaunchChecklist = {
       chainId: ROBINHOOD_CHAIN_ID,
       factory: SCOOP_FACTORY_ADDRESS,
-      functionName: 'launch',
+      functionName: prepared.functionName,
       signer: input.liveAddress.toLowerCase() as `0x${string}`,
+      buyRecipient: input.liveAddress.toLowerCase() as `0x${string}`,
       creatorType: 'wallet',
       creatorSource: recipient.source,
       creatorWallet: recipient.address,
       creatorId: built.params.creatorId,
       quoteAsset: built.params.quoteAsset,
       launchFeeWei: feeWei.toString(),
-      msgValueWei: feeWei.toString(),
+      quoteAmountInWei: prepared.quoteAmountIn.toString(),
+      expectedTokensOut: prepared.expectedTokensOut.toString(),
+      minTokensOut: prepared.minTokensOut.toString(),
+      slippageBps: prepared.slippageBps,
+      msgValueWei: prepared.value.toString(),
       salt: built.params.salt,
       imageUri: built.params.metadata.imageUri,
       tokenName: built.params.name,
@@ -187,33 +226,12 @@ export async function runWalletLaunch(
       provenance: built.provenance,
     });
 
-    // Log checklist for human pre-sign inspection (no secrets).
     console.info(
       JSON.stringify({
         event: 'scoop_launch_checklist',
         ...checklist,
       }),
     );
-
-    // 4) Simulate
-    patch({ phase: 'simulating' });
-    let simulatedRequest: WriteContractParameters;
-    try {
-      const sim = await simulateLaunch({
-        publicClient: input.publicClient,
-        request,
-      });
-      simulatedRequest = sim.request;
-    } catch (e) {
-      return {
-        ok: false,
-        state: fail(
-          callbacks,
-          e instanceof Error ? e.message : 'Simulation failed.',
-          { checklist, provenance: built.provenance },
-        ),
-      };
-    }
 
     // 5) Wallet write — re-check account/chain
     patch({ phase: 'awaiting_wallet' });
@@ -233,7 +251,7 @@ export async function runWalletLaunch(
       hash = await writeLaunchAfterSimulation({
         walletClient: input.walletClient,
         simulatedRequest,
-        simulatedAccount: request.account,
+        simulatedAccount: prepared.account,
         liveAccount: live.address,
         liveChainId: live.chainId,
       });
@@ -296,12 +314,7 @@ export async function runWalletLaunch(
         ),
       };
     }
-    if (
-      !assertDeployerMatches(
-        input.liveAddress,
-        decoded.decoded,
-      )
-    ) {
+    if (!assertDeployerMatches(input.liveAddress, decoded.decoded)) {
       return {
         ok: false,
         state: fail(
@@ -315,6 +328,48 @@ export async function runWalletLaunch(
           },
         ),
       };
+    }
+
+    if (prepared.functionName === 'launchAndBuy') {
+      const buy = decodeInitialBuyFromReceipt(receipt);
+      if (!buy.ok) {
+        return {
+          ok: false,
+          state: fail(
+            callbacks,
+            'Critical: launchAndBuy succeeded without InitialBuyExecuted.',
+            {
+              checklist,
+              provenance: built.provenance,
+              txHash: hash,
+              decoded: decoded.decoded,
+            },
+          ),
+        };
+      }
+      if (
+        !assertInitialBuyMatches({
+          decoded: buy.decoded,
+          token: decoded.decoded.token,
+          buyer: input.liveAddress,
+          quoteAsset: built.params.quoteAsset,
+          quoteAmountIn: prepared.quoteAmountIn,
+        })
+      ) {
+        return {
+          ok: false,
+          state: fail(
+            callbacks,
+            'Critical: InitialBuyExecuted does not match launch request.',
+            {
+              checklist,
+              provenance: built.provenance,
+              txHash: hash,
+              decoded: decoded.decoded,
+            },
+          ),
+        };
+      }
     }
 
     const success: LaunchTxState = {

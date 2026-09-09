@@ -72,6 +72,7 @@ export async function upsertToken(db: Queryable, row: TokenRow): Promise<void> {
 /**
  * Set SCOOP display HTTPS URL without touching canonical image_uri.
  * Ownership: launch finalization / ops backfill — not the chain indexer.
+ * Idempotent when the token already has the same URL.
  */
 export async function setTokenDisplayImageUrl(
   db: Queryable,
@@ -80,7 +81,7 @@ export async function setTokenDisplayImageUrl(
     tokenAddress: string;
     displayImageUrl: string;
   },
-): Promise<void> {
+): Promise<'applied' | 'skipped'> {
   const url = input.displayImageUrl.trim();
   if (!url || !/^https:\/\//i.test(url)) {
     throw new Error('displayImageUrl must be an https URL');
@@ -88,18 +89,31 @@ export async function setTokenDisplayImageUrl(
   if (/^(javascript|data|file|blob):/i.test(url)) {
     throw new Error('Unsafe displayImageUrl scheme');
   }
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const existing = await db.query<{ display_image_url: string | null }>(
+    `SELECT display_image_url FROM tokens
+     WHERE chain_id = $1 AND token_address = $2
+     LIMIT 1`,
+    [input.chainId, tokenAddress],
+  );
+  const current = String(existing.rows[0]?.display_image_url ?? '').trim();
+  if (current === url) {
+    return 'skipped';
+  }
   await db.query(
     `UPDATE tokens
      SET display_image_url = $3,
          updated_at = NOW()
      WHERE chain_id = $1 AND token_address = $2`,
-    [input.chainId, normalizeAddress(input.tokenAddress), url],
+    [input.chainId, tokenAddress, url],
   );
+  return 'applied';
 }
 
 /**
  * After token address is known, copy selected draft artwork display URL onto tokens.
  * Returns false when no display copy exists (IPFS fallback remains valid).
+ * Idempotent when tokens.display_image_url already matches.
  */
 export async function applyDraftDisplayImageToToken(
   db: Queryable,
@@ -109,7 +123,16 @@ export async function applyDraftDisplayImageToToken(
     draftId: string;
   },
 ): Promise<boolean> {
-  const result = await db.query(
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const launch = await db.query(
+    `SELECT 1 FROM launches WHERE chain_id = $1 AND token_address = $2 LIMIT 1`,
+    [input.chainId, tokenAddress],
+  );
+  if (!launch.rows[0]) {
+    return false;
+  }
+
+  const result = await db.query<{ display_image_url: string | null }>(
     `SELECT a.display_image_url
      FROM launch_drafts d
      INNER JOIN launch_draft_artworks a
@@ -118,15 +141,46 @@ export async function applyDraftDisplayImageToToken(
      LIMIT 1`,
     [input.draftId],
   );
-  const displayUrl = String(
-    (result.rows[0] as { display_image_url?: string | null } | undefined)
-      ?.display_image_url ?? '',
-  ).trim();
+  const displayUrl = String(result.rows[0]?.display_image_url ?? '').trim();
   if (!displayUrl) return false;
   await setTokenDisplayImageUrl(db, {
     chainId: input.chainId,
-    tokenAddress: input.tokenAddress,
+    tokenAddress,
     displayImageUrl: displayUrl,
   });
   return true;
+}
+
+/**
+ * Apply a server-trusted token-image object path to an indexed token.
+ * Caller must validate path allowlist and derive HTTPS URL server-side.
+ */
+export async function applyDisplayImagePathToToken(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    displayImageUrl: string;
+  },
+): Promise<'applied' | 'skipped' | 'missing_token'> {
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const launch = await db.query(
+    `SELECT 1 FROM launches WHERE chain_id = $1 AND token_address = $2 LIMIT 1`,
+    [input.chainId, tokenAddress],
+  );
+  if (!launch.rows[0]) {
+    return 'missing_token';
+  }
+  const token = await db.query(
+    `SELECT 1 FROM tokens WHERE chain_id = $1 AND token_address = $2 LIMIT 1`,
+    [input.chainId, tokenAddress],
+  );
+  if (!token.rows[0]) {
+    return 'missing_token';
+  }
+  return setTokenDisplayImageUrl(db, {
+    chainId: input.chainId,
+    tokenAddress,
+    displayImageUrl: input.displayImageUrl,
+  });
 }

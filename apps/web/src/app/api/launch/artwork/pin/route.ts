@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
+import {
+  buildManualTokenDisplayImagePath,
+  createSupabaseTokenImageStorage,
+  validateTokenDisplayImage,
+} from '@scoop/news';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import {
   createLaunchArtworkPinner,
   isPinataConfigured,
 } from '@/lib/launch/ipfs-pinata';
 import { IpfsPinNotConfiguredError } from '@/lib/launch/ipfs';
+import { isProtocolIpfsImageUri } from '@/lib/launch/protocol-metadata';
 import { META_LIMITS } from '@/lib/launch/types';
 import { assertNoSecretLeakage } from '@/lib/server/validate';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
@@ -17,12 +23,15 @@ type Body = {
   bytesBase64?: unknown;
   mimeType?: unknown;
   fileName?: unknown;
+  persistDisplayCopy?: unknown;
+  displayCopyOnly?: unknown;
+  existingIpfsUri?: unknown;
 };
 
 /**
  * Pin selected launch artwork once.
+ * Optional: persist same bytes to public token-image (manual uploads).
  * Auth: SIWE session in production; development may proceed without session.
- * Never accepts NEXT_PUBLIC credentials — uses PINATA_JWT server-side.
  */
 export async function POST(request: Request) {
   try {
@@ -43,17 +52,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isPinataConfigured()) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'IPFS pinning is not configured (PINATA_JWT).',
-          code: 'PIN_NOT_CONFIGURED',
-        },
-        { status: 503 },
-      );
-    }
-
     let body: Body;
     try {
       body = (await request.json()) as Body;
@@ -67,6 +65,10 @@ export async function POST(request: Request) {
       typeof body.fileName === 'string' ? body.fileName.trim() : undefined;
     const b64 =
       typeof body.bytesBase64 === 'string' ? body.bytesBase64.trim() : '';
+    const persistDisplayCopy = body.persistDisplayCopy === true;
+    const displayCopyOnly = body.displayCopyOnly === true;
+    const existingIpfsUri =
+      typeof body.existingIpfsUri === 'string' ? body.existingIpfsUri.trim() : '';
 
     if (!b64) {
       return NextResponse.json(
@@ -81,9 +83,9 @@ export async function POST(request: Request) {
       );
     }
 
-    let bytes: Uint8Array;
+    let bytes: Buffer;
     try {
-      bytes = Uint8Array.from(Buffer.from(b64, 'base64'));
+      bytes = Buffer.from(b64, 'base64');
     } catch {
       return NextResponse.json(
         { ok: false, error: 'Invalid base64 artwork', code: 'VALIDATION' },
@@ -98,17 +100,64 @@ export async function POST(request: Request) {
       );
     }
 
-    const pinner = createLaunchArtworkPinner();
-    const result = await pinner.pinArtwork({
-      bytes,
-      mimeType,
-      fileName,
-    });
+    let ipfsUri = existingIpfsUri;
+    let cid: string | undefined;
+
+    if (!displayCopyOnly) {
+      if (!isPinataConfigured()) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'IPFS pinning is not configured (PINATA_JWT).',
+            code: 'PIN_NOT_CONFIGURED',
+          },
+          { status: 503 },
+        );
+      }
+      const pinner = createLaunchArtworkPinner();
+      const result = await pinner.pinArtwork({
+        bytes: new Uint8Array(bytes),
+        mimeType,
+        fileName,
+      });
+      ipfsUri = result.ipfsUri;
+      cid = result.cid;
+    } else {
+      if (!isProtocolIpfsImageUri(existingIpfsUri)) {
+        return NextResponse.json(
+          { ok: false, error: 'existingIpfsUri required for displayCopyOnly', code: 'VALIDATION' },
+          { status: 400 },
+        );
+      }
+      ipfsUri = existingIpfsUri;
+    }
+
+    let displayImagePath: string | null = null;
+    if (persistDisplayCopy) {
+      try {
+        validateTokenDisplayImage({ bytes, mimeType });
+        const path = buildManualTokenDisplayImagePath({ bytes, mimeType });
+        const storage = createSupabaseTokenImageStorage();
+        const uploaded = await storage.uploadDisplayCopy({
+          path,
+          bytes,
+          mimeType,
+        });
+        displayImagePath = uploaded.path;
+      } catch (err) {
+        // Non-fatal: IPFS canonical pin remains; token page may use gateway.
+        console.warn(
+          '[launch-pin] token-image display copy failed',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
 
     const payload = {
       ok: true as const,
-      ipfsUri: result.ipfsUri,
-      cid: result.cid,
+      ipfsUri,
+      cid,
+      displayImagePath,
     };
     assertNoSecretLeakage(payload);
     return NextResponse.json(payload, {

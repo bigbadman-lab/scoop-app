@@ -26,6 +26,8 @@ export type ScoopAccountLaunch = {
   name: string;
   symbol: string;
   imageUri: string | null;
+  /** SCOOP-controlled HTTPS display copy; prefer over imageUri for UI. */
+  displayImageUrl: string | null;
   quoteAsset: string;
   launchedAt: number;
   launchComplete: boolean;
@@ -192,6 +194,7 @@ export async function listLaunchesForScoopUser(
     name: string;
     symbol: string;
     image_uri: string | null;
+    display_image_url: string | null;
     quote_asset: string;
     launched_at: string | number;
     launch_complete: boolean | null;
@@ -203,6 +206,7 @@ export async function listLaunchesForScoopUser(
        t.name,
        t.symbol,
        t.image_uri,
+       t.display_image_url,
        l.quote_asset,
        l.launched_at,
        COALESCE(m.launch_complete, FALSE) AS launch_complete,
@@ -226,6 +230,10 @@ export async function listLaunchesForScoopUser(
     name: String(row.name),
     symbol: String(row.symbol),
     imageUri: row.image_uri ? String(row.image_uri) : null,
+    displayImageUrl:
+      row.display_image_url == null || String(row.display_image_url).trim() === ''
+        ? null
+        : String(row.display_image_url),
     quoteAsset: String(row.quote_asset),
     launchedAt: Number(row.launched_at),
     launchComplete: Boolean(row.launch_complete),

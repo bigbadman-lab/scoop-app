@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildManualTokenDisplayImagePath,
   buildTokenDisplayImagePath,
   deriveTokenImagePublicUrl,
+  isAllowedTokenDisplayImagePath,
   TOKEN_IMAGE_BUCKET,
   validateTokenDisplayImage,
 } from './token-image-storage.js';
@@ -22,6 +24,31 @@ describe('token-image display path', () => {
         mimeType: 'image/png',
       }),
     ).toBe(`drafts/${draftId}/${artworkId}/${hash}.png`);
+  });
+
+  it('builds content-addressed manual path', () => {
+    const bytes = Buffer.from('manual-bytes');
+    const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+    expect(
+      buildManualTokenDisplayImagePath({ bytes, mimeType: 'image/png' }),
+    ).toBe(`manual/${hash}/${hash}.png`);
+  });
+
+  it('allowlists only drafts/ and manual/ object paths', () => {
+    expect(
+      isAllowedTokenDisplayImagePath(
+        'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedTokenDisplayImagePath(
+        'drafts/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/aaaaaaaaaaaaaaaa.png',
+      ),
+    ).toBe(true);
+    expect(isAllowedTokenDisplayImagePath('../etc/passwd')).toBe(false);
+    expect(isAllowedTokenDisplayImagePath('https://evil.example/x.png')).toBe(
+      false,
+    );
   });
 
   it('same bytes → same path; different bytes → different path', () => {

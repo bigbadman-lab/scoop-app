@@ -113,14 +113,51 @@ describe('ensureArtworkPinned', () => {
         return new Response(new Uint8Array([7, 7]), { status: 200 });
       }
       if (url.includes('/api/launch/artwork/pin')) {
-        const body = JSON.parse(String(init?.body ?? '{}')) as { bytesBase64?: string };
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          bytesBase64?: string;
+          persistDisplayCopy?: boolean;
+        };
         expect(body.bytesBase64).toBeTruthy();
-        return Response.json({ ok: true, ipfsUri: IPFS, cid: CID });
+        expect(body.persistDisplayCopy).toBe(true);
+        return Response.json({
+          ok: true,
+          ipfsUri: IPFS,
+          cid: CID,
+          displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+        });
       }
       throw new Error(`unexpected fetch ${url}`);
     }) as unknown as typeof fetch;
 
     const result = await ensureArtworkPinned({ image, fetchImpl });
     expect(result.ipfsUri).toBe(IPFS);
+    expect(result.displayImagePath).toBe(
+      'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+    );
+  });
+
+  it('AI pin does not request display copy (draft path owns display)', async () => {
+    const image = createInitialLaunchState().image;
+    image.source = 'ai';
+    image.previewUrl = 'blob:ai';
+    image.mimeType = 'image/png';
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === 'blob:ai') {
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }
+      if (url.includes('/api/launch/artwork/pin')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          persistDisplayCopy?: boolean;
+        };
+        expect(body.persistDisplayCopy).toBe(false);
+        return Response.json({ ok: true, ipfsUri: IPFS, cid: CID });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }) as unknown as typeof fetch;
+
+    const result = await ensureArtworkPinned({ image, fetchImpl });
+    expect(result.displayImagePath ?? null).toBeNull();
   });
 });

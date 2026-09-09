@@ -52,6 +52,11 @@ export type TokenImageState = {
   persistence: TokenImagePersistence;
   /** Protocol imageUri once pinned (ipfs://…). Null until V2.C pin path. */
   ipfsUri: string | null;
+  /**
+   * Server-derived token-image object path after manual display upload.
+   * Never a client-fabricated arbitrary URL — finalize derives HTTPS server-side.
+   */
+  displayImagePath: string | null;
   source: TokenImageSource;
   artworkStatus: 'idle' | 'pending' | 'generating' | 'regenerating' | 'ready' | 'failed';
   artworkError: string | null;
@@ -105,6 +110,7 @@ export const INITIAL_IMAGE: TokenImageState = {
   byteSize: null,
   persistence: 'local_only',
   ipfsUri: null,
+  displayImagePath: null,
   source: 'none',
   artworkStatus: 'idle',
   artworkError: null,

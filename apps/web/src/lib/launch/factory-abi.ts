@@ -1,4 +1,7 @@
-/** Minimal ScoopFactory ABI fragment for launch prepare/simulate/decode (V2.C). */
+/**
+ * ScoopFactory ABI fragment for launch / launchAndBuy (V2.G).
+ * Layout matches packages/contracts ScoopFactory.json / deployed Factory.
+ */
 export const scoopFactoryLaunchAbi = [
   {
     type: 'function',
@@ -46,6 +49,47 @@ export const scoopFactoryLaunchAbi = [
     ],
   },
   {
+    type: 'function',
+    name: 'launchAndBuy',
+    stateMutability: 'payable',
+    inputs: [
+      {
+        name: 'params',
+        type: 'tuple',
+        components: [
+          { name: 'name', type: 'string' },
+          { name: 'symbol', type: 'string' },
+          { name: 'creatorId', type: 'bytes32' },
+          { name: 'quoteAsset', type: 'address' },
+          {
+            name: 'metadata',
+            type: 'tuple',
+            components: [
+              { name: 'description', type: 'string' },
+              { name: 'imageUri', type: 'string' },
+              { name: 'twitter', type: 'string' },
+              { name: 'telegram', type: 'string' },
+              { name: 'discord', type: 'string' },
+              { name: 'website', type: 'string' },
+              { name: 'farcaster', type: 'string' },
+            ],
+          },
+          { name: 'salt', type: 'bytes32' },
+        ],
+      },
+      { name: 'quoteAmountIn', type: 'uint256' },
+      { name: 'minTokensOut', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'token', type: 'address' },
+      { name: 'feeDistributor', type: 'address' },
+      { name: 'liquidityLocker', type: 'address' },
+      { name: 'lpTokenId', type: 'uint256' },
+      { name: 'poolId', type: 'bytes32' },
+      { name: 'tokensBought', type: 'uint256' },
+    ],
+  },
+  {
     type: 'event',
     name: 'TokenLaunched',
     inputs: [
@@ -63,6 +107,17 @@ export const scoopFactoryLaunchAbi = [
       { name: 'tickUpper', type: 'int24', indexed: false },
       { name: 'name', type: 'string', indexed: false },
       { name: 'symbol', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'InitialBuyExecuted',
+    inputs: [
+      { name: 'token', type: 'address', indexed: true },
+      { name: 'deployer', type: 'address', indexed: true },
+      { name: 'quoteAsset', type: 'address', indexed: true },
+      { name: 'quoteAmountIn', type: 'uint256', indexed: false },
+      { name: 'tokensOut', type: 'uint256', indexed: false },
     ],
   },
 ] as const;

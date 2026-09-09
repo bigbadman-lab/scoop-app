@@ -1,5 +1,6 @@
 import type { LaunchMarketReady } from '@scoop/db';
 import { activateNewsArticleMarket } from '@/lib/news/activate-article-market';
+import { ensureTokenDisplayImage } from '@/lib/launch/ensure-display-image';
 import {
   waitForIndexedLaunch,
   type WaitForIndexedLaunchInput,
@@ -22,12 +23,13 @@ export type RunLaunchCompletionInput = {
   expectedCreatorId: `0x${string}` | null;
   expectedDeployer: `0x${string}` | null;
   provenance: LaunchTxState['provenance'];
+  /** Manual token-image object path from pin (wins over draft). */
+  displayImagePath?: string | null;
   signal?: AbortSignal;
   callbacks: LaunchCompletionCallbacks;
-  /** Injected for tests. */
   waitForIndexed?: typeof waitForIndexedLaunch;
   activateNews?: typeof activateNewsArticleMarket;
-  /** Max News activation attempts (default 2). */
+  ensureDisplayImage?: typeof ensureTokenDisplayImage;
   newsAttempts?: number;
 };
 
@@ -36,6 +38,7 @@ export type LaunchCompletionResult =
       status: 'market_live';
       launch: LaunchMarketReady;
       news: 'skipped' | 'ok' | 'failed';
+      displayImage: 'ok' | 'failed' | 'skipped';
     }
   | { status: 'timeout' }
   | { status: 'aborted' }
@@ -64,15 +67,25 @@ function hasNewsProvenance(provenance: LaunchTxState['provenance']): boolean {
   );
 }
 
+function displaySyncField(
+  displayImage: 'ok' | 'failed' | 'skipped',
+): LaunchTxState['displayImageSync'] {
+  if (displayImage === 'failed') return 'failed';
+  if (displayImage === 'ok') return 'ok';
+  return 'skipped';
+}
+
 /**
- * After receipt_success: wait for canonical market readiness, optionally
- * activate News, then market_live. Never claims MARKET LIVE before indexed.
+ * After receipt_success: wait for canonical market readiness, finalize display
+ * image, optionally activate News, then market_live.
+ * Display sync failure never fails the launch.
  */
 export async function runLaunchCompletion(
   input: RunLaunchCompletionInput,
 ): Promise<LaunchCompletionResult> {
   const wait = input.waitForIndexed ?? waitForIndexedLaunch;
   const activate = input.activateNews ?? activateNewsArticleMarket;
+  const ensureDisplay = input.ensureDisplayImage ?? ensureTokenDisplayImage;
   const newsAttempts = input.newsAttempts ?? 2;
 
   input.callbacks.onPhase({
@@ -114,6 +127,36 @@ export async function runLaunchCompletion(
     indexedLaunch: indexed.launch,
   });
 
+  let displayImage: 'ok' | 'failed' | 'skipped' = 'skipped';
+  const displayPath = input.displayImagePath?.trim() || '';
+  const draftId = input.provenance?.sourceDraftId?.trim() || '';
+  if (displayPath || draftId) {
+    if (input.signal?.aborted) {
+      return { status: 'aborted' };
+    }
+    const displayResult = await ensureDisplay({
+      chainId: input.chainId,
+      tokenAddress: input.tokenAddress,
+      displayImagePath: displayPath || null,
+      sourceDraftId: displayPath ? null : draftId || null,
+      signal: input.signal,
+    });
+    if (displayResult.ok) {
+      displayImage = displayResult.status === 'noop' ? 'skipped' : 'ok';
+    } else if (displayResult.error === 'aborted') {
+      return { status: 'aborted' };
+    } else {
+      displayImage = 'failed';
+      console.warn(
+        '[launch] display image sync failed (market still live)',
+        displayResult.error,
+      );
+    }
+    input.callbacks.onPhase({
+      displayImageSync: displaySyncField(displayImage),
+    });
+  }
+
   let news: 'skipped' | 'ok' | 'failed' = 'skipped';
   if (hasNewsProvenance(input.provenance)) {
     input.callbacks.onPhase({ phase: 'activating_news', error: null });
@@ -145,14 +188,19 @@ export async function runLaunchCompletion(
         newsActivation: 'failed',
         indexedLaunch: indexed.launch,
       });
-      // Market is still live — do not treat as launch failure.
       input.callbacks.onPhase({
         phase: 'market_live',
         error: null,
         newsActivation: 'failed',
         indexedLaunch: indexed.launch,
+        displayImageSync: displaySyncField(displayImage),
       });
-      return { status: 'market_live', launch: indexed.launch, news: 'failed' };
+      return {
+        status: 'market_live',
+        launch: indexed.launch,
+        news: 'failed',
+        displayImage,
+      };
     }
   }
 
@@ -161,6 +209,12 @@ export async function runLaunchCompletion(
     error: null,
     newsActivation: news,
     indexedLaunch: indexed.launch,
+    displayImageSync: displaySyncField(displayImage),
   });
-  return { status: 'market_live', launch: indexed.launch, news };
+  return {
+    status: 'market_live',
+    launch: indexed.launch,
+    news,
+    displayImage,
+  };
 }
