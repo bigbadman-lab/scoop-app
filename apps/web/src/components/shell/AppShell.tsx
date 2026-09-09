@@ -7,6 +7,7 @@ import { AnnouncementBar } from '@/components/home/AnnouncementBar';
 import { DesktopSidebar } from '@/components/shell/DesktopSidebar';
 import { MobileBottomNav } from '@/components/shell/MobileBottomNav';
 import { ScoopHomeMark } from '@/components/shell/ScoopHomeMark';
+import { SiteFooter } from '@/components/shell/SiteFooter';
 import { WalletSlot } from '@/components/shell/WalletSlot';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -16,7 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="min-h-dvh bg-[var(--bg)]"
+      className="flex min-h-dvh flex-col bg-[var(--bg)]"
       style={
         {
           '--announcement-offset': hasAnnouncement ? 'var(--announcement-height)' : '0px',
@@ -38,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="md:pl-[var(--sidebar-width)]">
+      <div className="flex flex-1 flex-col md:pl-[var(--sidebar-width)]">
         {/* Desktop account chrome — in-flow sticky bar so it never overlays page content */}
         <header className="sticky top-[var(--announcement-offset)] z-30 hidden h-14 items-center justify-end border-b border-[var(--divider)] bg-[var(--bg)]/95 px-6 backdrop-blur md:flex lg:px-8">
           <div className="min-w-0 max-w-full">
@@ -46,8 +47,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1rem)] md:pb-0">
-          {children}
+        <div className="flex flex-1 flex-col pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1rem)] md:pb-0">
+          <div className="flex-1">{children}</div>
+          <SiteFooter />
         </div>
       </div>
 

@@ -89,6 +89,31 @@ export interface TokenDetail extends TokenDiscoveryItem {
   initialTokenInventoryRaw: string | null;
   currentTokenInventoryRaw: string | null;
   sourceBlock: number | null;
+  /**
+   * Uniswap pool fee in hundredths of a bip (e.g. 10000 = 1%).
+   * Null when the pool row is missing — never invent a tier.
+   */
+  poolFee: number | null;
+  /** Pool key currency0 (sorted). Null if pool row missing. */
+  currency0: string | null;
+  /** Pool key currency1 (sorted). Null if pool row missing. */
+  currency1: string | null;
+  /** Pool key tick spacing. Null if pool row missing. */
+  tickSpacing: number | null;
+  /** Pool hooks address. Null if pool row missing. */
+  hooks: string | null;
+  /**
+   * Lifetime creator share from fee_distributions for this token (ETH asset_kind).
+   * Null = no indexed distributions yet (not the same as genuine zero).
+   */
+  creatorFeesLifetimeEthRaw: string | null;
+  creatorFeesLifetimeEthDisplay: string | null;
+  /**
+   * Lifetime protocol buyback share from fee_distributions (ETH).
+   * Null = no indexed distributions yet.
+   */
+  buybackFeesLifetimeEthRaw: string | null;
+  buybackFeesLifetimeEthDisplay: string | null;
 }
 
 export interface TradeItem {

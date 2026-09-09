@@ -4,6 +4,7 @@ import { clampLimit, clampOffset, formatRawAmount } from '../decimal.js';
 import type { DiscoveryFilter, DiscoverySort, TokenDetail, TokenDiscoveryItem } from '../dto.js';
 import {
   DEFAULT_NEW_WINDOW_SECONDS,
+  DEFAULT_QUOTE_DECIMALS,
   DEFAULT_SOON_THRESHOLD_BPS,
   DISCOVERY_SELECT,
   mapDiscoveryItem,
@@ -143,12 +144,31 @@ export async function getToken(
       m.sell_count_all_time,
       m.initial_token_inventory_raw::text AS initial_token_inventory_raw,
       m.current_token_inventory_raw::text AS current_token_inventory_raw,
-      m.source_block
+      m.source_block,
+      p.fee AS pool_fee,
+      p.currency0,
+      p.currency1,
+      p.tick_spacing,
+      p.hooks,
+      fd.creator_eth_raw,
+      fd.buyback_eth_raw
     FROM launches l
     INNER JOIN tokens t
       ON t.chain_id = l.chain_id AND t.token_address = l.token_address
     LEFT JOIN token_market_state m
       ON m.chain_id = l.chain_id AND m.token_address = l.token_address
+    LEFT JOIN pools p
+      ON p.chain_id = l.chain_id AND p.pool_id = l.pool_id
+    LEFT JOIN (
+      SELECT
+        chain_id,
+        scooptoken_address,
+        SUM(creator_raw) FILTER (WHERE asset_kind = 'eth')::text AS creator_eth_raw,
+        SUM(buyback_raw) FILTER (WHERE asset_kind = 'eth')::text AS buyback_eth_raw
+      FROM fee_distributions
+      GROUP BY chain_id, scooptoken_address
+    ) fd
+      ON fd.chain_id = l.chain_id AND fd.scooptoken_address = l.token_address
     WHERE l.chain_id = $1 AND l.token_address = $2
     LIMIT 1
     `,
@@ -181,6 +201,13 @@ export async function getToken(
         initial_token_inventory_raw: string | null;
         current_token_inventory_raw: string | null;
         source_block: string | number | null;
+        pool_fee: number | string | null;
+        currency0: string | null;
+        currency1: string | null;
+        tick_spacing: number | string | null;
+        hooks: string | null;
+        creator_eth_raw: string | null;
+        buyback_eth_raw: string | null;
       })
     | undefined;
 
@@ -188,6 +215,22 @@ export async function getToken(
 
   const base = mapDiscoveryItem(row);
   const totalSupplyRaw = String(row.total_supply_raw);
+  const creatorEthRaw =
+    row.creator_eth_raw == null || row.creator_eth_raw === ''
+      ? null
+      : String(row.creator_eth_raw);
+  const buybackEthRaw =
+    row.buyback_eth_raw == null || row.buyback_eth_raw === ''
+      ? null
+      : String(row.buyback_eth_raw);
+  const poolFee =
+    row.pool_fee == null || row.pool_fee === ''
+      ? null
+      : Number(row.pool_fee);
+  const tickSpacing =
+    row.tick_spacing == null || row.tick_spacing === ''
+      ? null
+      : Number(row.tick_spacing);
 
   return {
     ...base,
@@ -219,5 +262,17 @@ export async function getToken(
     currentTokenInventoryRaw:
       row.current_token_inventory_raw == null ? null : String(row.current_token_inventory_raw),
     sourceBlock: row.source_block == null ? null : Number(row.source_block),
+    poolFee: poolFee != null && Number.isFinite(poolFee) ? poolFee : null,
+    currency0: row.currency0 == null ? null : String(row.currency0).toLowerCase(),
+    currency1: row.currency1 == null ? null : String(row.currency1).toLowerCase(),
+    tickSpacing:
+      tickSpacing != null && Number.isFinite(tickSpacing) ? tickSpacing : null,
+    hooks: row.hooks == null ? null : String(row.hooks).toLowerCase(),
+    creatorFeesLifetimeEthRaw: creatorEthRaw,
+    creatorFeesLifetimeEthDisplay:
+      creatorEthRaw == null ? null : formatRawAmount(creatorEthRaw, DEFAULT_QUOTE_DECIMALS),
+    buybackFeesLifetimeEthRaw: buybackEthRaw,
+    buybackFeesLifetimeEthDisplay:
+      buybackEthRaw == null ? null : formatRawAmount(buybackEthRaw, DEFAULT_QUOTE_DECIMALS),
   };
 }

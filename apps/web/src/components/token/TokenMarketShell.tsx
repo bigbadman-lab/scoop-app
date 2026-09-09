@@ -3,27 +3,31 @@ import type { TokenDetail } from '@/lib/server/queries';
 import {
   displayCompactUsdMarketValue,
   displayHolderCount,
+  displayLifetimeEthFee,
   displayPriceChangeBps,
   displayUsd,
   displayVolume24hMetric,
   formatCompactAge,
+  formatFeeSplitPercent,
+  formatPoolTradingFeePercent,
   formatProgressPercent,
   truncateAddress,
 } from '@/lib/format';
+import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import { ContractCopy } from '@/components/ui/ContractCopy';
+import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
+import { TokenBuySell } from '@/components/token/TokenBuySell';
 import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
-import {
-  shouldShowBondingProgress,
-  tokenMarketStatus,
-} from '@/lib/token/market-status';
+import { shouldShowBondingProgress } from '@/lib/token/market-status';
 import { safeHttpsUrl } from '@/lib/token/safe-external-url';
 
 type Props = {
   token: TokenDetail;
   quoteSymbol: string;
+  quoteImageUrl?: string | null;
 };
 
 function DetailRow({
@@ -34,7 +38,7 @@ function DetailRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-[var(--divider)] py-1.5 last:border-b-0">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-[var(--divider)] py-1 last:border-b-0">
       <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
         {label}
       </dt>
@@ -43,16 +47,30 @@ function DetailRow({
   );
 }
 
+/** Untitled group with a subtle top rule between logical MARKET sections. */
+function MarketGroup({ children }: { children: ReactNode }) {
+  return (
+    <div className="border-t border-[var(--divider)] pt-0.5 first:border-t-0 first:pt-0">
+      {children}
+    </div>
+  );
+}
+
 /**
- * Compact token market shell — identity, stats strip, OHLC chart, market details.
+ * Token market page V2 — identity, ABOUT, headline metrics, PRICE + rail, full-width trades.
  */
-export function TokenMarketShell({ token, quoteSymbol }: Props) {
+export function TokenMarketShell({
+  token,
+  quoteSymbol,
+  quoteImageUrl = null,
+}: Props) {
   const imageSrc = pickTokenImageSrc(token.displayImageUrl, token.imageUri);
   const priceUsd = displayUsd(token.priceUsdDisplay);
   const priceQuote =
     token.priceQuoteDisplay != null && token.priceQuoteDisplay.trim()
       ? `${token.priceQuoteDisplay} ${quoteSymbol}`
       : null;
+  const headlinePrice = priceUsd ?? priceQuote ?? '—';
   const change = displayPriceChangeBps(token.priceChange24hBps);
   const fdv = displayCompactUsdMarketValue(token.fdvUsdDisplay);
   const volume = displayVolume24hMetric({
@@ -63,7 +81,6 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
   const holdersRaw = displayHolderCount(token.holderCountRetail, token.holderCountAll);
   const holders = holdersRaw ? holdersRaw.replace(/ holders?$/, '') : null;
   const age = formatCompactAge(token.ageSeconds);
-  const status = tokenMarketStatus(token);
   const showProgress = shouldShowBondingProgress(token);
   const changeTone =
     token.priceChange24hBps == null
@@ -85,20 +102,26 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
   const showAbout = Boolean(description || aboutLinks.length > 0);
 
   const metrics = [
-    { label: 'FDV', value: fdv ?? '—' },
-    { label: '24H Vol', value: volume ?? '—' },
-    { label: 'Holders', value: holders ?? '—' },
-    { label: 'Launched', value: age },
+    { label: 'Price', value: headlinePrice, testId: 'token-metric-price' },
+    { label: 'FDV', value: fdv ?? '—', testId: 'token-metric-fdv' },
+    { label: '24H Volume', value: volume ?? '—', testId: 'token-metric-volume' },
+    { label: 'Holders', value: holders ?? '—', testId: 'token-metric-holders' },
   ];
+
+  const tradingFee = formatPoolTradingFeePercent(token.poolFee);
+  const creatorShare = formatFeeSplitPercent(PROTOCOL_FEE_SPLIT.creatorRewardsBps);
+  const creatorEarnings = displayLifetimeEthFee(token.creatorFeesLifetimeEthDisplay);
+  const protocolBuyback = displayLifetimeEthFee(token.buybackFeesLifetimeEthDisplay);
 
   return (
     <div
       data-testid="token-market-shell"
       data-token-address={token.tokenAddress}
-      data-layout="compact"
+      data-layout="v2"
+      className="pb-2"
     >
-      {/* Compact identity + price header */}
-      <header className="border-b border-[var(--divider)] pb-3">
+      {/* Identity + price header */}
+      <header className="pb-2.5">
         <div className="flex gap-3 sm:items-start sm:gap-4">
           <TokenImage
             src={imageSrc}
@@ -106,29 +129,39 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
             size={64}
             className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] sm:h-16 sm:w-16"
           />
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-8 lg:gap-10">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <p
-                  className="font-mono text-[12px] tracking-wide text-[var(--muted)]"
-                  data-testid="token-pair"
-                >
-                  ${token.symbol} / {quoteSymbol}
-                </p>
-                <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
-              </div>
-              <h1 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-[var(--fg)] sm:text-xl">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--fg)] sm:text-xl">
                 {token.name}
               </h1>
+              <div
+                className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+                data-testid="token-pair"
+              >
+                <span className="font-mono text-[12px] tracking-wide text-[var(--muted)]">
+                  ${token.symbol}
+                </span>
+                <span className="text-[var(--muted-2)]" aria-hidden>
+                  ·
+                </span>
+                <QuoteAssetBadge
+                  symbol={quoteSymbol}
+                  imageUrl={quoteImageUrl}
+                  className="rounded-[var(--radius-sm)] px-1 py-0.5 shadow-none"
+                />
+              </div>
+              <div className="mt-1.5">
+                <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+              </div>
             </div>
 
-            <div className="min-w-0 shrink-0 sm:text-right">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:justify-end">
+            <div className="min-w-0 shrink-0 sm:pt-0.5">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <p
                   className="tabular text-[1.5rem] font-semibold leading-none tracking-tight text-[var(--fg)] sm:text-[1.75rem]"
                   data-testid="token-price-primary"
                 >
-                  {priceUsd ?? priceQuote ?? '—'}
+                  {headlinePrice}
                 </p>
                 <p
                   className={`tabular font-mono text-[12px] tracking-wide ${changeTone}`}
@@ -163,7 +196,7 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
 
       {showAbout ? (
         <section
-          className="mt-3 border-b border-[var(--divider)] pb-3"
+          className="mt-2 border-t border-[var(--divider)] pt-2.5"
           aria-labelledby="token-about-heading"
           data-testid="token-about"
         >
@@ -174,12 +207,12 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
             About
           </h2>
           {description ? (
-            <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]">
+            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]">
               {description}
             </p>
           ) : null}
           {aboutLinks.length > 0 ? (
-            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+            <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
               {aboutLinks.map((link) => (
                 <li key={link.label}>
                   <a
@@ -197,21 +230,20 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
         </section>
       ) : null}
 
-      {/* Compact stats strip */}
+      {/* Headline market metrics — Price / FDV / Volume / Holders */}
       <div
-        className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-[var(--divider)] pb-2.5 font-mono text-[11px] tracking-wide text-[var(--muted)]"
+        className="mt-3 flex flex-wrap items-start gap-x-5 gap-y-2 border-y border-[var(--divider)] py-3 sm:gap-x-6 lg:gap-x-8"
         data-testid="token-metrics"
       >
-        {metrics.map((m, i) => (
-          <span key={m.label} className="inline-flex items-baseline gap-1.5">
-            {i > 0 ? (
-              <span className="mr-1 text-[var(--divider)]" aria-hidden>
-                ·
-              </span>
-            ) : null}
-            <span className="uppercase tracking-[0.12em] text-[var(--muted-2)]">{m.label}</span>
-            <span className="tabular font-semibold text-[var(--fg)]">{m.value}</span>
-          </span>
+        {metrics.map((m) => (
+          <div key={m.label} className="min-w-0 shrink-0" data-testid={m.testId}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+              {m.label}
+            </p>
+            <p className="mt-0.5 tabular text-[15px] font-semibold tracking-tight text-[var(--fg)] sm:text-[16px]">
+              {m.value}
+            </p>
+          </div>
         ))}
       </div>
       {!fdv ? (
@@ -224,19 +256,23 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
         </p>
       )}
 
-      {/* Chart + market details — aligned block */}
+      {/*
+        Desktop: independent columns — left PRICE → Recent Trades; right Buy/Sell → MARKET.
+        Mobile: PRICE → Buy/Sell → Recent Trades → MARKET (`contents` + order).
+      */}
       <div
-        className="mt-4 grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5"
+        className="mt-3 grid gap-3 lg:grid-cols-12 lg:items-start lg:gap-x-5"
         data-testid="token-market-main"
       >
         <div
-          className="flex min-w-0 flex-col gap-4 lg:col-span-8"
+          className="contents lg:col-span-8 lg:flex lg:flex-col lg:gap-3"
           data-testid="token-market-primary"
         >
           <section
-            className="min-w-0"
+            className="order-1 min-w-0 lg:order-none"
             aria-labelledby="token-price-panel-heading"
             data-testid="token-price-panel"
+            data-region="token-market-primary"
           >
             <TokenPriceChart
               tokenAddress={token.tokenAddress}
@@ -249,67 +285,126 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
             />
           </section>
 
-          <TokenRecentTrades
-            tokenAddress={token.tokenAddress}
-            quoteSymbol={quoteSymbol}
-          />
+          <div className="order-3 min-w-0 lg:order-none" data-testid="token-market-trades">
+            <TokenRecentTrades
+              tokenAddress={token.tokenAddress}
+              quoteSymbol={quoteSymbol}
+            />
+          </div>
         </div>
 
-        <section
-          className="min-w-0 lg:col-span-4"
-          aria-labelledby="token-market-details-heading"
-          data-testid="token-market-details"
+        <aside
+          className="contents lg:col-span-4 lg:flex lg:flex-col lg:gap-3"
+          data-testid="token-market-side"
         >
-          <h2
-            id="token-market-details-heading"
-            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+          <div className="order-2 min-w-0 lg:order-none">
+            <TokenBuySell
+              tokenAddress={token.tokenAddress}
+              symbol={token.symbol}
+              tokenDecimals={token.decimals}
+              quoteAsset={token.quoteAsset}
+              quoteSymbol={quoteSymbol}
+              currency0={token.currency0}
+              currency1={token.currency1}
+              poolFee={token.poolFee}
+              tickSpacing={token.tickSpacing}
+              hooks={token.hooks}
+            />
+          </div>
+
+          <section
+            className="order-4 min-w-0 lg:order-none"
+            aria-labelledby="token-market-details-heading"
+            data-testid="token-market-details"
           >
-            Market
-          </h2>
-          <dl className="mt-1 rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-1">
-            <DetailRow label="Pair">
-              <span data-testid="token-detail-pair">
-                ${token.symbol} / {quoteSymbol}
-              </span>
-            </DetailRow>
-            <DetailRow label="Holders">
-              <span>{holders ?? '—'}</span>
-            </DetailRow>
-            <DetailRow label="Launched">
-              <span>{age}</span>
-            </DetailRow>
-            <DetailRow label="Status">
-              <span data-testid="token-status">{status}</span>
-            </DetailRow>
-            {showProgress ? (
-              <DetailRow label="Bonding">
-                <span data-testid="token-bonding-progress">
-                  {formatProgressPercent(token.launchProgressBps)}
-                </span>
-              </DetailRow>
-            ) : null}
-            <DetailRow label="Contract">
-              <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
-            </DetailRow>
-            <DetailRow label="Pool">
-              <span className="font-mono text-[11px]" title={token.poolId}>
-                {truncateAddress(token.poolId, 6, 4)}
-              </span>
-              <span className="sr-only" data-testid="token-pool-id">
-                {token.poolId}
-              </span>
-            </DetailRow>
-            <DetailRow label="Deployer">
-              <ContractCopy address={token.deployerAddress} className="min-h-0 py-0" />
-            </DetailRow>
-            <DetailRow label="Creator">
-              <ContractCopy address={token.creatorId} className="min-h-0 py-0" />
-              <span className="sr-only" data-testid="token-creator-id">
-                {token.creatorId}
-              </span>
-            </DetailRow>
-          </dl>
-        </section>
+            <h2
+              id="token-market-details-heading"
+              className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+            >
+              Market
+            </h2>
+            <dl className="mt-1.5 rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-0.5">
+              <MarketGroup>
+                <DetailRow label="Pair">
+                  <span
+                    className="inline-flex items-center justify-end gap-1.5"
+                    data-testid="token-detail-pair"
+                  >
+                    <span className="font-mono text-[12px]">${token.symbol}</span>
+                    <span className="text-[var(--muted-2)]" aria-hidden>
+                      /
+                    </span>
+                    <QuoteAssetBadge
+                      symbol={quoteSymbol}
+                      imageUrl={quoteImageUrl}
+                      className="rounded-[var(--radius-sm)] px-1 py-0.5 shadow-none"
+                    />
+                  </span>
+                </DetailRow>
+                <DetailRow label="Holders">
+                  <span data-testid="token-detail-holders">{holders ?? '—'}</span>
+                </DetailRow>
+                <DetailRow label="Launched">
+                  <span data-testid="token-detail-launched">{age}</span>
+                </DetailRow>
+                {showProgress ? (
+                  <DetailRow label="Bonding">
+                    <span data-testid="token-bonding-progress">
+                      {formatProgressPercent(token.launchProgressBps)}
+                    </span>
+                  </DetailRow>
+                ) : null}
+              </MarketGroup>
+
+              <MarketGroup>
+                <DetailRow label="Contract">
+                  <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+                </DetailRow>
+                <DetailRow label="Pool">
+                  <span className="font-mono text-[11px]" title={token.poolId}>
+                    {truncateAddress(token.poolId, 6, 4)}
+                  </span>
+                  <span className="sr-only" data-testid="token-pool-id">
+                    {token.poolId}
+                  </span>
+                </DetailRow>
+                <DetailRow label="Deployer">
+                  <ContractCopy address={token.deployerAddress} className="min-h-0 py-0" />
+                </DetailRow>
+                <DetailRow label="Creator">
+                  <ContractCopy address={token.creatorId} className="min-h-0 py-0" />
+                  <span className="sr-only" data-testid="token-creator-id">
+                    {token.creatorId}
+                  </span>
+                </DetailRow>
+              </MarketGroup>
+
+              <MarketGroup>
+                <DetailRow label="Trading fee">
+                  <span data-testid="token-detail-trading-fee">{tradingFee ?? '—'}</span>
+                </DetailRow>
+                <DetailRow label="Creator share">
+                  <span
+                    data-testid="token-detail-creator-share"
+                    title="Share of collected trading fees"
+                  >
+                    {creatorShare ?? '—'}
+                  </span>
+                </DetailRow>
+                <DetailRow label="Creator earnings">
+                  <span data-testid="token-detail-creator-earnings">
+                    {creatorEarnings ?? '—'}
+                  </span>
+                </DetailRow>
+                <DetailRow label="Protocol buyback">
+                  <span data-testid="token-detail-protocol-buyback">
+                    {protocolBuyback ?? '—'}
+                  </span>
+                </DetailRow>
+              </MarketGroup>
+            </dl>
+          </section>
+        </aside>
       </div>
     </div>
   );

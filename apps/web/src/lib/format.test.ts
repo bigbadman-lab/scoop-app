@@ -3,6 +3,7 @@ import {
   displayCompactUsdMarketValue,
   displayFdv,
   displayHolderCount,
+  displayLifetimeEthFee,
   displayMarketVolume24h,
   displayPriceChangeBps,
   displayTokenPrice,
@@ -10,7 +11,9 @@ import {
   displayVolume24h,
   formatCompactAge,
   formatCompactUsdMarketValue,
+  formatFeeSplitPercent,
   formatNewsAge,
+  formatPoolTradingFeePercent,
   formatProgressPercent,
   formatRelativeTime,
   truncateAddress,
@@ -135,5 +138,16 @@ describe('format helpers', () => {
         quoteSymbol: 'ETH',
       }),
     ).toBeNull();
+  });
+
+  it('formats pool trading fee and fee-split percents without raw Uniswap integers', () => {
+    expect(formatPoolTradingFeePercent(10000)).toBe('1%');
+    expect(formatPoolTradingFeePercent(3000)).toBe('0.3%');
+    expect(formatPoolTradingFeePercent(null)).toBeNull();
+    expect(formatFeeSplitPercent(7000)).toBe('70%');
+    expect(formatFeeSplitPercent(2000)).toBe('20%');
+    expect(displayLifetimeEthFee(null)).toBeNull();
+    expect(displayLifetimeEthFee('0')).toBe('0 ETH');
+    expect(displayLifetimeEthFee('0.25')).toBe('0.25 ETH');
   });
 });

@@ -1,7 +1,6 @@
 import { NowSection } from '@/components/home/NowSection';
 import { DiscoverSection, DEFAULT_DISCOVER_TAB } from '@/components/home/DiscoverSection';
 import { ProtocolSection } from '@/components/home/ProtocolSection';
-import { SiteFooter } from '@/components/home/SiteFooter';
 import {
   loadDiscoverTab,
   type DiscoverTabResult,
@@ -52,7 +51,6 @@ export default async function HomePage() {
         catalogue={catalogue}
       />
       <ProtocolSection />
-      <SiteFooter />
     </main>
   );
 }

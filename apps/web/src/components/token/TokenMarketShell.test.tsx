@@ -24,6 +24,10 @@ vi.mock('@/components/token/TokenRecentTrades', () => ({
   TokenRecentTrades: () => <div data-testid="token-recent-trades-stub">Recent trades</div>,
 }));
 
+vi.mock('@/components/token/TokenBuySell', () => ({
+  TokenBuySell: () => <div data-testid="token-buy-sell-stub">Trade</div>,
+}));
+
 function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
   return {
     chainId: 4663,
@@ -83,6 +87,15 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     initialTokenInventoryRaw: null,
     currentTokenInventoryRaw: null,
     sourceBlock: null,
+    poolFee: 10000,
+    currency0: '0x0000000000000000000000000000000000000000',
+    currency1: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+    tickSpacing: 10,
+    hooks: '0x0000000000000000000000000000000000000000',
+    creatorFeesLifetimeEthRaw: null,
+    creatorFeesLifetimeEthDisplay: null,
+    buybackFeesLifetimeEthRaw: null,
+    buybackFeesLifetimeEthDisplay: null,
     ...overrides,
   };
 }
@@ -139,50 +152,103 @@ describe('displayVolume24hMetric', () => {
 
 describe('TokenMarketShell', () => {
   it('renders HELLO identity, pair, prices, metrics, and market details', () => {
-    render(<TokenMarketShell token={baseToken()} quoteSymbol="ETH" />);
+    render(
+      <TokenMarketShell
+        token={baseToken()}
+        quoteSymbol="ETH"
+        quoteImageUrl="https://example.com/eth.png"
+      />,
+    );
 
     expect(screen.getByTestId('token-market-shell')).toBeTruthy();
-    expect(screen.getByTestId('token-pair').textContent).toBe('$HELLO / ETH');
+    expect(screen.getByTestId('token-pair').textContent).toMatch(/\$HELLO/);
+    expect(screen.getByTestId('token-pair').textContent).toMatch(/ETH/);
+    expect(screen.getByTestId('token-detail-pair').textContent).toMatch(/\$HELLO/);
+    expect(screen.getByTestId('token-detail-pair').textContent).toMatch(/ETH/);
+    expect(screen.getAllByTestId('quote-asset-badge').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Hello World')).toBeTruthy();
     expect(screen.getByTestId('token-price-primary').textContent).toContain('$0.000005031');
     expect(screen.getByTestId('token-price-quote').textContent).toBe('0.000000002031 ETH');
     expect(screen.getByTestId('token-change-24h').textContent).toMatch(/-1\.5%/);
-    expect(screen.getByText('$5.03K')).toBeTruthy();
-    expect(screen.getByText('0.108 ETH')).toBeTruthy();
-    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('2d').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByTestId('token-status').textContent).toBe('New');
+    expect(screen.getByTestId('token-metric-price').textContent).toMatch(/\$0\.000005031/);
+    expect(screen.getByTestId('token-metric-fdv').textContent).toMatch(/\$5\.03K/);
+    expect(screen.getByTestId('token-metric-volume').textContent).toMatch(/0\.108 ETH/);
+    expect(screen.getByTestId('token-metric-holders').textContent).toMatch(/2/);
+    expect(screen.getByTestId('token-detail-launched').textContent).toBe('2d');
+    expect(screen.queryByTestId('token-status')).toBeNull();
+    expect(screen.queryByText('Overview')).toBeNull();
+    expect(screen.queryByText('Contracts')).toBeNull();
+    expect(screen.queryByText('Economics')).toBeNull();
     expect(screen.getByTestId('token-bonding-progress').textContent).toBe('51%');
     expect(screen.getByTestId('token-pool-id').textContent).toMatch(/^0xe9ee/);
     expect(screen.getByTestId('token-creator-id').textContent).toBe(
       '0x1111111111111111111111111111111111111111',
     );
+    expect(screen.getByTestId('token-detail-trading-fee').textContent).toMatch(/1%/);
+    expect(screen.getByTestId('token-detail-creator-share').textContent).toMatch(/70%/);
+    expect(screen.getByTestId('token-detail-creator-earnings').textContent).toMatch(/—/);
+    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toMatch(/—/);
     expect(screen.getByTestId('token-fdv-label').textContent).toBe('FDV');
     expect(screen.queryByText(/market\s*cap/i)).toBeNull();
     expect(screen.getByRole('img', { name: /hello world/i }).getAttribute('src')).toBe(
       'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
     );
-    expect(screen.getByTestId('token-market-shell').getAttribute('data-layout')).toBe('compact');
+    expect(screen.getByTestId('token-market-shell').getAttribute('data-layout')).toBe('v2');
     expect(screen.getByTestId('token-market-main').className).toMatch(/lg:grid-cols-12/);
+    expect(screen.getByTestId('token-market-main').className).toMatch(/lg:items-start/);
     expect(screen.getByTestId('token-market-primary').className).toMatch(/lg:col-span-8/);
+    expect(screen.getByTestId('token-market-primary').className).toMatch(/\bcontents\b/);
+    expect(screen.getByTestId('token-price-panel').className).not.toMatch(/row-span/);
     expect(screen.getByTestId('token-recent-trades-stub')).toBeTruthy();
-    expect(screen.getByTestId('token-market-details').className).toMatch(/lg:col-span-4/);
+    expect(screen.getByTestId('token-market-details').className).toMatch(/min-w-0/);
+    expect(screen.getByTestId('token-buy-sell-stub')).toBeTruthy();
+    expect(screen.getByTestId('token-market-side').className).toMatch(/lg:col-span-4/);
+    expect(screen.getByTestId('token-market-side').className).toMatch(/\bcontents\b/);
     expect(screen.getByTestId('token-about').textContent).toMatch(/Hello from SCOOP/);
     // ABOUT sits under identity and before the chart/market main block
     expect(
       screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-price-panel')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    // Recent Trades sits beneath PRICE in the primary column
-    expect(
-      screen.getByTestId('token-price-panel').compareDocumentPosition(
-        screen.getByTestId('token-recent-trades-stub'),
-      ) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // Mobile visual order: chart → buy/sell → recent trades → market
+    expect(screen.getByTestId('token-price-panel').className).toMatch(/order-1/);
+    expect(screen.getByTestId('token-buy-sell-stub').parentElement?.className).toMatch(/order-2/);
+    expect(screen.getByTestId('token-market-trades').className).toMatch(/order-3/);
+    expect(screen.getByTestId('token-market-details').className).toMatch(/order-4/);
+    // Desktop: trades live in the left column (not full-width under both rails)
+    expect(screen.getByTestId('token-market-trades').className).not.toMatch(/lg:col-span-12/);
+    expect(screen.getByTestId('token-market-primary').contains(screen.getByTestId('token-market-trades'))).toBe(
+      true,
+    );
+    expect(screen.getByTestId('token-market-side').contains(screen.getByTestId('token-buy-sell-stub'))).toBe(
+      true,
+    );
+    expect(screen.getByTestId('token-market-side').contains(screen.getByTestId('token-market-details'))).toBe(
+      true,
+    );
     expect(
       screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-metrics')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('shows lifetime creator earnings and genuine zero buyback without faking null as $0', () => {
+    render(
+      <TokenMarketShell
+        token={baseToken({
+          creatorFeesLifetimeEthRaw: '250000000000000000',
+          creatorFeesLifetimeEthDisplay: '0.25',
+          buybackFeesLifetimeEthRaw: '0',
+          buybackFeesLifetimeEthDisplay: '0',
+          poolFee: null,
+        })}
+        quoteSymbol="ETH"
+      />,
+    );
+    expect(screen.getByTestId('token-detail-creator-earnings').textContent).toBe('0.25 ETH');
+    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toBe('0 ETH');
+    expect(screen.getByTestId('token-detail-trading-fee').textContent).toMatch(/—/);
+    expect(screen.queryByText(/^\$0$/)).toBeNull();
   });
 
   it('keeps tiny quote price visible and never collapses to $0', () => {
@@ -230,7 +296,7 @@ describe('TokenMarketShell', () => {
       />,
     );
     expect(screen.getByLabelText(/24 hour change \+12\.4%/i)).toBeTruthy();
-    expect(screen.getByTestId('token-status').textContent).toBe('Bonded');
+    expect(screen.queryByTestId('token-status')).toBeNull();
     expect(screen.queryByTestId('token-bonding-progress')).toBeNull();
   });
 

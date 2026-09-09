@@ -175,6 +175,13 @@ describe('query validation / SQL mapping', () => {
         initial_token_inventory_raw: null,
         current_token_inventory_raw: null,
         source_block: 55863290,
+        pool_fee: 10000,
+        currency0: '0x0000000000000000000000000000000000000000',
+        currency1: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+        tick_spacing: 10,
+        hooks: '0x0000000000000000000000000000000000000000',
+        creator_eth_raw: '500000000000000000',
+        buyback_eth_raw: '0',
       },
     ]);
     const token = await getToken(
@@ -193,6 +200,14 @@ describe('query validation / SQL mapping', () => {
       'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
     );
     expect(token?.imageUri).toBe('');
+    expect(token?.poolFee).toBe(10000);
+    expect(token?.tickSpacing).toBe(10);
+    expect(token?.currency0).toBe('0x0000000000000000000000000000000000000000');
+    expect(token?.currency1).toBe('0x2284ed0e4d446c6d78ac2d49a68bae822fd87373');
+    expect(token?.hooks).toBe('0x0000000000000000000000000000000000000000');
+    expect(token?.creatorFeesLifetimeEthDisplay).toBe('0.5');
+    expect(token?.buybackFeesLifetimeEthRaw).toBe('0');
+    expect(token?.buybackFeesLifetimeEthDisplay).toBe('0');
   });
 
   it('getTrades left-joins confirmation_status and keeps attribution type', async () => {

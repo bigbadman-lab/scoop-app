@@ -1,10 +1,15 @@
 import { SCOOP_CHAIN_ID, loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
-import { quoteDisplaySymbol } from '@/lib/quotes/resolve';
+import { quoteCatalogueImageUrl, quoteDisplaySymbol } from '@/lib/quotes/resolve';
 import { getToken, serverDb, type TokenDetail } from '@/lib/server/queries';
 import { ValidationError, parseAddress } from '@/lib/server/validate';
 
 export type TokenPageLoadResult =
-  | { status: 'ok'; token: TokenDetail; quoteSymbol: string }
+  | {
+      status: 'ok';
+      token: TokenDetail;
+      quoteSymbol: string;
+      quoteImageUrl: string | null;
+    }
   | { status: 'invalid' }
   | { status: 'not_found' }
   | { status: 'unavailable' };
@@ -32,6 +37,7 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
       status: 'ok',
       token,
       quoteSymbol: quoteDisplaySymbol(token.quoteAsset, catalogue),
+      quoteImageUrl: quoteCatalogueImageUrl(token.quoteAsset, catalogue),
     };
   } catch (error) {
     console.error(

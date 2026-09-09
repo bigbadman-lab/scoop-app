@@ -24,6 +24,7 @@ describe('loadTokenPage', () => {
         quoteAsset: '0x0000000000000000000000000000000000000000',
         displaySymbol: 'ETH',
         symbol: 'ETH',
+        imageUrl: 'https://example.com/eth.png',
       },
     ]);
   });
@@ -40,7 +41,7 @@ describe('loadTokenPage', () => {
     ).resolves.toEqual({ status: 'not_found' });
   });
 
-  it('returns ok token with catalogue quote symbol', async () => {
+  it('returns ok token with catalogue quote symbol and image', async () => {
     getToken.mockResolvedValue({
       tokenAddress: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
       quoteAsset: '0x0000000000000000000000000000000000000000',
@@ -50,6 +51,7 @@ describe('loadTokenPage', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.quoteSymbol).toBe('ETH');
+      expect(result.quoteImageUrl).toBe('https://example.com/eth.png');
       expect(result.token.symbol).toBe('HELLO');
     }
     expect(getToken).toHaveBeenCalledWith(

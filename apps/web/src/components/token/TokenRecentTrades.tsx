@@ -100,7 +100,7 @@ export function TokenRecentTrades({ tokenAddress, quoteSymbol }: Props) {
       </h2>
 
       <div
-        className="mt-2 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)]"
+        className="mt-1.5 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)]"
         data-testid="token-recent-trades-frame"
       >
         {state.status === 'loading' ? (

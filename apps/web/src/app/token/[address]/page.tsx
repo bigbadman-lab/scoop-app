@@ -10,7 +10,7 @@ export default async function TokenPage({ params }: Props) {
   const result = await loadTokenPage(address);
 
   return (
-    <main className="mx-auto max-w-[1400px] px-4 py-5 md:px-8 md:py-6 lg:px-10">
+    <main className="mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-5 lg:px-10">
       {result.status === 'invalid' ? (
         <TokenMarketUnavailable
           title="Invalid market"
@@ -30,7 +30,11 @@ export default async function TokenPage({ params }: Props) {
         />
       ) : null}
       {result.status === 'ok' ? (
-        <TokenMarketShell token={result.token} quoteSymbol={result.quoteSymbol} />
+        <TokenMarketShell
+          token={result.token}
+          quoteSymbol={result.quoteSymbol}
+          quoteImageUrl={result.quoteImageUrl}
+        />
       ) : null}
     </main>
   );

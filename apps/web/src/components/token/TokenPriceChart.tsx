@@ -397,7 +397,7 @@ export function TokenPriceChart({
   const basisText = basis ? chartBasisLabel(basis, quoteSymbol) : null;
 
   return (
-    <div data-testid="token-price-chart" className="flex h-full min-w-0 flex-col">
+    <div data-testid="token-price-chart" className="flex min-w-0 flex-col">
       <div className="min-w-0">
         <h2
           id="token-price-panel-heading"
@@ -429,14 +429,14 @@ export function TokenPriceChart({
       </p>
 
       <div
-        className="relative mt-2 min-h-0 flex-1 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)]"
+        className="relative mt-2 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)]"
         data-testid="token-chart-frame"
       >
         {state.status === 'ready' ? (
           <>
             <div
               ref={containerRef}
-              className="h-[20rem] w-full sm:h-[24rem] lg:h-[28rem]"
+              className="h-[18rem] w-full sm:h-[22rem] lg:h-[26.25rem]"
               data-testid="token-chart-canvas"
               data-series="candlestick"
               data-chart-mode="price"
@@ -452,7 +452,7 @@ export function TokenPriceChart({
             ) : null}
           </>
         ) : (
-          <div className="flex h-[20rem] items-center justify-center px-6 sm:h-[24rem] lg:h-[28rem]">
+          <div className="flex h-[18rem] items-center justify-center px-6 sm:h-[22rem] lg:h-[26.25rem]">
             {state.status === 'loading' ? (
               <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                 Loading price history

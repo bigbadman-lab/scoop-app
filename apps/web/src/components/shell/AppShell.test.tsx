@@ -2,14 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { DesktopSidebar } from '@/components/shell/DesktopSidebar';
 import { MobileBottomNav } from '@/components/shell/MobileBottomNav';
+import { AppShell } from '@/components/shell/AppShell';
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/token/0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+}));
 
 vi.mock('next/image', () => ({
-  default: (props: { alt: string; priority?: boolean }) => {
+  default: (props: { alt: string; priority?: boolean; src?: string }) => {
     const { priority: _p, ...rest } = props;
     void _p;
     // eslint-disable-next-line @next/next/no-img-element
     return <img {...rest} alt={props.alt} />;
   },
+}));
+
+vi.mock('@/components/shell/WalletSlot', () => ({
+  WalletSlot: () => <div data-testid="wallet-slot-stub" />,
+}));
+
+vi.mock('@/components/home/AnnouncementBar', () => ({
+  AnnouncementBar: () => null,
+}));
+
+vi.mock('@/lib/announcements', () => ({
+  getActiveAnnouncement: () => null,
 }));
 
 describe('desktop and mobile shell', () => {
@@ -30,5 +47,20 @@ describe('desktop and mobile shell', () => {
     expect(screen.getByText('Create').closest('a')).toBeTruthy();
     expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
+  });
+
+  it('mounts exactly one shared SiteFooter after page content', () => {
+    render(
+      <AppShell>
+        <main data-testid="page-main">Token market</main>
+      </AppShell>,
+    );
+    const footers = screen.getAllByTestId('site-footer');
+    expect(footers).toHaveLength(1);
+    expect(
+      screen.getByTestId('page-main').compareDocumentPosition(footers[0]!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/legal/terms');
   });
 });

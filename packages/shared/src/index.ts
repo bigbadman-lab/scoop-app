@@ -6,6 +6,7 @@ import {
 } from '@scoop/contracts';
 import { mulDiv, Q96 } from './fixedPoint.js';
 
+export { scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 export { Q96, mulDiv } from './fixedPoint.js';
 export {
   getAmount0ForLiquidity,

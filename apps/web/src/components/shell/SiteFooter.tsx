@@ -61,7 +61,10 @@ function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) 
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-[var(--divider)] bg-[var(--bg)]">
+    <footer
+      className="border-t border-[var(--divider)] bg-[var(--bg)]"
+      data-testid="site-footer"
+    >
       <div className="mx-auto max-w-[1400px] px-4 py-16 md:px-8 md:py-20 lg:px-10">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-4">

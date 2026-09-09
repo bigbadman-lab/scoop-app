@@ -12,6 +12,17 @@ export function quoteDisplaySymbol(
   return truncateShort(quoteAsset);
 }
 
+/** Catalogue image for quote badge — null when missing (monogram fallback). */
+export function quoteCatalogueImageUrl(
+  quoteAsset: string,
+  catalogue: readonly PublicQuoteCatalogueItem[],
+): string | null {
+  const key = quoteAsset.trim().toLowerCase();
+  const hit = catalogue.find((q) => q.quoteAsset.toLowerCase() === key);
+  const url = hit?.imageUrl?.trim();
+  return url || null;
+}
+
 function truncateShort(address: string): string {
   const v = address.trim();
   if (v.length < 10) return v.toUpperCase();

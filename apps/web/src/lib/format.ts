@@ -219,3 +219,39 @@ export function displayHolderCount(
   const count = Math.max(0, Math.floor(n));
   return `${count} holder${count === 1 ? '' : 's'}`;
 }
+
+/**
+ * Uniswap pool fee → percent label.
+ * Fee is hundredths of a bip (10000 = 1%). Never show the raw integer as a fee %.
+ */
+export function formatPoolTradingFeePercent(
+  poolFee: number | null | undefined,
+): string | null {
+  if (poolFee == null || !Number.isFinite(poolFee) || poolFee < 0) return null;
+  const pct = poolFee / 10_000;
+  if (pct === 0) return '0%';
+  const rounded = Math.round(pct * 100) / 100;
+  return `${rounded}%`;
+}
+
+/** Protocol fee-split bps (e.g. 7000) → percent label (70%). */
+export function formatFeeSplitPercent(bps: number | null | undefined): string | null {
+  if (bps == null || !Number.isFinite(bps) || bps < 0) return null;
+  const pct = bps / 100;
+  if (Number.isInteger(pct)) return `${pct}%`;
+  return `${Math.round(pct * 100) / 100}%`;
+}
+
+/**
+ * Lifetime fee accrual in ETH (or other native-like asset).
+ * null → unavailable (—); genuine "0" display → "0 ETH".
+ */
+export function displayLifetimeEthFee(
+  amountDisplay: string | null | undefined,
+  symbol = 'ETH',
+): string | null {
+  if (amountDisplay == null) return null;
+  const trimmed = amountDisplay.trim();
+  if (!trimmed) return null;
+  return `${trimmed} ${symbol}`;
+}
