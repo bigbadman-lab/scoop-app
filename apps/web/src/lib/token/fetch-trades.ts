@@ -53,11 +53,11 @@ export async function fetchTokenTrades(args: {
       signal: args.signal,
     });
     if (!res.ok) {
-      return { ok: false, error: 'Chart data unavailable' };
+      return { ok: false, error: 'Trades unavailable' };
     }
     const body = (await res.json()) as { items?: TradeItem[] };
     if (!Array.isArray(body.items)) {
-      return { ok: false, error: 'Chart data unavailable' };
+      return { ok: false, error: 'Trades unavailable' };
     }
     cache.set(key, body.items);
     return { ok: true, items: body.items };
@@ -65,6 +65,6 @@ export async function fetchTokenTrades(args: {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return { ok: false, error: 'aborted' };
     }
-    return { ok: false, error: 'Chart data unavailable' };
+    return { ok: false, error: 'Trades unavailable' };
   }
 }

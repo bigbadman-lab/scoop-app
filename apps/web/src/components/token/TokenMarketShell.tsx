@@ -13,6 +13,7 @@ import {
 import { ContractCopy } from '@/components/ui/ContractCopy';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
+import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import {
   shouldShowBondingProgress,
@@ -225,24 +226,34 @@ export function TokenMarketShell({ token, quoteSymbol }: Props) {
 
       {/* Chart + market details — aligned block */}
       <div
-        className="mt-4 grid gap-4 lg:grid-cols-12 lg:items-stretch lg:gap-5"
+        className="mt-4 grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5"
         data-testid="token-market-main"
       >
-        <section
-          className="min-w-0 lg:col-span-8"
-          aria-labelledby="token-price-panel-heading"
-          data-testid="token-price-panel"
+        <div
+          className="flex min-w-0 flex-col gap-4 lg:col-span-8"
+          data-testid="token-market-primary"
         >
-          <TokenPriceChart
+          <section
+            className="min-w-0"
+            aria-labelledby="token-price-panel-heading"
+            data-testid="token-price-panel"
+          >
+            <TokenPriceChart
+              tokenAddress={token.tokenAddress}
+              symbol={token.symbol}
+              quoteSymbol={quoteSymbol}
+              totalSupplyRaw={token.totalSupplyRaw}
+              tokenDecimals={token.decimals}
+              currentPriceUsdX18={token.priceUsdX18}
+              currentPriceQuoteX18={token.priceQuoteX18}
+            />
+          </section>
+
+          <TokenRecentTrades
             tokenAddress={token.tokenAddress}
-            symbol={token.symbol}
             quoteSymbol={quoteSymbol}
-            totalSupplyRaw={token.totalSupplyRaw}
-            tokenDecimals={token.decimals}
-            currentPriceUsdX18={token.priceUsdX18}
-            currentPriceQuoteX18={token.priceQuoteX18}
           />
-        </section>
+        </div>
 
         <section
           className="min-w-0 lg:col-span-4"

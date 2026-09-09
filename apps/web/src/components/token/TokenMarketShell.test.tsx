@@ -20,6 +20,10 @@ vi.mock('@/components/token/TokenPriceChart', () => ({
   TokenPriceChart: () => <div data-testid="token-price-chart-stub">Price chart</div>,
 }));
 
+vi.mock('@/components/token/TokenRecentTrades', () => ({
+  TokenRecentTrades: () => <div data-testid="token-recent-trades-stub">Recent trades</div>,
+}));
+
 function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
   return {
     chainId: 4663,
@@ -160,13 +164,20 @@ describe('TokenMarketShell', () => {
     );
     expect(screen.getByTestId('token-market-shell').getAttribute('data-layout')).toBe('compact');
     expect(screen.getByTestId('token-market-main').className).toMatch(/lg:grid-cols-12/);
-    expect(screen.getByTestId('token-price-panel').className).toMatch(/lg:col-span-8/);
+    expect(screen.getByTestId('token-market-primary').className).toMatch(/lg:col-span-8/);
+    expect(screen.getByTestId('token-recent-trades-stub')).toBeTruthy();
     expect(screen.getByTestId('token-market-details').className).toMatch(/lg:col-span-4/);
     expect(screen.getByTestId('token-about').textContent).toMatch(/Hello from SCOOP/);
     // ABOUT sits under identity and before the chart/market main block
     expect(
       screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-price-panel')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // Recent Trades sits beneath PRICE in the primary column
+    expect(
+      screen.getByTestId('token-price-panel').compareDocumentPosition(
+        screen.getByTestId('token-recent-trades-stub'),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
       screen.getByTestId('token-about').compareDocumentPosition(screen.getByTestId('token-metrics')) &
