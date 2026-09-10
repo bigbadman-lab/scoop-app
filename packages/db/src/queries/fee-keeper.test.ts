@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listFeeKeeperMarkets } from './fee-keeper.js';
+import {
+  feeKeeperMarketsSqlForMode,
+  historicalFeeKeeperSqlReferencesP5Columns,
+  listFeeKeeperMarkets,
+} from './fee-keeper.js';
 import type { Queryable } from '../types.js';
 
 function mockDb(rows: unknown[]): Queryable {
@@ -11,34 +15,29 @@ function mockDb(rows: unknown[]): Queryable {
   } as unknown as Queryable;
 }
 
-describe('listFeeKeeperMarkets', () => {
-  it('maps rows and hardens SQL filters', async () => {
-    const db = mockDb([
-      {
-        chain_id: 4663,
-        token_address: '0xEeAb296d35169055c21F3d4Fc286111514e5E17f',
-        quote_asset: '0x0000000000000000000000000000000000000000',
-        pool_id:
-          '0x1111111111111111111111111111111111111111111111111111111111111111',
-        lp_token_id: '2004846',
-        liquidity_locker_address: '0xAa8445659A2424ee1BA33C232Ec05569c975193f',
-        fee_distributor_address: '0x187E2c017bcc52094A9086abAC94Dde7B680a988',
-        holder_rewards_address: null,
-        additional_fee: 0,
-        total_pool_fee: 10_000,
-        creator_allocation_destination: 0,
-        additional_fee_destination: 0,
-        creator_id:
-          '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
-        deployer_address: '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
-        launch_tx_hash:
-          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        launched_at: 1_700_000_000,
-        last_trade_at: 1_700_000_100,
-      },
-    ]);
+const PRE_P5_ROW = {
+  chain_id: 4663,
+  token_address: '0xEeAb296d35169055c21F3d4Fc286111514e5E17f',
+  quote_asset: '0x0000000000000000000000000000000000000000',
+  pool_id: '0x1111111111111111111111111111111111111111111111111111111111111111',
+  lp_token_id: '2004846',
+  liquidity_locker_address: '0xAa8445659A2424ee1BA33C232Ec05569c975193f',
+  fee_distributor_address: '0x187E2c017bcc52094A9086abAC94Dde7B680a988',
+  creator_id:
+    '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
+  deployer_address: '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
+  launch_tx_hash:
+    '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  launched_at: 1_700_000_000,
+  last_trade_at: 1_700_000_100,
+};
 
-    const markets = await listFeeKeeperMarkets(db, 4663);
+describe('listFeeKeeperMarkets', () => {
+  it('historical-test works against pre-P5 launches schema fixture', async () => {
+    const db = mockDb([PRE_P5_ROW]);
+    const markets = await listFeeKeeperMarkets(db, 4663, {
+      deploymentMode: 'historical-test',
+    });
     expect(markets).toHaveLength(1);
     expect(markets[0]?.tokenAddress).toBe(
       '0xeeab296d35169055c21f3d4fc286111514e5e17f',
@@ -48,16 +47,62 @@ describe('listFeeKeeperMarkets', () => {
     expect(markets[0]?.holderRewards).toBeNull();
     expect(markets[0]?.additionalFee).toBe(0);
     expect(markets[0]?.totalPoolFee).toBe(10_000);
+    expect(markets[0]?.creatorAllocationDestination).toBe(0);
+    expect(markets[0]?.additionalFeeDestination).toBe(0);
 
     const sql = String((db.query as ReturnType<typeof vi.fn>).mock.calls[0]![0]);
+    expect(historicalFeeKeeperSqlReferencesP5Columns(sql)).toBe(false);
+    expect(sql).not.toMatch(/holder_rewards_address/);
+    expect(sql).not.toMatch(/additional_fee/);
+    expect(sql).not.toMatch(/total_pool_fee/);
+    expect(sql).not.toMatch(/creator_allocation_destination/);
+    expect(sql).not.toMatch(/additional_fee_destination/);
     expect(sql).toMatch(/l\.lp_token_id > 0/);
     expect(sql).toMatch(/p\.lp_token_id = l\.lp_token_id/);
-    expect(sql).toMatch(/liquidity_locker_address/);
-    expect(sql).toMatch(/fee_distributor_address/);
+  });
+
+  it('canonical-production SQL references P5 columns and maps them', async () => {
+    const db = mockDb([
+      {
+        ...PRE_P5_ROW,
+        holder_rewards_address: '0x5555555555555555555555555555555555555555',
+        additional_fee: 10_000,
+        total_pool_fee: 20_000,
+        creator_allocation_destination: 1,
+        additional_fee_destination: 2,
+      },
+    ]);
+    const markets = await listFeeKeeperMarkets(db, 4663, {
+      deploymentMode: 'canonical-production',
+    });
+    expect(markets).toHaveLength(1);
+    expect(markets[0]?.holderRewards).toBe(
+      '0x5555555555555555555555555555555555555555',
+    );
+    expect(markets[0]?.additionalFee).toBe(10_000);
+    expect(markets[0]?.totalPoolFee).toBe(20_000);
+    expect(markets[0]?.creatorAllocationDestination).toBe(1);
+    expect(markets[0]?.additionalFeeDestination).toBe(2);
+
+    const sql = String((db.query as ReturnType<typeof vi.fn>).mock.calls[0]![0]);
+    expect(sql).toMatch(/holder_rewards_address/);
+    expect(sql).toMatch(/additional_fee/);
+    expect(sql).toMatch(/total_pool_fee/);
+    expect(sql).toMatch(/creator_allocation_destination/);
+    expect(sql).toMatch(/additional_fee_destination/);
+  });
+
+  it('exposes mode-specific SQL helpers for regression asserts', () => {
+    const historical = feeKeeperMarketsSqlForMode('historical-test');
+    const canonical = feeKeeperMarketsSqlForMode('canonical-production');
+    expect(historicalFeeKeeperSqlReferencesP5Columns(historical)).toBe(false);
+    expect(historicalFeeKeeperSqlReferencesP5Columns(canonical)).toBe(true);
   });
 
   it('rejects invalid chainId', async () => {
     const db = mockDb([]);
-    await expect(listFeeKeeperMarkets(db, 0)).rejects.toThrow(/Invalid chainId/);
+    await expect(
+      listFeeKeeperMarkets(db, 0, { deploymentMode: 'historical-test' }),
+    ).rejects.toThrow(/Invalid chainId/);
   });
 });

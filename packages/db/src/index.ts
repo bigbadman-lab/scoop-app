@@ -58,6 +58,8 @@ export {
   CANONICAL_QUOTE_CATALOGUE_COUNT,
   SCOOP_CHAIN_ID,
   listFeeKeeperMarkets,
+  feeKeeperMarketsSqlForMode,
+  historicalFeeKeeperSqlReferencesP5Columns,
   type GetTokensOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
@@ -74,6 +76,7 @@ export {
   type NewsArticleMarketBundle,
   type LaunchMarketReady,
   type FeeKeeperMarket,
+  type FeeKeeperDiscoveryMode,
 } from './queries/index.js';
 export type {
   DatabaseClientMode,

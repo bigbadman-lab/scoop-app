@@ -38,5 +38,8 @@ export {
 } from './quotes.js';
 export {
   listFeeKeeperMarkets,
+  feeKeeperMarketsSqlForMode,
+  historicalFeeKeeperSqlReferencesP5Columns,
   type FeeKeeperMarket,
+  type FeeKeeperDiscoveryMode,
 } from './fee-keeper.js';

@@ -160,7 +160,9 @@ export async function runFeeKeeper(
       (async (cfg: LoadedFeeKeeperConfig) => {
         const pool = createPool(cfg.databaseUrl);
         try {
-          return await listFeeKeeperMarkets(pool, cfg.chainId);
+          return await listFeeKeeperMarkets(pool, cfg.chainId, {
+            deploymentMode: cfg.deploymentMode,
+          });
         } finally {
           await pool.end();
         }
