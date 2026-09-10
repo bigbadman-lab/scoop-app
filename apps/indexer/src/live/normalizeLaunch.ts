@@ -88,6 +88,11 @@ export interface LaunchNormalizeInput {
     initialBuyQuoteRaw?: bigint | string | null;
     initialBuyTokensRaw?: bigint | string | null;
     launchLogIndex: number;
+    additionalFee?: number;
+    totalPoolFee?: number;
+    creatorAllocationDestination?: 0 | 1;
+    additionalFeeDestination?: 0 | 1 | 2;
+    holderRewardsAddress?: string | null;
   };
   protocol: {
     poolManager: string;
@@ -127,7 +132,12 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   const quoteAsset = normalizeAddress(input.launch.quoteAsset);
   const poolManager = normalizeAddress(input.protocol.poolManager);
   const positionManager = normalizeAddress(input.protocol.positionManager);
-  const poolFee = input.protocol.poolFee ?? BASE_FEE;
+  const poolFee =
+    input.protocol.poolFee ??
+    input.launch.totalPoolFee ??
+    (input.launch.additionalFee != null
+      ? BASE_FEE + input.launch.additionalFee
+      : BASE_FEE);
   const tickSpacing = input.protocol.tickSpacing ?? TICK_SPACING;
   const hooks = normalizeAddress(input.protocol.hooks ?? ZERO_ADDRESS);
   const confirmationStatus = input.confirmationStatus ?? 'confirmed';
@@ -210,6 +220,11 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     initialBuyQuoteRaw: input.launch.initialBuyQuoteRaw ?? null,
     initialBuyTokensRaw: input.launch.initialBuyTokensRaw ?? null,
     metadataHydrated: true,
+    additionalFee: input.launch.additionalFee ?? 0,
+    totalPoolFee: poolFee,
+    creatorAllocationDestination: input.launch.creatorAllocationDestination ?? 0,
+    additionalFeeDestination: input.launch.additionalFeeDestination ?? 0,
+    holderRewardsAddress: input.launch.holderRewardsAddress ?? null,
   });
 
   const swapEvent = input.decoded.find((e) => e.kind === 'Swap');
@@ -379,15 +394,20 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   }
 
   const holders = foldHolderBalances(holderTransfers);
+  const holderRewards = input.launch.holderRewardsAddress
+    ? normalizeAddress(input.launch.holderRewardsAddress)
+    : null;
   const system = new Set<string>([
     factory,
     poolManager,
     positionManager,
     locker,
     feeDistributor,
+    token,
     DEAD_ADDRESS,
     ZERO_ADDRESS,
   ]);
+  if (holderRewards) system.add(holderRewards);
 
   let holderCountAll = 0;
   let holderCountRetail = 0;
@@ -541,4 +561,24 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     relatedPool: poolId,
     activeFromBlock: blockNumber,
   });
+  await upsertAddressClassification(db, {
+    chainId,
+    address: token,
+    class: 'token',
+    label: 'ScoopToken',
+    relatedToken: token,
+    relatedPool: poolId,
+    activeFromBlock: blockNumber,
+  });
+  if (holderRewards) {
+    await upsertAddressClassification(db, {
+      chainId,
+      address: holderRewards,
+      class: 'holder_rewards',
+      label: 'HolderRewards',
+      relatedToken: token,
+      relatedPool: poolId,
+      activeFromBlock: blockNumber,
+    });
+  }
 }

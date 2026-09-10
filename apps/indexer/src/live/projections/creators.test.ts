@@ -72,7 +72,16 @@ describe('processCreatorEvents ETHCredited claimable projection', () => {
       blockTimestamp: 1n,
       txHash: '0xac4ed99fd3796d4e8c6141aff9a99b02a2570a5d5e8739969fe7d52e642a3cb1',
       events,
-      watchlist: { distributors: new Map(), tokens: new Set() } as Watchlist,
+      watchlist: {
+        distributors: new Map(),
+        tokens: new Map(),
+        pools: new Map(),
+        holderVaults: new Map(),
+        lockers: new Set(),
+        tokenAddresses: [],
+        distributorAddresses: [],
+        holderVaultAddresses: [],
+      } as Watchlist,
     });
 
     expect(upsertCreatorCredit).toHaveBeenCalledOnce();
@@ -121,7 +130,16 @@ describe('processCreatorEvents ETHCredited claimable projection', () => {
       blockTimestamp: 1n,
       txHash: '0xac4ed99fd3796d4e8c6141aff9a99b02a2570a5d5e8739969fe7d52e642a3cb1',
       events,
-      watchlist: { distributors: new Map(), tokens: new Set() } as Watchlist,
+      watchlist: {
+        distributors: new Map(),
+        tokens: new Map(),
+        pools: new Map(),
+        holderVaults: new Map(),
+        lockers: new Set(),
+        tokenAddresses: [],
+        distributorAddresses: [],
+        holderVaultAddresses: [],
+      } as Watchlist,
     };
 
     await processCreatorEvents(db as never, input);

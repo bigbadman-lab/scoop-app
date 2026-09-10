@@ -8,6 +8,7 @@ import {
 import { normalizeAddress, normalizeBytes32, ZERO_ADDRESS } from '@scoop/shared';
 import type { DecodedChainEvent } from '../decode.js';
 import type { Watchlist } from '../watchlist.js';
+import { normalizeFeeDistributionArgs } from './feeDistribution.js';
 
 export async function processCreatorEvents(
   db: Queryable,
@@ -31,6 +32,7 @@ export async function processCreatorEvents(
         ev.kind === 'TokenDistributed'
           ? normalizeAddress(String(ev.args.token))
           : ZERO_ADDRESS;
+      const legs = normalizeFeeDistributionArgs(ev.args);
       await upsertFeeDistribution(db, {
         chainId,
         feeDistributorAddress: ev.address,
@@ -42,11 +44,20 @@ export async function processCreatorEvents(
         blockNumber,
         blockHash,
         blockTimestamp,
-        totalRaw: BigInt(String(ev.args.totalAmount)),
-        creatorRaw: BigInt(String(ev.args.creatorRewardsAmount)),
-        deployerRaw: BigInt(String(ev.args.deployerAmount)),
-        buybackRaw: BigInt(String(ev.args.buybackAmount)),
-        operationsRaw: BigInt(String(ev.args.operationsAmount)),
+        totalRaw: legs.totalRaw,
+        creatorRaw: legs.creatorRaw,
+        deployerRaw: legs.deployerRaw,
+        buybackRaw: legs.buybackRaw,
+        operationsRaw: legs.operationsRaw,
+        baseCreatorRaw: legs.baseCreatorRaw,
+        baseHoldersRaw: legs.baseHoldersRaw,
+        baseDeployerRaw: legs.baseDeployerRaw,
+        baseProtocolRaw: legs.baseProtocolRaw,
+        baseOperationsRaw: legs.baseOperationsRaw,
+        extraCreatorRaw: legs.extraCreatorRaw,
+        extraDeployerRaw: legs.extraDeployerRaw,
+        extraHoldersRaw: legs.extraHoldersRaw,
+        holdersRaw: legs.holdersRaw,
       });
       continue;
     }

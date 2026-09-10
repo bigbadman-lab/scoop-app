@@ -18,6 +18,7 @@ export {
   type ScoopAccountBundle,
   type ScoopAccountLaunch,
   type ScoopFeeAssetLine,
+  type ScoopDeployerFeeBreakdownLine,
   type ScoopProfileRecord,
   type ScoopAccountWallet,
 } from './account.js';

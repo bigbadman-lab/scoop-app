@@ -57,6 +57,8 @@ describe('account attribution', () => {
           asset_kind: 'eth',
           asset_address: '0x0000000000000000000000000000000000000000',
           amount_raw: '1000000000000000000',
+          base_deployer_raw: '800000000000000000',
+          extra_deployer_raw: '200000000000000000',
         },
       ],
     ]);
@@ -67,6 +69,11 @@ describe('account attribution', () => {
       (deployerDb.query as ReturnType<typeof vi.fn>).mock.calls[0]![0],
     );
     expect(deployerSql).toMatch(/SUM\(fd\.deployer_raw\)/);
+    expect(deployerSql).toMatch(/SUM\(fd\.base_deployer_raw\)/);
+    expect(deployerSql).toMatch(/SUM\(fd\.extra_deployer_raw\)/);
+    expect(deployer[0]?.baseDeployerRaw).toBe('800000000000000000');
+    expect(deployer[0]?.extraDeployerRaw).toBe('200000000000000000');
+    expect(deployer[0]?.totalDeployerRaw).toBe('1000000000000000000');
     expect(deployerSql).not.toMatch(/creator_claimable_state/);
 
     const creatorDb = mockDb([

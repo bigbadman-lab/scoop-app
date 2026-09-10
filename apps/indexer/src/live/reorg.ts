@@ -44,20 +44,27 @@ export async function deleteFactsFromBlock(
   chainId: number,
   fromBlock: bigint,
 ): Promise<void> {
-  const tables = [
+  const blockColTables = [
     'trades',
     'transfers',
     'raw_chain_events',
     'fee_distributions',
     'creator_credits',
     'creator_claims',
+    'holder_reward_payouts',
+    'holder_reward_deposits',
   ] as const;
-  for (const table of tables) {
+  for (const table of blockColTables) {
     await db.query(`DELETE FROM ${table} WHERE chain_id = $1 AND block_number >= $2`, [
       chainId,
       fromBlock.toString(),
     ]);
   }
+  await db.query(
+    `DELETE FROM holder_reward_rounds
+     WHERE chain_id = $1 AND published_block_number >= $2`,
+    [chainId, fromBlock.toString()],
+  );
   await deleteProcessedBlocksFrom(db, chainId, fromBlock);
 }
 

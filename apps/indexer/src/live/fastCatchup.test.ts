@@ -20,9 +20,11 @@ function emptyWatchlist(): Watchlist {
     tokens: new Map(),
     pools: new Map(),
     distributors: new Map(),
+    holderVaults: new Map(),
     lockers: new Set(),
     tokenAddresses: [],
     distributorAddresses: [],
+    holderVaultAddresses: [],
   };
 }
 

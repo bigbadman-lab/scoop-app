@@ -21,6 +21,7 @@
     "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",
     "verify:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/verify-hello.ts",
     "reset:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-hello.ts",
+    "reset:protocol": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-protocol-cli.ts",
     "indexer:start": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-start.ts",
     "indexer:status": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-status.ts",
     "indexer:catchup": "pnpm --filter @scoop/indexer exec tsx src/commands/indexer-catchup.ts",

@@ -13,10 +13,24 @@ export interface FeeDistributionRow {
   blockHash: string;
   blockTimestamp: number | bigint;
   totalRaw: string | bigint;
+  /** Aggregate = base_creator + extra_creator (compat). */
   creatorRaw: string | bigint;
+  /** Aggregate = base_deployer + extra_deployer (compat). */
   deployerRaw: string | bigint;
+  /** Aggregate = base_protocol (buyback). */
   buybackRaw: string | bigint;
+  /** Aggregate = base_operations. */
   operationsRaw: string | bigint;
+  baseCreatorRaw: string | bigint;
+  baseHoldersRaw: string | bigint;
+  baseDeployerRaw: string | bigint;
+  baseProtocolRaw: string | bigint;
+  baseOperationsRaw: string | bigint;
+  extraCreatorRaw: string | bigint;
+  extraDeployerRaw: string | bigint;
+  extraHoldersRaw: string | bigint;
+  /** Aggregate = base_holders + extra_holders. */
+  holdersRaw: string | bigint;
 }
 
 export async function upsertFeeDistribution(
@@ -27,8 +41,13 @@ export async function upsertFeeDistribution(
     `INSERT INTO fee_distributions (
       chain_id, fee_distributor_address, scooptoken_address, asset_kind, asset_address,
       tx_hash, log_index, block_number, block_hash, block_timestamp,
-      total_raw, creator_raw, deployer_raw, buyback_raw, operations_raw
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      total_raw, creator_raw, deployer_raw, buyback_raw, operations_raw,
+      base_creator_raw, base_holders_raw, base_deployer_raw, base_protocol_raw, base_operations_raw,
+      extra_creator_raw, extra_deployer_raw, extra_holders_raw, holders_raw
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+      $16,$17,$18,$19,$20,$21,$22,$23,$24
+    )
     ON CONFLICT (chain_id, tx_hash, log_index) DO UPDATE SET
       fee_distributor_address = EXCLUDED.fee_distributor_address,
       scooptoken_address = EXCLUDED.scooptoken_address,
@@ -41,7 +60,16 @@ export async function upsertFeeDistribution(
       creator_raw = EXCLUDED.creator_raw,
       deployer_raw = EXCLUDED.deployer_raw,
       buyback_raw = EXCLUDED.buyback_raw,
-      operations_raw = EXCLUDED.operations_raw`,
+      operations_raw = EXCLUDED.operations_raw,
+      base_creator_raw = EXCLUDED.base_creator_raw,
+      base_holders_raw = EXCLUDED.base_holders_raw,
+      base_deployer_raw = EXCLUDED.base_deployer_raw,
+      base_protocol_raw = EXCLUDED.base_protocol_raw,
+      base_operations_raw = EXCLUDED.base_operations_raw,
+      extra_creator_raw = EXCLUDED.extra_creator_raw,
+      extra_deployer_raw = EXCLUDED.extra_deployer_raw,
+      extra_holders_raw = EXCLUDED.extra_holders_raw,
+      holders_raw = EXCLUDED.holders_raw`,
     [
       row.chainId,
       normalizeAddress(row.feeDistributorAddress),
@@ -58,6 +86,15 @@ export async function upsertFeeDistribution(
       toNumericString(row.deployerRaw),
       toNumericString(row.buybackRaw),
       toNumericString(row.operationsRaw),
+      toNumericString(row.baseCreatorRaw),
+      toNumericString(row.baseHoldersRaw),
+      toNumericString(row.baseDeployerRaw),
+      toNumericString(row.baseProtocolRaw),
+      toNumericString(row.baseOperationsRaw),
+      toNumericString(row.extraCreatorRaw),
+      toNumericString(row.extraDeployerRaw),
+      toNumericString(row.extraHoldersRaw),
+      toNumericString(row.holdersRaw),
     ],
   );
 }

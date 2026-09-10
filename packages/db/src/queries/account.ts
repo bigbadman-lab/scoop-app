@@ -247,24 +247,38 @@ export async function listLaunchesForScoopUser(
   }));
 }
 
+export interface ScoopDeployerFeeBreakdownLine extends ScoopFeeAssetLine {
+  /** Base 4% deployer leg (of BASE_FEE slice). */
+  baseDeployerRaw: string;
+  /** Optional additional-fee slice routed to deployer. */
+  extraDeployerRaw: string;
+  /** base + extra (= fee_distributions.deployer_raw lifetime sum). */
+  totalDeployerRaw: string;
+}
+
 /**
- * Lifetime deployer fee accruals from fee_distributions.deployer_raw.
+ * Lifetime deployer fee accruals from fee_distributions.
+ * total = base_deployer_raw + extra_deployer_raw (= deployer_raw aggregate).
  * No claimable/claimed layer exists in the indexer today — do not invent one.
  */
 export async function getDeployerFeeTotalsForScoopUser(
   db: Queryable,
   userId: string,
   chainId: number,
-): Promise<ScoopFeeAssetLine[]> {
+): Promise<ScoopDeployerFeeBreakdownLine[]> {
   const result = await db.query<{
     asset_kind: string;
     asset_address: string;
     amount_raw: string;
+    base_deployer_raw: string;
+    extra_deployer_raw: string;
   }>(
     `SELECT
        fd.asset_kind,
        fd.asset_address,
-       SUM(fd.deployer_raw)::text AS amount_raw
+       SUM(fd.deployer_raw)::text AS amount_raw,
+       SUM(fd.base_deployer_raw)::text AS base_deployer_raw,
+       SUM(fd.extra_deployer_raw)::text AS extra_deployer_raw
      FROM scoop_wallets w
      INNER JOIN launches l
        ON l.deployer_address = w.address AND l.chain_id = $2
@@ -279,6 +293,8 @@ export async function getDeployerFeeTotalsForScoopUser(
 
   return result.rows.map((row) => {
     const amountRaw = String(row.amount_raw);
+    const baseDeployerRaw = String(row.base_deployer_raw);
+    const extraDeployerRaw = String(row.extra_deployer_raw);
     const decimals = ethLikeDecimals(String(row.asset_kind), String(row.asset_address));
     return {
       assetKind: String(row.asset_kind),
@@ -286,6 +302,9 @@ export async function getDeployerFeeTotalsForScoopUser(
       symbol: feeSymbol(String(row.asset_kind)),
       amountRaw,
       amountDisplay: formatRawAmount(amountRaw, decimals),
+      baseDeployerRaw,
+      extraDeployerRaw,
+      totalDeployerRaw: amountRaw,
     };
   });
 }

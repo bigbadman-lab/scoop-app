@@ -14,7 +14,6 @@ import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
-  BASE_FEE,
   TICK_SPACING,
   classifyBuySell,
   classifyTransfer,
@@ -36,6 +35,8 @@ import { mergeTradeIntoLeafAndPersist } from './projections/candles.js';
 import { resolveTradeUsdFields } from './projections/usd.js';
 import { applyHolderTransfer } from './projections/holders.js';
 import { processCreatorEvents } from './projections/creators.js';
+import { processHolderRewardEvents } from './projections/holderRewards.js';
+import { extractLaunchEconomics } from './projections/launchEconomics.js';
 import { confirmationStatusForBlock, type ConfirmationHeads } from './confirmations.js';
 
 const TOKEN_LAUNCHED_TOPICS = new Set(
@@ -129,6 +130,7 @@ export async function processBlock(
     creatorRewards,
     ...watchlist.tokenAddresses,
     ...watchlist.distributorAddresses,
+    ...(watchlist.holderVaultAddresses ?? []),
   ];
   const uniqueAddresses = [...new Set(addressFilters)] as Hex[];
 
@@ -198,6 +200,8 @@ export async function processBlock(
         ? BigInt(String(initialBuy.args.tokensOut ?? 0))
         : null;
 
+    const economics = extractLaunchEconomics(decoded);
+
     await normalizeLaunch(db, {
       chainId,
       blockNumber,
@@ -220,8 +224,10 @@ export async function processBlock(
         deployerAddress: launchView.deployer,
         creatorId: launchView.creatorId,
         quoteAsset: launchView.quoteAsset,
-        feeDistributorAddress: launchView.feeDistributor,
-        liquidityLockerAddress: launchView.liquidityLocker,
+        feeDistributorAddress:
+          economics.feeDistributorAddress ?? launchView.feeDistributor,
+        liquidityLockerAddress:
+          economics.liquidityLockerAddress ?? launchView.liquidityLocker,
         poolId: launchView.poolId,
         lpTokenId: launchView.lpTokenId,
         openingSqrtPriceX96: launchView.openingSqrtPriceX96,
@@ -233,11 +239,17 @@ export async function processBlock(
         initialBuyQuoteRaw,
         initialBuyTokensRaw,
         launchLogIndex: tokenLaunched.logIndex,
+        additionalFee: economics.additionalFee,
+        totalPoolFee: economics.totalPoolFee,
+        creatorAllocationDestination: economics.creatorAllocationDestination,
+        additionalFeeDestination: economics.additionalFeeDestination,
+        holderRewardsAddress: economics.holderRewardsAddress,
       },
       protocol: {
         poolManager,
         positionManager,
         universalRouter: scoopV1MainnetCanaryManifest.contracts.UniversalRouter,
+        poolFee: economics.totalPoolFee,
       },
       confirmationStatus,
       dustRaw: args.dustRaw,
@@ -251,8 +263,11 @@ export async function processBlock(
       chainId,
       tokenAddress,
       poolId: launchView.poolId,
-      feeDistributorAddress: launchView.feeDistributor,
-      liquidityLockerAddress: launchView.liquidityLocker,
+      feeDistributorAddress:
+        economics.feeDistributorAddress ?? launchView.feeDistributor,
+      liquidityLockerAddress:
+        economics.liquidityLockerAddress ?? launchView.liquidityLocker,
+      holderRewardsAddress: economics.holderRewardsAddress,
       quoteAsset: launchView.quoteAsset,
       factoryAddress: factory,
       deployerAddress: launchView.deployer,
@@ -263,7 +278,7 @@ export async function processBlock(
       lpTokenId: launchView.lpTokenId.toString(),
       currency0: normalizeAddress(launchView.quoteAsset),
       currency1: tokenAddress,
-      fee: BASE_FEE,
+      fee: economics.totalPoolFee,
       tickSpacing: TICK_SPACING,
       hooks: ZERO_ADDRESS,
       tokenIsCurrency1: true,
@@ -493,9 +508,11 @@ export async function processBlock(
       positionManager,
       entry.liquidityLockerAddress,
       entry.feeDistributorAddress,
+      entry.tokenAddress,
       DEAD_ADDRESS,
       ZERO_ADDRESS,
     ]);
+    if (entry.holderRewardsAddress) system.add(entry.holderRewardsAddress);
     await applyHolderTransfer(db, {
       chainId,
       tokenAddress: entry.tokenAddress,
@@ -549,6 +566,52 @@ export async function processBlock(
     });
 
     await processCreatorEvents(db, {
+      chainId,
+      blockNumber,
+      blockHash,
+      blockTimestamp,
+      txHash,
+      events: [ev],
+      watchlist,
+    });
+  }
+
+  // HolderRewards vault events (discovered vaults only)
+  const holderEvents = decodedAll.filter((e) =>
+    [
+      'HolderRewardDeposited',
+      'HolderRewardRoundPublished',
+      'HolderRewardPushed',
+      'HolderRewardClaimed',
+      'HolderRewardPushFailed',
+      'FeeDistributorInitialized',
+    ].includes(e.kind),
+  ) as DecodedChainEvent[];
+
+  for (const ev of holderEvents) {
+    const log = logs.find((l) => Number(l.logIndex) === ev.logIndex);
+    if (!log?.transactionHash) continue;
+    const txHash = normalizeBytes32(log.transactionHash);
+
+    await upsertRawChainEvent(db, {
+      chainId,
+      blockNumber,
+      blockHash,
+      blockTimestamp,
+      txHash,
+      txIndex: Number(log.transactionIndex ?? 0),
+      logIndex: ev.logIndex,
+      contractAddress: ev.address,
+      topic0: log.topics[0] ? normalizeBytes32(log.topics[0]) : `0x${'0'.repeat(64)}`,
+      topics: [...(log.topics ?? [])],
+      data: log.data,
+      decodedEventName: ev.kind !== 'unknown' ? ev.kind : null,
+      decodedPayload: ev.kind !== 'unknown' ? jsonSafe(ev.args) : null,
+      confirmationStatus,
+      isCanonical: true,
+    });
+
+    await processHolderRewardEvents(db, {
       chainId,
       blockNumber,
       blockHash,

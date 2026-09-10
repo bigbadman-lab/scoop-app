@@ -79,6 +79,7 @@ export function buildLogAddressFilters(watchlist: Watchlist): Hex[] {
     creatorRewards,
     ...watchlist.tokenAddresses,
     ...watchlist.distributorAddresses,
+    ...(watchlist.holderVaultAddresses ?? []),
   ];
   return [...new Set(addresses)] as Hex[];
 }

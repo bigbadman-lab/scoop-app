@@ -67,6 +67,7 @@ export {
   type ScoopAccountBundle,
   type ScoopAccountLaunch,
   type ScoopFeeAssetLine,
+  type ScoopDeployerFeeBreakdownLine,
   type ScoopProfileRecord,
   type ScoopAccountWallet,
   type NewsArticleMarketSummary,
@@ -84,7 +85,26 @@ export type {
   Client,
 } from './types.js';
 export { upsertRawChainEvent, type RawChainEventRow } from './repos/raw-chain-events.js';
-export { upsertLaunch, type LaunchRow } from './repos/launches.js';
+export {
+  upsertLaunch,
+  upsertLaunchEconomics,
+  type LaunchRow,
+  type CreatorAllocationDestinationOrdinal,
+  type AdditionalFeeDestinationOrdinal,
+} from './repos/launches.js';
+export {
+  upsertHolderRewardDeposit,
+  upsertHolderRewardRound,
+  upsertHolderRewardPayout,
+  recomputeHolderRewardRoundTotals,
+  listPositiveHolderBalances,
+  type HolderRewardDepositRow,
+  type HolderRewardRoundRow,
+  type HolderRewardPayoutRow,
+  type HolderRewardPayoutType,
+  type HolderRewardPayoutStatus,
+  type PositiveHolderBalanceRow,
+} from './repos/holder-rewards.js';
 export {
   linkNewsArticleMarket,
   resolveArticleFromDraft,

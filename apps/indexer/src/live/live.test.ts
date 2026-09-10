@@ -332,9 +332,11 @@ describe('watchlist', () => {
       tokens: new Map(),
       pools: new Map(),
       distributors: new Map(),
+      holderVaults: new Map(),
       lockers: new Set(),
       tokenAddresses: [],
       distributorAddresses: [],
+      holderVaultAddresses: [],
     };
     const entry = watchlistAddLaunch(wl, {
       chainId: 4663,
