@@ -16,6 +16,8 @@
     "dev:indexer": "pnpm --filter @scoop/indexer^... run build && pnpm --filter @scoop/indexer dev",
     "fee-keeper:once": "pnpm --filter @scoop/fee-keeper start",
     "fee-keeper:dev": "pnpm --filter @scoop/fee-keeper dev",
+    "holder-rewards:once": "pnpm --filter @scoop/holder-rewards-worker start",
+    "holder-rewards:dev": "pnpm --filter @scoop/holder-rewards-worker dev",
     "format": "prettier --write .",
     "db:migrate": "node scripts/db-migrate.mjs",
     "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",

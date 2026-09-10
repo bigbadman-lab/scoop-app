@@ -64,6 +64,30 @@ export {
   type AdditionalFeePresetKey,
   type AdditionalFeeValidation,
 } from './launchFeeEconomics.js';
+export {
+  holderRewardLeafHash,
+  buildHolderRewardMerkleTree,
+  merkleRootFromLeaves,
+  merkleProofFromLeaves,
+  merkleProofsFromLeaves,
+  verifyMerkleProof,
+  commutativeKeccak256,
+  type HolderRewardLeafInput,
+  type HolderRewardMerkleTree,
+} from './holderRewardsMerkle.js';
+export {
+  classifyHolderEligibility,
+  computeHolderEntitlements,
+  roundIdFromUnix,
+  hourEndUnixFromRoundId,
+  latestCompletableRoundId,
+  reconstructBalancesAtSnapshot,
+  type EligibilityExclusionReason,
+  type HolderEligibilityInput,
+  type HolderEligibilityResult,
+  type Entitlement,
+  type SnapshotTransfer,
+} from './holderRewardsEconomics.js';
 export { Q96, mulDiv } from './fixedPoint.js';
 export {
   getAmount0ForLiquidity,

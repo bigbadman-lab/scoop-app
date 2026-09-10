@@ -83,6 +83,37 @@ importers:
         specifier: ^3.0.8
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.23.13)
 
+  apps/holder-rewards-worker:
+    dependencies:
+      '@scoop/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@scoop/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@scoop/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      viem:
+        specifier: ^2.23.10
+        version: 2.56.3(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.10
+        version: 22.20.1
+      tsx:
+        specifier: ^4.19.3
+        version: 4.23.13
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.8
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.23.13)
+
   apps/indexer:
     dependencies:
       '@scoop/contracts':
