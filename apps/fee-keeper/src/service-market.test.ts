@@ -63,6 +63,7 @@ describe('serviceMarket dry-run', () => {
       nowSec: market.lastTradeAt!,
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
+      cronWindowMinutes: 15,
     });
     expect(writeContract).not.toHaveBeenCalled();
     expect(outcome.transactionsSent).toBe(0);
@@ -77,6 +78,7 @@ describe('serviceMarket dry-run', () => {
       nowSec: market.lastTradeAt!,
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
+      cronWindowMinutes: 15,
     });
     expect(outcome.status).toBe('failed');
     expect(outcome.reason).toBe('collect_simulation_revert');
@@ -91,6 +93,7 @@ describe('serviceMarket dry-run', () => {
       nowSec: 1_800_000_000,
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
+      cronWindowMinutes: 15,
     });
     // non-zero ETH balance → distribute_only path
     expect(outcome.transactionsSent).toBe(0);
@@ -106,6 +109,7 @@ describe('serviceMarket dry-run', () => {
         nowSec: market.lastTradeAt!,
         activityLookbackMinutes: 120,
         fallbackSweepMinutes: 1440,
+        cronWindowMinutes: 15,
       }),
     ).resolves.toMatchObject({ status: 'failed' });
   });

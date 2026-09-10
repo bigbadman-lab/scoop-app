@@ -37,6 +37,8 @@ export type FeeKeeperConfig = {
   lockDatabaseUrl: string;
   activityLookbackMinutes: number;
   fallbackSweepMinutes: number;
+  /** Must match Render cron cadence (default 15). */
+  cronWindowMinutes: number;
   /** Required when writeEnabled; lowercase checksum-insensitive. */
   expectedKeeperAddress: Address | null;
   /** Present only when writeEnabled — never logged. */
@@ -90,6 +92,11 @@ export function loadFeeKeeperConfig(
     1440,
     'SCOOP_FEE_KEEPER_FALLBACK_SWEEP_MINUTES',
   );
+  const cronWindowMinutes = parsePositiveInt(
+    env.SCOOP_FEE_KEEPER_CRON_WINDOW_MINUTES,
+    15,
+    'SCOOP_FEE_KEEPER_CRON_WINDOW_MINUTES',
+  );
 
   const addressRaw = (env.SCOOP_FEE_KEEPER_ADDRESS ?? '').trim();
   let expectedKeeperAddress: Address | null = null;
@@ -137,6 +144,7 @@ export function loadFeeKeeperConfig(
     lockDatabaseUrl,
     activityLookbackMinutes,
     fallbackSweepMinutes,
+    cronWindowMinutes,
     expectedKeeperAddress,
     privateKey,
     lowBalanceWeiWarning: 10n ** 15n, // 0.001 ETH
@@ -152,6 +160,7 @@ export function publicConfigView(config: LoadedFeeKeeperConfig): Record<string, 
     keeperAddress: config.expectedKeeperAddress,
     activityLookbackMinutes: config.activityLookbackMinutes,
     fallbackSweepMinutes: config.fallbackSweepMinutes,
+    cronWindowMinutes: config.cronWindowMinutes,
     hasRpcUrl: Boolean(config.rpcUrl),
     hasDatabaseUrl: Boolean(config.databaseUrl),
     hasLockDatabaseUrl: Boolean(config.lockDatabaseUrl),

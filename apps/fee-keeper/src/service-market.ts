@@ -38,6 +38,7 @@ export async function serviceMarket(input: {
   nowSec: number;
   activityLookbackMinutes: number;
   fallbackSweepMinutes: number;
+  cronWindowMinutes: number;
   account?: Address;
 }): Promise<MarketOutcome> {
   const { market, publicClient, writeGate } = input;
@@ -108,6 +109,7 @@ export async function serviceMarket(input: {
     lastTradeAt: market.lastTradeAt,
     activityLookbackMinutes: input.activityLookbackMinutes,
     fallbackSweepMinutes: input.fallbackSweepMinutes,
+    cronWindowMinutes: input.cronWindowMinutes,
     hasNonZeroDistributorBalance: hasBal,
   });
 

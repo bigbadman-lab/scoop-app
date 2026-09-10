@@ -81,6 +81,7 @@ describe('runFeeKeeper dry-run isolation', () => {
           lockDatabaseUrl: 'postgres://x',
           activityLookbackMinutes: 120,
           fallbackSweepMinutes: 1440,
+          cronWindowMinutes: 15,
           expectedKeeperAddress: null,
           privateKey: null,
           lowBalanceWeiWarning: 10n ** 15n,

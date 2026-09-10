@@ -3,6 +3,7 @@
  *
  * Fallback without persistent last-serviced state:
  * wall-clock window once per FALLBACK_SWEEP_MINUTES (see isFallbackSweepActive).
+ * Cron window must match production cadence (default 15 for every-15-minute cron).
  */
 
 export type ServicingDecision =
@@ -13,12 +14,13 @@ export type ServicingDecision =
 export function isFallbackSweepActive(input: {
   nowSec: number;
   fallbackSweepMinutes: number;
-  /** Cron cadence window that counts as "this sweep's run" (default 30). */
+  /** Cron cadence window that counts as "this sweep's run" (default 15). */
   cronWindowMinutes?: number;
 }): boolean {
   const periodSec = input.fallbackSweepMinutes * 60;
   if (periodSec <= 0) return false;
-  const windowSec = (input.cronWindowMinutes ?? 30) * 60;
+  const windowSec = (input.cronWindowMinutes ?? 15) * 60;
+  if (windowSec <= 0) return false;
   const phase = ((input.nowSec % periodSec) + periodSec) % periodSec;
   return phase < windowSec;
 }
@@ -28,6 +30,8 @@ export function decideMarketService(input: {
   lastTradeAt: number | null;
   activityLookbackMinutes: number;
   fallbackSweepMinutes: number;
+  /** Must match Render cron cadence (production: 15 for every-15-minute cron). */
+  cronWindowMinutes: number;
   /** True if ETH or any relevant ERC-20 balance on distributor is > 0. */
   hasNonZeroDistributorBalance: boolean;
 }): ServicingDecision {
@@ -48,6 +52,7 @@ export function decideMarketService(input: {
     isFallbackSweepActive({
       nowSec: input.nowSec,
       fallbackSweepMinutes: input.fallbackSweepMinutes,
+      cronWindowMinutes: input.cronWindowMinutes,
     })
   ) {
     return { action: 'collect_and_distribute', reason: 'fallback_sweep' };

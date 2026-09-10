@@ -187,6 +187,7 @@ export async function runFeeKeeper(
         nowSec,
         activityLookbackMinutes: config.activityLookbackMinutes,
         fallbackSweepMinutes: config.fallbackSweepMinutes,
+        cronWindowMinutes: config.cronWindowMinutes,
         account: writeGate.enabled ? writeGate.account : undefined,
       });
 

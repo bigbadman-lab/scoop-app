@@ -19,6 +19,22 @@ describe('loadFeeKeeperConfig', () => {
     expect(cfg.writeEnabled).toBe(false);
     expect(cfg.mode).toBe('dry-run');
     expect(cfg.privateKey).toBeNull();
+    expect(cfg.cronWindowMinutes).toBe(15);
+    expect(cfg.activityLookbackMinutes).toBe(120);
+    expect(cfg.fallbackSweepMinutes).toBe(1440);
+  });
+
+  it('parses SCOOP_FEE_KEEPER_CRON_WINDOW_MINUTES', () => {
+    const cfg = loadFeeKeeperConfig(
+      baseEnv({ SCOOP_FEE_KEEPER_CRON_WINDOW_MINUTES: '15' }),
+    );
+    expect(cfg.cronWindowMinutes).toBe(15);
+  });
+
+  it('rejects non-positive cron window minutes', () => {
+    expect(() =>
+      loadFeeKeeperConfig(baseEnv({ SCOOP_FEE_KEEPER_CRON_WINDOW_MINUTES: '0' })),
+    ).toThrow(/CRON_WINDOW_MINUTES/);
   });
 
   it('treats WRITE_ENABLED=false explicitly', () => {
