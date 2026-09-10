@@ -15,6 +15,7 @@ export type ClaimAssetEth = {
   name: 'Ethereum';
   decimals: 18;
   displayImageUrl?: string | null;
+  imageUri?: string | null;
   /** Cached indexer claimable — discovery only. */
   cachedClaimableRaw?: string;
   creditedRaw?: string;
@@ -28,6 +29,7 @@ export type ClaimAssetToken = {
   name: string;
   decimals: number;
   displayImageUrl?: string | null;
+  imageUri?: string | null;
   tokenPageUrl?: string | null;
   cachedClaimableRaw?: string;
   creditedRaw?: string;

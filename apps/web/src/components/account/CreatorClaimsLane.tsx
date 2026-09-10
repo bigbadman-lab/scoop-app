@@ -276,10 +276,10 @@ export function CreatorClaimsLane({
             row.phase === 'submitted' ||
             row.phase === 'confirming';
           const canClaim = chainRaw > BigInt(0) && !busy && !sessionOnly;
-          const imageSrc =
-            asset.kind === 'token'
-              ? pickTokenImageSrc(asset.displayImageUrl ?? null, null)
-              : null;
+          const imageSrc = pickTokenImageSrc(
+            asset.displayImageUrl ?? null,
+            asset.imageUri ?? null,
+          );
 
           return (
             <li key={key} className="flex items-center gap-3 py-3">

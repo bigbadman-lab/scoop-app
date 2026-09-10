@@ -11,6 +11,7 @@ export function discoverClaimAssetsFromFeeLines(
     name?: string | null;
     decimals?: number | null;
     displayImageUrl?: string | null;
+    imageUri?: string | null;
     claimableRaw?: string;
     creditedRaw?: string;
     claimedRaw?: string;
@@ -26,6 +27,8 @@ export function discoverClaimAssetsFromFeeLines(
         symbol: 'ETH',
         name: 'Ethereum',
         decimals: 18,
+        displayImageUrl: line.displayImageUrl ?? null,
+        imageUri: line.imageUri ?? null,
         cachedClaimableRaw: line.claimableRaw,
         creditedRaw: line.creditedRaw,
         claimedRaw: line.claimedRaw,
@@ -48,6 +51,7 @@ export function discoverClaimAssetsFromFeeLines(
       name,
       decimals,
       displayImageUrl: line.displayImageUrl ?? null,
+      imageUri: line.imageUri ?? null,
       tokenPageUrl: `/token/${token}`,
       cachedClaimableRaw: line.claimableRaw,
       creditedRaw: line.creditedRaw,

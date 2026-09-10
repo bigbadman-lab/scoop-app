@@ -50,6 +50,8 @@ export type ScoopFeeAssetLine = {
   name?: string | null;
   decimals?: number | null;
   displayImageUrl?: string | null;
+  /** Protocol IPFS/HTTP imageUri — fallback when displayImageUrl absent. */
+  imageUri?: string | null;
 };
 
 export type ScoopAccountBundle = {
@@ -307,6 +309,7 @@ export async function getCreatorFeeTotalsForScoopUser(
     token_name: string | null;
     token_decimals: number | null;
     display_image_url: string | null;
+    image_uri: string | null;
   }>(
     `WITH user_creators AS (
        SELECT DISTINCT c.creator_id
@@ -324,13 +327,21 @@ export async function getCreatorFeeTotalsForScoopUser(
        MAX(t.symbol) AS token_symbol,
        MAX(t.name) AS token_name,
        MAX(t.decimals) AS token_decimals,
-       MAX(t.display_image_url) AS display_image_url
+       COALESCE(
+         NULLIF(MAX(t.display_image_url), ''),
+         NULLIF(MAX(q.image_url), '')
+       ) AS display_image_url,
+       MAX(t.image_uri) AS image_uri
      FROM user_creators uc
      INNER JOIN creator_claimable_state ccs
        ON ccs.chain_id = $2 AND ccs.creator_id = uc.creator_id
      LEFT JOIN tokens t
        ON t.chain_id = ccs.chain_id
-      AND t.token_address = ccs.asset_address
+      AND lower(t.token_address) = lower(ccs.asset_address)
+     LEFT JOIN public_quote_catalogue q
+       ON q.chain_id = ccs.chain_id
+      AND lower(q.quote_asset) = lower(ccs.asset_address)
+      AND q.is_enabled
      LEFT JOIN LATERAL (
        SELECT SUM(amount_raw) AS credited_raw
        FROM creator_credits
@@ -372,6 +383,10 @@ export async function getCreatorFeeTotalsForScoopUser(
       row.display_image_url == null || String(row.display_image_url).trim() === ''
         ? null
         : String(row.display_image_url);
+    const imageUri =
+      row.image_uri == null || String(row.image_uri).trim() === ''
+        ? null
+        : String(row.image_uri);
     return {
       assetKind: String(row.asset_kind),
       assetAddress: String(row.asset_address),
@@ -379,6 +394,7 @@ export async function getCreatorFeeTotalsForScoopUser(
       name: isEth ? 'Ethereum' : row.token_name,
       decimals,
       displayImageUrl,
+      imageUri,
       amountRaw: creditedRaw,
       amountDisplay: formatRawAmount(creditedRaw, decimals),
       claimableRaw,

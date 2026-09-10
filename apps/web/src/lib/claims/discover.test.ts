@@ -9,6 +9,7 @@ describe('discoverClaimAssetsFromFeeLines', () => {
         assetKind: 'eth',
         assetAddress: zeroAddress,
         symbol: 'ETH',
+        displayImageUrl: 'https://cdn.example/eth.png',
         claimableRaw: '100',
         creditedRaw: '200',
         claimedRaw: '100',
@@ -20,6 +21,7 @@ describe('discoverClaimAssetsFromFeeLines', () => {
         name: 'Amazon',
         decimals: 18,
         displayImageUrl: 'https://example.com/amzn.png',
+        imageUri: 'ipfs://bafybeiabc',
         claimableRaw: '999',
       },
     ]);
@@ -28,6 +30,7 @@ describe('discoverClaimAssetsFromFeeLines', () => {
       kind: 'eth',
       symbol: 'ETH',
       decimals: 18,
+      displayImageUrl: 'https://cdn.example/eth.png',
       cachedClaimableRaw: '100',
     });
     expect(assets[1]).toMatchObject({
@@ -36,6 +39,7 @@ describe('discoverClaimAssetsFromFeeLines', () => {
       name: 'Amazon',
       decimals: 18,
       displayImageUrl: 'https://example.com/amzn.png',
+      imageUri: 'ipfs://bafybeiabc',
       tokenPageUrl: '/token/0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
   });

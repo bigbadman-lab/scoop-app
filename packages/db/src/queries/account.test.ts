@@ -77,16 +77,40 @@ describe('account attribution', () => {
           claimable_raw: '500000000000000000',
           credited_raw: '800000000000000000',
           claimed_raw: '300000000000000000',
+          token_symbol: null,
+          token_name: null,
+          token_decimals: null,
+          display_image_url: 'https://cdn.example/eth.png',
+          image_uri: null,
+        },
+        {
+          asset_kind: 'token',
+          asset_address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          claimable_raw: '1',
+          credited_raw: '2',
+          claimed_raw: '1',
+          token_symbol: 'AMZN',
+          token_name: 'Amazon',
+          token_decimals: 18,
+          display_image_url: 'https://cdn.example/amzn.png',
+          image_uri: 'ipfs://bafybeiabc',
         },
       ],
     ]);
     const creator = await getCreatorFeeTotalsForScoopUser(creatorDb, USER_B, 4663);
     expect(creator[0]?.claimableDisplay).toBe('0.5');
     expect(creator[0]?.claimedRaw).toBe('300000000000000000');
+    expect(creator[0]?.displayImageUrl).toBe('https://cdn.example/eth.png');
+    expect(creator[1]?.symbol).toBe('AMZN');
+    expect(creator[1]?.displayImageUrl).toBe('https://cdn.example/amzn.png');
+    expect(creator[1]?.imageUri).toBe('ipfs://bafybeiabc');
     const creatorSql = String(
       (creatorDb.query as ReturnType<typeof vi.fn>).mock.calls[0]![0],
     );
     expect(creatorSql).toMatch(/creator_claimable_state/);
+    expect(creatorSql).toMatch(/LEFT JOIN tokens t/);
+    expect(creatorSql).toMatch(/public_quote_catalogue/);
+    expect(creatorSql).toMatch(/display_image_url/);
     expect(creatorSql).not.toMatch(/deployer_raw/);
   });
 
