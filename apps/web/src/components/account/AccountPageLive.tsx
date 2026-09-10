@@ -21,8 +21,8 @@ import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
-import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import { CreatorClaimsLane } from '@/components/account/CreatorClaimsLane';
+import { DeployerFeesLane } from '@/components/account/DeployerFeesLane';
 
 type LoadState =
   | { kind: 'loading' }
@@ -54,53 +54,6 @@ function AccountShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FeeLane({
-  title,
-  shareLabel,
-  emptyLabel,
-  assets,
-}: {
-  title: string;
-  shareLabel: string;
-  emptyLabel: string;
-  assets: PublicAccountResponse['fees']['deployer']['assets'];
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <h3 className="text-[15px] font-semibold tracking-tight">{title}</h3>
-        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
-          {shareLabel}
-        </p>
-      </div>
-      {assets.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">{emptyLabel}</p>
-      ) : (
-        <>
-          <p className="text-[13px] leading-snug text-[var(--muted)]">
-            Lifetime accrued from fee distributions. Claimable indexing pending.
-          </p>
-          <ul className="divide-y divide-[var(--divider)]">
-            {assets.map((asset) => (
-              <li
-                key={`${asset.assetKind}:${asset.assetAddress}`}
-                className="flex items-baseline justify-between gap-4 py-2.5"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
-                  {asset.symbol}
-                </p>
-                <p className="font-mono text-sm">
-                  {asset.amountDisplay} {asset.symbol}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
-
 function FeesSection({
   deployerAssets,
   creatorAssets,
@@ -110,8 +63,6 @@ function FeesSection({
   creatorAssets: PublicAccountResponse['fees']['creator']['assets'];
   sessionOnly: boolean;
 }) {
-  const deployerPct = PROTOCOL_FEE_SPLIT.deployerBps / 100;
-
   return (
     <section className="mt-10 space-y-5 border-t border-[var(--divider)] pt-6">
       <div>
@@ -121,12 +72,7 @@ function FeesSection({
         </p>
       </div>
       <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
-        <FeeLane
-          title="Deployer"
-          shareLabel={`${deployerPct}% of trading fees`}
-          emptyLabel="No deployer fees yet."
-          assets={deployerAssets}
-        />
+        <DeployerFeesLane assets={deployerAssets} />
         <CreatorClaimsLane feeAssets={creatorAssets} sessionOnly={sessionOnly} />
       </div>
     </section>
