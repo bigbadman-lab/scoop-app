@@ -151,7 +151,7 @@ export function formatEthWei(wei: bigint): string {
   const abs = neg ? -wei : wei;
   const whole = abs / BigInt(10) ** BigInt(18);
   const frac = abs % BigInt(10) ** BigInt(18);
-  let fracStr = frac.toString().padStart(18, '0').replace(/0+$/, '');
+  const fracStr = frac.toString().padStart(18, '0').replace(/0+$/, '');
   if (!fracStr) return `${neg ? '-' : ''}${whole.toString()}`;
   return `${neg ? '-' : ''}${whole.toString()}.${fracStr}`;
 }
