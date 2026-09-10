@@ -1,6 +1,8 @@
 import {
   CANONICAL_PROTOCOL_COMMIT,
   CANONICAL_PROTOCOL_TAG,
+  canonicalProductionManifest,
+  historicalTestCanaryManifest,
   scoopV1MainnetCanaryManifest,
 } from '@scoop/contracts';
 import { loadConfig, publicConfigView } from './config.js';
@@ -38,7 +40,9 @@ async function main() {
     protocol: {
       tag: CANONICAL_PROTOCOL_TAG,
       commit: CANONICAL_PROTOCOL_COMMIT,
-      factory: scoopV1MainnetCanaryManifest.contracts.ScoopFactory,
+      productionStatus: canonicalProductionManifest.status,
+      operationalManifest: 'historical-test-only',
+      factory: historicalTestCanaryManifest.contracts.ScoopFactory,
       helloToken: scoopV1MainnetCanaryManifest.fixtures.hello.token,
     },
     chain: {

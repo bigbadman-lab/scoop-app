@@ -15,6 +15,8 @@ import {
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
+  BASE_FEE,
+  TICK_SPACING,
   classifyBuySell,
   classifyTransfer,
   executionPriceQuoteX18,
@@ -125,8 +127,8 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   const quoteAsset = normalizeAddress(input.launch.quoteAsset);
   const poolManager = normalizeAddress(input.protocol.poolManager);
   const positionManager = normalizeAddress(input.protocol.positionManager);
-  const poolFee = input.protocol.poolFee ?? 10000;
-  const tickSpacing = input.protocol.tickSpacing ?? 10;
+  const poolFee = input.protocol.poolFee ?? BASE_FEE;
+  const tickSpacing = input.protocol.tickSpacing ?? TICK_SPACING;
   const hooks = normalizeAddress(input.protocol.hooks ?? ZERO_ADDRESS);
   const confirmationStatus = input.confirmationStatus ?? 'confirmed';
   const currency0 = quoteAsset;

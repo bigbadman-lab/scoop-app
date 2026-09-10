@@ -8,10 +8,11 @@ import { scoopV1MainnetCanaryManifest } from '@scoop/shared';
 import { scoopFactoryLaunchAbi } from '@/lib/launch/factory-abi';
 import type { DecodedTokenLaunched } from '@/lib/launch/tx-state';
 
+/** HISTORICAL TEST-ONLY canary Factory — not canonical production. */
 const DEFAULT_FACTORY =
   scoopV1MainnetCanaryManifest.contracts.ScoopFactory as `0x${string}`;
 
-/** TokenLaunched fragment for decode (matches ScoopFactory ABI). */
+/** Historical canary TokenLaunched (HELLO / current operational Factory). */
 export const tokenLaunchedEventAbi = [
   {
     type: 'event',
@@ -23,6 +24,35 @@ export const tokenLaunchedEventAbi = [
       { name: 'quoteAsset', type: 'address', indexed: false },
       { name: 'feeDistributor', type: 'address', indexed: false },
       { name: 'liquidityLocker', type: 'address', indexed: false },
+      { name: 'poolId', type: 'bytes32', indexed: false },
+      { name: 'lpTokenId', type: 'uint256', indexed: false },
+      { name: 'openingSqrtPriceX96', type: 'uint160', indexed: false },
+      { name: 'openingTick', type: 'int24', indexed: false },
+      { name: 'tickLower', type: 'int24', indexed: false },
+      { name: 'tickUpper', type: 'int24', indexed: false },
+      { name: 'name', type: 'string', indexed: false },
+      { name: 'symbol', type: 'string', indexed: false },
+    ],
+  },
+] as const;
+
+/** Canonical P3 TokenLaunched (available for post-redeploy receipts). */
+export const tokenLaunchedEventAbiCanonical = [
+  {
+    type: 'event',
+    name: 'TokenLaunched',
+    inputs: [
+      { name: 'token', type: 'address', indexed: true },
+      { name: 'deployer', type: 'address', indexed: true },
+      { name: 'creatorId', type: 'bytes32', indexed: true },
+      { name: 'quoteAsset', type: 'address', indexed: false },
+      { name: 'feeDistributor', type: 'address', indexed: false },
+      { name: 'liquidityLocker', type: 'address', indexed: false },
+      { name: 'holderRewards', type: 'address', indexed: false },
+      { name: 'additionalFee', type: 'uint24', indexed: false },
+      { name: 'totalPoolFee', type: 'uint24', indexed: false },
+      { name: 'creatorAllocationDestination', type: 'uint8', indexed: false },
+      { name: 'additionalFeeDestination', type: 'uint8', indexed: false },
       { name: 'poolId', type: 'bytes32', indexed: false },
       { name: 'lpTokenId', type: 'uint256', indexed: false },
       { name: 'openingSqrtPriceX96', type: 'uint160', indexed: false },
@@ -79,48 +109,52 @@ export function decodeTokenLaunchedFromReceipt(
   }
 
   const factory = factoryAddress.toLowerCase();
-  for (const log of receipt.logs as Log[]) {
-    if (log.address.toLowerCase() !== factory) continue;
-    try {
-      const decoded = decodeEventLog({
-        abi: tokenLaunchedEventAbi,
-        data: log.data,
-        topics: log.topics,
-      });
-      if (decoded.eventName !== 'TokenLaunched') continue;
-      const args = decoded.args as {
-        token: Hex;
-        deployer: Hex;
-        creatorId: Hex;
-        quoteAsset: Hex;
-        feeDistributor: Hex;
-        liquidityLocker: Hex;
-        poolId: Hex;
-        lpTokenId: bigint;
-        name: string;
-        symbol: string;
-      };
-      return {
-        ok: true,
-        decoded: {
-          token: args.token.toLowerCase() as `0x${string}`,
-          deployer: args.deployer.toLowerCase() as `0x${string}`,
-          creatorId: args.creatorId.toLowerCase() as `0x${string}`,
-          quoteAsset: args.quoteAsset.toLowerCase() as `0x${string}`,
-          feeDistributor: args.feeDistributor.toLowerCase() as `0x${string}`,
-          liquidityLocker: args.liquidityLocker.toLowerCase() as `0x${string}`,
-          poolId: args.poolId.toLowerCase() as `0x${string}`,
-          lpTokenId: args.lpTokenId.toString(),
-          name: args.name,
-          symbol: args.symbol,
-        },
-      };
-    } catch {
-      // try next log
+  const eventAbis = [tokenLaunchedEventAbi, tokenLaunchedEventAbiCanonical] as const;
+
+  for (const eventAbi of eventAbis) {
+    for (const log of receipt.logs as Log[]) {
+      if (log.address.toLowerCase() !== factory) continue;
+      try {
+        const decoded = decodeEventLog({
+          abi: eventAbi,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (decoded.eventName !== 'TokenLaunched') continue;
+        const args = decoded.args as {
+          token: Hex;
+          deployer: Hex;
+          creatorId: Hex;
+          quoteAsset: Hex;
+          feeDistributor: Hex;
+          liquidityLocker: Hex;
+          poolId: Hex;
+          lpTokenId: bigint;
+          name: string;
+          symbol: string;
+        };
+        return {
+          ok: true,
+          decoded: {
+            token: args.token.toLowerCase() as `0x${string}`,
+            deployer: args.deployer.toLowerCase() as `0x${string}`,
+            creatorId: args.creatorId.toLowerCase() as `0x${string}`,
+            quoteAsset: args.quoteAsset.toLowerCase() as `0x${string}`,
+            feeDistributor: args.feeDistributor.toLowerCase() as `0x${string}`,
+            liquidityLocker: args.liquidityLocker.toLowerCase() as `0x${string}`,
+            poolId: args.poolId.toLowerCase() as `0x${string}`,
+            lpTokenId: args.lpTokenId.toString(),
+            name: args.name,
+            symbol: args.symbol,
+          },
+        };
+      } catch {
+        // try next
+      }
     }
   }
 
-  // Fallback: try full factory ABI in case fragment diverges
+  // Fallback: try full factory ABI fragment in case event fragment diverges
   for (const log of receipt.logs as Log[]) {
     if (log.address.toLowerCase() !== factory) continue;
     try {

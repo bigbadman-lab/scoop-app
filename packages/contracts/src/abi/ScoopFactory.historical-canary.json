@@ -67,32 +67,6 @@
   },
   {
     "type": "function",
-    "name": "ADDITIONAL_FEE_STEP",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BASE_FEE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "BUYBACK_BPS",
     "inputs": [],
     "outputs": [
@@ -159,19 +133,6 @@
   {
     "type": "function",
     "name": "LP_FEE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_ADDITIONAL_FEE",
     "inputs": [],
     "outputs": [
       {
@@ -346,31 +307,6 @@
             "internalType": "address"
           },
           {
-            "name": "holderRewards",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "additionalFee",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "totalPoolFee",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "creatorAllocationDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-          },
-          {
-            "name": "additionalFeeDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
-          },
-          {
             "name": "poolId",
             "type": "bytes32",
             "internalType": "PoolId"
@@ -504,21 +440,6 @@
             "name": "salt",
             "type": "bytes32",
             "internalType": "bytes32"
-          },
-          {
-            "name": "additionalFee",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "creatorAllocationDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-          },
-          {
-            "name": "additionalFeeDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
           }
         ]
       }
@@ -627,21 +548,6 @@
             "name": "salt",
             "type": "bytes32",
             "internalType": "bytes32"
-          },
-          {
-            "name": "additionalFee",
-            "type": "uint24",
-            "internalType": "uint24"
-          },
-          {
-            "name": "creatorAllocationDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-          },
-          {
-            "name": "additionalFeeDestination",
-            "type": "uint8",
-            "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
           }
         ]
       },
@@ -756,31 +662,6 @@
         "name": "liquidityLocker",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "holderRewards",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "additionalFee",
-        "type": "uint24",
-        "internalType": "uint24"
-      },
-      {
-        "name": "totalPoolFee",
-        "type": "uint24",
-        "internalType": "uint24"
-      },
-      {
-        "name": "creatorAllocationDestination",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-      },
-      {
-        "name": "additionalFeeDestination",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
       },
       {
         "name": "poolId",
@@ -963,79 +844,6 @@
   },
   {
     "type": "event",
-    "name": "LaunchEconomicsConfigured",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "baseFee",
-        "type": "uint24",
-        "indexed": false,
-        "internalType": "uint24"
-      },
-      {
-        "name": "additionalFee",
-        "type": "uint24",
-        "indexed": false,
-        "internalType": "uint24"
-      },
-      {
-        "name": "totalPoolFee",
-        "type": "uint24",
-        "indexed": false,
-        "internalType": "uint24"
-      },
-      {
-        "name": "creatorAllocationDestination",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-      },
-      {
-        "name": "additionalFeeDestination",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
-      },
-      {
-        "name": "feeDistributor",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "liquidityLocker",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "holderRewards",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "deployer",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "creatorId",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "LaunchFeePaid",
     "inputs": [
       {
@@ -1129,36 +937,6 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
-      },
-      {
-        "name": "holderRewards",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "additionalFee",
-        "type": "uint24",
-        "indexed": false,
-        "internalType": "uint24"
-      },
-      {
-        "name": "totalPoolFee",
-        "type": "uint24",
-        "indexed": false,
-        "internalType": "uint24"
-      },
-      {
-        "name": "creatorAllocationDestination",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-      },
-      {
-        "name": "additionalFeeDestination",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
       },
       {
         "name": "poolId",
@@ -1293,39 +1071,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidAdditionalFee",
-    "inputs": [
-      {
-        "name": "additionalFee",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidAdditionalFeeDestination",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidCreatorAllocationDestination",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "InvalidHttpsUrl",
     "inputs": [
       {
@@ -1439,17 +1184,6 @@
     "type": "error",
     "name": "TickRangeOutOfBounds",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "TotalFeeTooLarge",
-    "inputs": [
-      {
-        "name": "totalFee",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ]
   },
   {
     "type": "error",

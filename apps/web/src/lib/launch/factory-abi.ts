@@ -1,6 +1,9 @@
 /**
- * ScoopFactory ABI fragment for launch / launchAndBuy (V2.G).
- * Layout matches packages/contracts ScoopFactory.json / deployed Factory.
+ * ScoopFactory ABI fragment for launch / launchAndBuy.
+ *
+ * Encoding still targets the HISTORICAL TEST canary Factory (pre-P3 LaunchParams).
+ * Canonical P3 LaunchParams (+ fee routing) live in `@scoop/contracts` scoopAbis.ScoopFactory
+ * and will be wired when production addresses are deployed.
  */
 export const scoopFactoryLaunchAbi = [
   {

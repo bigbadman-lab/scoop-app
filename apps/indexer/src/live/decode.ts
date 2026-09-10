@@ -14,6 +14,7 @@ export type DecodedChainEvent =
         | 'ScoopTokenCreated'
         | 'TokenLaunched'
         | 'InitialBuyExecuted'
+        | 'LaunchEconomicsConfigured'
         | 'SourceRegistered'
         | 'Initialize'
         | 'Swap'
@@ -22,7 +23,13 @@ export type DecodedChainEvent =
         | 'ETHCredited'
         | 'TokenCredited'
         | 'ETHClaimed'
-        | 'TokenClaimed';
+        | 'TokenClaimed'
+        | 'HolderRewardDeposited'
+        | 'HolderRewardRoundPublished'
+        | 'HolderRewardPushed'
+        | 'HolderRewardClaimed'
+        | 'HolderRewardPushFailed'
+        | 'FeeDistributorInitialized';
       address: string;
       logIndex: number;
       args: Record<string, unknown>;
@@ -93,8 +100,12 @@ export function decodeLog(raw: {
     'ScoopTokenCreated',
     'TokenLaunched',
     'InitialBuyExecuted',
+    'LaunchEconomicsConfigured',
   ] as const) {
-    const args = tryDecode(log, scoopAbis.ScoopFactory as AbiLike, name);
+    // Canonical P3 Factory first, then historical canary (HELLO) ABI.
+    const args =
+      tryDecode(log, scoopAbis.ScoopFactory as AbiLike, name) ??
+      tryDecode(log, scoopAbis.ScoopFactoryHistoricalCanary as AbiLike, name);
     if (args) return { kind: name, address, logIndex, args };
   }
 
@@ -109,8 +120,24 @@ export function decodeLog(raw: {
     if (args) return { kind: name, address, logIndex, args };
   }
 
-  for (const name of ['ETHDistributed', 'TokenDistributed'] as const) {
-    const args = tryDecode(log, scoopAbis.ScoopFeeDistributor as AbiLike, name);
+  for (const name of [
+    'ETHDistributed',
+    'TokenDistributed',
+    'HolderRewardDeposited',
+    'HolderRewardRoundPublished',
+    'HolderRewardPushed',
+    'HolderRewardClaimed',
+    'HolderRewardPushFailed',
+    'FeeDistributorInitialized',
+  ] as const) {
+    const args =
+      tryDecode(log, scoopAbis.ScoopFeeDistributor as AbiLike, name) ??
+      tryDecode(
+        log,
+        scoopAbis.ScoopFeeDistributorHistoricalCanary as AbiLike,
+        name,
+      ) ??
+      tryDecode(log, scoopAbis.ScoopHolderRewards as AbiLike, name);
     if (args) return { kind: name, address, logIndex, args };
   }
 

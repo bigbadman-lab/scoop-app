@@ -8,8 +8,15 @@ import { processBlock, type ProcessBlockResult } from './processBlock.js';
 import type { Watchlist } from './watchlist.js';
 import type { ConfirmationHeads } from './confirmations.js';
 
+/** Canonical P3 TokenLaunched topic. */
 export const TOKEN_LAUNCHED_TOPIC = encodeEventTopics({
   abi: scoopAbis.ScoopFactory,
+  eventName: 'TokenLaunched',
+})[0] as Hex;
+
+/** Historical HELLO canary TokenLaunched topic. */
+export const TOKEN_LAUNCHED_TOPIC_HISTORICAL = encodeEventTopics({
+  abi: scoopAbis.ScoopFactoryHistoricalCanary,
   eventName: 'TokenLaunched',
 })[0] as Hex;
 

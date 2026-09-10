@@ -1,5 +1,5 @@
 import type { Queryable } from '@scoop/db';
-import { normalizeAddress, normalizeBytes32 } from '@scoop/shared';
+import { normalizeAddress, normalizeBytes32, BASE_FEE, TICK_SPACING } from '@scoop/shared';
 
 export interface WatchlistEntry {
   chainId: number;
@@ -120,8 +120,8 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
       lpTokenId: row.lp_token_id,
       currency0,
       currency1,
-      fee: row.fee ?? 10000,
-      tickSpacing: row.tick_spacing ?? 10,
+      fee: row.fee ?? BASE_FEE,
+      tickSpacing: row.tick_spacing ?? TICK_SPACING,
       hooks: row.hooks ? normalizeAddress(row.hooks) : quote,
       tokenIsCurrency1: currency1 === token,
       tokenDecimals: row.token_decimals ?? 18,

@@ -82,7 +82,9 @@ export function decodeHelloLogs(receipt: TransactionReceipt): DecodedHelloEvent[
       'TokenLaunched',
       'InitialBuyExecuted',
     ] as const) {
-      const args = tryDecode(log, scoopAbis.ScoopFactory as AbiLike, name);
+      const args =
+        tryDecode(log, scoopAbis.ScoopFactoryHistoricalCanary as AbiLike, name) ??
+        tryDecode(log, scoopAbis.ScoopFactory as AbiLike, name);
       if (args) {
         out.push({ kind: name, address, logIndex, args });
         matched = true;

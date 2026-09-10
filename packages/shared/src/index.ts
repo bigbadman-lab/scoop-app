@@ -1,12 +1,40 @@
 import {
   CANONICAL_CHAIN_ID,
   scoopV1MainnetCanaryManifest,
+  historicalTestCanaryManifest,
+  canonicalProductionManifest,
+  requireCanonicalProductionAddresses,
+  isCanonicalProductionDeployed,
+  BASE_FEE,
+  ADDITIONAL_FEE_STEP,
+  MAX_ADDITIONAL_FEE,
+  MAX_TOTAL_FEE,
+  TICK_SPACING,
+  LP_FEE,
+  feeUnitsToPercent,
+  CreatorAllocationDestination,
+  AdditionalFeeDestination,
   type HexAddress,
   type HexBytes32,
 } from '@scoop/contracts';
 import { mulDiv, Q96 } from './fixedPoint.js';
 
-export { scoopV1MainnetCanaryManifest } from '@scoop/contracts';
+export {
+  scoopV1MainnetCanaryManifest,
+  historicalTestCanaryManifest,
+  canonicalProductionManifest,
+  requireCanonicalProductionAddresses,
+  isCanonicalProductionDeployed,
+  BASE_FEE,
+  ADDITIONAL_FEE_STEP,
+  MAX_ADDITIONAL_FEE,
+  MAX_TOTAL_FEE,
+  TICK_SPACING,
+  LP_FEE,
+  feeUnitsToPercent,
+  CreatorAllocationDestination,
+  AdditionalFeeDestination,
+} from '@scoop/contracts';
 export { Q96, mulDiv } from './fixedPoint.js';
 export {
   getAmount0ForLiquidity,
@@ -331,8 +359,8 @@ export const HELLO_FIXTURE = {
   postSwapLiquidity: 44835990424433065953574n,
   launchLogIndex: 61,
   swapLogIndex: 62,
-  poolFee: 10000,
-  tickSpacing: 10,
+  poolFee: BASE_FEE,
+  tickSpacing: TICK_SPACING,
   hooks: ZERO_ADDRESS,
   quoteAsset: ZERO_ADDRESS,
   quoteDecimals: 18,

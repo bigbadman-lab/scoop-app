@@ -149,7 +149,24 @@ export function receiptHasDistributionEvent(
         return token.toLowerCase() === action.token.toLowerCase();
       }
     } catch {
-      /* ignore */
+      try {
+        // Historical canary FeeDistributor event shape (pre-P3).
+        const decoded = decodeEventLog({
+          abi: scoopAbis.ScoopFeeDistributorHistoricalCanary,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (action.kind === 'eth' && decoded.eventName === 'ETHDistributed') {
+          return true;
+        }
+        if (action.kind === 'token' && decoded.eventName === 'TokenDistributed') {
+          const token = (decoded.args as { token?: Address }).token;
+          if (!token) return true;
+          return token.toLowerCase() === action.token.toLowerCase();
+        }
+      } catch {
+        /* ignore */
+      }
     }
   }
   return false;

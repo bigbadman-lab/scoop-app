@@ -61,9 +61,10 @@ export async function hydrateTokenMetadata(
 
 export async function hydrateLaunchView(client: PublicClient, tokenAddress: string) {
   const factory = scoopV1MainnetCanaryManifest.contracts.ScoopFactory as Address;
+  // Historical canary Factory return shape ≠ P3 getLaunch; use canary ABI.
   const launch = await client.readContract({
     address: factory,
-    abi: scoopAbis.ScoopFactory,
+    abi: scoopAbis.ScoopFactoryHistoricalCanary,
     functionName: 'getLaunch',
     args: [tokenAddress as Address],
   });

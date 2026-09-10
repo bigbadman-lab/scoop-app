@@ -1,5 +1,7 @@
 {
   "protocol": "SCOOP",
+  "deploymentKind": "historical-test-only",
+  "status": "deployed",
   "chainId": 4663,
   "baseline": "frozen-v1-mainnet-canary",
   "source": {
@@ -29,7 +31,7 @@
     }
   },
   "metadata": {
-    "description": "Frozen V1 mainnet canary baseline for scoop-app ABI and address binding",
+    "description": "HISTORICAL TEST-ONLY HELLO canary stack. Not the canonical production Factory after P3. Do not treat 0x15E874… as final production.",
     "indexingStartBlock": 55863290
   }
 }

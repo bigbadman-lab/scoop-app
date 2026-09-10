@@ -9,6 +9,7 @@ for (const dir of ['abi', 'manifests']) {
   const from = join(pkg, 'src', dir);
   const to = join(pkg, 'dist', dir);
   mkdirSync(to, { recursive: true });
+  // recursive: historical/ nested manifests + *.historical-canary.json ABIs
   cpSync(from, to, { recursive: true });
 }
 

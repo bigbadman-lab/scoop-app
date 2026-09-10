@@ -1,0 +1,18 @@
+{
+  "protocol": "SCOOP",
+  "deploymentKind": "canonical-production",
+  "status": "undeployed",
+  "chainId": 4663,
+  "baseline": "p3-canonical-0157a9b",
+  "source": {
+    "repo": "scoop-protocol",
+    "tag": "p3-canonical",
+    "commit": "0157a9b47a7ad44e48b8671e58eca1e16227f34b"
+  },
+  "contracts": null,
+  "fixtures": null,
+  "metadata": {
+    "description": "Canonical production deployment slot for post-P3 protocol. Addresses are intentionally absent until the guarded redeploy lands.",
+    "indexingStartBlock": null
+  }
+}

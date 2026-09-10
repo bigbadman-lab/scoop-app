@@ -26,6 +26,7 @@ import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 /** Enables production Factory writes (human-approved only). */
 export const LAUNCH_WRITE_ENABLED = true as const;
 
+/** HISTORICAL TEST-ONLY canary Factory — not canonical production. */
 export const SCOOP_FACTORY_ADDRESS =
   scoopV1MainnetCanaryManifest.contracts.ScoopFactory as `0x${string}`;
 

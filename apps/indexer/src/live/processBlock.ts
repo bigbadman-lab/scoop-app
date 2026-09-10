@@ -14,6 +14,8 @@ import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
+  BASE_FEE,
+  TICK_SPACING,
   classifyBuySell,
   classifyTransfer,
   executionPriceQuoteX18,
@@ -36,10 +38,18 @@ import { applyHolderTransfer } from './projections/holders.js';
 import { processCreatorEvents } from './projections/creators.js';
 import { confirmationStatusForBlock, type ConfirmationHeads } from './confirmations.js';
 
-const TOKEN_LAUNCHED_TOPIC = encodeEventTopics({
-  abi: scoopAbis.ScoopFactory,
-  eventName: 'TokenLaunched',
-})[0] as Hex;
+const TOKEN_LAUNCHED_TOPICS = new Set(
+  [
+    encodeEventTopics({
+      abi: scoopAbis.ScoopFactory,
+      eventName: 'TokenLaunched',
+    })[0],
+    encodeEventTopics({
+      abi: scoopAbis.ScoopFactoryHistoricalCanary,
+      eventName: 'TokenLaunched',
+    })[0],
+  ].map((t) => normalizeBytes32(t as Hex)),
+);
 
 function jsonSafe(value: unknown): unknown {
   return JSON.parse(
@@ -150,12 +160,12 @@ export async function processBlock(
   let swapCount = 0;
   let transferCount = 0;
 
-  // Discover TokenLaunched
+  // Discover TokenLaunched (canonical P3 + historical canary topics)
   const launchLogs = logs.filter(
     (l) =>
       normalizeAddress(l.address) === factory &&
       l.topics[0] &&
-      normalizeBytes32(l.topics[0]) === normalizeBytes32(TOKEN_LAUNCHED_TOPIC),
+      TOKEN_LAUNCHED_TOPICS.has(normalizeBytes32(l.topics[0])),
   );
 
   for (const launchLog of launchLogs) {
@@ -253,8 +263,8 @@ export async function processBlock(
       lpTokenId: launchView.lpTokenId.toString(),
       currency0: normalizeAddress(launchView.quoteAsset),
       currency1: tokenAddress,
-      fee: 10000,
-      tickSpacing: 10,
+      fee: BASE_FEE,
+      tickSpacing: TICK_SPACING,
       hooks: ZERO_ADDRESS,
       tokenIsCurrency1: true,
       tokenDecimals: tokenMeta.decimals || 18,

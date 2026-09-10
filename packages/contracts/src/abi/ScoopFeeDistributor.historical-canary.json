@@ -23,24 +23,24 @@
         "internalType": "address"
       },
       {
-        "name": "holderRewards_",
-        "type": "address",
-        "internalType": "address"
+        "name": "creatorRewardsBps_",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
-        "name": "additionalFee_",
-        "type": "uint24",
-        "internalType": "uint24"
+        "name": "deployerBps_",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
-        "name": "creatorAllocationDestination_",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
+        "name": "buybackBps_",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
-        "name": "additionalFeeDestination_",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
+        "name": "operationsBps_",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "nonpayable"
@@ -51,7 +51,7 @@
   },
   {
     "type": "function",
-    "name": "BUYBACK_BPS",
+    "name": "BPS_DENOMINATOR",
     "inputs": [],
     "outputs": [
       {
@@ -64,78 +64,13 @@
   },
   {
     "type": "function",
-    "name": "CREATOR_REWARDS_BPS",
+    "name": "buybackBps",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "uint16",
         "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "DEPLOYER_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "OPERATIONS_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "additionalFee",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "additionalFeeDestination",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "baseFee",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
       }
     ],
     "stateMutability": "view"
@@ -155,19 +90,6 @@
   },
   {
     "type": "function",
-    "name": "creatorAllocationDestination",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "creatorRewards",
     "inputs": [],
     "outputs": [
@@ -181,6 +103,19 @@
   },
   {
     "type": "function",
+    "name": "creatorRewardsBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "deployer",
     "inputs": [],
     "outputs": [
@@ -188,6 +123,19 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deployerBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -214,19 +162,6 @@
   },
   {
     "type": "function",
-    "name": "holderRewards",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "operations",
     "inputs": [],
     "outputs": [
@@ -240,13 +175,13 @@
   },
   {
     "type": "function",
-    "name": "totalPoolFee",
+    "name": "operationsBps",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "uint24",
-        "internalType": "uint24"
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -262,61 +197,25 @@
         "internalType": "uint256"
       },
       {
-        "name": "basePart",
+        "name": "creatorRewardsAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "extraPart",
+        "name": "deployerAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "baseCreatorAmount",
+        "name": "buybackAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "baseHoldersAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseDeployerAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseBuybackAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseOperationsAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraCreatorAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraDeployerAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraHoldersAmount",
+        "name": "operationsAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -341,61 +240,25 @@
         "internalType": "uint256"
       },
       {
-        "name": "basePart",
+        "name": "creatorRewardsAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "extraPart",
+        "name": "deployerAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "baseCreatorAmount",
+        "name": "buybackAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "baseHoldersAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseDeployerAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseBuybackAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "baseOperationsAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraCreatorAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraDeployerAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "extraHoldersAmount",
+        "name": "operationsAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -405,39 +268,12 @@
   },
   {
     "type": "error",
-    "name": "HolderRewardsRequired",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidAdditionalFee",
+    "name": "InvalidBpsTotal",
     "inputs": [
       {
-        "name": "additionalFee",
-        "type": "uint24",
-        "internalType": "uint24"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidAdditionalFeeDestination",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidCreatorAllocationDestination",
-    "inputs": [
-      {
-        "name": "value",
-        "type": "uint8",
-        "internalType": "uint8"
+        "name": "total",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ]
   },
@@ -470,17 +306,6 @@
         "name": "token",
         "type": "address",
         "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "TotalFeeTooLarge",
-    "inputs": [
-      {
-        "name": "totalFee",
-        "type": "uint24",
-        "internalType": "uint24"
       }
     ]
   },

@@ -1,0 +1,298 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "positionManager_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "rootPublisher_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "DISTRIBUTOR_DOMAIN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HOLDER_DOMAIN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "LOCKER_DOMAIN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deployLaunch",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct ScoopLaunchDeployer.LaunchFeeConfig",
+        "components": [
+          {
+            "name": "creatorRewards",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "deployer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "buybackVault",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "operations",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "additionalFee",
+            "type": "uint24",
+            "internalType": "uint24"
+          },
+          {
+            "name": "creatorAllocationDestination",
+            "type": "uint8",
+            "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
+          },
+          {
+            "name": "additionalFeeDestination",
+            "type": "uint8",
+            "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
+          }
+        ]
+      },
+      {
+        "name": "baseSalt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "feeDistributor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "liquidityLocker",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "holderRewards",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "positionManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "predictLaunch",
+    "inputs": [
+      {
+        "name": "config",
+        "type": "tuple",
+        "internalType": "struct ScoopLaunchDeployer.LaunchFeeConfig",
+        "components": [
+          {
+            "name": "creatorRewards",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "deployer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "buybackVault",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "operations",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "additionalFee",
+            "type": "uint24",
+            "internalType": "uint24"
+          },
+          {
+            "name": "creatorAllocationDestination",
+            "type": "uint8",
+            "internalType": "enum ScoopFeeTypes.CreatorAllocationDestination"
+          },
+          {
+            "name": "additionalFeeDestination",
+            "type": "uint8",
+            "internalType": "enum ScoopFeeTypes.AdditionalFeeDestination"
+          }
+        ]
+      },
+      {
+        "name": "baseSalt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "predictedFeeDistributor",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "predictedLiquidityLocker",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "predictedHolderRewards",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rootPublisher",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "LaunchDeployed",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "feeDistributor",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "liquidityLocker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "holderRewards",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "baseSalt",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "Create2EmptyBytecode",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FailedDeployment",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientBalance",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "needed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroPositionManager",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroRootPublisher",
+    "inputs": []
+  }
+]
