@@ -23,7 +23,7 @@ import {
   validateMarketStep,
   validateTokenStep,
 } from '@/lib/launch/validation';
-import { LAUNCH_WRITE_ENABLED } from '@/lib/launch/execute';
+import { LAUNCH_WRITE_ENABLED, canLaunchCanonicalProduction } from '@/lib/launch/execute';
 import { runWalletLaunch } from '@/lib/launch/orchestrate';
 import { runLaunchCompletion } from '@/lib/launch/complete-launch';
 import { activateNewsArticleMarket } from '@/lib/news/activate-article-market';
@@ -721,6 +721,8 @@ function LaunchFlowInner({ catalogue }: Props) {
             ? launchTxBusyReason(tx.phase)
             : !LAUNCH_WRITE_ENABLED
               ? 'Launch submission is disabled.'
+              : !canLaunchCanonicalProduction()
+                ? 'Canonical Factory not deployed yet'
               : !connectedAddress
                 ? 'Connect a wallet to launch'
                 : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
@@ -741,6 +743,15 @@ function LaunchFlowInner({ catalogue }: Props) {
         ...INITIAL_LAUNCH_TX_STATE,
         phase: 'failed',
         error: 'Connect a wallet to launch.',
+      });
+      return;
+    }
+
+    if (!canLaunchCanonicalProduction()) {
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'failed',
+        error: 'Canonical Factory not deployed yet — launch unavailable.',
       });
       return;
     }

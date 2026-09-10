@@ -132,7 +132,7 @@ describe('buildLaunchParams', () => {
 });
 
 describe('prepareWalletLaunchRequest', () => {
-  it('prepares launch with fee value; writes are enabled for V2.C', () => {
+  it('refuses prepare while canonical production is undeployed', () => {
     expect(LAUNCH_WRITE_ENABLED).toBe(true);
     const built = buildLaunchParams({
       state: readyState(),
@@ -140,13 +140,14 @@ describe('prepareWalletLaunchRequest', () => {
     });
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    const req = prepareWalletLaunchRequest({
-      params: built.params,
-      account: WALLET,
-      launchFeeWei: LAUNCH_FEE_WEI,
-    });
-    expect(req.functionName).toBe('launch');
-    expect(req.value).toBe(LAUNCH_FEE_WEI);
+    expect(built.params.additionalFee).toBe(0);
+    expect(() =>
+      prepareWalletLaunchRequest({
+        params: built.params,
+        account: WALLET,
+        launchFeeWei: LAUNCH_FEE_WEI,
+      }),
+    ).toThrow(/undeployed/);
   });
 });
 

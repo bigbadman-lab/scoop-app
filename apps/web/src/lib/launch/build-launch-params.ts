@@ -4,6 +4,12 @@
  */
 import { isAddress, type Address, type Hex } from 'viem';
 import {
+  AdditionalFeeDestination,
+  CreatorAllocationDestination,
+  totalPoolFee,
+  validateAdditionalFeeUnits,
+} from '@scoop/shared';
+import {
   isCreatorResolved,
   resolveCreatorRecipient,
   type ResolvedCreatorRecipient,
@@ -28,7 +34,7 @@ export type FactoryLaunchMetadata = {
   farcaster: string;
 };
 
-/** Matches ScoopFactory.LaunchParams ABI tuple order. */
+/** Matches canonical ScoopFactory.LaunchParams ABI tuple order. */
 export type FactoryLaunchParams = {
   name: string;
   symbol: string;
@@ -36,6 +42,9 @@ export type FactoryLaunchParams = {
   quoteAsset: Address;
   metadata: FactoryLaunchMetadata;
   salt: Hex;
+  additionalFee: number;
+  creatorAllocationDestination: number;
+  additionalFeeDestination: number;
 };
 
 export type LaunchParamsBuildInput = {
@@ -60,6 +69,8 @@ export type LaunchParamsBuildSuccess = {
     sourceProviderArticleId: string | null;
     sourceDraftId: string | null;
   };
+  /** Derived total pool fee (BASE + additional) for logging/review. */
+  totalPoolFee: number;
 };
 
 export type LaunchParamsBuildFailure = {
@@ -130,6 +141,30 @@ export function buildLaunchParams(
     errors.salt = 'Launch salt must be a 32-byte hex value.';
   }
 
+  const feeCheck = validateAdditionalFeeUnits(input.state.additionalFee);
+  if (!feeCheck.ok) {
+    errors.additionalFee = feeCheck.message;
+  }
+
+  const creatorAlloc = input.state.creatorAllocationDestination;
+  if (
+    creatorAlloc !== CreatorAllocationDestination.Creator &&
+    creatorAlloc !== CreatorAllocationDestination.Holders
+  ) {
+    errors.creatorAllocationDestination =
+      'Choose whether the base creator allocation goes to the Creator or Holders.';
+  }
+
+  const additionalDest = input.state.additionalFeeDestination;
+  if (
+    additionalDest !== AdditionalFeeDestination.Creator &&
+    additionalDest !== AdditionalFeeDestination.Deployer &&
+    additionalDest !== AdditionalFeeDestination.Holders
+  ) {
+    errors.additionalFeeDestination =
+      'Choose where the additional fee should go.';
+  }
+
   const imageUri = (
     input.imageUri ??
     input.state.image.ipfsUri ??
@@ -152,6 +187,7 @@ export function buildLaunchParams(
     return fail(errors);
   }
 
+  const additionalFee = feeCheck.ok ? feeCheck.additionalFee : 0;
   const params: FactoryLaunchParams = {
     name,
     symbol,
@@ -167,6 +203,9 @@ export function buildLaunchParams(
       farcaster: '',
     },
     salt: input.state.salt,
+    additionalFee,
+    creatorAllocationDestination: creatorAlloc,
+    additionalFeeDestination: additionalDest,
   };
 
   return {
@@ -178,5 +217,6 @@ export function buildLaunchParams(
       sourceProviderArticleId: input.state.sourceProviderArticleId,
       sourceDraftId: input.state.sourceDraftId,
     },
+    totalPoolFee: totalPoolFee(additionalFee),
   };
 }

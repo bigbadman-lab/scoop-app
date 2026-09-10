@@ -1,9 +1,6 @@
 /**
- * ScoopFactory ABI fragment for launch / launchAndBuy.
- *
- * Encoding still targets the HISTORICAL TEST canary Factory (pre-P3 LaunchParams).
- * Canonical P3 LaunchParams (+ fee routing) live in `@scoop/contracts` scoopAbis.ScoopFactory
- * and will be wired when production addresses are deployed.
+ * ScoopFactory ABI fragment for canonical launch / launchAndBuy (P3 LaunchParams).
+ * Includes fee-routing fields. Must never be sent to the historical canary Factory.
  */
 export const scoopFactoryLaunchAbi = [
   {
@@ -40,6 +37,9 @@ export const scoopFactoryLaunchAbi = [
             ],
           },
           { name: 'salt', type: 'bytes32' },
+          { name: 'additionalFee', type: 'uint24' },
+          { name: 'creatorAllocationDestination', type: 'uint8' },
+          { name: 'additionalFeeDestination', type: 'uint8' },
         ],
       },
     ],
@@ -78,6 +78,9 @@ export const scoopFactoryLaunchAbi = [
             ],
           },
           { name: 'salt', type: 'bytes32' },
+          { name: 'additionalFee', type: 'uint24' },
+          { name: 'creatorAllocationDestination', type: 'uint8' },
+          { name: 'additionalFeeDestination', type: 'uint8' },
         ],
       },
       { name: 'quoteAmountIn', type: 'uint256' },
@@ -90,37 +93,6 @@ export const scoopFactoryLaunchAbi = [
       { name: 'lpTokenId', type: 'uint256' },
       { name: 'poolId', type: 'bytes32' },
       { name: 'tokensBought', type: 'uint256' },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'TokenLaunched',
-    inputs: [
-      { name: 'token', type: 'address', indexed: true },
-      { name: 'deployer', type: 'address', indexed: true },
-      { name: 'creatorId', type: 'bytes32', indexed: true },
-      { name: 'quoteAsset', type: 'address', indexed: false },
-      { name: 'feeDistributor', type: 'address', indexed: false },
-      { name: 'liquidityLocker', type: 'address', indexed: false },
-      { name: 'poolId', type: 'bytes32', indexed: false },
-      { name: 'lpTokenId', type: 'uint256', indexed: false },
-      { name: 'openingSqrtPriceX96', type: 'uint160', indexed: false },
-      { name: 'openingTick', type: 'int24', indexed: false },
-      { name: 'tickLower', type: 'int24', indexed: false },
-      { name: 'tickUpper', type: 'int24', indexed: false },
-      { name: 'name', type: 'string', indexed: false },
-      { name: 'symbol', type: 'string', indexed: false },
-    ],
-  },
-  {
-    type: 'event',
-    name: 'InitialBuyExecuted',
-    inputs: [
-      { name: 'token', type: 'address', indexed: true },
-      { name: 'deployer', type: 'address', indexed: true },
-      { name: 'quoteAsset', type: 'address', indexed: true },
-      { name: 'quoteAmountIn', type: 'uint256', indexed: false },
-      { name: 'tokensOut', type: 'uint256', indexed: false },
     ],
   },
 ] as const;

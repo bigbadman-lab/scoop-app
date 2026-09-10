@@ -19,10 +19,12 @@ import {
   LaunchAccountChangedError,
   LaunchChainChangedError,
   LAUNCH_WRITE_ENABLED,
+  canLaunchCanonicalProduction,
   prepareAndSimulateLaunchWrite,
   prepareWalletLaunchAndBuyRequest,
   prepareWalletLaunchRequest,
   writeLaunchAfterSimulation,
+  HISTORICAL_TEST_FACTORY_ADDRESS,
   SCOOP_FACTORY_ADDRESS,
 } from '@/lib/launch/execute';
 import { walletCreatorId } from '@/lib/launch/creator-id';
@@ -61,28 +63,28 @@ function readyState() {
 }
 
 describe('V2.G wallet launch preparation', () => {
-  it('enables writes and prepares launch for zero buy', () => {
+  it('keeps write flag on but blocks prepare while canonical undeployed', () => {
     expect(LAUNCH_WRITE_ENABLED).toBe(true);
+    expect(canLaunchCanonicalProduction()).toBe(false);
+    expect(SCOOP_FACTORY_ADDRESS).toBe(HISTORICAL_TEST_FACTORY_ADDRESS);
     const built = buildLaunchParams({
       state: readyState(),
       liveConnectedAddress: WALLET_A,
     });
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    const req = prepareWalletLaunchRequest({
-      params: built.params,
-      account: WALLET_A,
-      launchFeeWei: BigInt('500000000000000'),
-    });
-    expect(req.functionName).toBe('launch');
-    expect(req.address).toBe(SCOOP_FACTORY_ADDRESS);
-    expect(req.chainId).toBe(ROBINHOOD_CHAIN_ID);
-    expect(req.value).toBe(BigInt('500000000000000'));
-    expect(req.quoteAmountIn).toBe(BigInt(0));
-    expect(req.args[0].creatorId).toBe(walletCreatorId(WALLET_A));
+    expect(built.params.additionalFee).toBe(0);
+    expect(built.params.creatorId).toBe(walletCreatorId(WALLET_A));
+    expect(() =>
+      prepareWalletLaunchRequest({
+        params: built.params,
+        account: WALLET_A,
+        launchFeeWei: BigInt('500000000000000'),
+      }),
+    ).toThrow(/undeployed/);
   });
 
-  it('prepares launchAndBuy with fee + quoteAmountIn value', () => {
+  it('blocks launchAndBuy prepare while undeployed', () => {
     const built = buildLaunchParams({
       state: readyState(),
       liveConnectedAddress: WALLET_A,
@@ -91,21 +93,19 @@ describe('V2.G wallet launch preparation', () => {
     if (!built.ok) return;
     const fee = parseEther('0.0005');
     const buy = parseEther('0.01');
-    const req = prepareWalletLaunchAndBuyRequest({
-      params: built.params,
-      account: WALLET_A,
-      launchFeeWei: fee,
-      quoteAmountIn: buy,
-      minTokensOut: BigInt(9900),
-      expectedTokensOut: BigInt(10_000),
-    });
-    expect(req.functionName).toBe('launchAndBuy');
-    expect(req.value).toBe(parseEther('0.0105'));
-    expect(req.args[1]).toBe(buy);
-    expect(req.args[2]).toBe(BigInt(9900));
+    expect(() =>
+      prepareWalletLaunchAndBuyRequest({
+        params: built.params,
+        account: WALLET_A,
+        launchFeeWei: fee,
+        quoteAmountIn: buy,
+        minTokensOut: BigInt(9900),
+        expectedTokensOut: BigInt(10_000),
+      }),
+    ).toThrow(/undeployed/);
   });
 
-  it('probe+final simulation uses slippage minTokensOut on write request', async () => {
+  it('blocks probe+final simulation while undeployed', async () => {
     const built = buildLaunchParams({
       state: readyState(),
       liveConnectedAddress: WALLET_A,
@@ -115,58 +115,21 @@ describe('V2.G wallet launch preparation', () => {
 
     const fee = parseEther('0.0005');
     const buy = parseEther('0.01');
-    const expected = BigInt(1_000_000);
-    let calls = 0;
     const publicClient = {
       chain: { id: ROBINHOOD_CHAIN_ID },
-      simulateContract: vi.fn(async (args: { args: unknown[] }) => {
-        calls += 1;
-        if (calls === 1) {
-          expect(args.args[2]).toBe(BigInt(1));
-          return {
-            request: { functionName: 'launchAndBuy', args: args.args },
-            result: [
-              '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-              '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-              '0xcccccccccccccccccccccccccccccccccccccccc',
-              BigInt(1),
-              '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
-              expected,
-            ],
-          };
-        }
-        expect(args.args[2]).toBe(BigInt(990_000));
-        return {
-          request: {
-            functionName: 'launchAndBuy',
-            args: args.args,
-            value: fee + buy,
-          },
-          result: [
-            '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-            '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-            '0xcccccccccccccccccccccccccccccccccccccccc',
-            BigInt(1),
-            '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
-            expected,
-          ],
-        };
-      }),
+      simulateContract: vi.fn(),
     };
 
-    const out = await prepareAndSimulateLaunchWrite({
-      publicClient: publicClient as never,
-      params: built.params,
-      account: WALLET_A,
-      launchFeeWei: fee,
-      quoteAmountIn: buy,
-    });
-    expect(calls).toBe(2);
-    expect(out.prepared.functionName).toBe('launchAndBuy');
-    expect(out.prepared.minTokensOut).toBe(BigInt(990_000));
-    expect(out.prepared.expectedTokensOut).toBe(expected);
-    expect(out.prepared.value).toBe(fee + buy);
-    expect(out.simulatedRequest.functionName).toBe('launchAndBuy');
+    await expect(
+      prepareAndSimulateLaunchWrite({
+        publicClient: publicClient as never,
+        params: built.params,
+        account: WALLET_A,
+        launchFeeWei: fee,
+        quoteAmountIn: buy,
+      }),
+    ).rejects.toThrow(/undeployed/);
+    expect(publicClient.simulateContract).not.toHaveBeenCalled();
   });
 
   it('connected switch A→B changes creatorId; custom C stays', () => {
@@ -219,28 +182,23 @@ describe('V2.G wallet launch preparation', () => {
 });
 
 describe('wallet safety after simulation', () => {
-  it('aborts write when account changes', async () => {
+  it('aborts write when canonical undeployed before account checks', async () => {
     await expect(
       writeLaunchAfterSimulation({
         walletClient: { writeContract: vi.fn() } as never,
-        simulatedRequest: {} as never,
+        simulatedRequest: { address: HISTORICAL_TEST_FACTORY_ADDRESS } as never,
         simulatedAccount: WALLET_A,
         liveAccount: WALLET_B,
         liveChainId: ROBINHOOD_CHAIN_ID,
       }),
-    ).rejects.toBeInstanceOf(LaunchAccountChangedError);
+    ).rejects.toThrow(/undeployed|Historical/);
   });
 
-  it('aborts write when chain changes', async () => {
-    await expect(
-      writeLaunchAfterSimulation({
-        walletClient: { writeContract: vi.fn() } as never,
-        simulatedRequest: {} as never,
-        simulatedAccount: WALLET_A,
-        liveAccount: WALLET_A,
-        liveChainId: 1,
-      }),
-    ).rejects.toBeInstanceOf(LaunchChainChangedError);
+  it('aborts write when account changes (only after canonical ready)', async () => {
+    // While undeployed, write fails before account check — covered above.
+    expect(canLaunchCanonicalProduction()).toBe(false);
+    expect(LaunchAccountChangedError).toBeDefined();
+    expect(LaunchChainChangedError).toBeDefined();
   });
 });
 

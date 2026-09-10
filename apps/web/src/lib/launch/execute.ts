@@ -1,5 +1,6 @@
 /**
  * Production wallet launch path (V2.C / V2.G).
+ * Canonical LaunchParams only — refuses historical Factory and undeployed production.
  * launch when no ETH buy; launchAndBuy when ETH quoteAmountIn > 0.
  * Mandatory simulate → account/chain recheck → write → receipt.
  */
@@ -11,7 +12,11 @@ import type {
   WalletClient,
   WriteContractParameters,
 } from 'viem';
-import { scoopV1MainnetCanaryManifest } from '@scoop/shared';
+import {
+  historicalTestCanaryManifest,
+  isCanonicalProductionDeployed,
+  requireCanonicalProductionAddresses,
+} from '@scoop/shared';
 import type { FactoryLaunchParams } from '@/lib/launch/build-launch-params';
 import {
   computeMinTokensOut,
@@ -23,15 +28,63 @@ import { scoopFactoryLaunchAbi } from '@/lib/launch/factory-abi';
 import { LAUNCH_FEE_WEI } from '@/lib/launch/types';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 
-/** Enables production Factory writes (human-approved only). */
+/** Enables production Factory writes when canonical is deployed (human-approved). */
 export const LAUNCH_WRITE_ENABLED = true as const;
 
-/** HISTORICAL TEST-ONLY canary Factory — not canonical production. */
-export const SCOOP_FACTORY_ADDRESS =
-  scoopV1MainnetCanaryManifest.contracts.ScoopFactory as `0x${string}`;
+/** Historical canary Factory — decode/claims only; never receives canonical LaunchParams. */
+export const HISTORICAL_TEST_FACTORY_ADDRESS =
+  historicalTestCanaryManifest.contracts.ScoopFactory as `0x${string}`;
 
-/** Probe floor for quote simulation only — never used on the write. */
-const QUOTE_PROBE_MIN_TOKENS_OUT = BigInt(1);
+/**
+ * @deprecated Do not use for launch writes. Historical canary address only.
+ * Prefer resolveCanonicalLaunchFactoryAddress().
+ */
+export const SCOOP_FACTORY_ADDRESS = HISTORICAL_TEST_FACTORY_ADDRESS;
+
+/** True when canonical production Factory addresses are available. */
+export function canLaunchCanonicalProduction(): boolean {
+  return isCanonicalProductionDeployed();
+}
+
+/**
+ * Resolve the Factory for launch broadcast.
+ * Throws if undeployed — never falls back to the historical canary.
+ */
+export function resolveCanonicalLaunchFactoryAddress(): `0x${string}` {
+  if (!canLaunchCanonicalProduction()) {
+    throw new Error(
+      'Canonical production Factory is undeployed; launch broadcast is disabled.',
+    );
+  }
+  const addresses = requireCanonicalProductionAddresses();
+  const factory = addresses.factory.toLowerCase() as `0x${string}`;
+  if (factory === HISTORICAL_TEST_FACTORY_ADDRESS.toLowerCase()) {
+    throw new Error(
+      'Refusing to treat historical Factory as canonical production.',
+    );
+  }
+  return factory;
+}
+
+function assertCanonicalParams(params: FactoryLaunchParams): void {
+  if (
+    params.additionalFee == null ||
+    params.creatorAllocationDestination == null ||
+    params.additionalFeeDestination == null
+  ) {
+    throw new Error(
+      'Canonical LaunchParams require additionalFee and destination fields.',
+    );
+  }
+}
+
+function assertNotHistoricalFactory(address: `0x${string}`): void {
+  if (address.toLowerCase() === HISTORICAL_TEST_FACTORY_ADDRESS.toLowerCase()) {
+    throw new Error(
+      'Historical Factory must never receive canonical LaunchParams.',
+    );
+  }
+}
 
 export type PreparedLaunchRequest = {
   address: `0x${string}`;
@@ -52,6 +105,7 @@ export type PreparedLaunchRequest = {
 
 /**
  * Build a launch-only request (fee only).
+ * Requires canonical production deployment.
  */
 export function prepareWalletLaunchRequest(args: {
   params: FactoryLaunchParams;
@@ -61,6 +115,10 @@ export function prepareWalletLaunchRequest(args: {
   if (args.launchFeeWei <= BigInt(0)) {
     throw new Error('Launch fee must be positive.');
   }
+  assertCanonicalParams(args.params);
+  const factory = resolveCanonicalLaunchFactoryAddress();
+  assertNotHistoricalFactory(factory);
+
   const functionName = selectLaunchFunction({
     quoteAsset: args.params.quoteAsset,
     quoteAmountInWei: BigInt(0),
@@ -69,7 +127,7 @@ export function prepareWalletLaunchRequest(args: {
     throw new Error('Internal: zero buy must select launch.');
   }
   return {
-    address: SCOOP_FACTORY_ADDRESS,
+    address: factory,
     abi: scoopFactoryLaunchAbi,
     functionName: 'launch',
     args: [args.params],
@@ -106,6 +164,10 @@ export function prepareWalletLaunchAndBuyRequest(args: {
   if (args.minTokensOut <= BigInt(0)) {
     throw new Error('minTokensOut must be positive.');
   }
+  assertCanonicalParams(args.params);
+  const factory = resolveCanonicalLaunchFactoryAddress();
+  assertNotHistoricalFactory(factory);
+
   const functionName = selectLaunchFunction({
     quoteAsset: args.params.quoteAsset,
     quoteAmountInWei: args.quoteAmountIn,
@@ -114,7 +176,7 @@ export function prepareWalletLaunchAndBuyRequest(args: {
     throw new Error('launchAndBuy requires native ETH quote and positive buy.');
   }
   return {
-    address: SCOOP_FACTORY_ADDRESS,
+    address: factory,
     abi: scoopFactoryLaunchAbi,
     functionName: 'launchAndBuy',
     args: [args.params, args.quoteAmountIn, args.minTokensOut],
@@ -129,13 +191,17 @@ export function prepareWalletLaunchAndBuyRequest(args: {
   };
 }
 
-/** Read Factory.LAUNCH_FEE; fall back to known immutable constant if RPC fails. */
+/** Read Factory.LAUNCH_FEE when canonical is deployed; else app constant. */
 export async function readLaunchFeeWei(
   publicClient: PublicClient,
 ): Promise<{ feeWei: bigint; source: 'contract' | 'constant' }> {
+  if (!canLaunchCanonicalProduction()) {
+    return { feeWei: LAUNCH_FEE_WEI, source: 'constant' };
+  }
   try {
+    const factory = resolveCanonicalLaunchFactoryAddress();
     const fee = await publicClient.readContract({
-      address: SCOOP_FACTORY_ADDRESS,
+      address: factory,
       abi: scoopFactoryLaunchAbi,
       functionName: 'LAUNCH_FEE',
     });
@@ -156,6 +222,7 @@ export async function simulateLaunch(args: {
   request: WriteContractParameters;
   result: unknown;
 }> {
+  assertNotHistoricalFactory(args.request.address);
   const { request, result } = await args.publicClient.simulateContract({
     address: args.request.address,
     abi: args.request.abi,
@@ -183,6 +250,11 @@ export async function prepareAndSimulateLaunchWrite(args: {
   prepared: PreparedLaunchRequest;
   simulatedRequest: WriteContractParameters;
 }> {
+  if (!canLaunchCanonicalProduction()) {
+    throw new Error(
+      'Canonical production Factory is undeployed; launch broadcast is disabled.',
+    );
+  }
   const slippageBps = args.slippageBps ?? LAUNCH_DEV_BUY_SLIPPAGE_BPS;
 
   if (args.quoteAmountIn <= BigInt(0)) {
@@ -203,7 +275,7 @@ export async function prepareAndSimulateLaunchWrite(args: {
     account: args.account,
     launchFeeWei: args.launchFeeWei,
     quoteAmountIn: args.quoteAmountIn,
-    minTokensOut: QUOTE_PROBE_MIN_TOKENS_OUT,
+    minTokensOut: BigInt(1),
     expectedTokensOut: BigInt(0),
     slippageBps,
   });
@@ -280,6 +352,15 @@ export async function writeLaunchAfterSimulation(args: {
   if (!LAUNCH_WRITE_ENABLED) {
     throw new Error('Launch writes are disabled.');
   }
+  if (!canLaunchCanonicalProduction()) {
+    throw new Error(
+      'Canonical production Factory is undeployed; launch broadcast is disabled.',
+    );
+  }
+  const to = args.simulatedRequest.address;
+  if (to && typeof to === 'string') {
+    assertNotHistoricalFactory(to.toLowerCase() as `0x${string}`);
+  }
   if (args.liveAccount.toLowerCase() !== args.simulatedAccount.toLowerCase()) {
     throw new LaunchAccountChangedError();
   }
@@ -306,6 +387,12 @@ export function shortenLaunchError(raw: string): string {
   }
   if (/LAUNCH_WRITE|disabled/i.test(msg)) {
     return 'Launch writes are disabled.';
+  }
+  if (/undeployed|Canonical production/i.test(msg)) {
+    return 'Canonical Factory not deployed yet — launch unavailable.';
+  }
+  if (/Historical Factory/i.test(msg)) {
+    return 'Launch blocked: historical Factory cannot receive canonical params.';
   }
   if (/Initial buy is currently available/i.test(msg)) {
     return msg;

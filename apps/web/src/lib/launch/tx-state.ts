@@ -95,6 +95,10 @@ export type LaunchChecklist = {
   imageUri: string;
   tokenName: string;
   tokenSymbol: string;
+  additionalFee: number;
+  totalPoolFee: number;
+  creatorAllocationDestination: number;
+  additionalFeeDestination: number;
 };
 
 export const INITIAL_LAUNCH_TX_STATE: LaunchTxState = {

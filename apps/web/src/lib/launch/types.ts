@@ -1,6 +1,12 @@
 /** Launch flow types — Phase 2 four-step desk + V2.B creator identity. */
 
 import type { Hex } from 'viem';
+import {
+  AdditionalFeeDestination,
+  CreatorAllocationDestination,
+  type AdditionalFeeDestination as AdditionalFeeDestinationType,
+  type CreatorAllocationDestination as CreatorAllocationDestinationType,
+} from '@scoop/shared';
 import { generateLaunchSalt } from '@/lib/launch/salt';
 
 export type LaunchStepId = 1 | 2 | 3 | 4;
@@ -85,6 +91,20 @@ export type LaunchFormState = {
    */
   creatorX: ResolvedXCreator;
   /**
+   * Where the base 70% creator allocation from SCOOP's fixed 1% fee goes.
+   * Immutable after launch.
+   */
+  creatorAllocationDestination: CreatorAllocationDestinationType;
+  /**
+   * Optional additional trading fee in Uniswap v4 fee units (0–20_000, step 1_000).
+   */
+  additionalFee: number;
+  /**
+   * Destination for the entire additional fee when additionalFee > 0.
+   * Still encoded when additionalFee === 0 (economically inert).
+   */
+  additionalFeeDestination: AdditionalFeeDestinationType;
+  /**
    * CREATE2 user salt (bytes32). Generated once per wizard session; preserved
    * across steps. Regenerating requires explicit action (not done automatically).
    */
@@ -133,6 +153,9 @@ export function createInitialLaunchState(
     creatorMode: 'connected',
     creatorCustomAddress: '',
     creatorX: { status: 'unresolved' },
+    creatorAllocationDestination: CreatorAllocationDestination.Creator,
+    additionalFee: 0,
+    additionalFeeDestination: AdditionalFeeDestination.Creator,
     salt: generateLaunchSalt(),
     devBuyAmount: '',
     sourceProvider: null,
@@ -144,12 +167,21 @@ export function createInitialLaunchState(
   return {
     ...base,
     ...rest,
+    // Safe defaults for old drafts missing fee fields.
+    creatorAllocationDestination:
+      rest.creatorAllocationDestination ?? base.creatorAllocationDestination,
+    additionalFee: rest.additionalFee ?? base.additionalFee,
+    additionalFeeDestination:
+      rest.additionalFeeDestination ?? base.additionalFeeDestination,
     image: imagePrefill ? { ...INITIAL_IMAGE, ...imagePrefill } : base.image,
     salt: rest.salt ?? base.salt,
   };
 }
 
-/** Protocol-fixed trading-fee split (not user-configurable). */
+/**
+ * Protocol-fixed split of the base 1% trading fee (not the optional additional fee).
+ * Kept for homepage / account display of the immutable base schedule.
+ */
 export const PROTOCOL_FEE_SPLIT = {
   creatorRewardsBps: 7000,
   deployerBps: 400,

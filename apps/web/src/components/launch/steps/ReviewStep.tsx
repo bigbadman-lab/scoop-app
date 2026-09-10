@@ -4,7 +4,6 @@ import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   LAUNCH_FEE_ETH,
   LAUNCH_FEE_WEI,
-  PROTOCOL_FEE_SPLIT,
   type LaunchFormState,
 } from '@/lib/launch/types';
 import { hasDevBuy } from '@/lib/launch/validation';
@@ -28,6 +27,14 @@ import {
   parseEthDevBuyWei,
 } from '@/lib/launch/dev-buy';
 import { truncateAddress } from '@/lib/format';
+import {
+  AdditionalFeeDestination,
+  BASE_FEE,
+  computeEffectiveFeeRouting,
+  CreatorAllocationDestination,
+  formatTradingFeePercent,
+} from '@scoop/shared';
+import { canLaunchCanonicalProduction } from '@/lib/launch/execute';
 
 type Props = {
   state: LaunchFormState;
@@ -63,6 +70,22 @@ export function ReviewStep({
   const ethBuyActive = buyWei > BigInt(0);
   const recipient = resolveCreatorRecipient(state, connectedAddress);
   const busy = isLaunchTxBusy(tx.phase);
+  const routing = computeEffectiveFeeRouting({
+    creatorAllocationDestination: state.creatorAllocationDestination,
+    additionalFee: state.additionalFee,
+    additionalFeeDestination: state.additionalFeeDestination,
+  });
+  const baseAllocLabel =
+    state.creatorAllocationDestination === CreatorAllocationDestination.Holders
+      ? 'Holders'
+      : 'Creator';
+  const extraDestLabel =
+    state.additionalFeeDestination === AdditionalFeeDestination.Holders
+      ? 'Holders'
+      : state.additionalFeeDestination === AdditionalFeeDestination.Deployer
+        ? 'Deployer'
+        : 'Creator';
+  const canonicalReady = canLaunchCanonicalProduction();
   const ticker =
     tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
   const tokenAddr =
@@ -180,6 +203,62 @@ export function ReviewStep({
           </div>
         </TicketBlock>
 
+        <TicketBlock title="Trading fees">
+          <dl className="space-y-2 text-sm" data-testid="fee-economics-summary">
+            <Row label="Base trading fee" value={formatTradingFeePercent(BASE_FEE)} />
+            <Row
+              label="Additional fee"
+              value={`+${formatTradingFeePercent(routing.additionalFeeUnits)}`}
+            />
+            <Row
+              label="Total trading fee"
+              value={formatTradingFeePercent(routing.totalFeeUnits)}
+            />
+            <Row label="Base 70% allocation" value={baseAllocLabel} />
+            {routing.additionalFeeUnits > 0 ? (
+              <Row label="Additional destination" value={extraDestLabel} />
+            ) : null}
+          </dl>
+          <dl
+            className="mt-3 space-y-2 border-t border-[var(--divider)] pt-3 text-sm"
+            data-testid="fee-routing-breakdown"
+          >
+            {routing.creatorUnits > 0 ? (
+              <Row label="Creator" value={formatTradingFeePercent(routing.creatorUnits)} />
+            ) : null}
+            {routing.holdersUnits > 0 ? (
+              <Row label="Holders" value={formatTradingFeePercent(routing.holdersUnits)} />
+            ) : null}
+            <Row label="Deployer" value={formatTradingFeePercent(routing.deployerUnits)} />
+            <Row label="Protocol" value={formatTradingFeePercent(routing.protocolUnits)} />
+            <Row
+              label="Operations"
+              value={formatTradingFeePercent(routing.operationsUnits)}
+            />
+            <Row label="Total" value={formatTradingFeePercent(routing.totalFeeUnits)} />
+          </dl>
+          {routing.holdersUnits > 0 ? (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Holder rewards stay in the assets earned by the market — no swaps.
+            </p>
+          ) : null}
+          <p
+            className="mt-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]"
+            data-testid="fee-immutable-warning"
+          >
+            Fee settings cannot be changed after launch.
+          </p>
+          {!canonicalReady ? (
+            <p
+              className="mt-2 text-sm text-[var(--muted)]"
+              data-testid="canonical-launch-unavailable"
+            >
+              Canonical Factory is not deployed yet. You can configure fees, but launch
+              broadcast is unavailable.
+            </p>
+          ) : null}
+        </TicketBlock>
+
         <TicketBlock title="Wallets">
           <dl className="space-y-3 text-sm">
             <div>
@@ -194,7 +273,7 @@ export function ReviewStep({
             </div>
             <div>
               <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-                Creator rewards · {PROTOCOL_FEE_SPLIT.creatorRewardsBps / 100}%
+                Creator recipient
               </dt>
               <dd
                 className="mt-1 whitespace-pre-line font-mono text-[14px] text-[var(--fg)]"
@@ -222,18 +301,6 @@ export function ReviewStep({
                 </dd>
               </div>
             ) : null}
-            <Row
-              label="Deployer fees"
-              value={`${PROTOCOL_FEE_SPLIT.deployerBps / 100}% → launching wallet`}
-            />
-            <Row
-              label="Protocol · buybacks"
-              value={`${PROTOCOL_FEE_SPLIT.buybackBps / 100}%`}
-            />
-            <Row
-              label="Protocol · operations"
-              value={`${PROTOCOL_FEE_SPLIT.operationsBps / 100}%`}
-            />
           </dl>
         </TicketBlock>
 

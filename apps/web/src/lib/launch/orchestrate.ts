@@ -25,11 +25,11 @@ import {
 import { resolveDevBuyIntent } from '@/lib/launch/dev-buy';
 import { ensureArtworkPinned } from '@/lib/launch/ensure-ipfs';
 import {
+  canLaunchCanonicalProduction,
   prepareAndSimulateLaunchWrite,
   readLaunchFeeWei,
   shortenLaunchError,
   writeLaunchAfterSimulation,
-  SCOOP_FACTORY_ADDRESS,
 } from '@/lib/launch/execute';
 import type { LaunchFormState, TokenImageState } from '@/lib/launch/types';
 import {
@@ -105,6 +105,15 @@ export async function runWalletLaunch(
       return {
         ok: false,
         state: fail(callbacks, 'Token image must be ready before launch.'),
+      };
+    }
+    if (!canLaunchCanonicalProduction()) {
+      return {
+        ok: false,
+        state: fail(
+          callbacks,
+          'Canonical Factory not deployed yet — launch unavailable.',
+        ),
       };
     }
 
@@ -198,7 +207,7 @@ export async function runWalletLaunch(
 
     const checklist: LaunchChecklist = {
       chainId: ROBINHOOD_CHAIN_ID,
-      factory: SCOOP_FACTORY_ADDRESS,
+      factory: prepared.address,
       functionName: prepared.functionName,
       signer: input.liveAddress.toLowerCase() as `0x${string}`,
       buyRecipient: input.liveAddress.toLowerCase() as `0x${string}`,
@@ -217,6 +226,10 @@ export async function runWalletLaunch(
       imageUri: built.params.metadata.imageUri,
       tokenName: built.params.name,
       tokenSymbol: built.params.symbol,
+      additionalFee: built.params.additionalFee,
+      totalPoolFee: built.totalPoolFee,
+      creatorAllocationDestination: built.params.creatorAllocationDestination,
+      additionalFeeDestination: built.params.additionalFeeDestination,
     };
 
     patch({

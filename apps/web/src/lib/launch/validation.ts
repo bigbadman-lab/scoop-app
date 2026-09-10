@@ -4,6 +4,11 @@ import {
   resolveCreatorRecipient,
 } from '@/lib/launch/creator-recipient';
 import { isNativeEthQuote, parseEthDevBuyWei } from '@/lib/launch/dev-buy';
+import {
+  AdditionalFeeDestination,
+  CreatorAllocationDestination,
+  validateAdditionalFeeUnits,
+} from '@scoop/shared';
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -131,6 +136,30 @@ export function validateEarningsStep(
       if (!parsed.ok) {
         errors.devBuyAmount = parsed.error;
       }
+    }
+  }
+
+  const feeCheck = validateAdditionalFeeUnits(state.additionalFee);
+  if (!feeCheck.ok) {
+    errors.additionalFee = feeCheck.message;
+  }
+
+  if (
+    state.creatorAllocationDestination !== CreatorAllocationDestination.Creator &&
+    state.creatorAllocationDestination !== CreatorAllocationDestination.Holders
+  ) {
+    errors.creatorAllocationDestination =
+      'Choose whether the base creator allocation goes to the Creator or Holders.';
+  }
+
+  if (state.additionalFee > 0) {
+    if (
+      state.additionalFeeDestination !== AdditionalFeeDestination.Creator &&
+      state.additionalFeeDestination !== AdditionalFeeDestination.Deployer &&
+      state.additionalFeeDestination !== AdditionalFeeDestination.Holders
+    ) {
+      errors.additionalFeeDestination =
+        'Choose where the additional fee should go.';
     }
   }
 

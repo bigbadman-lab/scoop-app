@@ -12,6 +12,9 @@ import {
   TICK_SPACING,
   LP_FEE,
   feeUnitsToPercent,
+  percentToFeeUnits,
+  assertValidAdditionalFee,
+  totalPoolFee,
   CreatorAllocationDestination,
   AdditionalFeeDestination,
   type HexAddress,
@@ -32,6 +35,9 @@ export {
   TICK_SPACING,
   LP_FEE,
   feeUnitsToPercent,
+  percentToFeeUnits,
+  assertValidAdditionalFee,
+  totalPoolFee,
   CreatorAllocationDestination,
   AdditionalFeeDestination,
 } from '@scoop/contracts';
@@ -42,6 +48,22 @@ export {
   distributionConserves,
   type NormalizedFeeDistributionLegs,
 } from './feeDistribution.js';
+export {
+  computeEffectiveFeeRouting,
+  formatTradingFeePercent,
+  validateAdditionalFeeUnits,
+  additionalFeePercentToUnits,
+  resolveAdditionalFeePreset,
+  ADDITIONAL_FEE_PRESETS,
+  BASE_FEE_CREATOR_SHARE,
+  BASE_FEE_DEPLOYER_SHARE,
+  BASE_FEE_PROTOCOL_SHARE,
+  BASE_FEE_OPERATIONS_SHARE,
+  type LaunchFeeEconomicsInput,
+  type EffectiveFeeRouting,
+  type AdditionalFeePresetKey,
+  type AdditionalFeeValidation,
+} from './launchFeeEconomics.js';
 export { Q96, mulDiv } from './fixedPoint.js';
 export {
   getAmount0ForLiquidity,
