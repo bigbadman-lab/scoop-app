@@ -35,3 +35,7 @@ export {
   SCOOP_CHAIN_ID,
   type GetPublicQuoteCatalogueOptions,
 } from './quotes.js';
+export {
+  listFeeKeeperMarkets,
+  type FeeKeeperMarket,
+} from './fee-keeper.js';

@@ -14,6 +14,8 @@
     "typecheck": "pnpm run build:packages && pnpm -r --if-present run typecheck",
     "dev:web": "pnpm --filter @scoop/web dev",
     "dev:indexer": "pnpm --filter @scoop/indexer^... run build && pnpm --filter @scoop/indexer dev",
+    "fee-keeper:once": "pnpm --filter @scoop/fee-keeper start",
+    "fee-keeper:dev": "pnpm --filter @scoop/fee-keeper dev",
     "format": "prettier --write .",
     "db:migrate": "node scripts/db-migrate.mjs",
     "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",

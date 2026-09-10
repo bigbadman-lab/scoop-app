@@ -57,6 +57,7 @@ export {
   getPublicQuoteCatalogue,
   CANONICAL_QUOTE_CATALOGUE_COUNT,
   SCOOP_CHAIN_ID,
+  listFeeKeeperMarkets,
   type GetTokensOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
@@ -71,6 +72,7 @@ export {
   type NewsArticleMarketSummary,
   type NewsArticleMarketBundle,
   type LaunchMarketReady,
+  type FeeKeeperMarket,
 } from './queries/index.js';
 export type {
   DatabaseClientMode,
