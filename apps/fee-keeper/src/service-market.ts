@@ -10,9 +10,11 @@ import {
   simulateCollectFees,
   writeCollectFees,
 } from './collect.js';
+import type { FeeKeeperDeploymentMode } from './config.js';
 import { decideMarketService } from './decide.js';
 import {
   actionLabel,
+  economicsLogFields,
   simulateDistribute,
   writeDistribute,
 } from './distribute.js';
@@ -39,6 +41,7 @@ export async function serviceMarket(input: {
   activityLookbackMinutes: number;
   fallbackSweepMinutes: number;
   cronWindowMinutes: number;
+  deploymentMode: FeeKeeperDeploymentMode;
   account?: Address;
 }): Promise<MarketOutcome> {
   const { market, publicClient, writeGate } = input;
@@ -46,10 +49,16 @@ export async function serviceMarket(input: {
   let gasUsed = 0n;
 
   const baseLog = {
+    deploymentMode: input.deploymentMode,
     token: market.tokenAddress,
     quoteAsset: market.quoteAsset,
     locker: market.liquidityLocker,
     feeDistributor: market.feeDistributor,
+    holderRewards: market.holderRewards,
+    additionalFee: market.additionalFee,
+    totalPoolFee: market.totalPoolFee,
+    creatorAllocationDestination: market.creatorAllocationDestination,
+    additionalFeeDestination: market.additionalFeeDestination,
     lpTokenId: market.lpTokenId,
     lastTradeAt: market.lastTradeAt,
   };
@@ -194,7 +203,6 @@ export async function serviceMarket(input: {
         feesCollectedVerified: written.feesCollectedVerified,
         gasUsed: written.receipt.gasUsed.toString(),
       });
-      // Refresh balances after collect
       balances = await readDistributorBalances(publicClient, {
         feeDistributor: market.feeDistributor as Address,
         quoteAsset: market.quoteAsset,
@@ -210,7 +218,6 @@ export async function serviceMarket(input: {
 
   let distributeFail = false;
   for (const action of actions) {
-    // In dry-run after would_collect, re-read isn't updated on-chain; still inspect current balances.
     const bal = balanceForAction(balances, action);
     if (bal === 0n) {
       logJson('info', 'distribution_skip_zero', {
@@ -242,7 +249,6 @@ export async function serviceMarket(input: {
         error: sim.error,
       });
       distributeFail = true;
-      // Do not blindly attempt later assets after a required simulation failure.
       break;
     }
 
@@ -252,6 +258,8 @@ export async function serviceMarket(input: {
         distributionAsset: actionLabel(action),
         amount: bal.toString(),
         mode: 'dry-run',
+        holderDepositVerifyUnavailableInDryRun: true,
+        note: 'HolderRewardDeposited verification requires a write receipt',
       });
       continue;
     }
@@ -259,6 +267,8 @@ export async function serviceMarket(input: {
     const written = await writeDistribute(writeGate, publicClient, {
       feeDistributor: market.feeDistributor as Address,
       action,
+      deploymentMode: input.deploymentMode,
+      holderRewards: market.holderRewards as Address | null,
     });
     if (!written.ok) {
       if (written.benignZero) {
@@ -275,10 +285,10 @@ export async function serviceMarket(input: {
         distributionAsset: actionLabel(action),
         distributionTx: written.txHash,
         errorClass: 'ALERT',
+        verificationFailed: written.verificationFailed === true,
         error: written.error,
       });
       distributeFail = true;
-      // Stop sequential distributions after the first hard write failure.
       break;
     }
     transactionsSent += 1;
@@ -287,8 +297,13 @@ export async function serviceMarket(input: {
       ...baseLog,
       distributionAsset: actionLabel(action),
       distributionTx: written.txHash,
-      eventVerified: written.eventVerified,
       gasUsed: written.receipt.gasUsed.toString(),
+      ...economicsLogFields(written.verification.economics, {
+        holderRewards: written.verification.holderRewards,
+        conservationOk: written.verification.conservationOk,
+        holderDepositVerified: written.verification.holderDepositVerified,
+        abiVariant: written.verification.abiVariant,
+      }),
     });
   }
 

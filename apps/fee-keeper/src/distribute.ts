@@ -3,7 +3,6 @@ import {
   type Hash,
   type PublicClient,
   type TransactionReceipt,
-  decodeEventLog,
   zeroAddress,
 } from 'viem';
 import { scoopAbis } from '@scoop/contracts';
@@ -12,8 +11,15 @@ import {
   writeContractLocal,
   type WriteGate,
 } from './clients.js';
+import type { FeeKeeperDeploymentMode } from './config.js';
 import type { DistributionAction } from './classify.js';
 import { isBenignZeroBalanceMessage } from './errors.js';
+import {
+  economicsLogFields,
+  receiptHasDistributionEvent,
+  verifyDistributionReceipt,
+  type DistributionVerificationSuccess,
+} from './distribution-verify.js';
 
 const distributorAbi = scoopAbis.ScoopFeeDistributor;
 
@@ -72,9 +78,15 @@ export type DistributeWriteResult =
       ok: true;
       txHash: Hash;
       receipt: TransactionReceipt;
-      eventVerified: boolean;
+      verification: DistributionVerificationSuccess;
     }
-  | { ok: false; error: string; txHash?: Hash; benignZero?: boolean };
+  | {
+      ok: false;
+      error: string;
+      txHash?: Hash;
+      benignZero?: boolean;
+      verificationFailed?: boolean;
+    };
 
 export async function writeDistribute(
   gate: WriteGate,
@@ -82,6 +94,8 @@ export async function writeDistribute(
   input: {
     feeDistributor: Address;
     action: DistributionAction;
+    deploymentMode: FeeKeeperDeploymentMode;
+    holderRewards: Address | null;
   },
 ): Promise<DistributeWriteResult> {
   assertWritesAllowed(gate);
@@ -109,12 +123,22 @@ export async function writeDistribute(
     if (receipt.status !== 'success') {
       return { ok: false, error: 'reverted_receipt', txHash };
     }
-    const eventVerified = receiptHasDistributionEvent(
+    const verification = verifyDistributionReceipt({
       receipt,
-      input.feeDistributor,
-      input.action,
-    );
-    return { ok: true, txHash, receipt, eventVerified };
+      feeDistributor: input.feeDistributor,
+      action: input.action,
+      deploymentMode: input.deploymentMode,
+      holderRewards: input.holderRewards,
+    });
+    if (!verification.ok) {
+      return {
+        ok: false,
+        error: verification.error,
+        txHash,
+        verificationFailed: true,
+      };
+    }
+    return { ok: true, txHash, receipt, verification };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -126,52 +150,8 @@ export async function writeDistribute(
   }
 }
 
-export function receiptHasDistributionEvent(
-  receipt: TransactionReceipt,
-  feeDistributor: Address,
-  action: DistributionAction,
-): boolean {
-  const addr = feeDistributor.toLowerCase();
-  for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== addr) continue;
-    try {
-      const decoded = decodeEventLog({
-        abi: distributorAbi,
-        data: log.data,
-        topics: log.topics,
-      });
-      if (action.kind === 'eth' && decoded.eventName === 'ETHDistributed') {
-        return true;
-      }
-      if (action.kind === 'token' && decoded.eventName === 'TokenDistributed') {
-        const token = (decoded.args as { token?: Address }).token;
-        if (!token) return true;
-        return token.toLowerCase() === action.token.toLowerCase();
-      }
-    } catch {
-      try {
-        // Historical canary FeeDistributor event shape (pre-P3).
-        const decoded = decodeEventLog({
-          abi: scoopAbis.ScoopFeeDistributorHistoricalCanary,
-          data: log.data,
-          topics: log.topics,
-        });
-        if (action.kind === 'eth' && decoded.eventName === 'ETHDistributed') {
-          return true;
-        }
-        if (action.kind === 'token' && decoded.eventName === 'TokenDistributed') {
-          const token = (decoded.args as { token?: Address }).token;
-          if (!token) return true;
-          return token.toLowerCase() === action.token.toLowerCase();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-  return false;
-}
-
 export function actionLabel(action: DistributionAction): string {
   return action.kind === 'eth' ? 'ETH' : action.token;
 }
+
+export { receiptHasDistributionEvent, economicsLogFields };

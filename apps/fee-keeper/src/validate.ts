@@ -21,6 +21,15 @@ export function validateFeeKeeperMarket(market: FeeKeeperMarket): MarketValidati
   if (!isAddr(market.quoteAsset)) {
     return { ok: false, code: 'malformed_market', message: 'invalid quoteAsset' };
   }
+  if (market.holderRewards != null) {
+    if (!isAddr(market.holderRewards) || market.holderRewards === zeroAddress) {
+      return {
+        ok: false,
+        code: 'malformed_market',
+        message: 'invalid holderRewards',
+      };
+    }
+  }
   const lp = BigInt(market.lpTokenId);
   if (lp <= 0n) {
     return { ok: false, code: 'malformed_market', message: 'lpTokenId must be > 0' };

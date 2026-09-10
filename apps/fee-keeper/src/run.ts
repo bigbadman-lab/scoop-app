@@ -188,6 +188,7 @@ export async function runFeeKeeper(
         activityLookbackMinutes: config.activityLookbackMinutes,
         fallbackSweepMinutes: config.fallbackSweepMinutes,
         cronWindowMinutes: config.cronWindowMinutes,
+        deploymentMode: config.deploymentMode,
         account: writeGate.enabled ? writeGate.account : undefined,
       });
 
@@ -213,6 +214,8 @@ export async function runFeeKeeper(
       mode: config.mode,
       writeEnabled: config.writeEnabled,
       chainId: config.chainId,
+      deploymentMode: config.deploymentMode,
+      factoryAddress: config.factoryAddress,
       keeperAddress: config.expectedKeeperAddress,
       startedAt,
       completedAt,

@@ -14,6 +14,12 @@ export type FeeKeeperMarket = {
   lpTokenId: string;
   liquidityLocker: string;
   feeDistributor: string;
+  /** Null for historical canaries without HolderRewards. */
+  holderRewards: string | null;
+  additionalFee: number;
+  totalPoolFee: number;
+  creatorAllocationDestination: number;
+  additionalFeeDestination: number;
   creatorId: string;
   deployer: string;
   launchTxHash: string;
@@ -43,6 +49,11 @@ export async function listFeeKeeperMarkets(
     lp_token_id: string | number;
     liquidity_locker_address: string;
     fee_distributor_address: string;
+    holder_rewards_address: string | null;
+    additional_fee: number | null;
+    total_pool_fee: number | null;
+    creator_allocation_destination: number | null;
+    additional_fee_destination: number | null;
     creator_id: string;
     deployer_address: string;
     launch_tx_hash: string;
@@ -57,6 +68,11 @@ export async function listFeeKeeperMarkets(
        l.lp_token_id,
        l.liquidity_locker_address,
        l.fee_distributor_address,
+       l.holder_rewards_address,
+       l.additional_fee,
+       l.total_pool_fee,
+       l.creator_allocation_destination,
+       l.additional_fee_destination,
        l.creator_id,
        l.deployer_address,
        l.launch_tx_hash,
@@ -80,21 +96,37 @@ export async function listFeeKeeperMarkets(
     [chainId, ZERO_ADDRESS, ZERO_BYTES32],
   );
 
-  return result.rows.map((row) => ({
-    chainId: Number(row.chain_id),
-    tokenAddress: normalizeAddress(String(row.token_address)),
-    quoteAsset: normalizeAddress(String(row.quote_asset)),
-    poolId: normalizeBytes32(String(row.pool_id)),
-    lpTokenId: String(row.lp_token_id),
-    liquidityLocker: normalizeAddress(String(row.liquidity_locker_address)),
-    feeDistributor: normalizeAddress(String(row.fee_distributor_address)),
-    creatorId: normalizeBytes32(String(row.creator_id)),
-    deployer: normalizeAddress(String(row.deployer_address)),
-    launchTxHash: normalizeBytes32(String(row.launch_tx_hash)),
-    launchedAt: Number(row.launched_at),
-    lastTradeAt:
-      row.last_trade_at == null || String(row.last_trade_at).trim() === ''
+  return result.rows.map((row) => {
+    const holderRaw = row.holder_rewards_address;
+    const holderRewards =
+      holderRaw == null ||
+      String(holderRaw).trim() === '' ||
+      String(holderRaw).toLowerCase() === ZERO_ADDRESS
         ? null
-        : Number(row.last_trade_at),
-  }));
+        : normalizeAddress(String(holderRaw));
+    return {
+      chainId: Number(row.chain_id),
+      tokenAddress: normalizeAddress(String(row.token_address)),
+      quoteAsset: normalizeAddress(String(row.quote_asset)),
+      poolId: normalizeBytes32(String(row.pool_id)),
+      lpTokenId: String(row.lp_token_id),
+      liquidityLocker: normalizeAddress(String(row.liquidity_locker_address)),
+      feeDistributor: normalizeAddress(String(row.fee_distributor_address)),
+      holderRewards,
+      additionalFee: Number(row.additional_fee ?? 0),
+      totalPoolFee: Number(row.total_pool_fee ?? 10_000),
+      creatorAllocationDestination: Number(
+        row.creator_allocation_destination ?? 0,
+      ),
+      additionalFeeDestination: Number(row.additional_fee_destination ?? 0),
+      creatorId: normalizeBytes32(String(row.creator_id)),
+      deployer: normalizeAddress(String(row.deployer_address)),
+      launchTxHash: normalizeBytes32(String(row.launch_tx_hash)),
+      launchedAt: Number(row.launched_at),
+      lastTradeAt:
+        row.last_trade_at == null || String(row.last_trade_at).trim() === ''
+          ? null
+          : Number(row.last_trade_at),
+    };
+  });
 }

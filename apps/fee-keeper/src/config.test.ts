@@ -105,4 +105,10 @@ describe('loadFeeKeeperConfig', () => {
       loadFeeKeeperConfig(baseEnv({ SCOOP_FEE_KEEPER_CHAIN_ID: '1' })),
     ).toThrow(/CHAIN_ID must be 4663/);
   });
+
+  it('defaults deploymentMode to historical-test', () => {
+    const cfg = loadFeeKeeperConfig(baseEnv());
+    expect(cfg.deploymentMode).toBe('historical-test');
+    expect(cfg.factoryAddress).toMatch(/^0x/i);
+  });
 });

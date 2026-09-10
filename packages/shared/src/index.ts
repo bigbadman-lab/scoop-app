@@ -35,6 +35,13 @@ export {
   CreatorAllocationDestination,
   AdditionalFeeDestination,
 } from '@scoop/contracts';
+export {
+  normalizeFeeDistributionArgs,
+  isCanonicalDistributionArgs,
+  assertDistributionConservation,
+  distributionConserves,
+  type NormalizedFeeDistributionLegs,
+} from './feeDistribution.js';
 export { Q96, mulDiv } from './fixedPoint.js';
 export {
   getAmount0ForLiquidity,

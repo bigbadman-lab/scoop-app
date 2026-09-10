@@ -11,6 +11,11 @@ const market: FeeKeeperMarket = {
   lpTokenId: '42',
   liquidityLocker: '0xAa8445659A2424ee1BA33C232Ec05569c975193f',
   feeDistributor: '0x187E2c017bcc52094A9086abAC94Dde7B680a988',
+  holderRewards: null,
+  additionalFee: 0,
+  totalPoolFee: 10_000,
+  creatorAllocationDestination: 0,
+  additionalFeeDestination: 0,
   creatorId: '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
   deployer: '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
   launchTxHash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -64,6 +69,7 @@ describe('serviceMarket dry-run', () => {
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
       cronWindowMinutes: 15,
+      deploymentMode: 'historical-test',
     });
     expect(writeContract).not.toHaveBeenCalled();
     expect(outcome.transactionsSent).toBe(0);
@@ -79,6 +85,7 @@ describe('serviceMarket dry-run', () => {
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
       cronWindowMinutes: 15,
+      deploymentMode: 'historical-test',
     });
     expect(outcome.status).toBe('failed');
     expect(outcome.reason).toBe('collect_simulation_revert');
@@ -94,6 +101,7 @@ describe('serviceMarket dry-run', () => {
       activityLookbackMinutes: 120,
       fallbackSweepMinutes: 1440,
       cronWindowMinutes: 15,
+      deploymentMode: 'historical-test',
     });
     // non-zero ETH balance → distribute_only path
     expect(outcome.transactionsSent).toBe(0);
@@ -110,6 +118,7 @@ describe('serviceMarket dry-run', () => {
         activityLookbackMinutes: 120,
         fallbackSweepMinutes: 1440,
         cronWindowMinutes: 15,
+        deploymentMode: 'historical-test',
       }),
     ).resolves.toMatchObject({ status: 'failed' });
   });

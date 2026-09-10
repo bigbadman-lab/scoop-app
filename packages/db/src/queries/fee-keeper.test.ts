@@ -23,6 +23,11 @@ describe('listFeeKeeperMarkets', () => {
         lp_token_id: '2004846',
         liquidity_locker_address: '0xAa8445659A2424ee1BA33C232Ec05569c975193f',
         fee_distributor_address: '0x187E2c017bcc52094A9086abAC94Dde7B680a988',
+        holder_rewards_address: null,
+        additional_fee: 0,
+        total_pool_fee: 10_000,
+        creator_allocation_destination: 0,
+        additional_fee_destination: 0,
         creator_id:
           '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
         deployer_address: '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
@@ -40,6 +45,9 @@ describe('listFeeKeeperMarkets', () => {
     );
     expect(markets[0]?.lpTokenId).toBe('2004846');
     expect(markets[0]?.lastTradeAt).toBe(1_700_000_100);
+    expect(markets[0]?.holderRewards).toBeNull();
+    expect(markets[0]?.additionalFee).toBe(0);
+    expect(markets[0]?.totalPoolFee).toBe(10_000);
 
     const sql = String((db.query as ReturnType<typeof vi.fn>).mock.calls[0]![0]);
     expect(sql).toMatch(/l\.lp_token_id > 0/);
