@@ -10,7 +10,7 @@ import type { DiscoveryFilter, DiscoverySort } from '@/lib/server/queries';
  *   GET /api/rankings?type=<trending>  OR  dedicated trending score field
  *   Ranking logic TBD — do not invent until product defines it.
  */
-export type DiscoverTabId = 'trending' | 'new' | 'bonding' | 'bonded';
+export type DiscoverTabId = 'trending' | 'new' | 'bonding';
 
 export type DiscoverTabConfig = {
   id: DiscoverTabId;
@@ -38,14 +38,6 @@ export const DISCOVER_TABS: readonly DiscoverTabConfig[] = [
     filter: 'soon',
     sort: 'progress',
     emptyMessage: 'No markets are bonding right now.',
-  },
-  {
-    id: 'bonded',
-    label: 'Bonded',
-    dataAvailable: true,
-    filter: 'bonded',
-    sort: 'newest',
-    emptyMessage: 'No bonded markets yet.',
   },
   {
     id: 'trending',

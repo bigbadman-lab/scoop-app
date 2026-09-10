@@ -35,11 +35,12 @@ export function LaunchAsTokenLink({
     );
   }
 
+  // Dense feed / desk rows — compact orange pill so the CTA reads as primary action.
   return (
     <Link
       href={href}
       className={[
-        'inline-flex min-h-9 items-center font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--scoop-orange)] focus-visible:text-[var(--scoop-orange)]',
+        'inline-flex min-h-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-3 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90',
         className,
       ].join(' ')}
     >

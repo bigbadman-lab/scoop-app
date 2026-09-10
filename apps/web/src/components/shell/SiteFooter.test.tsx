@@ -22,7 +22,7 @@ describe('SiteFooter', () => {
     expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe(
       '/legal/privacy',
     );
-    expect(screen.getByText(/Live markets from the news cycle/i)).toBeTruthy();
+    expect(screen.getByText(/Markets for what’s happening now/i)).toBeTruthy();
     expect(screen.getAllByLabelText('SCOOP on X').length).toBeGreaterThanOrEqual(1);
   });
 });

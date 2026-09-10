@@ -14,11 +14,12 @@ describe('discover tabs', () => {
     expect(trending.emptyMessage).toMatch(/not available/i);
   });
 
-  it('maps New / Bonding / Bonded onto real discovery filters', () => {
+  it('maps New / Bonding onto real discovery filters; Bonded is not a homepage tab', () => {
     expect(getDiscoverTab('new').filter).toBe('new');
     expect(getDiscoverTab('bonding').filter).toBe('soon');
-    expect(getDiscoverTab('bonded').filter).toBe('bonded');
-    expect(DISCOVER_TABS).toHaveLength(4);
+    expect(DISCOVER_TABS.some((tab) => tab.id === 'bonded')).toBe(false);
+    expect(DISCOVER_TABS.map((tab) => tab.label)).not.toContain('Bonded');
+    expect(DISCOVER_TABS).toHaveLength(3);
   });
 });
 

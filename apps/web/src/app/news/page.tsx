@@ -12,15 +12,15 @@ export default async function NewsPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-8 lg:px-10">
+    <main className="mx-auto max-w-3xl px-4 py-5 md:px-8 md:py-6 lg:px-10">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
         News
       </p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
+      <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">
         Live desk
       </h1>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <NewsFeed initial={initial} quoteCatalogue={quoteCatalogue} />
       </div>
     </main>

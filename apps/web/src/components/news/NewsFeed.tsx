@@ -58,42 +58,35 @@ function NewsFeedItemRow({
   const hasMarkets = item.marketCount > 0;
 
   return (
-    <li
-      className={['py-3.5 first:pt-0 md:py-4', isLead ? 'md:pb-5' : ''].join(' ')}
-    >
+    <li className="py-2.5 first:pt-0 md:py-3">
       <article
         className={[
-          'space-y-1.5',
           isLead
-            ? 'border-l-[3px] border-[var(--scoop-live)] pl-3 md:pl-3.5'
+            ? 'border-l-[3px] border-[var(--scoop-live)] pl-3'
             : fresh
-              ? 'border-l-2 border-[var(--scoop-live)]/45 pl-2.5 md:pl-3'
-              : '',
+              ? 'border-l-2 border-[var(--scoop-live)]/40 pl-2.5'
+              : 'pl-0',
         ].join(' ')}
         data-testid="news-feed-item"
         data-lead={isLead ? 'true' : undefined}
         data-freshness={isLead ? 'latest' : freshness}
         data-market-count={String(item.marketCount)}
       >
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <h2
+          className={[
+            'max-w-3xl text-[15px] font-semibold leading-snug tracking-tight line-clamp-2 md:text-base md:leading-snug',
+            fresh ? 'text-[var(--fg)]' : 'text-[var(--fg)]/90',
+          ].join(' ')}
+        >
+          {item.headline}
+        </h2>
+
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <NewsFreshnessBadge publishedAt={item.publishedAt} isLead={isLead} />
-          <p
-            className={[
-              'font-mono text-[10px] uppercase tracking-[0.14em]',
-              fresh ? 'text-[var(--scoop-live)]' : 'text-[var(--muted)]',
-            ].join(' ')}
-          >
-            <NewsAge
-              iso={item.publishedAt}
-              className={fresh ? 'text-[var(--scoop-live)]' : undefined}
-            />
-            <span className={fresh ? 'text-[var(--scoop-live)]/55' : 'text-[var(--muted-2)]'}>
-              {' '}
-              ·{' '}
-            </span>
-            <span className={fresh ? 'text-[var(--muted)]' : undefined}>
-              {item.sourceDomain}
-            </span>
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+            <span>{item.sourceDomain}</span>
+            <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
+            <NewsAge iso={item.publishedAt} />
             {item.tickers.length > 0 ? (
               <>
                 <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
@@ -105,29 +98,7 @@ function NewsFeedItemRow({
           </p>
         </div>
 
-        <h2
-          className={[
-            'max-w-3xl tracking-tight',
-            isLead
-              ? 'text-xl font-semibold text-[var(--fg)] md:text-2xl'
-              : fresh
-                ? 'text-lg font-semibold text-[var(--fg)] md:text-xl'
-                : 'text-base font-semibold text-[var(--fg)]/90 md:text-lg',
-          ].join(' ')}
-        >
-          {item.headline}
-        </h2>
-
-        {item.summary ? (
-          <p
-            className="max-w-2xl text-[13px] leading-snug text-[var(--muted)] md:text-sm"
-            data-testid="news-feed-summary"
-          >
-            {item.summary}
-          </p>
-        ) : null}
-
-        <div className="flex flex-col gap-1.5 pt-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           {hasMarkets ? (
             <NewsMarketLiveControl
               providerArticleId={item.id}
@@ -140,7 +111,11 @@ function NewsFeedItemRow({
             providerArticleId={item.id}
             variant={hasMarkets ? 'another' : 'feed'}
           />
-          <CtaLink href={item.url} external className="min-h-9 text-[11px]">
+          <CtaLink
+            href={item.url}
+            external
+            className="min-h-8 px-0 text-[10px] text-[var(--muted)] hover:text-[var(--fg)]"
+          >
             Read story ↗
           </CtaLink>
         </div>

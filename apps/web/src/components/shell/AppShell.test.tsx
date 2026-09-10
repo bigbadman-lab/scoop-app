@@ -40,13 +40,16 @@ describe('desktop and mobile shell', () => {
     expect(screen.getByText('Account')).toBeTruthy();
   });
 
-  it('renders mobile bottom nav with square create and labels', () => {
+  it('renders mobile bottom nav with square create and icon-only links', () => {
     render(<MobileBottomNav pathname="/news" />);
     expect(screen.getByLabelText('Mobile')).toBeTruthy();
-    expect(screen.getByText('News').closest('a')?.getAttribute('aria-current')).toBe('page');
-    expect(screen.getByText('Create').closest('a')).toBeTruthy();
-    expect(screen.getByText('Home')).toBeTruthy();
-    expect(screen.getByText('Account')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'News' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Create' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Home' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Account' })).toBeTruthy();
+    expect(screen.queryByText('News')).toBeNull();
   });
 
   it('mounts exactly one shared SiteFooter after page content', () => {

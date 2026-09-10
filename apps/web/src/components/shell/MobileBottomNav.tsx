@@ -22,9 +22,10 @@ export function MobileBottomNav({ pathname }: Props) {
             <li key={item.id} className="min-w-0">
               <Link
                 href={item.href}
+                aria-label={item.label}
                 aria-current={active ? 'page' : undefined}
                 className={[
-                  'flex h-full min-h-11 flex-col items-center justify-center gap-1 px-1',
+                  'flex h-full min-h-11 items-center justify-center px-1',
                   active && !isCreate
                     ? 'text-[var(--fg)]'
                     : 'text-[var(--muted)]',
@@ -32,16 +33,13 @@ export function MobileBottomNav({ pathname }: Props) {
               >
                 <span
                   className={[
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)]',
+                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)]',
                     isCreate
                       ? 'bg-[var(--scoop-orange)] text-[var(--scoop-orange-contrast)]'
                       : '',
                   ].join(' ')}
                 >
-                  <NavIcon id={item.id} className="h-5 w-5" />
-                </span>
-                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.12em]">
-                  {item.label}
+                  <NavIcon id={item.id} className="h-7 w-7" />
                 </span>
               </Link>
             </li>

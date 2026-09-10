@@ -58,7 +58,8 @@ describe('NewsFeed', () => {
     const launchLinks = screen.getAllByRole('link', { name: /launch as token/i });
     expect(launchLinks).toHaveLength(2);
     expect(launchLinks[0]!.getAttribute('href')).toBe('/news/2/launch');
-    expect(launchLinks[0]!.className).not.toContain('bg-[var(--scoop-orange)]');
+    expect(launchLinks[0]!.className).toContain('bg-[var(--scoop-orange)]');
+    expect(screen.queryByTestId('news-feed-summary')).toBeNull();
     const readLinks = screen.getAllByRole('link', { name: /read story/i });
     expect(readLinks[0]!.getAttribute('href')).toBe('https://ft.com/2');
 

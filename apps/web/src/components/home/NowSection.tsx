@@ -12,11 +12,11 @@ type Props = {
 export function NowSection({ news }: Props) {
   return (
     <section aria-label="Now">
-      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-4 md:px-8 md:pt-5 md:pb-5 lg:px-10">
+      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-3 lg:px-10">
         <LiveDeskStrip />
 
         {/* Brand mark + infrastructure badges + Launch */}
-        <div className="mb-5 flex flex-col gap-4 md:mb-6 md:flex-row md:items-start md:justify-between md:gap-8 lg:items-center">
+        <div className="mb-3 flex flex-col gap-4 md:mb-4 md:flex-row md:items-start md:justify-between md:gap-8 lg:items-center">
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -48,7 +48,7 @@ export function NowSection({ news }: Props) {
 
         <div
           aria-hidden
-          className="mb-10 hidden h-px w-[90%] bg-[var(--divider)] md:mb-12 md:block"
+          className="mb-5 hidden h-px w-[90%] bg-[var(--divider)] md:mb-6 md:block"
         />
 
         <div>

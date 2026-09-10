@@ -76,7 +76,7 @@ export function SiteFooter() {
               className="h-16 w-16 object-contain"
             />
             <p className="mt-6 max-w-xs font-serif text-2xl leading-snug tracking-tight">
-              Live markets from the news cycle.
+              Markets for what’s happening now.
             </p>
             <a
               href={SCOOP_X_URL}
