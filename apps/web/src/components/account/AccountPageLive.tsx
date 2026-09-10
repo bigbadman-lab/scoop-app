@@ -21,6 +21,8 @@ import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
+import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
+import { CreatorClaimsLane } from '@/components/account/CreatorClaimsLane';
 
 type LoadState =
   | { kind: 'loading' }
@@ -52,74 +54,81 @@ function AccountShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FeeBlock({
+function FeeLane({
   title,
+  shareLabel,
   emptyLabel,
   assets,
-  mode,
 }: {
   title: string;
+  shareLabel: string;
   emptyLabel: string;
   assets: PublicAccountResponse['fees']['deployer']['assets'];
-  mode: 'deployer' | 'creator';
 }) {
-  if (assets.length === 0) {
-    return (
-      <section className="space-y-2 border-t border-[var(--divider)] pt-8">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <h3 className="text-[15px] font-semibold tracking-tight">{title}</h3>
+        <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+          {shareLabel}
+        </p>
+      </div>
+      {assets.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyLabel}</p>
-      </section>
-    );
-  }
+      ) : (
+        <>
+          <p className="text-[13px] leading-snug text-[var(--muted)]">
+            Lifetime accrued from fee distributions. Claimable indexing pending.
+          </p>
+          <ul className="divide-y divide-[var(--divider)]">
+            {assets.map((asset) => (
+              <li
+                key={`${asset.assetKind}:${asset.assetAddress}`}
+                className="flex items-baseline justify-between gap-4 py-2.5"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+                  {asset.symbol}
+                </p>
+                <p className="font-mono text-sm">
+                  {asset.amountDisplay} {asset.symbol}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FeesSection({
+  deployerAssets,
+  creatorAssets,
+  sessionOnly,
+}: {
+  deployerAssets: PublicAccountResponse['fees']['deployer']['assets'];
+  creatorAssets: PublicAccountResponse['fees']['creator']['assets'];
+  sessionOnly: boolean;
+}) {
+  const deployerPct = PROTOCOL_FEE_SPLIT.deployerBps / 100;
 
   return (
-    <section className="space-y-4 border-t border-[var(--divider)] pt-8">
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {mode === 'deployer' ? (
-        <p className="text-sm text-[var(--muted)]">
-          Lifetime accrued from protocol fee distributions. Claimable/claimed
-          states are not indexed for deployer fees yet.
+    <section className="mt-10 space-y-5 border-t border-[var(--divider)] pt-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Fees</h2>
+        <p className="mt-1 text-[13px] text-[var(--muted)]">
+          Protocol trading-fee split · two separate streams
         </p>
-      ) : (
-        <p className="text-sm text-[var(--muted)]">
-          Creator escrow balances — kept separate from deployer fees.
-        </p>
-      )}
-      <ul className="divide-y divide-[var(--divider)]">
-        {assets.map((asset) => (
-          <li
-            key={`${asset.assetKind}:${asset.assetAddress}`}
-            className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between"
-          >
-            <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-[var(--muted)]">
-              {asset.symbol}
-            </p>
-            <div className="text-sm">
-              {mode === 'deployer' ? (
-                <p>
-                  Accrued{' '}
-                  <span className="font-mono">
-                    {asset.amountDisplay} {asset.symbol}
-                  </span>
-                </p>
-              ) : (
-                <>
-                  <p>
-                    Claimable{' '}
-                    <span className="font-mono">
-                      {asset.claimableDisplay ?? '0'} {asset.symbol}
-                    </span>
-                  </p>
-                  <p className="text-[var(--muted)]">
-                    Credited {asset.amountDisplay} {asset.symbol} · Claimed{' '}
-                    {asset.claimedDisplay ?? '0'} {asset.symbol}
-                  </p>
-                </>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
+        <FeeLane
+          title="Deployer"
+          shareLabel={`${deployerPct}% of trading fees`}
+          emptyLabel="No deployer fees yet."
+          assets={deployerAssets}
+        />
+        <CreatorClaimsLane feeAssets={creatorAssets} sessionOnly={sessionOnly} />
+      </div>
     </section>
   );
 }
@@ -416,17 +425,10 @@ function AccountReady({
           )}
         </section>
 
-        <FeeBlock
-          title="Deployer fees"
-          emptyLabel="No deployer fees yet."
-          assets={account.fees.deployer.assets}
-          mode="deployer"
-        />
-        <FeeBlock
-          title="Creator fees"
-          emptyLabel="No creator fees yet."
-          assets={account.fees.creator.assets}
-          mode="creator"
+        <FeesSection
+          deployerAssets={account.fees.deployer.assets}
+          creatorAssets={account.fees.creator.assets}
+          sessionOnly={sessionOnly}
         />
     </AccountShell>
   );

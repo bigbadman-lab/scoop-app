@@ -46,6 +46,10 @@ export type ScoopFeeAssetLine = {
   creditedRaw?: string;
   claimedRaw?: string;
   claimedDisplay?: string;
+  /** Optional canonical token metadata (creator/token assets). */
+  name?: string | null;
+  decimals?: number | null;
+  displayImageUrl?: string | null;
 };
 
 export type ScoopAccountBundle = {
@@ -299,6 +303,10 @@ export async function getCreatorFeeTotalsForScoopUser(
     claimable_raw: string;
     credited_raw: string;
     claimed_raw: string;
+    token_symbol: string | null;
+    token_name: string | null;
+    token_decimals: number | null;
+    display_image_url: string | null;
   }>(
     `WITH user_creators AS (
        SELECT DISTINCT c.creator_id
@@ -312,10 +320,17 @@ export async function getCreatorFeeTotalsForScoopUser(
        ccs.asset_address,
        SUM(ccs.claimable_raw)::text AS claimable_raw,
        SUM(COALESCE(cred.credited_raw, 0))::text AS credited_raw,
-       SUM(COALESCE(cl.claimed_raw, 0))::text AS claimed_raw
+       SUM(COALESCE(cl.claimed_raw, 0))::text AS claimed_raw,
+       MAX(t.symbol) AS token_symbol,
+       MAX(t.name) AS token_name,
+       MAX(t.decimals) AS token_decimals,
+       MAX(t.display_image_url) AS display_image_url
      FROM user_creators uc
      INNER JOIN creator_claimable_state ccs
        ON ccs.chain_id = $2 AND ccs.creator_id = uc.creator_id
+     LEFT JOIN tokens t
+       ON t.chain_id = ccs.chain_id
+      AND t.token_address = ccs.asset_address
      LEFT JOIN LATERAL (
        SELECT SUM(amount_raw) AS credited_raw
        FROM creator_credits
@@ -341,11 +356,29 @@ export async function getCreatorFeeTotalsForScoopUser(
     const claimableRaw = String(row.claimable_raw);
     const creditedRaw = String(row.credited_raw);
     const claimedRaw = String(row.claimed_raw);
-    const decimals = ethLikeDecimals(String(row.asset_kind), String(row.asset_address));
+    const isEth = String(row.asset_kind) === 'eth';
+    const decimals =
+      isEth
+        ? DEFAULT_QUOTE_DECIMALS
+        : row.token_decimals != null && Number(row.token_decimals) > 0
+          ? Number(row.token_decimals)
+          : ethLikeDecimals(String(row.asset_kind), String(row.asset_address));
+    const symbol = isEth
+      ? 'ETH'
+      : row.token_symbol && String(row.token_symbol).trim() !== ''
+        ? String(row.token_symbol)
+        : feeSymbol(String(row.asset_kind));
+    const displayImageUrl =
+      row.display_image_url == null || String(row.display_image_url).trim() === ''
+        ? null
+        : String(row.display_image_url);
     return {
       assetKind: String(row.asset_kind),
       assetAddress: String(row.asset_address),
-      symbol: feeSymbol(String(row.asset_kind)),
+      symbol,
+      name: isEth ? 'Ethereum' : row.token_name,
+      decimals,
+      displayImageUrl,
       amountRaw: creditedRaw,
       amountDisplay: formatRawAmount(creditedRaw, decimals),
       claimableRaw,
