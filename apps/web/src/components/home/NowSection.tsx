@@ -60,7 +60,7 @@ export function NowSection({ news }: Props) {
           <HouseLeadHero news={news} />
           {HOUSE_IMAGE_SET.length === 0 ? (
             <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-              Add /house/01–03 to enable rotating house imagery
+              Add a house image under /house and register it in HOUSE_IMAGE_SET
             </p>
           ) : null}
         </div>

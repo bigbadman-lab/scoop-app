@@ -12,15 +12,11 @@ export const SCOOP_AVATAR_SRC = '/brand/SCOOPAV.png' as const;
 export const SCOOP_HERO_SRC = '/scoophero.png' as const;
 
 /**
- * Evergreen house imagery for the NOW lead tile (rotate 01 → 02 → 03).
+ * Evergreen house imagery for the NOW lead tile.
+ * Production uses a single cover; multiple paths enable optional rotation.
  * Drop files under `public/house/` then list public paths here.
- * Do not invent missing URLs — leave empty until assets exist.
  */
-export const HOUSE_IMAGE_SET: readonly string[] = [
-  '/house/place1.webp',
-  '/house/place2.webp',
-  '/house/place3.webp',
-];
+export const HOUSE_IMAGE_SET: readonly string[] = ['/house/place4.webp'];
 
 /** Interval for house-image crossfade rotation (ms). */
 export const HOUSE_IMAGE_ROTATE_MS = 10_000;

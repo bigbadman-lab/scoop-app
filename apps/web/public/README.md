@@ -14,7 +14,7 @@ public/
 | Folder | Purpose | Example URL |
 | --- | --- | --- |
 | `brand/` | Logo / mark | `/brand/MARK.png` |
-| `house/` | Editorial house images | `/house/01.jpg` |
+| `house/` | Editorial house images | `/house/place4.webp` |
 
 ## Notes
 

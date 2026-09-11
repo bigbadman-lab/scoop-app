@@ -29,8 +29,15 @@ vi.mock('next/image', () => ({
   },
 }));
 
+/** Mutable so production single-image + multi-image rotation can both be covered. */
+const brandMock = vi.hoisted(() => ({
+  houseImageSet: ['/house/place4.webp'] as string[],
+}));
+
 vi.mock('@/lib/brand', () => ({
-  HOUSE_IMAGE_SET: ['/house/01.webp', '/house/02.webp', '/house/03.webp'],
+  get HOUSE_IMAGE_SET() {
+    return brandMock.houseImageSet;
+  },
 }));
 
 function makeArticle(id: string, headline: string): NewsFeedItem {
@@ -60,6 +67,7 @@ function okNews(articles: NewsFeedItem[]): LeadNewsResult {
 
 describe('HouseLeadHero', () => {
   beforeEach(() => {
+    brandMock.houseImageSet = ['/house/place4.webp'];
     vi.useFakeTimers();
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -84,15 +92,42 @@ describe('HouseLeadHero', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders configured house images and real story overlay', () => {
+  it('renders the configured single house cover with story overlay', () => {
     render(<HouseLeadHero news={okNews([article])} />);
     const imgs = document.querySelectorAll('img[data-src]');
-    expect(imgs.length).toBe(3);
-    expect(document.querySelector('img[data-src="/house/01.webp"]')).toBeTruthy();
-    expect(document.querySelector('img[data-src="/house/02.webp"]')).toBeTruthy();
-    expect(document.querySelector('img[data-src="/house/03.webp"]')).toBeTruthy();
+    expect(imgs.length).toBe(1);
+    expect(document.querySelector('img[data-src="/house/place4.webp"]')).toBeTruthy();
     expect(screen.getByText('Markets react to rate decision')).toBeTruthy();
     expect(screen.getByText('reuters.com')).toBeTruthy();
+  });
+
+  it('does not auto-rotate or show a rotate control with a single image', () => {
+    render(<HouseLeadHero news={okNews([article])} />);
+    const opacityOf = (src: string) =>
+      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+        ?.style.opacity;
+
+    expect(opacityOf('/house/place4.webp')).toBe('1');
+    expect(screen.queryByTestId('house-lead-rotate')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(HOUSE_ROTATE_MS * 3);
+    });
+    expect(opacityOf('/house/place4.webp')).toBe('1');
+    expect(document.querySelectorAll('img[data-src]').length).toBe(1);
+  });
+
+  it('preserves object-cover fill imagery without a fixed aspect-ratio frame', () => {
+    render(<HouseLeadHero news={okNews([article])} />);
+    const hero = screen.getByTestId('house-lead-hero');
+    expect(hero.className).not.toMatch(/aspect-/);
+    expect(hero.className).not.toMatch(/min-h-/);
+    const cover = document.querySelector(
+      'img[data-src="/house/place4.webp"]',
+    ) as HTMLImageElement;
+    expect(cover.className).toMatch(/object-cover/);
+    const story = screen.getByTestId('house-lead-story');
+    expect(story.className).toMatch(/relative/);
+    expect(story.className).not.toMatch(/absolute/);
   });
 
   it('does not wrap the whole tile in a story link', () => {
@@ -168,100 +203,110 @@ describe('HouseLeadHero', () => {
     expect(screen.queryByText(/fabricated/i)).toBeNull();
   });
 
-  it('rotates house images 01 → 02 → 03 → 01', () => {
-    render(<HouseLeadHero news={okNews([article])} />);
-    const opacityOf = (src: string) =>
-      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
-        ?.style.opacity;
-
-    expect(opacityOf('/house/01.webp')).toBe('1');
-    expect(opacityOf('/house/02.webp')).toBe('0');
-
-    act(() => {
-      vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+  describe('multi-image rotation (when HOUSE_IMAGE_SET has 2+ entries)', () => {
+    beforeEach(() => {
+      brandMock.houseImageSet = [
+        '/house/01.webp',
+        '/house/02.webp',
+        '/house/03.webp',
+      ];
     });
-    expect(opacityOf('/house/02.webp')).toBe('1');
-    expect(opacityOf('/house/01.webp')).toBe('0');
 
-    act(() => {
-      vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+    it('rotates house images 01 → 02 → 03 → 01', () => {
+      render(<HouseLeadHero news={okNews([article])} />);
+      const opacityOf = (src: string) =>
+        (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+          ?.style.opacity;
+
+      expect(opacityOf('/house/01.webp')).toBe('1');
+      expect(opacityOf('/house/02.webp')).toBe('0');
+
+      act(() => {
+        vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+      });
+      expect(opacityOf('/house/02.webp')).toBe('1');
+      expect(opacityOf('/house/01.webp')).toBe('0');
+
+      act(() => {
+        vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+      });
+      expect(opacityOf('/house/03.webp')).toBe('1');
+
+      act(() => {
+        vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+      });
+      expect(opacityOf('/house/01.webp')).toBe('1');
+      expect(HOUSE_FADE_MS).toBeGreaterThanOrEqual(400);
+      expect(HOUSE_FADE_MS).toBeLessThanOrEqual(600);
     });
-    expect(opacityOf('/house/03.webp')).toBe('1');
 
-    act(() => {
-      vi.advanceTimersByTime(HOUSE_ROTATE_MS);
+    it('advances on hotspot click without relying on the story link', () => {
+      render(<HouseLeadHero news={okNews([article])} />);
+      const opacityOf = (src: string) =>
+        (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+          ?.style.opacity;
+
+      expect(opacityOf('/house/01.webp')).toBe('1');
+      const hotspot = screen.getByTestId('house-lead-rotate');
+      expect(hotspot.closest('a')).toBeNull();
+
+      act(() => {
+        hotspot.click();
+      });
+      expect(opacityOf('/house/02.webp')).toBe('1');
+      expect(opacityOf('/house/01.webp')).toBe('0');
     });
-    expect(opacityOf('/house/01.webp')).toBe('1');
-    expect(HOUSE_FADE_MS).toBeGreaterThanOrEqual(400);
-    expect(HOUSE_FADE_MS).toBeLessThanOrEqual(600);
-  });
 
-  it('advances on top-left hotspot click without relying on the story link', () => {
-    render(<HouseLeadHero news={okNews([article])} />);
-    const opacityOf = (src: string) =>
-      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
-        ?.style.opacity;
+    it('advances on hotspot hover with cooldown using HOUSE_HOVER_ADVANCE_MS', () => {
+      vi.setSystemTime(new Date('2026-09-07T12:00:00.000Z'));
+      render(<HouseLeadHero news={okNews([article])} />);
+      const opacityOf = (src: string) =>
+        (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+          ?.style.opacity;
+      const hotspot = screen.getByTestId('house-lead-rotate');
 
-    expect(opacityOf('/house/01.webp')).toBe('1');
-    const hotspot = screen.getByTestId('house-lead-rotate');
-    expect(hotspot.closest('a')).toBeNull();
+      act(() => {
+        fireEvent.mouseEnter(hotspot);
+      });
+      expect(opacityOf('/house/02.webp')).toBe('1');
 
-    act(() => {
-      hotspot.click();
+      act(() => {
+        fireEvent.mouseEnter(hotspot);
+      });
+      expect(opacityOf('/house/02.webp')).toBe('1');
+
+      act(() => {
+        vi.setSystemTime(
+          new Date(Date.parse('2026-09-07T12:00:00.000Z') + HOUSE_HOVER_ADVANCE_MS + 1),
+        );
+        fireEvent.mouseEnter(hotspot);
+      });
+      expect(opacityOf('/house/03.webp')).toBe('1');
     });
-    expect(opacityOf('/house/02.webp')).toBe('1');
-    expect(opacityOf('/house/01.webp')).toBe('0');
-  });
 
-  it('advances on top-left hover with cooldown using HOUSE_HOVER_ADVANCE_MS', () => {
-    vi.setSystemTime(new Date('2026-09-07T12:00:00.000Z'));
-    render(<HouseLeadHero news={okNews([article])} />);
-    const opacityOf = (src: string) =>
-      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
-        ?.style.opacity;
-    const hotspot = screen.getByTestId('house-lead-rotate');
+    it('disables automatic house-image rotation when reduced motion is preferred', () => {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
 
-    act(() => {
-      fireEvent.mouseEnter(hotspot);
+      render(<HouseLeadHero news={okNews([article])} />);
+      const opacityOf = (src: string) =>
+        (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
+          ?.style.opacity;
+
+      expect(opacityOf('/house/01.webp')).toBe('1');
+      act(() => {
+        vi.advanceTimersByTime(HOUSE_ROTATE_MS * 3);
+      });
+      expect(opacityOf('/house/01.webp')).toBe('1');
+      expect(opacityOf('/house/02.webp')).toBe('0');
     });
-    expect(opacityOf('/house/02.webp')).toBe('1');
-
-    act(() => {
-      fireEvent.mouseEnter(hotspot);
-    });
-    expect(opacityOf('/house/02.webp')).toBe('1');
-
-    act(() => {
-      vi.setSystemTime(
-        new Date(Date.parse('2026-09-07T12:00:00.000Z') + HOUSE_HOVER_ADVANCE_MS + 1),
-      );
-      fireEvent.mouseEnter(hotspot);
-    });
-    expect(opacityOf('/house/03.webp')).toBe('1');
-  });
-
-  it('disables automatic house-image rotation when reduced motion is preferred', () => {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('prefers-reduced-motion'),
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-
-    render(<HouseLeadHero news={okNews([article])} />);
-    const opacityOf = (src: string) =>
-      (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
-        ?.style.opacity;
-
-    expect(opacityOf('/house/01.webp')).toBe('1');
-    act(() => {
-      vi.advanceTimersByTime(HOUSE_ROTATE_MS * 3);
-    });
-    expect(opacityOf('/house/01.webp')).toBe('1');
-    expect(opacityOf('/house/02.webp')).toBe('0');
   });
 
   describe('story rotation', () => {
@@ -497,7 +542,7 @@ describe('HouseLeadHero', () => {
       const opacityOf = (src: string) =>
         (document.querySelector(`img[data-src="${src}"]`) as HTMLImageElement | null)
           ?.style.opacity;
-      expect(opacityOf('/house/01.webp')).toBe('1');
+      expect(opacityOf('/house/place4.webp')).toBe('1');
     });
 
     it('cleans up timers on unmount', () => {
