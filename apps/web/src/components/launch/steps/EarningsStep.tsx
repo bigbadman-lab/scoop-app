@@ -56,6 +56,9 @@ const MODE_OPTIONS: {
   },
 ];
 
+const HOLDER_REWARDS_HOURLY_COPY =
+  'Holder rewards are distributed hourly to eligible token holders.';
+
 const BASE_ALLOC_OPTIONS = [
   {
     value: CreatorAllocationDestination.Creator,
@@ -65,7 +68,7 @@ const BASE_ALLOC_OPTIONS = [
   {
     value: CreatorAllocationDestination.Holders,
     label: 'Holders',
-    description: '70% of the base 1% fee goes to holder rewards.',
+    description: `70% of the base 1% fee goes to holder rewards. ${HOLDER_REWARDS_HOURLY_COPY}`,
   },
 ] as const;
 
@@ -83,7 +86,7 @@ const EXTRA_DEST_OPTIONS = [
   {
     value: AdditionalFeeDestination.Holders,
     label: 'Holders',
-    description: 'Additional fee deposited into holder rewards.',
+    description: `Additional fee deposited into holder rewards. ${HOLDER_REWARDS_HOURLY_COPY}`,
   },
 ] as const;
 
@@ -161,7 +164,16 @@ export function EarningsStep({
                   />
                 ) : null}
                 <span className="text-[15px] font-semibold tracking-tight">{opt.label}</span>
-                <span className="text-sm text-[var(--muted)]">{opt.description}</span>
+                <span
+                  className="text-sm text-[var(--muted)]"
+                  data-testid={
+                    opt.value === CreatorAllocationDestination.Holders
+                      ? 'base-holders-hourly-copy'
+                      : undefined
+                  }
+                >
+                  {opt.description}
+                </span>
               </button>
             );
           })}
@@ -301,7 +313,16 @@ export function EarningsStep({
                     <span className="text-[15px] font-semibold tracking-tight">
                       {opt.label}
                     </span>
-                    <span className="text-sm text-[var(--muted)]">{opt.description}</span>
+                    <span
+                      className="text-sm text-[var(--muted)]"
+                      data-testid={
+                        opt.value === AdditionalFeeDestination.Holders
+                          ? 'additional-holders-hourly-copy'
+                          : undefined
+                      }
+                    >
+                      {opt.description}
+                    </span>
                   </button>
                 );
               })}
@@ -485,3 +506,5 @@ export function EarningsStep({
     </div>
   );
 }
+
+export { HOLDER_REWARDS_HOURLY_COPY };
