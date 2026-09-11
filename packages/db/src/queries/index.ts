@@ -1,4 +1,10 @@
-export { getTokens, getToken, type GetTokensOptions } from './tokens.js';
+export {
+  getTokens,
+  getToken,
+  getActiveMarkets,
+  type GetTokensOptions,
+  type GetActiveMarketsOptions,
+} from './tokens.js';
 export {
   getLaunchMarketReady,
   type LaunchMarketReady,

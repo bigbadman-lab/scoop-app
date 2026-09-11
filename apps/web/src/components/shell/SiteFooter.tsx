@@ -10,6 +10,7 @@ type FooterLink = { label: string; href: string; available: boolean };
 
 const PRODUCT: FooterLink[] = [
   { label: 'Home', href: '/', available: true },
+  { label: 'Markets', href: '/markets', available: true },
   { label: 'News', href: '/news', available: true },
   { label: 'Launch', href: '/launch', available: true },
   { label: 'Account', href: '/account', available: true },

@@ -15,6 +15,7 @@ describe('SiteFooter', () => {
     const footer = screen.getByTestId('site-footer');
     expect(footer.tagName).toBe('FOOTER');
     expect(screen.getByRole('link', { name: 'Home' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Markets' }).getAttribute('href')).toBe('/markets');
     expect(screen.getByRole('link', { name: 'News' }).getAttribute('href')).toBe('/news');
     expect(screen.getByRole('link', { name: 'Launch' }).getAttribute('href')).toBe('/launch');
     expect(screen.getByRole('link', { name: 'Account' }).getAttribute('href')).toBe('/account');

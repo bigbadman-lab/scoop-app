@@ -30,6 +30,17 @@ export function DiscoverIcon({ className }: IconProps) {
   );
 }
 
+export function MarketsIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="M4.5 19.25h15" />
+      <path d="M7 16.25V11" />
+      <path d="M12 16.25V7.75" />
+      <path d="M17 16.25v-5.5" />
+    </IconFrame>
+  );
+}
+
 export function NewsIcon({ className }: IconProps) {
   return (
     <IconFrame className={className}>
@@ -58,6 +69,7 @@ export function AccountIcon({ className }: IconProps) {
 
 const ICONS: Record<NavItem['id'], (props: IconProps) => React.ReactNode> = {
   discover: DiscoverIcon,
+  markets: MarketsIcon,
   news: NewsIcon,
   create: CreateIcon,
   account: AccountIcon,

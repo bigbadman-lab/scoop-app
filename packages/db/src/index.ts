@@ -36,6 +36,7 @@ export type {
 export {
   getTokens,
   getToken,
+  getActiveMarkets,
   getLaunchMarketReady,
   getTrades,
   getHolders,
@@ -76,6 +77,7 @@ export {
   listHolderRewardEntitlementsForAccount,
   parseHolderRewardProofJson,
   type GetTokensOptions,
+  type GetActiveMarketsOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
   type GetCandlesOptions,

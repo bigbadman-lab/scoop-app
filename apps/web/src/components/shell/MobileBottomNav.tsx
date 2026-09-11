@@ -13,7 +13,7 @@ export function MobileBottomNav({ pathname }: Props) {
       style={{ paddingBottom: 'var(--safe-bottom)' }}
       aria-label="Mobile"
     >
-      <ul className="grid h-[var(--bottom-nav-height)] grid-cols-4">
+      <ul className="grid h-[var(--bottom-nav-height)] grid-cols-5">
         {MOBILE_NAV.map((item) => {
           const active = isNavActive(pathname, item.href);
           const isCreate = item.id === 'create';

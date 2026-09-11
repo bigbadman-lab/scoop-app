@@ -7,7 +7,7 @@ import {
   clampLimit,
   clampOffset,
 } from '../decimal.js';
-import { getTokens, getToken } from './tokens.js';
+import { getTokens, getToken, getActiveMarkets } from './tokens.js';
 import { getTrades } from './trades.js';
 import { getHolders } from './holders.js';
 import { assertCandleInterval } from './candles.js';
@@ -74,6 +74,30 @@ describe('query validation / SQL mapping', () => {
     expect(String(sql)).toContain('volume_24h_quote_raw');
     expect(String(sql)).toContain('LIMIT $4 OFFSET $5');
     expect(params).toEqual([4663, 3600, 9000, 100, 10]);
+  });
+
+  it('getTokens respects maxLimit for large capped fetches', async () => {
+    const db = mockDb([]);
+    await getTokens(db, {
+      chainId: 4663,
+      filter: 'all',
+      sort: 'fdv',
+      limit: 500,
+      maxLimit: 500,
+    });
+    const [, params] = db.query.mock.calls[0]!;
+    expect(params[3]).toBe(500);
+  });
+
+  it('getActiveMarkets returns the full chain set without LIMIT/OFFSET', async () => {
+    const db = mockDb([]);
+    await getActiveMarkets(db, { chainId: 4663 });
+    expect(db.query).toHaveBeenCalledOnce();
+    const [sql, params] = db.query.mock.calls[0]!;
+    expect(String(sql)).toContain('FROM launches l');
+    expect(String(sql)).not.toMatch(/\bLIMIT\b/i);
+    expect(String(sql)).not.toMatch(/\bOFFSET\b/i);
+    expect(params).toEqual([4663, 604800, 8000]);
   });
 
   it('getTokens defaults to 7-day NEW window', async () => {

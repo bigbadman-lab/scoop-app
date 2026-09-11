@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getTokens = vi.fn();
+const getActiveMarkets = vi.fn();
 const getToken = vi.fn();
 const getTrades = vi.fn();
 const getHolders = vi.fn();
@@ -19,6 +20,7 @@ const assertRankingType = vi.fn((v: string) => {
 
 vi.mock('@/lib/server/queries', () => ({
   getTokens,
+  getActiveMarkets,
   getToken,
   getTrades,
   getHolders,
@@ -29,6 +31,27 @@ vi.mock('@/lib/server/queries', () => ({
   assertCandleInterval,
   assertRankingType,
   serverDb: () => ({}),
+}));
+
+vi.mock('@/lib/quotes/catalogue', () => ({
+  loadEnabledQuoteCatalogue: vi.fn().mockResolvedValue([
+    {
+      chainId: 4663,
+      quoteAsset: '0x0000000000000000000000000000000000000000',
+      quoteType: 'native',
+      symbol: 'ETH',
+      displaySymbol: 'ETH',
+      name: 'Ether',
+      decimals: 18,
+      category: 'crypto',
+      imageUrl: null,
+      sourceName: null,
+      sortOrder: 1,
+      isRegistered: true,
+      isEnabled: true,
+    },
+  ]),
+  SCOOP_CHAIN_ID: 4663,
 }));
 
 describe('product API routes', () => {
@@ -98,5 +121,74 @@ describe('product API routes', () => {
     const { GET } = await import('@/app/api/tokens/route');
     const res = await GET(new Request('http://localhost/api/tokens?limit=0'));
     expect(res.status).toBe(400);
+  });
+
+  it('GET /api/markets returns the complete active set ranked by FDV without a 500 cap', async () => {
+    const mk = (n: number, fdv: string | null) => {
+      const hex = n.toString(16).padStart(40, '0');
+      return {
+        chainId: 4663,
+        tokenAddress: `0x${hex}`,
+        name: `T${n}`,
+        symbol: `T${n}`,
+        decimals: 18,
+        imageUri: '',
+        displayImageUrl: null,
+        poolId: '0xpool',
+        creatorId: '0x1111111111111111111111111111111111111111',
+        quoteAsset: '0x0000000000000000000000000000000000000000',
+        launchedAt: 1,
+        ageSeconds: 1,
+        launchProgressBps: 0,
+        launchComplete: false,
+        isNew: false,
+        isSoon: false,
+        isBonded: false,
+        priceQuoteX18: null,
+        priceQuoteDisplay: null,
+        priceUsdX18: null,
+        priceUsdDisplay: null,
+        fdvUsdX18: fdv,
+        fdvUsdDisplay: fdv,
+        volume24hQuoteRaw: null,
+        volume24hQuoteDisplay: null,
+        volume24hUsdX18: null,
+        volume24hUsdDisplay: null,
+        tradeCount24h: null,
+        holderCountAll: null,
+        holderCountRetail: null,
+        lastTradeAt: null,
+        priceChange24hBps: null,
+      };
+    };
+
+    // 502 markets: FDVs 1..501 plus one missing — formerly truncated at 500.
+    const rows = [
+      ...Array.from({ length: 501 }, (_, i) => mk(i + 1, String(i + 1))),
+      mk(999_999, null),
+    ];
+    getActiveMarkets.mockResolvedValue(rows);
+
+    const { GET } = await import('@/app/api/markets/route');
+    const res = await GET(new Request('http://localhost/api/markets'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items).toHaveLength(502);
+    expect(body.items[0].fdvUsdX18).toBe('501');
+    expect(body.items[499].fdvUsdX18).toBe('2');
+    expect(body.items[500].fdvUsdX18).toBe('1');
+    expect(body.items[501].fdvUsdX18).toBeNull();
+    expect(body.items[0].quoteSymbol).toBe('ETH');
+    expect(new Set(body.items.map((i: { tokenAddress: string }) => i.tokenAddress)).size).toBe(
+      502,
+    );
+    expect(getActiveMarkets).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ chainId: 4663 }),
+    );
+    expect(getTokens).not.toHaveBeenCalled();
+    const text = JSON.stringify(body);
+    expect(text).not.toContain('DATABASE_URL');
+    expect(text).not.toContain('postgresql://');
   });
 });

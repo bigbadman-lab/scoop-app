@@ -16,6 +16,11 @@ export interface GetTokensOptions {
   filter?: DiscoveryFilter;
   sort?: DiscoverySort;
   limit?: number;
+  /**
+   * Upper bound for `limit` (default 100).
+   * Markets board uses a higher cap so one request can return the full active set.
+   */
+  maxLimit?: number;
   offset?: number;
   newWindowSeconds?: number;
   soonThresholdBps?: number;
@@ -62,7 +67,7 @@ export async function getTokens(
 ): Promise<TokenDiscoveryItem[]> {
   const filter = options.filter ?? 'all';
   const sort = options.sort ?? 'newest';
-  const limit = clampLimit(options.limit);
+  const limit = clampLimit(options.limit, options.maxLimit ?? 100);
   const offset = clampOffset(options.offset);
   const newWindow = options.newWindowSeconds ?? DEFAULT_NEW_WINDOW_SECONDS;
   const soonBps = options.soonThresholdBps ?? DEFAULT_SOON_THRESHOLD_BPS;
@@ -76,6 +81,33 @@ export async function getTokens(
   `;
 
   const result = await db.query(sql, [options.chainId, newWindow, soonBps, limit, offset]);
+  return result.rows.map((r) => mapDiscoveryItem(r as DiscoverySqlRow));
+}
+
+export interface GetActiveMarketsOptions {
+  chainId: number;
+  newWindowSeconds?: number;
+  soonThresholdBps?: number;
+}
+
+/**
+ * Complete active market set for `/markets` (all indexed launches on the chain).
+ * No product-level LIMIT/OFFSET — naturally bounded by indexed launch rows.
+ * Callers apply canonical FDV ranking in application code.
+ */
+export async function getActiveMarkets(
+  db: Queryable,
+  options: GetActiveMarketsOptions,
+): Promise<TokenDiscoveryItem[]> {
+  const newWindow = options.newWindowSeconds ?? DEFAULT_NEW_WINDOW_SECONDS;
+  const soonBps = options.soonThresholdBps ?? DEFAULT_SOON_THRESHOLD_BPS;
+
+  const sql = `
+    ${DISCOVERY_SELECT}
+    WHERE l.chain_id = $1
+  `;
+
+  const result = await db.query(sql, [options.chainId, newWindow, soonBps]);
   return result.rows.map((r) => mapDiscoveryItem(r as DiscoverySqlRow));
 }
 

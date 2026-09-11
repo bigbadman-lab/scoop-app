@@ -5,15 +5,17 @@ describe('shell navigation', () => {
   it('exposes desktop primary destinations', () => {
     expect(PRIMARY_NAV.map((n) => n.id)).toEqual([
       'discover',
+      'markets',
       'news',
       'create',
       'account',
     ]);
   });
 
-  it('mobile nav mirrors Home · News · Create · Account', () => {
+  it('mobile nav mirrors Home · Markets · News · Create · Account', () => {
     expect(MOBILE_NAV.map((n) => n.label)).toEqual([
       'Home',
+      'Markets',
       'News',
       'Create',
       'Account',
@@ -24,6 +26,7 @@ describe('shell navigation', () => {
     expect(isNavActive('/', '/')).toBe(true);
     expect(isNavActive('/news', '/')).toBe(false);
     expect(isNavActive('/news', '/news')).toBe(true);
+    expect(isNavActive('/markets', '/markets')).toBe(true);
     expect(isNavActive('/token/0xabc', '/token')).toBe(true);
   });
 });

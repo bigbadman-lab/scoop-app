@@ -6,6 +6,7 @@ export const SEO_SITEMAP_REVALIDATE_SECONDS = 3600;
 
 export const SEO_SITEMAP_STATIC_PATHS = [
   '/',
+  '/markets',
   '/news',
   '/about',
   '/contact',
@@ -36,8 +37,10 @@ export function buildPublicSitemapEntries(input: {
   const entries: MetadataRoute.Sitemap = SEO_SITEMAP_STATIC_PATHS.map((path) => ({
     url: absoluteSeoUrl(path, env),
     lastModified: now,
-    changeFrequency: path === '/' || path === '/news' ? 'hourly' : 'weekly',
-    priority: path === '/' ? 1 : path === '/news' ? 0.8 : 0.5,
+    changeFrequency:
+      path === '/' || path === '/news' || path === '/markets' ? 'hourly' : 'weekly',
+    priority:
+      path === '/' ? 1 : path === '/news' || path === '/markets' ? 0.8 : 0.5,
   }));
 
   for (const token of input.tokens ?? []) {

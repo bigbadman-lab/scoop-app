@@ -1,11 +1,12 @@
 export type NavItem = {
-  id: 'discover' | 'news' | 'create' | 'account' | 'docs' | 'support';
+  id: 'discover' | 'markets' | 'news' | 'create' | 'account' | 'docs' | 'support';
   label: string;
   href: string;
 };
 
 export const PRIMARY_NAV: readonly NavItem[] = [
   { id: 'discover', label: 'Home', href: '/' },
+  { id: 'markets', label: 'Markets', href: '/markets' },
   { id: 'news', label: 'News', href: '/news' },
   { id: 'create', label: 'Create', href: '/launch' },
   { id: 'account', label: 'Account', href: '/account' },

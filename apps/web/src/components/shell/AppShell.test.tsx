@@ -37,7 +37,16 @@ describe('desktop and mobile shell', () => {
     expect(screen.getByText('Create').closest('a')).toBeTruthy();
     expect(screen.getByText('Home').closest('a')?.getAttribute('aria-current')).toBe('page');
     expect(screen.getByText('News')).toBeTruthy();
+    expect(screen.getByText('Markets')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
+  });
+
+  it('marks Markets active on /markets', () => {
+    render(<DesktopSidebar pathname="/markets" />);
+    expect(screen.getByText('Markets').closest('a')?.getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(screen.getByText('Home').closest('a')?.getAttribute('aria-current')).toBeNull();
   });
 
   it('renders mobile bottom nav with square create and icon-only links', () => {
@@ -48,6 +57,7 @@ describe('desktop and mobile shell', () => {
     );
     expect(screen.getByRole('link', { name: 'Create' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Home' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Markets' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Account' })).toBeTruthy();
     expect(screen.queryByText('News')).toBeNull();
   });

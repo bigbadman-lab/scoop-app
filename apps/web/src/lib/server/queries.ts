@@ -6,6 +6,7 @@
 export {
   getTokens,
   getToken,
+  getActiveMarkets,
   getTrades,
   getHolders,
   getCandles,
@@ -31,6 +32,7 @@ export {
   type RankingType,
   type TradeSide,
   type GetTokensOptions,
+  type GetActiveMarketsOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
   type GetCandlesOptions,
