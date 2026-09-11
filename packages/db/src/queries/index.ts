@@ -64,3 +64,8 @@ export {
   type WorkerRoundRow,
   type WorkerEntitlementRow,
 } from './holder-rewards-worker.js';
+export {
+  listHolderRewardEntitlementsForAccount,
+  parseHolderRewardProofJson,
+  type HolderRewardAccountEntitlement,
+} from './holder-rewards-account.js';

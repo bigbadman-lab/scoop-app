@@ -23,6 +23,7 @@ import { TokenImage } from '@/components/ui/TokenImage';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { CreatorClaimsLane } from '@/components/account/CreatorClaimsLane';
 import { DeployerFeesLane } from '@/components/account/DeployerFeesLane';
+import { HolderRewardsLane } from '@/components/account/HolderRewardsLane';
 
 type LoadState =
   | { kind: 'loading' }
@@ -375,6 +376,11 @@ function AccountReady({
           deployerAssets={account.fees.deployer.assets}
           creatorAssets={account.fees.creator.assets}
           sessionOnly={sessionOnly}
+        />
+
+        <HolderRewardsLane
+          sessionOnly={sessionOnly}
+          mayBroadcastOnChain={account.auth.onChain.mayBroadcastOnChain}
         />
     </AccountShell>
   );

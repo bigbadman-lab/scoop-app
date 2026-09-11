@@ -73,6 +73,8 @@ export {
   listWorkerEntitlements,
   updateEntitlementPushStatus,
   getEarliestVaultDepositUnix,
+  listHolderRewardEntitlementsForAccount,
+  parseHolderRewardProofJson,
   type GetTokensOptions,
   type GetTradesOptions,
   type GetHoldersOptions,
@@ -96,6 +98,7 @@ export {
   type WorkerRoundStatus,
   type WorkerRoundRow,
   type WorkerEntitlementRow,
+  type HolderRewardAccountEntitlement,
 } from './queries/index.js';
 export type {
   DatabaseClientMode,
