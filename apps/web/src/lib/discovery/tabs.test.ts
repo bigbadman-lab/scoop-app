@@ -16,9 +16,9 @@ describe('discover tabs', () => {
     expect(DISCOVER_LIVE_POLL_MS).toBe(2000);
   });
 
-  it('maps New / Bonding onto real discovery filters; Bonded is not a homepage tab', () => {
+  it('maps New onto discovery filter; Bonding is dedicated incomplete-launch (not soon)', () => {
     expect(getDiscoverTab('new').filter).toBe('new');
-    expect(getDiscoverTab('bonding').filter).toBe('soon');
+    expect(getDiscoverTab('bonding').filter).toBeUndefined();
     expect(getDiscoverTab('bonding').label).toBe('Bonding');
     expect(DISCOVER_TABS.some((tab) => tab.id === 'bonded')).toBe(false);
     expect(DISCOVER_TABS.map((tab) => tab.label)).not.toContain('Bonded');

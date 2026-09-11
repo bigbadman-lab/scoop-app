@@ -3,7 +3,8 @@ import type { DiscoveryFilter, DiscoverySort } from '@/lib/server/queries';
 /**
  * Homepage DISCOVER tabs.
  *
- * NEW / BONDING use existing discovery filters.
+ * NEW uses discovery filter `new`.
+ * BONDING uses dedicated incomplete-launch query (not internal `soon` ≥80%).
  * TRENDING MVP ranks projected 24h activity (volume USD + trade count) — not an opaque score.
  */
 export type DiscoverTabId = 'trending' | 'new' | 'bonding';
@@ -31,8 +32,6 @@ export const DISCOVER_TABS: readonly DiscoverTabConfig[] = [
     id: 'bonding',
     label: 'Bonding',
     dataAvailable: true,
-    filter: 'soon',
-    sort: 'progress',
     emptyMessage: 'No bonding markets yet.',
   },
   {

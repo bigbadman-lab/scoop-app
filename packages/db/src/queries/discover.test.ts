@@ -3,6 +3,7 @@ import {
   DISCOVER_TAB_LIMIT,
   DISCOVER_TRENDING_MIN_TRADES_24H,
   getDiscoverBoard,
+  getDiscoverBonding,
   getDiscoverTrending,
 } from './discover.js';
 import { getTokens } from './tokens.js';
@@ -88,20 +89,66 @@ describe('getDiscoverTrending', () => {
   });
 });
 
+describe('getDiscoverBonding', () => {
+  it('selects all incomplete markets with no 80% floor and ranks by progress', async () => {
+    const db = mockDb([]);
+    await getDiscoverBonding(db as never, { chainId: 4663 });
+    const [sql, params] = db.query.mock.calls[0]!;
+    const text = String(sql);
+    expect(text).toMatch(
+      /WHERE l\.chain_id = \$1\s+AND COALESCE\(m\.launch_complete, FALSE\) = FALSE/,
+    );
+    expect(text).not.toMatch(
+      /WHERE[\s\S]*launch_progress_bps[\s\S]*>= \$3[\s\S]*launch_complete/,
+    );
+    expect(text).toMatch(
+      /ORDER BY\s+COALESCE\(m\.launch_progress_bps, 0\) DESC,\s+l\.launched_at DESC,\s+l\.token_address ASC/,
+    );
+    expect(params).toEqual([4663, 604800, 8000, DISCOVER_TAB_LIMIT]);
+  });
+
+  it('includes incomplete markets with no 80% floor (SQL predicate)', async () => {
+    const db = mockDb([
+      discoveryRow({
+        token_address: '0x0000000000000000000000000000000000000001',
+        launch_progress_bps: 100,
+        launch_complete: false,
+      }),
+    ]);
+    const items = await getDiscoverBonding(db as never, { chainId: 4663 });
+    expect(items[0]!.launchProgressBps).toBe(100);
+    expect(items[0]!.launchComplete).toBe(false);
+
+    const text = String(db.query.mock.calls[0]![0]);
+    // WHERE must not require soon (≥8000) — only incomplete.
+    const whereIdx = text.indexOf('WHERE l.chain_id');
+    const whereClause = text.slice(whereIdx, text.indexOf('ORDER BY'));
+    expect(whereClause).toContain('launch_complete');
+    expect(whereClause).not.toContain('launch_progress_bps');
+  });
+
+  it('limits to 24', async () => {
+    const db = mockDb([]);
+    await getDiscoverBonding(db as never, { chainId: 4663, limit: 24 });
+    const params = db.query.mock.calls[0]![1] as unknown[];
+    expect(params[3]).toBe(24);
+  });
+});
+
 describe('getDiscoverBoard', () => {
-  it('runs three bounded queries in parallel (new / soon / trending)', async () => {
+  it('runs three bounded queries in parallel (new / bonding / trending)', async () => {
     const db = {
-      query: vi.fn(async (sql: string) => {
-        const text = String(sql);
-        if (text.includes('volume_24h_usd_x18 > 0')) {
+      query: vi.fn(async (_sql: string, params: unknown[]) => {
+        if (params.length === 5 && params[3] === DISCOVER_TRENDING_MIN_TRADES_24H) {
           return { rows: [discoveryRow({ token_address: '0xcccccccccccccccccccccccccccccccccccccccc' })] };
         }
-        if (text.includes('COALESCE(m.launch_complete, FALSE) = FALSE')) {
+        if (params.length === 4) {
+          // getDiscoverBonding
           return {
             rows: [
               discoveryRow({
                 token_address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-                launch_progress_bps: 9000,
+                launch_progress_bps: 500,
               }),
             ],
           };
@@ -122,23 +169,34 @@ describe('getDiscoverBoard', () => {
     expect(db.query).toHaveBeenCalledTimes(3);
     expect(board.new).toHaveLength(1);
     expect(board.bonding).toHaveLength(1);
+    expect(board.bonding[0]!.launchProgressBps).toBe(500);
     expect(board.trending).toHaveLength(1);
 
-    for (const call of db.query.mock.calls) {
-      const sql = String(call[0]);
-      const params = call[1] as unknown[];
-      if (sql.includes('volume_24h_usd_x18 > 0')) {
-        expect(params[4]).toBe(DISCOVER_TAB_LIMIT);
-      } else {
-        // getTokens: [chainId, newWindow, soonBps, limit, offset]
-        expect(params[3]).toBe(DISCOVER_TAB_LIMIT);
-        expect(params[4]).toBe(0);
-      }
-    }
+    const bondingCall = db.query.mock.calls.find((c) => (c[1] as unknown[]).length === 4)!;
+    expect(String(bondingCall[0])).not.toMatch(
+      /WHERE[\s\S]*launch_progress_bps[\s\S]*>= \$3[\s\S]*AND COALESCE\(m\.launch_complete/,
+    );
   });
 });
 
-describe('discover ordering helpers via getTokens', () => {
+describe('internal soon semantics remain unchanged', () => {
+  it('getTokens filter=soon still requires >= 8000 bps and incomplete', async () => {
+    const db = mockDb([]);
+    await getTokens(db as never, {
+      chainId: 4663,
+      filter: 'soon',
+      sort: 'progress',
+      limit: 24,
+    });
+    const [sql] = db.query.mock.calls[0]!;
+    const text = String(sql);
+    expect(text).toContain('COALESCE(m.launch_progress_bps, 0) >= $3::INT');
+    expect(text).toContain('COALESCE(m.launch_complete, FALSE) = FALSE');
+    expect(text).toMatch(
+      /ORDER BY COALESCE\(m\.launch_progress_bps, 0\) DESC, l\.launched_at DESC, l\.token_address ASC/,
+    );
+  });
+
   it('NEW orders by launched_at DESC then token_address ASC', async () => {
     const db = mockDb([]);
     await getTokens(db as never, {
@@ -151,20 +209,5 @@ describe('discover ordering helpers via getTokens', () => {
     expect(String(sql)).toMatch(
       /ORDER BY l\.launched_at DESC, l\.token_address ASC/,
     );
-  });
-
-  it('BONDING (soon) orders by progress DESC, launched_at DESC, address ASC', async () => {
-    const db = mockDb([]);
-    await getTokens(db as never, {
-      chainId: 4663,
-      filter: 'soon',
-      sort: 'progress',
-      limit: 24,
-    });
-    const [sql] = db.query.mock.calls[0]!;
-    expect(String(sql)).toMatch(
-      /ORDER BY COALESCE\(m\.launch_progress_bps, 0\) DESC, l\.launched_at DESC, l\.token_address ASC/,
-    );
-    expect(String(sql)).toContain('launch_complete');
   });
 });

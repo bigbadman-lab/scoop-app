@@ -9,6 +9,7 @@ export {
   getActiveMarkets,
   getDiscoverBoard,
   getDiscoverTrending,
+  getDiscoverBonding,
   DISCOVER_TAB_LIMIT,
   DISCOVER_TRENDING_MIN_TRADES_24H,
   getTrades,

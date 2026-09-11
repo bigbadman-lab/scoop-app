@@ -76,6 +76,42 @@ export async function getDiscoverTrending(
 }
 
 /**
+ * Discover BONDING — all incomplete launch-inventory markets (public tab).
+ *
+ * Predicate: launch_complete = false (no 80% / soon threshold).
+ * Internal discovery filter `soon` (>= 8000 bps) is intentionally separate.
+ *
+ * Rank: progress DESC, launched_at DESC, token_address ASC
+ */
+export async function getDiscoverBonding(
+  db: Queryable,
+  options: {
+    chainId: number;
+    limit?: number;
+    newWindowSeconds?: number;
+    soonThresholdBps?: number;
+  },
+): Promise<TokenDiscoveryItem[]> {
+  const limit = clampLimit(options.limit ?? DISCOVER_TAB_LIMIT, DISCOVER_TAB_LIMIT, DISCOVER_TAB_LIMIT);
+  const newWindow = options.newWindowSeconds ?? DEFAULT_NEW_WINDOW_SECONDS;
+  const soonBps = options.soonThresholdBps ?? DEFAULT_SOON_THRESHOLD_BPS;
+
+  const sql = `
+    ${DISCOVERY_SELECT}
+    WHERE l.chain_id = $1
+      AND COALESCE(m.launch_complete, FALSE) = FALSE
+    ORDER BY
+      COALESCE(m.launch_progress_bps, 0) DESC,
+      l.launched_at DESC,
+      l.token_address ASC
+    LIMIT $4
+  `;
+
+  const result = await db.query(sql, [options.chainId, newWindow, soonBps, limit]);
+  return result.rows.map((r) => mapDiscoveryItem(r as DiscoverySqlRow));
+}
+
+/**
  * Homepage Discover snapshot — three bounded parallel queries on projected state.
  */
 export async function getDiscoverBoard(
@@ -96,10 +132,8 @@ export async function getDiscoverBoard(
       newWindowSeconds: newWindow,
       soonThresholdBps: soonBps,
     }),
-    getTokens(db, {
+    getDiscoverBonding(db, {
       chainId: options.chainId,
-      filter: 'soon',
-      sort: 'progress',
       limit,
       newWindowSeconds: newWindow,
       soonThresholdBps: soonBps,

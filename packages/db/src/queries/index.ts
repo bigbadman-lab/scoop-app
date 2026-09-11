@@ -2,6 +2,7 @@ export { getTokens, getToken, getActiveMarkets, type GetTokensOptions, type GetA
 export {
   getDiscoverBoard,
   getDiscoverTrending,
+  getDiscoverBonding,
   DISCOVER_TAB_LIMIT,
   DISCOVER_TRENDING_MIN_TRADES_24H,
   type GetDiscoverBoardOptions,
