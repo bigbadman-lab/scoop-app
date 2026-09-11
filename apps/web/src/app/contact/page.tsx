@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { buildPageMetadata } from '@/lib/seo/site';
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Contact',
+  description: 'Contact SCOOP — channels and support paths for the protocol.',
+  path: '/contact',
+});
 
 export default function ContactPage() {
   return (

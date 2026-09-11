@@ -1,5 +1,9 @@
 import { SCOOP_CHAIN_ID, loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
-import { quoteCatalogueImageUrl, quoteDisplaySymbol } from '@/lib/quotes/resolve';
+import {
+  quoteCatalogueImageUrl,
+  quoteDisplaySymbol,
+  quotePairLabel,
+} from '@/lib/quotes/resolve';
 import { getToken, serverDb, type TokenDetail } from '@/lib/server/queries';
 import { ValidationError, parseAddress } from '@/lib/server/validate';
 
@@ -8,6 +12,8 @@ export type TokenPageLoadResult =
       status: 'ok';
       token: TokenDetail;
       quoteSymbol: string;
+      /** Rich pair label for OG/identity (may include catalogue name). */
+      quotePairLabel: string;
       quoteImageUrl: string | null;
     }
   | { status: 'invalid' }
@@ -37,6 +43,7 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
       status: 'ok',
       token,
       quoteSymbol: quoteDisplaySymbol(token.quoteAsset, catalogue),
+      quotePairLabel: quotePairLabel(token.quoteAsset, catalogue),
       quoteImageUrl: quoteCatalogueImageUrl(token.quoteAsset, catalogue),
     };
   } catch (error) {

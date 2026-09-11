@@ -23,6 +23,27 @@ export function quoteCatalogueImageUrl(
   return url || null;
 }
 
+/**
+ * Human pair label for OG / market identity.
+ * Uses catalogue name when it adds information beyond the symbol (e.g. `Apple Inc. (AAPL)`).
+ * Otherwise returns the display symbol (ETH, USDG, …).
+ */
+export function quotePairLabel(
+  quoteAsset: string,
+  catalogue: readonly PublicQuoteCatalogueItem[],
+): string {
+  const key = quoteAsset.trim().toLowerCase();
+  const hit = catalogue.find((q) => q.quoteAsset.toLowerCase() === key);
+  if (!hit) return truncateShort(quoteAsset);
+  const sym = (hit.displaySymbol || hit.symbol || '').trim();
+  const name = (hit.name || '').trim();
+  if (name && sym && name.toLowerCase() !== sym.toLowerCase()) {
+    const clipped = name.length > 42 ? `${name.slice(0, 41)}…` : name;
+    return `${clipped} (${sym})`;
+  }
+  return sym || truncateShort(quoteAsset);
+}
+
 function truncateShort(address: string): string {
   const v = address.trim();
   if (v.length < 10) return v.toUpperCase();

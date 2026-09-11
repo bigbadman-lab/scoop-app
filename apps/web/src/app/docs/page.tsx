@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { buildPageMetadata } from '@/lib/seo/site';
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Docs',
+  description: 'SCOOP protocol notes — markets and news on Robinhood Chain (4663).',
+  path: '/docs',
+});
 
 export default function DocsPage() {
   return (

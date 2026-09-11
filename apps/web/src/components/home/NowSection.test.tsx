@@ -115,7 +115,9 @@ describe('NowSection news lead', () => {
     expect(screen.getByText('Uniswap')).toBeTruthy();
     expect(screen.getByText('Markets paired with')).toBeTruthy();
     expect(screen.getByText('Stocks + ETH')).toBeTruthy();
-    expect(screen.getByText('Turn news into markets. Earn from every trade.')).toBeTruthy();
+    expect(screen.getByText(/Turn/i)).toBeTruthy();
+    expect(screen.getByText(/into markets\. Earn from every trade\./i)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^news$/i }).getAttribute('href')).toBe('/news');
 
     const launches = screen.getAllByRole('link', { name: /^launch$/i });
     expect(launches.length).toBeGreaterThan(0);
@@ -123,5 +125,6 @@ describe('NowSection news lead', () => {
 
     const heroImg = document.querySelector(`img[src="/scoophero.png"]`);
     expect(heroImg).toBeTruthy();
+    expect(heroImg?.getAttribute('alt')).toBe('SCOOP');
   });
 });

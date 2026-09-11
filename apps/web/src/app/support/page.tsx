@@ -1,4 +1,12 @@
+import type { Metadata } from 'next';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { buildPageMetadata } from '@/lib/seo/site';
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'Support',
+  description: 'SCOOP support — help and contact details for protocol users.',
+  path: '/support',
+});
 
 export default function SupportPage() {
   return (

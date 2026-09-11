@@ -1,4 +1,13 @@
+import type { Metadata } from 'next';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { buildPageMetadata } from '@/lib/seo/site';
+
+export const metadata: Metadata = buildPageMetadata({
+  title: 'About',
+  description:
+    'SCOOP is a live financial publication and market application on Robinhood Chain.',
+  path: '/about',
+});
 
 export default function AboutPage() {
   return (

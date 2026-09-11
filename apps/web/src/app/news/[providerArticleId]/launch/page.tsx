@@ -1,11 +1,26 @@
+import type { Metadata } from 'next';
 import { ConceptAssistFlow } from '@/components/launch-assist/ConceptAssistFlow';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
+import { buildPageMetadata } from '@/lib/seo/site';
 
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ providerArticleId: string }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { providerArticleId: raw } = await params;
+  const providerArticleId = decodeURIComponent(raw ?? '').trim();
+  return buildPageMetadata({
+    title: 'Launch assist',
+    description: 'Launch a SCOOP market from a news story.',
+    path: providerArticleId
+      ? `/news/${encodeURIComponent(providerArticleId)}/launch`
+      : '/news',
+    indexable: false,
+  });
+}
 
 async function loadCatalogueSafe() {
   try {

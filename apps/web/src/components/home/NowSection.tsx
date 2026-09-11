@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { LiveDeskStrip } from '@/components/home/LiveDeskStrip';
 import { HouseLeadHero } from '@/components/home/HouseLeadHero';
@@ -22,7 +23,7 @@ export function NowSection({ news }: Props) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={SCOOP_HERO_SRC}
-                alt=""
+                alt="SCOOP"
                 width={1000}
                 height={200}
                 className="block w-[55%] max-w-[280px] shrink-0 rounded-[var(--radius-editorial)] object-contain md:w-[42%] md:max-w-[360px]"
@@ -30,7 +31,11 @@ export function NowSection({ news }: Props) {
               <HomepageInfrastructureBadges className="w-full min-w-0 lg:w-auto" />
             </div>
             <p className="mt-3 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
-              Turn news into markets. Earn from every trade.
+              Turn{' '}
+              <Link href="/news" className="underline-offset-2 hover:underline">
+                news
+              </Link>{' '}
+              into markets. Earn from every trade.
             </p>
             <div className="mt-5 md:hidden">
               <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5">

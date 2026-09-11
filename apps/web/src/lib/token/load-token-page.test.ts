@@ -24,6 +24,7 @@ describe('loadTokenPage', () => {
         quoteAsset: '0x0000000000000000000000000000000000000000',
         displaySymbol: 'ETH',
         symbol: 'ETH',
+        name: 'ETH',
         imageUrl: 'https://example.com/eth.png',
       },
     ]);
@@ -51,6 +52,7 @@ describe('loadTokenPage', () => {
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.quoteSymbol).toBe('ETH');
+      expect(result.quotePairLabel).toBe('ETH');
       expect(result.quoteImageUrl).toBe('https://example.com/eth.png');
       expect(result.token.symbol).toBe('HELLO');
     }
