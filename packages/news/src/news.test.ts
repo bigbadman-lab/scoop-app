@@ -18,7 +18,7 @@ import {
 } from './stocknews-client.js';
 import { classifyMentionInstrument, filterEquityMentions } from './instruments.js';
 import { isNewsPublicDisplayEnabled, assertNewsPublicDisplayAllowed } from './gate.js';
-import { normalizeBatch, ingestOnce } from './ingest.js';
+import { normalizeBatch, normalizeBatchDetailed, ingestOnce } from './ingest.js';
 import type { ProviderNewsArticle } from './types.js';
 
 function article(
@@ -221,8 +221,9 @@ describe('public display gate', () => {
 });
 
 describe('normalizeBatch', () => {
-  it('skips malformed rows', () => {
-    const out = normalizeBatch(
+  it('skips malformed rows and reports skip details', () => {
+    const skips: Array<{ reason: string }> = [];
+    const out = normalizeBatchDetailed(
       [
         {
           title: 'ok',
@@ -234,8 +235,12 @@ describe('normalizeBatch', () => {
         { title: '', news_url: '' },
       ],
       21_600,
+      (skip) => skips.push(skip),
     );
-    expect(out).toHaveLength(1);
+    expect(out.articles).toHaveLength(1);
+    expect(out.skipped).toHaveLength(1);
+    expect(skips).toHaveLength(1);
+    expect(normalizeBatch([{ title: '', news_url: '' }], 21_600)).toEqual([]);
   });
 });
 
@@ -245,6 +250,9 @@ describe('ingestOnce', () => {
     const db = {
       query: async (sql: string) => {
         queries.push(sql);
+        if (sql.includes('INSERT INTO provider_news_articles')) {
+          return { rows: [{ was_inserted: true }], rowCount: 1 };
+        }
         if (sql.includes('news_ingestion_checkpoints') && sql.trim().startsWith('SELECT')) {
           return {
             rows: [
@@ -306,6 +314,10 @@ describe('ingestOnce', () => {
     expect(result.accepted).toBe(1);
     expect(result.rejected).toBe(1);
     expect(result.upserted).toBe(1);
+    expect(result.inserted).toBe(1);
+    expect(result.success).toBe(true);
+    expect(result.fetchWindowStrategy).toMatch(/overlap=deliberate/);
+    expect(result.newestPublishedAt).toBeTruthy();
     expect(queries.some((q) => q.includes('INSERT INTO provider_news_articles'))).toBe(true);
 
     const fail = await ingestOnce({
@@ -328,6 +340,7 @@ describe('ingestOnce', () => {
       query: async (sql: string, params: unknown[] = []) => {
         if (sql.includes('INSERT INTO provider_news_articles')) {
           keys.add(`${params[0]}:${params[1]}`);
+          return { rows: [{ was_inserted: keys.size === 1 }], rowCount: 1 };
         }
         if (sql.includes('news_ingestion_checkpoints') && sql.trim().startsWith('SELECT')) {
           return {

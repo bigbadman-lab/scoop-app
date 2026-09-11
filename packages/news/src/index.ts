@@ -118,8 +118,15 @@ export {
   catchupNews,
   selectCatchupPage,
   normalizeBatch,
+  normalizeBatchDetailed,
   createDefaultStockNewsClient,
 } from './ingest.js';
+
+export {
+  tryAcquireNewsIngestLock,
+  NEWS_INGEST_ADVISORY_LOCK_SQL,
+  isForeignWorkerLockSql,
+} from './lock.js';
 
 export {
   getNewsCheckpoint,
@@ -133,4 +140,6 @@ export {
   countProviderNewsArticles,
   countDuplicateProviderKeys,
   getNewsSmokeStats,
+  type UpsertNewsStats,
+  type NewsSmokeStats,
 } from './repos/articles.js';

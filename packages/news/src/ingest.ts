@@ -35,19 +35,53 @@ export type IngestDeps = {
   maxAgeHoursWithoutDate?: number;
 };
 
+export type NormalizeBatchSkip = {
+  reason: string;
+  newsId: string | null;
+  url: string | null;
+  title: string | null;
+};
+
+export type NormalizeBatchResult = {
+  articles: ProviderNewsArticle[];
+  skipped: NormalizeBatchSkip[];
+};
+
 export function normalizeBatch(
   raw: StockNewsArticleRaw[],
   backfillLagSeconds: number,
+  onSkip?: (skip: NormalizeBatchSkip) => void,
 ): ProviderNewsArticle[] {
-  const out: ProviderNewsArticle[] = [];
+  return normalizeBatchDetailed(raw, backfillLagSeconds, onSkip).articles;
+}
+
+export function normalizeBatchDetailed(
+  raw: StockNewsArticleRaw[],
+  backfillLagSeconds: number,
+  onSkip?: (skip: NormalizeBatchSkip) => void,
+): NormalizeBatchResult {
+  const articles: ProviderNewsArticle[] = [];
+  const skipped: NormalizeBatchSkip[] = [];
   for (const item of raw) {
     try {
-      out.push(normalizeStockNewsArticle(item, { backfillLagSeconds }));
-    } catch {
-      // Skip malformed rows
+      articles.push(normalizeStockNewsArticle(item, { backfillLagSeconds }));
+    } catch (error) {
+      const skip: NormalizeBatchSkip = {
+        reason: error instanceof Error ? error.message : 'malformed article',
+        newsId:
+          item.news_id != null
+            ? String(item.news_id)
+            : item.newsid != null
+              ? String(item.newsid)
+              : null,
+        url: typeof item.news_url === 'string' ? item.news_url : null,
+        title: typeof item.title === 'string' ? item.title.slice(0, 120) : null,
+      };
+      skipped.push(skip);
+      onSkip?.(skip);
     }
   }
-  return out;
+  return { articles, skipped };
 }
 
 function dedupeRaw(rows: StockNewsArticleRaw[]): StockNewsArticleRaw[] {
@@ -159,14 +193,20 @@ async function fetchArticlesForUniverse(input: {
  * top-mention → equity filter → batched articles → dedupe → relevance → upsert.
  * Idempotent via (provider, provider_article_id).
  * Falls back to curated equity seed when /top-mention is plan-blocked.
+ *
+ * Fetch window: primary `dateWindow` (default `today`) intentionally overlaps a 15-minute
+ * cron so delayed/failed runs and provider lag cannot create permanent gaps.
  */
 export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
+  const started = Date.now();
   const itemsPerCall = deps.itemsPerCall ?? 50;
   const batchSize = deps.batchSize ?? 8;
   const dateWindow = deps.dateWindow ?? 'today';
   const fallbackDateWindow = deps.fallbackDateWindow ?? 'last7days';
   const backfillLagSeconds = deps.backfillLagSeconds ?? DEFAULT_BACKFILL_LAG_SECONDS;
   const token = deps.tokenForSanitize;
+  const fetchWindowStrategy =
+    `primary=${dateWindow}; fallback=${fallbackDateWindow}; overlap=deliberate_calendar_day_not_cron_interval`;
 
   await ensureNewsCheckpoint(deps.db, STOCKNEWS_PROVIDER);
   await markNewsAttempt(deps.db, STOCKNEWS_PROVIDER, null);
@@ -200,7 +240,13 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
         accepted: 0,
         rejected: 0,
         upserted: 0,
+        inserted: 0,
+        updated: 0,
+        unchanged: 0,
+        skippedInvalid: 0,
         newestCrawlDate: null,
+        newestPublishedAt: null,
+        oldestPublishedAt: null,
         checkpointAdvanced: false,
         pages: 1,
         stoppedReason: 'empty',
@@ -210,7 +256,10 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
         articleCalls: 0,
         deduped: 0,
         dateWindow,
+        fetchWindowStrategy,
         universeSource,
+        success: true,
+        durationMs: Date.now() - started,
       };
     }
 
@@ -238,7 +287,20 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
     }
 
     const dedupedRaw = dedupeRaw(fetched.raw);
-    let articles = normalizeBatch(dedupedRaw, backfillLagSeconds);
+    const normalized = normalizeBatchDetailed(dedupedRaw, backfillLagSeconds, (skip) => {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          event: 'news_article_skipped',
+          provider: STOCKNEWS_PROVIDER,
+          reason: skip.reason,
+          newsId: skip.newsId,
+          url: skip.url,
+          title: skip.title,
+        }),
+      );
+    });
+    let articles = normalized.articles;
 
     // Without a plan date filter, SNA returns a deep archive — keep a fresh desk window.
     if (fetched.dateWindowUsed == null) {
@@ -250,12 +312,18 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
     }
 
     const partitioned = partitionByScoopRelevance(articles);
-    const upserted = await upsertProviderNewsArticles(deps.db, partitioned.accepted);
+    const upsertStats = await upsertProviderNewsArticles(deps.db, partitioned.accepted);
 
     const newest =
       partitioned.accepted.length > 0
         ? partitioned.accepted.reduce((best, a) =>
             a.providerPublishedAt > best.providerPublishedAt ? a : best,
+          )
+        : null;
+    const oldest =
+      partitioned.accepted.length > 0
+        ? partitioned.accepted.reduce((worst, a) =>
+            a.providerPublishedAt < worst.providerPublishedAt ? a : worst,
           )
         : null;
 
@@ -265,12 +333,20 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
       lastProviderArticleId: newest?.providerArticleId ?? null,
     });
 
+    const upserted = upsertStats.inserted + upsertStats.updated;
+
     return {
       fetched: dedupedRaw.length,
       accepted: partitioned.accepted.length,
       rejected: partitioned.rejected,
       upserted,
+      inserted: upsertStats.inserted,
+      updated: upsertStats.updated,
+      unchanged: upsertStats.unchanged,
+      skippedInvalid: normalized.skipped.length,
       newestCrawlDate: newest?.providerPublishedAt.toISOString() ?? null,
+      newestPublishedAt: newest?.providerPublishedAt.toISOString() ?? null,
+      oldestPublishedAt: oldest?.providerPublishedAt.toISOString() ?? null,
       checkpointAdvanced: true,
       pages: fetched.articleCalls,
       stoppedReason: dedupedRaw.length === 0 ? 'empty' : 'complete',
@@ -281,7 +357,10 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
       articleCalls: fetched.articleCalls,
       deduped: dedupedRaw.length,
       dateWindow: fetched.dateWindowUsed ?? 'none',
+      fetchWindowStrategy,
       universeSource,
+      success: true,
+      durationMs: Date.now() - started,
     };
   } catch (error) {
     const message = sanitizeErrorMessage(
@@ -294,11 +373,20 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
       accepted: 0,
       rejected: 0,
       upserted: 0,
+      inserted: 0,
+      updated: 0,
+      unchanged: 0,
+      skippedInvalid: 0,
       newestCrawlDate: null,
+      newestPublishedAt: null,
+      oldestPublishedAt: null,
       checkpointAdvanced: false,
       pages: 0,
       stoppedReason: 'error',
       error: message,
+      fetchWindowStrategy,
+      success: false,
+      durationMs: Date.now() - started,
     };
   }
 }

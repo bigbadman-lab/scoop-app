@@ -1,15 +1,32 @@
 import type { Queryable } from '@scoop/db';
 import type { ProviderNewsArticle } from '../types.js';
 
+export type UpsertNewsStats = {
+  attempted: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+};
+
+/**
+ * Idempotent upsert by (provider, provider_article_id).
+ * Empty/null provider fields do not erase useful stored metadata.
+ * Unchanged rows (same content hash + key display fields) skip UPDATE.
+ */
 export async function upsertProviderNewsArticles(
   db: Queryable,
   articles: ProviderNewsArticle[],
-): Promise<number> {
-  if (articles.length === 0) return 0;
+): Promise<UpsertNewsStats> {
+  const stats: UpsertNewsStats = {
+    attempted: articles.length,
+    inserted: 0,
+    updated: 0,
+    unchanged: 0,
+  };
+  if (articles.length === 0) return stats;
 
-  let upserted = 0;
   for (const a of articles) {
-    await db.query(
+    const result = await db.query<{ was_inserted: boolean }>(
       `INSERT INTO provider_news_articles (
          provider, provider_article_id, title, description, source_domain,
          url, canonical_url, image_url, provider_published_at, provider_crawled_at,
@@ -21,23 +38,51 @@ export async function upsertProviderNewsArticles(
          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),NOW()
        )
        ON CONFLICT (provider, provider_article_id) DO UPDATE SET
-         title = EXCLUDED.title,
-         description = EXCLUDED.description,
-         source_domain = EXCLUDED.source_domain,
-         url = EXCLUDED.url,
-         canonical_url = EXCLUDED.canonical_url,
-         image_url = EXCLUDED.image_url,
-         provider_published_at = EXCLUDED.provider_published_at,
+         title = COALESCE(NULLIF(EXCLUDED.title, ''), provider_news_articles.title),
+         description = COALESCE(EXCLUDED.description, provider_news_articles.description),
+         source_domain = COALESCE(NULLIF(EXCLUDED.source_domain, ''), provider_news_articles.source_domain),
+         url = COALESCE(NULLIF(EXCLUDED.url, ''), provider_news_articles.url),
+         canonical_url = COALESCE(EXCLUDED.canonical_url, provider_news_articles.canonical_url),
+         image_url = COALESCE(EXCLUDED.image_url, provider_news_articles.image_url),
+         provider_published_at = COALESCE(EXCLUDED.provider_published_at, provider_news_articles.provider_published_at),
          provider_crawled_at = EXCLUDED.provider_crawled_at,
-         provider_tickers = EXCLUDED.provider_tickers,
-         provider_tags = EXCLUDED.provider_tags,
-         crawl_publish_lag_seconds = EXCLUDED.crawl_publish_lag_seconds,
+         provider_tickers = CASE
+           WHEN cardinality(EXCLUDED.provider_tickers) > 0 THEN EXCLUDED.provider_tickers
+           ELSE provider_news_articles.provider_tickers
+         END,
+         provider_tags = CASE
+           WHEN cardinality(EXCLUDED.provider_tags) > 0 THEN EXCLUDED.provider_tags
+           ELSE provider_news_articles.provider_tags
+         END,
+         crawl_publish_lag_seconds = COALESCE(
+           EXCLUDED.crawl_publish_lag_seconds,
+           provider_news_articles.crawl_publish_lag_seconds
+         ),
          is_backfill_candidate = EXCLUDED.is_backfill_candidate,
-         content_hash = EXCLUDED.content_hash,
-         market_relevance_score = EXCLUDED.market_relevance_score,
-         relevance_class = EXCLUDED.relevance_class,
-         relevance_reasons = EXCLUDED.relevance_reasons,
-         updated_at = NOW()`,
+         content_hash = COALESCE(EXCLUDED.content_hash, provider_news_articles.content_hash),
+         market_relevance_score = COALESCE(
+           EXCLUDED.market_relevance_score,
+           provider_news_articles.market_relevance_score
+         ),
+         relevance_class = COALESCE(EXCLUDED.relevance_class, provider_news_articles.relevance_class),
+         relevance_reasons = CASE
+           WHEN cardinality(EXCLUDED.relevance_reasons) > 0 THEN EXCLUDED.relevance_reasons
+           ELSE provider_news_articles.relevance_reasons
+         END,
+         updated_at = NOW()
+       WHERE provider_news_articles.content_hash IS DISTINCT FROM EXCLUDED.content_hash
+          OR provider_news_articles.title IS DISTINCT FROM EXCLUDED.title
+          OR provider_news_articles.description IS DISTINCT FROM EXCLUDED.description
+          OR provider_news_articles.source_domain IS DISTINCT FROM EXCLUDED.source_domain
+          OR provider_news_articles.url IS DISTINCT FROM EXCLUDED.url
+          OR provider_news_articles.canonical_url IS DISTINCT FROM EXCLUDED.canonical_url
+          OR provider_news_articles.image_url IS DISTINCT FROM EXCLUDED.image_url
+          OR provider_news_articles.provider_published_at IS DISTINCT FROM EXCLUDED.provider_published_at
+          OR provider_news_articles.provider_tickers IS DISTINCT FROM EXCLUDED.provider_tickers
+          OR provider_news_articles.provider_tags IS DISTINCT FROM EXCLUDED.provider_tags
+          OR provider_news_articles.market_relevance_score IS DISTINCT FROM EXCLUDED.market_relevance_score
+          OR provider_news_articles.relevance_class IS DISTINCT FROM EXCLUDED.relevance_class
+       RETURNING (xmax = 0) AS was_inserted`,
       [
         a.provider,
         a.providerArticleId,
@@ -59,9 +104,16 @@ export async function upsertProviderNewsArticles(
         a.relevanceReasons ?? [],
       ],
     );
-    upserted += 1;
+
+    if (result.rows.length === 0) {
+      stats.unchanged += 1;
+    } else if (result.rows[0]?.was_inserted) {
+      stats.inserted += 1;
+    } else {
+      stats.updated += 1;
+    }
   }
-  return upserted;
+  return stats;
 }
 
 export async function countProviderNewsArticles(

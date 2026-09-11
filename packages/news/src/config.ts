@@ -1,4 +1,14 @@
-/** News package config from env. Never logs secrets. */
+/**
+ * News package config from env. Never logs secrets.
+ *
+ * Fetch-window overlap (P9.1):
+ * - Primary SNA date window defaults to `today` (full calendar day), not “last 15 minutes”.
+ * - That deliberate overlap absorbs delayed/failed cron ticks and provider publish lag.
+ * - Sparse results may expand to `last7days` when date filters remain available.
+ * - If the plan blocks `date`, articles older than `maxAgeHoursWithoutDate` (default 48h) are dropped.
+ * Production scheduling target: every 15 minutes (cron every-15-min); do not tighten the fetch
+ * window to match the cron interval.
+ */
 
 export type NewsConfig = {
   stockNewsApiToken: string;

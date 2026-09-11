@@ -82,11 +82,26 @@ export type NewsIngestResult = {
   fetched: number;
   accepted: number;
   rejected: number;
+  /** @deprecated Prefer inserted+updated; kept for callers expecting a total write count. */
   upserted: number;
+  inserted?: number;
+  updated?: number;
+  unchanged?: number;
+  skippedInvalid?: number;
   newestCrawlDate: string | null;
+  /** Newest provider_published_at among accepted rows (ISO). */
+  newestPublishedAt?: string | null;
+  /** Oldest provider_published_at among accepted rows (ISO). */
+  oldestPublishedAt?: string | null;
   checkpointAdvanced: boolean;
   pages: number;
-  stoppedReason: 'complete' | 'max_pages' | 'watermark' | 'empty' | 'error';
+  stoppedReason:
+    | 'complete'
+    | 'max_pages'
+    | 'watermark'
+    | 'empty'
+    | 'error'
+    | 'lock_busy';
   error?: string;
   rejectReasonCounts?: Record<string, number>;
   /** D.2 Stock News API run stats */
@@ -96,5 +111,9 @@ export type NewsIngestResult = {
   articleCalls?: number;
   deduped?: number;
   dateWindow?: string;
+  /** Documented overlap strategy label for ops logs. */
+  fetchWindowStrategy?: string;
   universeSource?: 'top_mention' | 'curated_seed';
+  success?: boolean;
+  durationMs?: number;
 };
