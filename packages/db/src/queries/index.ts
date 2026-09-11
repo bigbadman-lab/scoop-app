@@ -1,10 +1,12 @@
+export { getTokens, getToken, getActiveMarkets, type GetTokensOptions, type GetActiveMarketsOptions } from './tokens.js';
 export {
-  getTokens,
-  getToken,
-  getActiveMarkets,
-  type GetTokensOptions,
-  type GetActiveMarketsOptions,
-} from './tokens.js';
+  getDiscoverBoard,
+  getDiscoverTrending,
+  DISCOVER_TAB_LIMIT,
+  DISCOVER_TRENDING_MIN_TRADES_24H,
+  type GetDiscoverBoardOptions,
+  type DiscoverBoardRows,
+} from './discover.js';
 export {
   getLaunchMarketReady,
   type LaunchMarketReady,

@@ -58,6 +58,10 @@ export interface TokenDiscoveryItem {
   volume24hUsdX18: string | null;
   volume24hUsdDisplay: string | null;
   tradeCount24h: number | null;
+  /** Projected 24h buy trades — used by Discover TRENDING tie-break. */
+  buyCount24h: number | null;
+  /** Projected 24h sell trades. */
+  sellCount24h: number | null;
   holderCountAll: number | null;
   holderCountRetail: number | null;
   lastTradeAt: number | null;

@@ -1,77 +1,61 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { TokenDiscoveryItem } from '@/lib/server/queries';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
-import { SCOOP_CHAIN_ID } from '@scoop/shared';
 import {
   DEFAULT_DISCOVER_TAB,
+  DISCOVER_LIVE_POLL_MS,
   DISCOVER_TABS,
   type DiscoverTabId,
 } from '@/lib/discovery/tabs';
-import type { DiscoverTabResult } from '@/lib/discovery/load-home';
+import type { DiscoverSnapshot, DiscoverTabResult } from '@/lib/discovery/load-home';
+import { fetchDiscoverSnapshot } from '@/lib/discovery/fetch-discover';
+import { createLivePoll } from '@/lib/live/create-live-poll';
 import { buildQuoteLookup, quoteDisplaySymbol } from '@/lib/quotes/resolve';
 import { TokenDiscoveryItemCard } from '@/components/home/TokenDiscoveryItem';
 
-/** Lightweight discovery refresh — not trading-surface realtime. */
-export const DISCOVER_REFRESH_MS = 15_000;
+/** @deprecated Prefer DISCOVER_LIVE_POLL_MS — kept for test imports during migration. */
+export const DISCOVER_REFRESH_MS = DISCOVER_LIVE_POLL_MS;
 
 type Props = {
   initialTab: DiscoverTabId;
-  initialResult: DiscoverTabResult;
-  /** Preloaded results for other data-available tabs (server). */
-  preloaded: Partial<Record<DiscoverTabId, DiscoverTabResult>>;
+  initialSnapshot: DiscoverSnapshot;
   catalogue: readonly PublicQuoteCatalogueItem[];
 };
 
-async function fetchDiscoverTab(tabId: DiscoverTabId): Promise<DiscoverTabResult | null> {
-  const tab = DISCOVER_TABS.find((t) => t.id === tabId);
-  if (!tab?.dataAvailable || !tab.filter || !tab.sort) return null;
-
-  const params = new URLSearchParams({
-    chainId: String(SCOOP_CHAIN_ID),
-    filter: tab.filter,
-    sort: tab.sort,
-    limit: '24',
-  });
-  const res = await fetch(`/api/tokens?${params.toString()}`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) return null;
-  const body = (await res.json()) as { items?: TokenDiscoveryItem[] };
-  if (!Array.isArray(body.items)) return null;
-
-  if (body.items.length === 0) {
-    return {
-      tabId,
-      status: 'empty',
-      items: [],
-      message: tab.emptyMessage,
-    };
-  }
-  return { tabId, status: 'ok', items: body.items };
-}
-
 export function DiscoverSection({
   initialTab,
-  initialResult,
-  preloaded,
+  initialSnapshot,
   catalogue,
 }: Props) {
   const [tab, setTab] = useState<DiscoverTabId>(initialTab);
-  const [cache, setCache] = useState<Partial<Record<DiscoverTabId, DiscoverTabResult>>>(() => ({
-    [initialResult.tabId]: initialResult,
-    ...preloaded,
-  }));
+  const [snapshot, setSnapshot] = useState<DiscoverSnapshot>(initialSnapshot);
   const [pending, startTransition] = useTransition();
-  const cacheRef = useRef(cache);
-  cacheRef.current = cache;
+  const pollRef = useRef<ReturnType<typeof createLivePoll<DiscoverSnapshot>> | null>(null);
 
-  const result = cache[tab] ?? {
+  useEffect(() => {
+    const poll = createLivePoll<DiscoverSnapshot>({
+      pollMs: DISCOVER_LIVE_POLL_MS,
+      initial: initialSnapshot,
+      fetchSnapshot: async ({ signal }) => fetchDiscoverSnapshot(signal),
+      onSnapshot: (next) => {
+        setSnapshot(next);
+      },
+    });
+    pollRef.current = poll;
+    poll.start();
+    return () => {
+      poll.stop();
+      pollRef.current = null;
+    };
+    // Mount once with SSR snapshot; live poll owns subsequent updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, []);
+
+  const result: DiscoverTabResult = snapshot[tab] ?? {
     tabId: tab,
-    status: 'unavailable' as const,
+    status: 'unavailable',
     items: [] as TokenDiscoveryItem[],
     message: DISCOVER_TABS.find((t) => t.id === tab)?.emptyMessage,
   };
@@ -89,31 +73,9 @@ export function DiscoverSection({
     [catalogue, quoteLookup],
   );
 
-  const refreshTab = useCallback(async (tabId: DiscoverTabId) => {
-    const tabConfig = DISCOVER_TABS.find((t) => t.id === tabId);
-    if (!tabConfig?.dataAvailable) return;
-    try {
-      const next = await fetchDiscoverTab(tabId);
-      if (!next) return; // keep last good data
-      setCache((prev) => ({ ...prev, [tabId]: next }));
-    } catch {
-      // keep last good data on network failure
-    }
-  }, []);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      void refreshTab(tab);
-    }, DISCOVER_REFRESH_MS);
-    return () => window.clearInterval(id);
-  }, [tab, refreshTab]);
-
   function selectTab(next: DiscoverTabId) {
     startTransition(() => {
       setTab(next);
-      if (!cacheRef.current[next] && preloaded[next]) {
-        setCache((prev) => ({ ...prev, [next]: preloaded[next] }));
-      }
     });
   }
 
@@ -196,4 +158,4 @@ function DiscoverEmpty({ result }: { result: DiscoverTabResult }) {
   );
 }
 
-export { DEFAULT_DISCOVER_TAB };
+export { DEFAULT_DISCOVER_TAB, DISCOVER_LIVE_POLL_MS };

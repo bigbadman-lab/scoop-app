@@ -89,6 +89,8 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     volume24hUsdX18: null,
     volume24hUsdDisplay: null,
     tradeCount24h: 2,
+    buyCount24h: null,
+    sellCount24h: null,
     holderCountAll: 3,
     holderCountRetail: 2,
     lastTradeAt: null,

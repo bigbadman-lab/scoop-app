@@ -2,13 +2,9 @@ import type { Metadata } from 'next';
 import { NowSection } from '@/components/home/NowSection';
 import { DiscoverSection, DEFAULT_DISCOVER_TAB } from '@/components/home/DiscoverSection';
 import { ProtocolSection } from '@/components/home/ProtocolSection';
-import {
-  loadDiscoverTab,
-  type DiscoverTabResult,
-} from '@/lib/discovery/load-home';
+import { loadDiscoverSnapshot } from '@/lib/discovery/load-home';
 import { loadLeadNews } from '@/lib/news/load-home';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
-import { DISCOVER_TABS, type DiscoverTabId } from '@/lib/discovery/tabs';
 import { buildHomeJsonLd, JsonLdScript } from '@/lib/seo/json-ld';
 import { buildPageMetadata, SEO_DEFAULT_DESCRIPTION } from '@/lib/seo/site';
 
@@ -31,34 +27,19 @@ async function loadCatalogueSafe() {
 }
 
 export default async function HomePage() {
-  const [news, catalogue, ...tabResults] = await Promise.all([
+  const [news, catalogue, discover] = await Promise.all([
     loadLeadNews(),
     loadCatalogueSafe(),
-    ...DISCOVER_TABS.map((tab) => loadDiscoverTab(tab.id)),
+    loadDiscoverSnapshot(),
   ]);
-
-  const preloaded = Object.fromEntries(
-    tabResults.map((result) => [result.tabId, result]),
-  ) as Partial<Record<DiscoverTabId, DiscoverTabResult>>;
-
-  const initialTab = DEFAULT_DISCOVER_TAB;
-  const initialResult =
-    preloaded[initialTab] ??
-    ({
-      tabId: initialTab,
-      status: 'unavailable',
-      items: [],
-      message: 'Trending ranking is not available yet.',
-    } satisfies DiscoverTabResult);
 
   return (
     <main>
       <JsonLdScript data={buildHomeJsonLd()} />
       <NowSection news={news} />
       <DiscoverSection
-        initialTab={initialTab}
-        initialResult={initialResult}
-        preloaded={preloaded}
+        initialTab={DEFAULT_DISCOVER_TAB}
+        initialSnapshot={discover}
         catalogue={catalogue}
       />
       <ProtocolSection />

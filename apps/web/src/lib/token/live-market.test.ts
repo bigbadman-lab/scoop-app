@@ -42,6 +42,8 @@ describe('live-market helpers', () => {
       volume24hUsdDisplay: null,
       volume24hQuoteDisplay: '4',
       tradeCount24h: 1,
+    buyCount24h: null,
+    sellCount24h: null,
     } as TokenDetail;
     const b = { ...a };
     expect(liveTokenFingerprint(a)).toBe(liveTokenFingerprint(b));

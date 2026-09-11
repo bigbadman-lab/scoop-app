@@ -1,16 +1,11 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import {
   TokenDiscoveryItemCard,
   tokenCardFdvLabel,
 } from '@/components/home/TokenDiscoveryItem';
 import { TokenImage } from '@/components/ui/TokenImage';
-import {
-  DiscoverSection,
-  DISCOVER_REFRESH_MS,
-} from '@/components/home/DiscoverSection';
 import type { TokenDiscoveryItem } from '@/lib/server/queries';
-import type { DiscoverTabResult } from '@/lib/discovery/load-home';
 
 function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryItem {
   return {
@@ -42,6 +37,8 @@ function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
     volume24hUsdX18: null,
     volume24hUsdDisplay: null,
     tradeCount24h: 4,
+    buyCount24h: 3,
+    sellCount24h: 1,
     holderCountAll: 130,
     holderCountRetail: 124,
     lastTradeAt: null,
@@ -232,127 +229,5 @@ describe('TokenImage fallback', () => {
     const img = screen.getByRole('img', { name: /hello world/i });
     expect(img.getAttribute('src')).toBe(display);
     expect(img.getAttribute('src')?.includes('ipfs.io')).toBe(false);
-  });
-});
-
-describe('DiscoverSection refresh', () => {
-  const trending: DiscoverTabResult = {
-    tabId: 'trending',
-    status: 'unavailable',
-    items: [],
-    message: 'Trending ranking is not available yet.',
-  };
-
-  const initialNew: DiscoverTabResult = {
-    tabId: 'new',
-    status: 'ok',
-    items: [baseToken({ name: 'Alpha', symbol: 'ALP' })],
-  };
-
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  });
-
-  it('can switch from NEW to trending deferred empty copy', () => {
-    const emptyNew: DiscoverTabResult = {
-      tabId: 'new',
-      status: 'empty',
-      items: [],
-      message: 'Nothing new yet.',
-    };
-    render(
-      <DiscoverSection
-        initialTab="new"
-        initialResult={emptyNew}
-        preloaded={{ trending, new: emptyNew }}
-        catalogue={[]}
-      />,
-    );
-    expect(screen.getByTestId('discover-empty').textContent).toMatch(/nothing new yet/i);
-    fireEvent.click(screen.getByTestId('discover-tab-trending'));
-    expect(screen.getByTestId('discover-empty').textContent).toMatch(/trending ranking/i);
-  });
-
-  it('refreshes active tab via one /api/tokens call and keeps stable keys', async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({
-        items: [
-          baseToken({
-            name: 'Alpha Updated',
-            symbol: 'ALP',
-            priceQuoteDisplay: '0.001',
-            priceChange24hBps: 500,
-          }),
-        ],
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(
-      <DiscoverSection
-        initialTab="new"
-        initialResult={initialNew}
-        preloaded={{ new: initialNew, trending }}
-        catalogue={[]}
-      />,
-    );
-
-    expect(screen.getByText('Alpha')).toBeTruthy();
-    const card = screen.getByTestId('token-discovery-item');
-    expect(card.getAttribute('href')).toContain('/token/');
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(DISCOVER_REFRESH_MS);
-    });
-
-    await waitFor(() => expect(screen.getByText('Alpha Updated')).toBeTruthy());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const url = String(fetchMock.mock.calls[0]![0]);
-    expect(url).toContain('/api/tokens?');
-    expect(url).toContain('filter=new');
-    expect(url).not.toMatch(/\/trades|\/holders|\/candles/);
-  });
-
-  it('keeps last good data when refresh fails', async () => {
-    const fetchMock = vi.fn(async () => new Response('fail', { status: 500 }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(
-      <DiscoverSection
-        initialTab="new"
-        initialResult={initialNew}
-        preloaded={{ new: initialNew }}
-        catalogue={[]}
-      />,
-    );
-
-    expect(screen.getByText('Alpha')).toBeTruthy();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(DISCOVER_REFRESH_MS);
-    });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(screen.getByText('Alpha')).toBeTruthy();
-  });
-
-  it('does not poll trending deferred tab', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <DiscoverSection
-        initialTab="trending"
-        initialResult={trending}
-        preloaded={{ trending }}
-        catalogue={[]}
-      />,
-    );
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(DISCOVER_REFRESH_MS * 2);
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

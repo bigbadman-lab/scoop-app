@@ -44,20 +44,20 @@ function filterClause(filter: DiscoveryFilter): string {
 function orderClause(sort: DiscoverySort): string {
   switch (sort) {
     case 'oldest':
-      return 'ORDER BY l.launched_at ASC';
+      return 'ORDER BY l.launched_at ASC, l.token_address ASC';
     case 'volume24h':
-      return 'ORDER BY COALESCE(m.volume_24h_quote_raw, 0) DESC, l.launched_at DESC';
+      return 'ORDER BY COALESCE(m.volume_24h_quote_raw, 0) DESC, l.launched_at DESC, l.token_address ASC';
     case 'fdv':
-      return 'ORDER BY COALESCE(m.fdv_usd_x18, 0) DESC NULLS LAST, l.launched_at DESC';
+      return 'ORDER BY COALESCE(m.fdv_usd_x18, 0) DESC NULLS LAST, l.launched_at DESC, l.token_address ASC';
     case 'progress':
-      return 'ORDER BY COALESCE(m.launch_progress_bps, 0) DESC, l.launched_at DESC';
+      return 'ORDER BY COALESCE(m.launch_progress_bps, 0) DESC, l.launched_at DESC, l.token_address ASC';
     case 'holders':
-      return 'ORDER BY COALESCE(m.holder_count_retail, 0) DESC, l.launched_at DESC';
+      return 'ORDER BY COALESCE(m.holder_count_retail, 0) DESC, l.launched_at DESC, l.token_address ASC';
     case 'trades24h':
-      return 'ORDER BY COALESCE(m.trade_count_24h, 0) DESC, l.launched_at DESC';
+      return 'ORDER BY COALESCE(m.trade_count_24h, 0) DESC, l.launched_at DESC, l.token_address ASC';
     case 'newest':
     default:
-      return 'ORDER BY l.launched_at DESC';
+      return 'ORDER BY l.launched_at DESC, l.token_address ASC';
   }
 }
 
@@ -160,6 +160,8 @@ export async function getToken(
       m.volume_24h_quote_raw::text AS volume_24h_quote_raw,
       m.volume_24h_usd_x18::text AS volume_24h_usd_x18,
       m.trade_count_24h,
+      m.buy_count_24h,
+      m.sell_count_24h,
       m.holder_count_all,
       m.holder_count_retail,
       m.last_trade_at,

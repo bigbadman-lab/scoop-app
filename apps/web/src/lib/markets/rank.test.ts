@@ -38,6 +38,8 @@ function token(
     volume24hUsdX18: null,
     volume24hUsdDisplay: null,
     tradeCount24h: null,
+    buyCount24h: null,
+    sellCount24h: null,
     holderCountAll: null,
     holderCountRetail: null,
     lastTradeAt: null,

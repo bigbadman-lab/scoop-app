@@ -1,6 +1,10 @@
 import { SCOOP_CHAIN_ID } from '@/lib/quotes/catalogue';
-import { DISCOVER_TABS, type DiscoverTabId } from '@/lib/discovery/tabs';
 import {
+  DISCOVER_TABS,
+  type DiscoverTabId,
+} from '@/lib/discovery/tabs';
+import {
+  getDiscoverBoard,
   getTokens,
   serverDb,
   type DiscoveryFilter,
@@ -15,6 +19,12 @@ export type DiscoverTabResult = {
   status: HomeDataStatus;
   items: TokenDiscoveryItem[];
   message?: string;
+};
+
+export type DiscoverSnapshot = {
+  new: DiscoverTabResult;
+  bonding: DiscoverTabResult;
+  trending: DiscoverTabResult;
 };
 
 export type MarketActivityItem = {
@@ -33,6 +43,55 @@ export type MarketActivityResult = {
    */
   deferredUnifiedFeed: true;
 };
+
+function toTabResult(
+  tabId: DiscoverTabId,
+  items: TokenDiscoveryItem[],
+): DiscoverTabResult {
+  const emptyMessage =
+    DISCOVER_TABS.find((t) => t.id === tabId)?.emptyMessage ?? 'Nothing here yet.';
+  if (items.length === 0) {
+    return { tabId, status: 'empty', items: [], message: emptyMessage };
+  }
+  return { tabId, status: 'ok', items };
+}
+
+function errorTab(tabId: DiscoverTabId): DiscoverTabResult {
+  return {
+    tabId,
+    status: 'error',
+    items: [],
+    message: 'Could not load markets. Try again.',
+  };
+}
+
+/** SSR + API shared loader for all three Discover slices. */
+export async function loadDiscoverSnapshot(): Promise<DiscoverSnapshot> {
+  try {
+    const board = await getDiscoverBoard(serverDb(), { chainId: SCOOP_CHAIN_ID });
+    return {
+      new: toTabResult('new', board.new),
+      bonding: toTabResult('bonding', board.bonding),
+      trending: toTabResult('trending', board.trending),
+    };
+  } catch (error) {
+    console.error(
+      '[discover] load failed:',
+      error instanceof Error ? error.message : 'error',
+    );
+    return {
+      new: errorTab('new'),
+      bonding: errorTab('bonding'),
+      trending: errorTab('trending'),
+    };
+  }
+}
+
+/** @deprecated Prefer loadDiscoverSnapshot — kept for market-activity helpers. */
+export async function loadDiscoverTab(tabId: DiscoverTabId): Promise<DiscoverTabResult> {
+  const snapshot = await loadDiscoverSnapshot();
+  return snapshot[tabId === 'bonding' ? 'bonding' : tabId === 'trending' ? 'trending' : 'new'];
+}
 
 async function safeGetTokens(
   filter: DiscoveryFilter,
@@ -53,38 +112,6 @@ async function safeGetTokens(
       error: error instanceof Error ? error.message : 'Failed to load tokens',
     };
   }
-}
-
-export async function loadDiscoverTab(tabId: DiscoverTabId): Promise<DiscoverTabResult> {
-  const tab = DISCOVER_TABS.find((t) => t.id === tabId) ?? DISCOVER_TABS[0]!;
-
-  if (!tab.dataAvailable || !tab.filter || !tab.sort) {
-    return {
-      tabId: tab.id,
-      status: 'unavailable',
-      items: [],
-      message: tab.emptyMessage,
-    };
-  }
-
-  const result = await safeGetTokens(tab.filter, tab.sort, 24);
-  if (!result.ok) {
-    return {
-      tabId: tab.id,
-      status: 'error',
-      items: [],
-      message: 'Could not load markets. Try again.',
-    };
-  }
-  if (result.items.length === 0) {
-    return {
-      tabId: tab.id,
-      status: 'empty',
-      items: [],
-      message: tab.emptyMessage,
-    };
-  }
-  return { tabId: tab.id, status: 'ok', items: result.items };
 }
 
 /** Lean market-activity column from real NEW + SOON discovery rows. */

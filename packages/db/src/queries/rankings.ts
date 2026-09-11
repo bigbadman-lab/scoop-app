@@ -56,20 +56,20 @@ function rankingOrder(type: RankingType): { where: string; order: string; metric
     case 'newest':
       return {
         where: 'AND l.launched_at >= (EXTRACT(EPOCH FROM NOW())::BIGINT - $2::INT)',
-        order: 'ORDER BY l.launched_at DESC',
+        order: 'ORDER BY l.launched_at DESC, l.token_address ASC',
         metric: 'l.launched_at::text',
       };
     case 'soon':
       return {
         where: `AND COALESCE(m.launch_progress_bps, 0) >= $3::INT
                 AND COALESCE(m.launch_complete, FALSE) = FALSE`,
-        order: 'ORDER BY COALESCE(m.launch_progress_bps, 0) DESC, l.launched_at DESC',
+        order: 'ORDER BY COALESCE(m.launch_progress_bps, 0) DESC, l.launched_at DESC, l.token_address ASC',
         metric: 'm.launch_progress_bps::text',
       };
     case 'bonded':
       return {
         where: 'AND COALESCE(m.launch_complete, FALSE) = TRUE',
-        order: 'ORDER BY l.launched_at DESC',
+        order: 'ORDER BY l.launched_at DESC, l.token_address ASC',
         metric: 'l.launched_at::text',
       };
     default: {

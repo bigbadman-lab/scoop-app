@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getTokens = vi.fn();
 const getActiveMarkets = vi.fn();
+const getDiscoverBoard = vi.fn();
 const getToken = vi.fn();
 const getTrades = vi.fn();
 const getHolders = vi.fn();
@@ -21,6 +22,7 @@ const assertRankingType = vi.fn((v: string) => {
 vi.mock('@/lib/server/queries', () => ({
   getTokens,
   getActiveMarkets,
+  getDiscoverBoard,
   getToken,
   getTrades,
   getHolders,
@@ -155,6 +157,8 @@ describe('product API routes', () => {
         volume24hUsdX18: null,
         volume24hUsdDisplay: null,
         tradeCount24h: null,
+        buyCount24h: null,
+        sellCount24h: null,
         holderCountAll: null,
         holderCountRetail: null,
         lastTradeAt: null,
@@ -190,5 +194,57 @@ describe('product API routes', () => {
     const text = JSON.stringify(body);
     expect(text).not.toContain('DATABASE_URL');
     expect(text).not.toContain('postgresql://');
+  });
+
+  it('GET /api/discover returns new, bonding, and trending from one board query', async () => {
+    getDiscoverBoard.mockResolvedValue({
+      new: [
+        {
+          chainId: 4663,
+          tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          name: 'New',
+          symbol: 'NEW',
+          tradeCount24h: 1,
+          buyCount24h: 1,
+          sellCount24h: 0,
+          volume24hUsdX18: null,
+        },
+      ],
+      bonding: [
+        {
+          chainId: 4663,
+          tokenAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          name: 'Bond',
+          symbol: 'BND',
+          launchProgressBps: 9000,
+          launchComplete: false,
+        },
+      ],
+      trending: [
+        {
+          chainId: 4663,
+          tokenAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
+          name: 'Trend',
+          symbol: 'TRD',
+          tradeCount24h: 5,
+          buyCount24h: 4,
+          sellCount24h: 1,
+          volume24hUsdX18: '1000',
+        },
+      ],
+    });
+
+    const { GET } = await import('@/app/api/discover/route');
+    const res = await GET(new Request('http://localhost/api/discover'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.new[0].symbol).toBe('NEW');
+    expect(body.bonding[0].symbol).toBe('BND');
+    expect(body.trending[0].symbol).toBe('TRD');
+    expect(getDiscoverBoard).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ chainId: 4663 }),
+    );
+    expect(JSON.stringify(body)).not.toContain('postgresql://');
   });
 });
