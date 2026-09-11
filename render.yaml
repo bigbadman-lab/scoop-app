@@ -65,13 +65,13 @@ services:
         sync: false
 
   # Phase D.2 — scheduled Stock News API ingest (equity universe + relevance filter + DB upsert)
-  # Cadence: every 5 minutes UTC. Adjust if API quota requires a longer interval.
+  # Cadence: every 15 minutes UTC. Deliberate overlap in provider fetch windows protects against missed ticks and publication lag.
   # See docs/RENDER_NEWS_INGEST_CHECKLIST.md — do NOT activate until product asks.
   - type: cron
     name: scoop-news-ingest
     runtime: docker
     plan: starter
-    schedule: "*/5 * * * *"
+    schedule: "*/15 * * * *"
     dockerfilePath: ./docker/news.Dockerfile
     dockerContext: .
     dockerCommand: node dist/commands/ingest-once.js
