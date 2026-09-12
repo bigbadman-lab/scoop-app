@@ -1,4 +1,4 @@
-import type { NewsFeedCursor, NewsFeedItem } from '@scoop/news';
+import type { NewsFeedCategory, NewsFeedCursor, NewsFeedItem } from '@scoop/news';
 
 /** Coordinated News poll — faster than before so MARKET LIVE appears promptly. */
 export const NEWS_UI_POLL_MS = 8_000;
@@ -41,15 +41,16 @@ export type PublicNewsItem = {
 
 export type PublicNewsFeedResponse = {
   status: 'ok' | 'empty' | 'gated' | 'error';
+  /** Resolved feed category for this response (N4C.1). */
+  category: NewsFeedCategory;
   items: PublicNewsItem[];
   nextCursor: string | null;
   message?: string;
   /** When this feed response/snapshot was generated (request wall clock). */
   asOf: string;
   /**
-   * When Stock News ingest last completed successfully
-   * (`news_ingestion_checkpoints.last_success_at` for stocknewsapi).
-   * Null when no successful checkpoint exists — never fake LIVE.
+   * When ingest last completed successfully for this category's checkpoint stream.
+   * Stocks → stocknewsapi; Markets → stocknewsapi:markets (null until Markets writes on).
    */
   lastSuccessfulIngestAt: string | null;
 };

@@ -2,7 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NewsFeed } from '@/components/news/NewsFeed';
 import { NEWS_LEAD_ROTATION_MS } from '@/lib/news/lead-rotation';
-import { NEWS_UI_POLL_MS, type PublicNewsItem } from '@/lib/news/public';
+import {
+  NEWS_UI_POLL_MS,
+  type PublicNewsFeedResponse,
+  type PublicNewsItem,
+} from '@/lib/news/public';
+
+const searchParams = new URLSearchParams();
+const replaceMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => searchParams,
+  useRouter: () => ({ replace: replaceMock, push: vi.fn() }),
+}));
 
 function item(
   partial: Partial<PublicNewsItem> & Pick<PublicNewsItem, 'id' | 'headline'>,
@@ -107,19 +119,30 @@ function feedItems(): PublicNewsItem[] {
 function okFeed(
   items: PublicNewsItem[],
   nextCursor: string | null = null,
-): {
-  status: 'ok';
-  asOf: string;
-  lastSuccessfulIngestAt: string;
-  nextCursor: string | null;
-  items: PublicNewsItem[];
-} {
+  category: PublicNewsFeedResponse['category'] = 'stocks',
+): PublicNewsFeedResponse {
   return {
     status: 'ok',
+    category,
     asOf: new Date().toISOString(),
-    lastSuccessfulIngestAt: new Date().toISOString(),
+    lastSuccessfulIngestAt:
+      category === 'markets' ? null : new Date().toISOString(),
     nextCursor,
     items,
+  };
+}
+
+function emptyFeed(
+  category: PublicNewsFeedResponse['category'],
+): PublicNewsFeedResponse {
+  return {
+    status: 'empty',
+    category,
+    asOf: new Date().toISOString(),
+    lastSuccessfulIngestAt: category === 'markets' ? null : null,
+    nextCursor: null,
+    items: [],
+    message: 'No stories yet.',
   };
 }
 
@@ -143,6 +166,8 @@ async function flushMicrotasks() {
 describe('NewsFeed lead rotation', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    searchParams.delete('category');
+    replaceMock.mockReset();
     Object.defineProperty(document, 'hidden', {
       configurable: true,
       get: () => false,
@@ -396,11 +421,17 @@ describe('NewsFeed lead rotation', () => {
 });
 
 describe('NewsFeed baseline', () => {
+  beforeEach(() => {
+    searchParams.delete('category');
+    replaceMock.mockReset();
+  });
+
   it('renders gated and empty states', () => {
     const { unmount } = render(
       <NewsFeed
         initial={{
           status: 'gated',
+          category: 'stocks',
           lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
@@ -416,6 +447,7 @@ describe('NewsFeed baseline', () => {
       <NewsFeed
         initial={{
           status: 'empty',
+          category: 'stocks',
           lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
@@ -425,6 +457,9 @@ describe('NewsFeed baseline', () => {
       />,
     );
     expect(screen.getByText(/No stories yet/i)).toBeTruthy();
+    expect(screen.getByTestId('news-category-stocks').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
   });
 
   it('shows freshness and zero-market metadata on the lead', () => {
@@ -434,6 +469,7 @@ describe('NewsFeed baseline', () => {
       <NewsFeed
         initial={{
           status: 'ok',
+          category: 'stocks',
           asOf: new Date(now).toISOString(),
           lastSuccessfulIngestAt: new Date(now - 4 * 60_000).toISOString(),
           nextCursor: null,
@@ -451,6 +487,7 @@ describe('NewsFeed baseline', () => {
 
     expect(screen.getByText('Newer story')).toBeTruthy();
     expect(screen.getByRole('heading', { name: /Market feed/i })).toBeTruthy();
+    expect(screen.getByTestId('news-category-browse')).toBeTruthy();
     expect(screen.getByTestId('news-lead-kicker').textContent).toMatch(/Latest/i);
     expect(screen.getByTestId('news-lead-kicker').textContent).not.toMatch(/Live desk/i);
     expect(screen.queryByTestId('news-lead-position')).toBeNull();
@@ -459,5 +496,186 @@ describe('NewsFeed baseline', () => {
     expect(screen.getByTestId('news-market-status').tagName).toBe('SPAN');
     expect(screen.getByTestId('news-last-pull').textContent).toMatch(/Last pull 4m ago/);
     vi.useRealTimers();
+  });
+});
+
+describe('NewsFeed category switching', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    searchParams.delete('category');
+    replaceMock.mockReset();
+    Object.defineProperty(document, 'hidden', {
+      configurable: true,
+      get: () => false,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('defaults to Stocks with Stocks card selected', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(okFeed(feedItems()))),
+    );
+    renderFeed();
+    expect(screen.getByTestId('news-feed').getAttribute('data-category')).toBe('stocks');
+    expect(screen.getByTestId('news-category-stocks').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByTestId('news-category-markets').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(screen.getByText('Alpha lead')).toBeTruthy();
+    expect(screen.getByText(/Stock-moving company news/i)).toBeTruthy();
+    expect(screen.getByText(/Macro, policy and events moving the tape/i)).toBeTruthy();
+  });
+
+  it('shows Markets empty state without falling back to Stocks', async () => {
+    searchParams.set('category', 'markets');
+    render(<NewsFeed initial={emptyFeed('markets')} />);
+    expect(screen.getByTestId('news-feed').getAttribute('data-category')).toBe('markets');
+    expect(screen.getByTestId('news-category-markets').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByTestId('news-empty-state').textContent).toMatch(
+      /No Markets stories yet/i,
+    );
+    expect(screen.queryByText('Alpha lead')).toBeNull();
+    expect(screen.getByTestId('news-last-pull').textContent).toMatch(/Last pull —/);
+    expect(screen.getByTestId('news-ingest-freshness').textContent).not.toMatch(/^Live/i);
+  });
+
+  it('replaces the feed when switching Stocks → Markets and resets pagination', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('category=markets')) {
+        return Response.json(emptyFeed('markets'));
+      }
+      if (url.includes('cursor=')) {
+        return Response.json(
+          okFeed([item({ id: 'H', headline: 'Hotel older' })], null),
+        );
+      }
+      return Response.json(okFeed(feedItems(), 'cursor-stocks'));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderFeed(feedItems(), 'cursor-stocks');
+    expect(screen.getByRole('button', { name: /load more/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('news-category-markets'));
+    await flushMicrotasks();
+
+    expect(replaceMock).toHaveBeenCalledWith('/news?category=markets', { scroll: false });
+    expect(screen.getByTestId('news-feed').getAttribute('data-category')).toBe('markets');
+    expect(screen.getByTestId('news-empty-state').textContent).toMatch(
+      /No Markets stories yet/i,
+    );
+    expect(screen.queryByText('Alpha lead')).toBeNull();
+    expect(screen.queryByRole('button', { name: /load more/i })).toBeNull();
+    expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).includes('category=markets')),
+    ).toBe(true);
+  });
+
+  it('polls only the selected category and ignores stale responses', async () => {
+    let resolveMarkets: ((value: Response) => void) | null = null;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('category=markets')) {
+        return new Promise<Response>((resolve) => {
+          resolveMarkets = resolve;
+        });
+      }
+      return Response.json(okFeed(feedItems()));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderFeed();
+    fireEvent.click(screen.getByTestId('news-category-markets'));
+    await flushMicrotasks();
+
+    // Switch back to Stocks before Markets resolves.
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('category=stocks')) {
+        return Response.json(okFeed(feedItems()));
+      }
+      return Response.json(emptyFeed('markets'));
+    });
+    fireEvent.click(screen.getByTestId('news-category-stocks'));
+    await flushMicrotasks();
+
+    // Late Markets response must not overwrite Stocks.
+    resolveMarkets?.(Response.json(emptyFeed('markets')));
+    await flushMicrotasks();
+
+    expect(screen.getByTestId('news-feed').getAttribute('data-category')).toBe('stocks');
+    expect(screen.getByText('Alpha lead')).toBeTruthy();
+
+    fetchMock.mockClear();
+    act(() => {
+      vi.advanceTimersByTime(NEWS_UI_POLL_MS);
+    });
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalled();
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).toContain('category=stocks');
+      expect(String(call[0])).not.toContain('category=markets');
+    }
+  });
+
+  it('retains category on load more', async () => {
+    searchParams.set('category', 'markets');
+    const marketItems = [
+      item({ id: 'M1', headline: 'Macro one' }),
+      item({ id: 'M2', headline: 'Macro two' }),
+      item({ id: 'M3', headline: 'Macro three' }),
+      item({ id: 'M4', headline: 'Macro four' }),
+      item({ id: 'M5', headline: 'Macro five' }),
+      item({ id: 'M6', headline: 'Macro six' }),
+    ];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('cursor=')) {
+        expect(url).toContain('category=markets');
+        return Response.json(
+          okFeed([item({ id: 'M7', headline: 'Macro seven' })], null, 'markets'),
+        );
+      }
+      return Response.json(okFeed(marketItems, 'cursor-m', 'markets'));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<NewsFeed initial={okFeed(marketItems, 'cursor-m', 'markets')} />);
+    fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+    await flushMicrotasks();
+
+    expect(screen.getByText('Macro seven')).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.some(
+        (call) =>
+          String(call[0]).includes('category=markets') &&
+          String(call[0]).includes('cursor='),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps 4s lead rotation after category remount', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(okFeed(feedItems()))),
+    );
+    renderFeed();
+    expect(screen.getByTestId('news-lead-slot').getAttribute('data-lead-id')).toBe('A');
+    act(() => {
+      vi.advanceTimersByTime(NEWS_LEAD_ROTATION_MS);
+    });
+    flushLeadFade();
+    expect(screen.getByTestId('news-lead-slot').getAttribute('data-lead-id')).toBe('B');
   });
 });

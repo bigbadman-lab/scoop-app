@@ -51,6 +51,20 @@ export type TickerNewsParams = {
   days?: number;
 };
 
+/** Category / general market news (`GET /api/v1/category`). */
+export type CategoryNewsParams = {
+  /** Provider section — Markets uses `general`. */
+  section: 'general' | 'alltickers';
+  items: number;
+  page?: number;
+  type?: 'article' | 'video';
+  /** Often plan-blocked on category; omit unless known-allowed. */
+  date?: string;
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  /** Request news_id / rank_score when supported. */
+  extraFields?: string;
+};
+
 export type TopMentionRow = {
   ticker: string;
   name: string | null;
@@ -193,9 +207,51 @@ export function createStockNewsClient(options: StockNewsClientOptions) {
     return rows;
   }
 
+  /**
+   * Markets stream: general market news (not ticker-universe constrained).
+   * Persistence is intentionally outside this helper — fetch only.
+   */
+  async function fetchCategoryNews(params: CategoryNewsParams): Promise<{
+    articles: StockNewsArticleRaw[];
+    totalPages: number | null;
+    totalItems: number | null;
+  }> {
+    const query: Record<string, string> = {
+      section: params.section,
+      items: String(Math.min(Math.max(params.items, 1), 100)),
+      page: String(params.page ?? 1),
+      type: params.type ?? 'article',
+    };
+    if (params.date) query.date = params.date;
+    if (params.sentiment) query.sentiment = params.sentiment;
+    if (params.extraFields) query['extra-fields'] = params.extraFields;
+
+    const url = buildUrl('/category', query);
+    const body = await requestJson(url);
+    const rows = Array.isArray((body as { data?: unknown })?.data)
+      ? ((body as { data: unknown[] }).data as StockNewsArticleRaw[])
+      : Array.isArray(body)
+        ? (body as StockNewsArticleRaw[])
+        : [];
+    const totalPagesRaw = (body as { total_pages?: unknown })?.total_pages;
+    const totalItemsRaw = (body as { total_items?: unknown })?.total_items;
+    return {
+      articles: rows,
+      totalPages:
+        typeof totalPagesRaw === 'number' && Number.isFinite(totalPagesRaw)
+          ? totalPagesRaw
+          : null,
+      totalItems:
+        typeof totalItemsRaw === 'number' && Number.isFinite(totalItemsRaw)
+          ? totalItemsRaw
+          : null,
+    };
+  }
+
   return {
     fetchTopMentions,
     fetchTickerNews,
+    fetchCategoryNews,
     endpoint: STOCK_NEWS_API_BASE,
   };
 }

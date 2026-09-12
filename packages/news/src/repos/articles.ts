@@ -11,7 +11,8 @@ export type UpsertNewsStats = {
 /**
  * Idempotent upsert by (provider, provider_article_id).
  * Empty/null provider fields do not erase useful stored metadata.
- * Unchanged rows (same content hash + key display fields) skip UPDATE.
+ * feed_categories uses union/merge semantics (never replaces wholesale).
+ * Unchanged rows (same content hash + key display fields + membership) skip UPDATE.
  */
 export async function upsertProviderNewsArticles(
   db: Queryable,
@@ -26,6 +27,7 @@ export async function upsertProviderNewsArticles(
   if (articles.length === 0) return stats;
 
   for (const a of articles) {
+    const feedCategories = a.feedCategories ?? [];
     const result = await db.query<{ was_inserted: boolean }>(
       `INSERT INTO provider_news_articles (
          provider, provider_article_id, title, description, source_domain,
@@ -33,9 +35,10 @@ export async function upsertProviderNewsArticles(
          provider_tickers, provider_tags, crawl_publish_lag_seconds,
          is_backfill_candidate, content_hash,
          market_relevance_score, relevance_class, relevance_reasons,
+         feed_categories,
          ingested_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW(),NOW()
+         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),NOW()
        )
        ON CONFLICT (provider, provider_article_id) DO UPDATE SET
          title = COALESCE(NULLIF(EXCLUDED.title, ''), provider_news_articles.title),
@@ -69,6 +72,14 @@ export async function upsertProviderNewsArticles(
            WHEN cardinality(EXCLUDED.relevance_reasons) > 0 THEN EXCLUDED.relevance_reasons
            ELSE provider_news_articles.relevance_reasons
          END,
+         feed_categories = (
+           SELECT COALESCE(array_agg(DISTINCT c ORDER BY c), ARRAY[]::text[])
+           FROM unnest(
+             COALESCE(provider_news_articles.feed_categories, '{}'::text[])
+             || COALESCE(EXCLUDED.feed_categories, '{}'::text[])
+           ) AS c
+           WHERE c = ANY (ARRAY['stocks','markets']::text[])
+         ),
          updated_at = NOW()
        WHERE provider_news_articles.content_hash IS DISTINCT FROM EXCLUDED.content_hash
           OR provider_news_articles.title IS DISTINCT FROM EXCLUDED.title
@@ -82,6 +93,14 @@ export async function upsertProviderNewsArticles(
           OR provider_news_articles.provider_tags IS DISTINCT FROM EXCLUDED.provider_tags
           OR provider_news_articles.market_relevance_score IS DISTINCT FROM EXCLUDED.market_relevance_score
           OR provider_news_articles.relevance_class IS DISTINCT FROM EXCLUDED.relevance_class
+          OR provider_news_articles.feed_categories IS DISTINCT FROM (
+               SELECT COALESCE(array_agg(DISTINCT c ORDER BY c), ARRAY[]::text[])
+               FROM unnest(
+                 COALESCE(provider_news_articles.feed_categories, '{}'::text[])
+                 || COALESCE(EXCLUDED.feed_categories, '{}'::text[])
+               ) AS c
+               WHERE c = ANY (ARRAY['stocks','markets']::text[])
+             )
        RETURNING (xmax = 0) AS was_inserted`,
       [
         a.provider,
@@ -102,6 +121,7 @@ export async function upsertProviderNewsArticles(
         a.marketRelevanceScore ?? null,
         a.relevanceClass ?? null,
         a.relevanceReasons ?? [],
+        feedCategories,
       ],
     );
 

@@ -57,6 +57,7 @@ describe('upsertProviderNewsArticles', () => {
     expect(String(query.mock.calls[0]?.[0])).toMatch(
       /COALESCE\(NULLIF\(EXCLUDED\.title, ''\)/,
     );
+    expect(String(query.mock.calls[0]?.[0])).toMatch(/feed_categories/);
   });
 
   it('does not pass empty title/image as erase payload — SQL uses COALESCE', async () => {

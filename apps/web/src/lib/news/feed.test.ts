@@ -10,6 +10,8 @@ vi.mock('@scoop/news', () => ({
   getLatestNews: (...args: unknown[]) => getLatestNews(...args),
   getNewsCheckpoint: (...args: unknown[]) => getNewsCheckpoint(...args),
   STOCKNEWS_PROVIDER: 'stocknewsapi',
+  checkpointProviderForCategory: (category: string) =>
+    category === 'markets' ? 'stocknewsapi:markets' : 'stocknewsapi',
 }));
 
 vi.mock('@scoop/db', async (importOriginal) => {
@@ -45,6 +47,7 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
     const { loadPublicNewsFeed } = await import('@/lib/news/feed');
     const feed = await loadPublicNewsFeed();
     expect(feed.status).toBe('gated');
+    expect(feed.category).toBe('stocks');
     expect(feed.items).toEqual([]);
     expect(feed.lastSuccessfulIngestAt).toBe('2026-09-12T11:50:00.000Z');
     expect(feed.asOf).toBeTruthy();
@@ -59,13 +62,34 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
     const { loadPublicNewsFeed } = await import('@/lib/news/feed');
     const feed = await loadPublicNewsFeed({ limit: 20 });
     expect(feed.status).toBe('empty');
+    expect(feed.category).toBe('stocks');
     expect(getLatestNews).toHaveBeenCalledWith(
       {},
       expect.objectContaining({
         limit: 20,
+        category: 'stocks',
         excludeBackfill: true,
         stockRelevantOnly: true,
         orderBy: 'published',
+      }),
+    );
+  });
+
+  it('markets category uses markets checkpoint and skips stock quality gate', async () => {
+    isNewsPublicDisplayEnabled.mockReturnValue(true);
+    getLatestNews.mockResolvedValue([]);
+    getNewsCheckpoint.mockResolvedValue(null);
+    const { loadPublicNewsFeed } = await import('@/lib/news/feed');
+    const feed = await loadPublicNewsFeed({ category: 'markets', limit: 20 });
+    expect(feed.category).toBe('markets');
+    expect(feed.lastSuccessfulIngestAt).toBeNull();
+    expect(getNewsCheckpoint).toHaveBeenCalledWith({}, 'stocknewsapi:markets');
+    expect(getLatestNews).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        category: 'markets',
+        stockRelevantOnly: false,
+        excludeBackfill: true,
       }),
     );
   });
@@ -241,6 +265,7 @@ describe('loadPublicNewsFeed / loadLeadNews', () => {
       {},
       expect.objectContaining({
         limit: HOMEPAGE_NEWS_ROTATION_POOL,
+        category: 'stocks',
         orderBy: 'published',
         excludeBackfill: true,
         stockRelevantOnly: true,

@@ -1,12 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import type { NewsFeedCategory } from '@scoop/news';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
+import { NewsCategoryBrowse } from '@/components/news/NewsCategoryBrowse';
 import { NewsFreshnessBadge } from '@/components/news/NewsFreshnessBadge';
 import { NewsIngestFreshness } from '@/components/news/NewsIngestFreshness';
 import { NewsMarketStatus } from '@/components/news/NewsMarketStatus';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
+import {
+  NEWS_CATEGORY_COPY,
+  newsCategoryHref,
+  resolveNewsPageCategory,
+} from '@/lib/news/category';
 import {
   NEWS_PAGE_SIZE,
   NEWS_UI_POLL_MS,
@@ -45,9 +53,6 @@ function NewsDeskHeader({
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Market feed</h1>
         <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
       </div>
-      <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-        Stock-moving stories, as they break.
-      </p>
     </header>
   );
 }
@@ -341,7 +346,54 @@ function NewsLeadSlot({
   );
 }
 
+function applyFeedSnapshot(
+  data: PublicNewsFeedResponse,
+  setters: {
+    setStatus: (s: PublicNewsFeedResponse['status']) => void;
+    setMessage: (m: string | undefined) => void;
+    setItems: (items: PublicNewsItem[]) => void;
+    setPendingNew: (items: PublicNewsItem[]) => void;
+    setNextCursor: (c: string | null) => void;
+    setLastSuccessfulIngestAt: (v: string | null) => void;
+    topIdRef: { current: string | null };
+  },
+) {
+  if (data.lastSuccessfulIngestAt !== undefined) {
+    setters.setLastSuccessfulIngestAt(data.lastSuccessfulIngestAt);
+  }
+  if (data.status === 'gated' || data.status === 'error') {
+    setters.setStatus(data.status);
+    setters.setMessage(data.message);
+    if (data.status === 'error') {
+      setters.setItems([]);
+      setters.setPendingNew([]);
+      setters.setNextCursor(null);
+      setters.topIdRef.current = null;
+    }
+    return;
+  }
+  if (data.status === 'empty') {
+    setters.setStatus('empty');
+    setters.setItems([]);
+    setters.setPendingNew([]);
+    setters.setNextCursor(null);
+    setters.setMessage(data.message);
+    setters.topIdRef.current = null;
+    return;
+  }
+  setters.setStatus('ok');
+  setters.setMessage(undefined);
+  setters.setItems(data.items);
+  setters.setPendingNew([]);
+  setters.setNextCursor(data.nextCursor);
+  setters.topIdRef.current = data.items[0]?.id ?? null;
+}
+
 export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [category, setCategory] = useState<NewsFeedCategory>(initial.category);
   const [status, setStatus] = useState(initial.status);
   const [message, setMessage] = useState(initial.message);
   const [items, setItems] = useState(initial.items);
@@ -349,6 +401,8 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   const [pendingNew, setPendingNew] = useState<PublicNewsItem[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [feedOpacity, setFeedOpacity] = useState(1);
   const [lastSuccessfulIngestAt, setLastSuccessfulIngestAt] = useState(
     initial.lastSuccessfulIngestAt,
   );
@@ -358,6 +412,12 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   const topIdRef = useRef<string | null>(initial.items[0]?.id ?? null);
   const scrolledRef = useRef(false);
   const statusRef = useRef(status);
+  const categoryRef = useRef(category);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  /** While set, ignore URL→state sync until the router catches up to this category. */
+  const pendingUrlCategoryRef = useRef<NewsFeedCategory | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
     itemsRef.current = items;
@@ -368,6 +428,9 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+  useEffect(() => {
+    categoryRef.current = category;
+  }, [category]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -378,14 +441,122 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const syncUrl = useCallback(
+    (next: NewsFeedCategory) => {
+      const href = newsCategoryHref(next);
+      const urlCategory = resolveNewsPageCategory(searchParams.get('category'));
+      const raw = searchParams.get('category');
+      // Already on canonical URL (Stocks = /news with no category param).
+      if (urlCategory === next && !(next === 'stocks' && raw != null)) return;
+      router.replace(href, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const loadCategory = useCallback(
+    async (next: NewsFeedCategory, opts?: { fromUrl?: boolean }) => {
+      const requestId = ++requestIdRef.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setCategory(next);
+      categoryRef.current = next;
+      if (!opts?.fromUrl) {
+        pendingUrlCategoryRef.current = next;
+        syncUrl(next);
+      } else {
+        pendingUrlCategoryRef.current = null;
+      }
+
+      setSwitching(true);
+      setLoadError(null);
+      setPendingNew([]);
+      setNextCursor(null);
+      setItems([]);
+      topIdRef.current = null;
+      if (!reducedMotion) setFeedOpacity(0.35);
+
+      try {
+        const res = await fetch(
+          `/api/news?category=${next}&limit=${NEWS_PAGE_SIZE}`,
+          { cache: 'no-store', signal: controller.signal },
+        );
+        if (requestId !== requestIdRef.current || categoryRef.current !== next) {
+          return;
+        }
+        if (!res.ok) {
+          setStatus('error');
+          setMessage('Could not load news.');
+          setItems([]);
+          return;
+        }
+        const data = (await res.json()) as PublicNewsFeedResponse;
+        if (requestId !== requestIdRef.current || categoryRef.current !== next) {
+          return;
+        }
+        // Never apply a response for a different category (defense in depth).
+        if (data.category && data.category !== next) return;
+        applyFeedSnapshot(data, {
+          setStatus,
+          setMessage,
+          setItems,
+          setPendingNew,
+          setNextCursor,
+          setLastSuccessfulIngestAt,
+          topIdRef,
+        });
+      } catch (err) {
+        if ((err as { name?: string })?.name === 'AbortError') return;
+        if (requestId !== requestIdRef.current || categoryRef.current !== next) {
+          return;
+        }
+        setStatus('error');
+        setMessage('Could not load news.');
+        setItems([]);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setSwitching(false);
+          setFeedOpacity(1);
+        }
+      }
+    },
+    [reducedMotion, syncUrl],
+  );
+
+  // Browser back/forward: URL is source of truth when it diverges.
+  // While a client selection is awaiting router.replace, do not snap back to the old URL.
+  useEffect(() => {
+    const fromUrl = resolveNewsPageCategory(searchParams.get('category'));
+    if (pendingUrlCategoryRef.current != null) {
+      if (fromUrl === pendingUrlCategoryRef.current) {
+        pendingUrlCategoryRef.current = null;
+      }
+      return;
+    }
+    if (fromUrl === categoryRef.current) return;
+    void loadCategory(fromUrl, { fromUrl: true });
+  }, [searchParams, loadCategory]);
+
   const poll = useCallback(async () => {
     if (statusRef.current === 'gated') return;
+    const activeCategory = categoryRef.current;
+    const requestId = requestIdRef.current;
     try {
-      const res = await fetch(`/api/news?limit=${NEWS_PAGE_SIZE}`, {
-        cache: 'no-store',
-      });
+      const res = await fetch(
+        `/api/news?category=${activeCategory}&limit=${NEWS_PAGE_SIZE}`,
+        { cache: 'no-store' },
+      );
       if (!res.ok) return;
+      if (requestId !== requestIdRef.current || categoryRef.current !== activeCategory) {
+        return;
+      }
       const data = (await res.json()) as PublicNewsFeedResponse;
+      if (requestId !== requestIdRef.current || categoryRef.current !== activeCategory) {
+        return;
+      }
+      if (data.category && data.category !== activeCategory) return;
+
       if (data.lastSuccessfulIngestAt !== undefined) {
         setLastSuccessfulIngestAt(data.lastSuccessfulIngestAt);
       }
@@ -427,21 +598,22 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
         return merged;
       });
       setPendingNew([]);
+      setNextCursor(data.nextCursor);
     } catch {
       /* keep showing last good feed */
     }
   }, []);
 
   useEffect(() => {
-    if (status === 'gated') return;
+    if (status === 'gated' || switching) return;
     const id = window.setInterval(() => {
       void poll();
     }, NEWS_UI_POLL_MS);
     return () => window.clearInterval(id);
-  }, [poll, status]);
+  }, [poll, status, switching, category]);
 
   useEffect(() => {
-    if (status === 'gated') return;
+    if (status === 'gated' || switching) return;
     const onVisibility = () => {
       if (document.visibilityState === 'visible') void poll();
     };
@@ -454,7 +626,13 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('focus', onFocus);
     };
-  }, [poll, status]);
+  }, [poll, status, switching, category]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   function revealPending() {
     setItems((prev) => {
@@ -467,19 +645,28 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   }
 
   async function loadMore() {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || loadingMore || switching) return;
+    const activeCategory = category;
+    const requestId = requestIdRef.current;
     setLoadingMore(true);
     setLoadError(null);
     try {
       const res = await fetch(
-        `/api/news?limit=${NEWS_PAGE_SIZE}&cursor=${encodeURIComponent(nextCursor)}`,
+        `/api/news?category=${activeCategory}&limit=${NEWS_PAGE_SIZE}&cursor=${encodeURIComponent(nextCursor)}`,
         { cache: 'no-store' },
       );
+      if (requestId !== requestIdRef.current || categoryRef.current !== activeCategory) {
+        return;
+      }
       if (!res.ok) {
         setLoadError('Could not load more stories.');
         return;
       }
       const data = (await res.json()) as PublicNewsFeedResponse;
+      if (requestId !== requestIdRef.current || categoryRef.current !== activeCategory) {
+        return;
+      }
+      if (data.category && data.category !== activeCategory) return;
       if (data.status === 'error') {
         setLoadError(data.message ?? 'Could not load more stories.');
         return;
@@ -487,13 +674,23 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
       setItems((prev) => mergeUnique(prev, data.items, 'append'));
       setNextCursor(data.nextCursor);
     } catch {
-      setLoadError('Could not load more stories.');
+      if (requestId === requestIdRef.current && categoryRef.current === activeCategory) {
+        setLoadError('Could not load more stories.');
+      }
     } finally {
-      setLoadingMore(false);
+      if (requestId === requestIdRef.current) {
+        setLoadingMore(false);
+      }
     }
   }
 
+  function onSelectCategory(next: NewsFeedCategory) {
+    if (next === category && !switching) return;
+    void loadCategory(next);
+  }
+
   const { leadPool, staticFeed } = splitNewsLeadFeed(items);
+  const categoryLabel = NEWS_CATEGORY_COPY[category].label;
 
   if (status === 'gated') {
     return (
@@ -509,86 +706,111 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
     );
   }
 
-  if (status === 'error' && items.length === 0) {
-    return (
-      <div className="space-y-2 py-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          Desk
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">Stories unavailable</h2>
-        <p className="max-w-md text-sm text-[var(--muted)]">
-          {message ?? 'Could not load news.'}
-        </p>
-        <button
-          type="button"
-          onClick={() => void poll()}
-          className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-4 hover:underline"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  if (status === 'empty' || items.length === 0) {
-    return (
-      <div>
-        <NewsDeskHeader lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
-        <div className="space-y-2 py-8">
-          <h2 className="text-xl font-semibold tracking-tight">No stories yet.</h2>
-          <p className="max-w-md text-sm text-[var(--muted)]">
-            {message ?? 'Fresh stories will appear here after ingestion.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const emptyCopy =
+    category === 'markets'
+      ? {
+          title: 'No Markets stories yet.',
+          body: message && message !== 'No stories yet.' ? message : null,
+        }
+      : {
+          title: 'No stories yet.',
+          body: message ?? 'Fresh stories will appear here after ingestion.',
+        };
 
   return (
-    <div className="relative">
+    <div className="relative" data-testid="news-feed" data-category={category}>
       <NewsDeskHeader lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
+      <NewsCategoryBrowse
+        selected={category}
+        onSelect={onSelectCategory}
+      />
 
-      {pendingNew.length > 0 ? (
-        <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
-          <button
-            type="button"
-            onClick={revealPending}
-            className="rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 motion-reduce:transition-none"
-          >
-            {pendingNew.length === 1
-              ? '1 new story'
-              : `${pendingNew.length} new stories`}
-          </button>
-        </div>
-      ) : null}
+      <div
+        style={{
+          opacity: feedOpacity,
+          transitionProperty: reducedMotion ? 'none' : 'opacity',
+          transitionDuration: '180ms',
+        }}
+        data-testid="news-feed-body"
+        data-switching={switching ? 'true' : 'false'}
+      >
+        {switching ? (
+          <div className="space-y-2 py-8" data-testid="news-category-loading">
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+              Loading {categoryLabel}…
+            </p>
+          </div>
+        ) : status === 'error' && items.length === 0 ? (
+          <div className="space-y-2 py-8">
+            <h2 className="text-xl font-semibold tracking-tight">Stories unavailable</h2>
+            <p className="max-w-md text-sm text-[var(--muted)]">
+              {message ?? 'Could not load news.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadCategory(category)}
+              className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-4 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : status === 'empty' || items.length === 0 ? (
+          <div className="space-y-2 py-8" data-testid="news-empty-state">
+            <h2 className="text-xl font-semibold tracking-tight">{emptyCopy.title}</h2>
+            {emptyCopy.body ? (
+              <p className="max-w-md text-sm text-[var(--muted)]">{emptyCopy.body}</p>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            {pendingNew.length > 0 ? (
+              <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={revealPending}
+                  className="rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 motion-reduce:transition-none"
+                >
+                  {pendingNew.length === 1
+                    ? '1 new story'
+                    : `${pendingNew.length} new stories`}
+                </button>
+              </div>
+            ) : null}
 
-      <NewsLeadSlot pool={leadPool} quoteCatalogue={quoteCatalogue} />
+            <NewsLeadSlot
+              key={category}
+              pool={leadPool}
+              quoteCatalogue={quoteCatalogue}
+            />
 
-      <ul data-testid="news-feed-list">
-        {staticFeed.map((item) => (
-          <NewsFeedStaticRow
-            key={item.id}
-            item={item}
-            quoteCatalogue={quoteCatalogue}
-          />
-        ))}
-      </ul>
+            <ul data-testid="news-feed-list">
+              {staticFeed.map((item) => (
+                <NewsFeedStaticRow
+                  key={item.id}
+                  item={item}
+                  quoteCatalogue={quoteCatalogue}
+                />
+              ))}
+            </ul>
 
-      {nextCursor ? (
-        <div className="mt-6 flex flex-col items-stretch gap-2 sm:items-start">
-          <button
-            type="button"
-            onClick={() => void loadMore()}
-            disabled={loadingMore}
-            className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-4 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50 sm:w-auto"
-          >
-            {loadingMore ? 'Loading…' : 'Load more'}
-          </button>
-          {loadError ? (
-            <p className="font-mono text-[11px] text-[var(--muted)]">{loadError}</p>
-          ) : null}
-        </div>
-      ) : null}
+            {nextCursor ? (
+              <div className="mt-6 flex flex-col items-stretch gap-2 sm:items-start">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-4 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)] disabled:opacity-50 sm:w-auto"
+                >
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </button>
+                {loadError ? (
+                  <p className="font-mono text-[11px] text-[var(--muted)]">{loadError}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

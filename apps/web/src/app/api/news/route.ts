@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { parseNewsFeedCategory } from '@scoop/news';
 import { decodeNewsCursor, NEWS_API_MAX_LIMIT, NEWS_PAGE_SIZE } from '@/lib/news/public';
 import { loadPublicNewsFeed } from '@/lib/news/feed';
 
@@ -8,11 +9,24 @@ export const revalidate = 0;
 /**
  * Public news feed — DB-backed only. Never calls the upstream news provider.
  * Respects SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED via loadPublicNewsFeed.
+ *
+ * Category (N4C.1):
+ *   missing → stocks (backward compatible)
+ *   stocks|markets → that category
+ *   invalid → 400 (no silent fallback)
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const limitRaw = url.searchParams.get('limit');
   const cursorRaw = url.searchParams.get('cursor');
+  const categoryRaw = url.searchParams.get('category');
+
+  const parsedCategory = parseNewsFeedCategory(
+    categoryRaw === null ? undefined : categoryRaw,
+  );
+  if (!parsedCategory.ok) {
+    return NextResponse.json({ error: parsedCategory.error }, { status: 400 });
+  }
 
   let limit = NEWS_PAGE_SIZE;
   if (limitRaw != null && limitRaw !== '') {
@@ -37,7 +51,11 @@ export async function GET(request: Request) {
     }
   }
 
-  const feed = await loadPublicNewsFeed({ limit, cursor });
+  const feed = await loadPublicNewsFeed({
+    category: parsedCategory.category,
+    limit,
+    cursor,
+  });
   return NextResponse.json(feed, {
     headers: {
       'Cache-Control': 'private, no-store',

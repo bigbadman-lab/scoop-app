@@ -11,6 +11,7 @@ describe('GET /api/news', () => {
     vi.clearAllMocks();
     loadPublicNewsFeed.mockResolvedValue({
       status: 'ok',
+      category: 'stocks',
       items: [
         {
           id: '1',
@@ -42,17 +43,48 @@ describe('GET /api/news', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns DB-backed feed JSON', async () => {
+  it('defaults missing category to stocks', async () => {
     const { GET } = await import('@/app/api/news/route');
     const res = await GET(new Request('http://localhost/api/news?limit=10'));
     expect(res.status).toBe(200);
     expect(loadPublicNewsFeed).toHaveBeenCalledWith({
+      category: 'stocks',
       limit: 10,
       cursor: null,
     });
     const body = await res.json();
     expect(body.items[0].headline).toBe('Story');
     expect(JSON.stringify(body)).not.toContain('isBackfillCandidate');
+  });
+
+  it('accepts category=markets', async () => {
+    loadPublicNewsFeed.mockResolvedValue({
+      status: 'empty',
+      category: 'markets',
+      items: [],
+      nextCursor: null,
+      lastSuccessfulIngestAt: null,
+      asOf: '2026-09-07T12:00:00.000Z',
+      message: 'No stories yet.',
+    });
+    const { GET } = await import('@/app/api/news/route');
+    const res = await GET(new Request('http://localhost/api/news?category=markets'));
+    expect(res.status).toBe(200);
+    expect(loadPublicNewsFeed).toHaveBeenCalledWith({
+      category: 'markets',
+      limit: 20,
+      cursor: null,
+    });
+    const body = await res.json();
+    expect(body.category).toBe('markets');
+    expect(body.items).toEqual([]);
+  });
+
+  it('rejects invalid category without falling back', async () => {
+    const { GET } = await import('@/app/api/news/route');
+    const res = await GET(new Request('http://localhost/api/news?category=foobar'));
+    expect(res.status).toBe(400);
+    expect(loadPublicNewsFeed).not.toHaveBeenCalled();
   });
 
   it('rejects bad cursor', async () => {

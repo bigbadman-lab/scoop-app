@@ -90,6 +90,7 @@ export async function loadLeadNews(): Promise<LeadNewsResult> {
   try {
     const items = await getLatestNews(serverDb(), {
       limit: HOMEPAGE_NEWS_ROTATION_POOL,
+      category: 'stocks',
       excludeBackfill: true,
       stockRelevantOnly: true,
       orderBy: 'published',

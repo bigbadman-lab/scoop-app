@@ -1,5 +1,7 @@
 import type { Queryable } from '@scoop/db';
 import { STOCKNEWS_PROVIDER } from './normalize.js';
+import type { NewsFeedCategory } from './feed-category.js';
+import { isNewsFeedCategory } from './feed-category.js';
 import type { GetLatestNewsOptions, NewsFeedItem } from './types.js';
 
 type Row = {
@@ -37,16 +39,28 @@ function mapRow(row: Row): NewsFeedItem {
 }
 
 /**
+ * Public Stocks quality gate (preserved from pre-N4C.1 stockRelevantOnly).
+ * Membership is separate: callers must also pass category='stocks'.
+ */
+export const STOCKS_PUBLIC_QUALITY_SQL = `(
+  (market_relevance_score IS NOT NULL AND market_relevance_score >= 20
+    AND relevance_class IS NOT NULL AND relevance_class <> 'reject')
+  OR
+  (market_relevance_score IS NULL AND cardinality(provider_tickers) > 0)
+)`;
+
+/**
  * Internal product query over `provider_news_articles`.
  * Public HTTP must still respect SCOOP_NEWS_PUBLIC_DISPLAY_ENABLED.
  *
+ * Category membership (N4C.1) is authoritative via feed_categories:
+ *   category=stocks  → 'stocks' = ANY(feed_categories)
+ *   category=markets → 'markets' = ANY(feed_categories)
+ *
  * Ordering:
- * - `crawled` (default): `provider_crawled_at DESC` — matches ingest watermark
+ * - `crawled` (default): `provider_crawled_at DESC`
  * - `published`: `provider_published_at DESC` — preferred for public UI
  * Tie-break always `provider_article_id DESC`.
- *
- * Public stock feed uses `stockRelevantOnly` so legacy unfiltered rows stay hidden
- * until re-scored or replaced by D.1 ingest.
  */
 export async function getLatestNews(
   db: Queryable,
@@ -67,14 +81,20 @@ export async function getLatestNews(
   if (options.onlyWithTickers) {
     where.push('cardinality(provider_tickers) > 0');
   }
+
+  if (options.category != null) {
+    if (!isNewsFeedCategory(options.category)) {
+      throw new Error(`Invalid news feed category: ${String(options.category)}`);
+    }
+    const category: NewsFeedCategory = options.category;
+    params.push(category);
+    // GIN-friendly containment: feed_categories @> ARRAY[category]
+    where.push(`feed_categories @> ARRAY[$${params.length}]::text[]`);
+  }
+
   if (options.stockRelevantOnly) {
-    // Accepted D.1 rows, or legacy ticker-bearing rows not yet rescored.
-    where.push(`(
-      (market_relevance_score IS NOT NULL AND market_relevance_score >= 20
-        AND relevance_class IS NOT NULL AND relevance_class <> 'reject')
-      OR
-      (market_relevance_score IS NULL AND cardinality(provider_tickers) > 0)
-    )`);
+    // Quality gate only — does not confer category membership.
+    where.push(STOCKS_PUBLIC_QUALITY_SQL);
   }
   if (options.ticker) {
     params.push(options.ticker.trim().toUpperCase());
@@ -88,7 +108,6 @@ export async function getLatestNews(
     }
     params.push(cursorAt.toISOString());
     params.push(options.cursor.providerArticleId);
-    // Strictly older than cursor position (newest-first keyset).
     where.push(
       `(${sortColumn}, provider_article_id) < ($${params.length - 1}::timestamptz, $${params.length})`,
     );

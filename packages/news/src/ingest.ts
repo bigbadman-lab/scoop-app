@@ -20,6 +20,7 @@ import { filterEquityMentions, curatedEquityMentions } from './instruments.js';
 import {
   partitionByScoopRelevance,
 } from './relevance-partition.js';
+import { addFeedCategory } from './feed-membership.js';
 import type { NewsIngestResult, ProviderNewsArticle, StockNewsArticleRaw } from './types.js';
 
 export type IngestDeps = {
@@ -312,7 +313,11 @@ export async function ingestOnce(deps: IngestDeps): Promise<NewsIngestResult> {
     }
 
     const partitioned = partitionByScoopRelevance(articles);
-    const upsertStats = await upsertProviderNewsArticles(deps.db, partitioned.accepted);
+    const acceptedWithMembership = partitioned.accepted.map((a) => ({
+      ...a,
+      feedCategories: addFeedCategory(a.feedCategories, 'stocks'),
+    }));
+    const upsertStats = await upsertProviderNewsArticles(deps.db, acceptedWithMembership);
 
     const newest =
       partitioned.accepted.length > 0

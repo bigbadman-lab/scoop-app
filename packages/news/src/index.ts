@@ -39,9 +39,9 @@ export {
   CURATED_EQUITY_SEED,
 } from './instruments.js';
 
-export { isNewsPublicDisplayEnabled, assertNewsPublicDisplayAllowed } from './gate.js';
+export { isNewsPublicDisplayEnabled, isMarketsNewsWriteEnabled, assertNewsPublicDisplayAllowed } from './gate.js';
 export { loadNewsConfig } from './config.js';
-export { getLatestNews } from './query.js';
+export { getLatestNews, STOCKS_PUBLIC_QUALITY_SQL } from './query.js';
 export {
   evaluateScoopNewsRelevance,
   filterEquityTickers,
@@ -49,6 +49,55 @@ export {
   type ScoopNewsRelevanceClass,
 } from './relevance.js';
 export { partitionByScoopRelevance, attachRelevance } from './relevance-partition.js';
+
+export {
+  NEWS_FEED_CATEGORIES,
+  isNewsFeedCategory,
+  parseNewsFeedCategory,
+  checkpointProviderForCategory,
+  STOCKS_CHECKPOINT_PROVIDER,
+  MARKETS_CHECKPOINT_PROVIDER,
+  type NewsFeedCategory,
+  type ParseNewsFeedCategoryResult,
+} from './feed-category.js';
+
+export {
+  addFeedCategory,
+  mergeFeedCategories,
+} from './feed-membership.js';
+
+export {
+  MARKETS_MAX_ARTICLE_AGE_MS,
+  isWithinMarketsAgeWindow,
+  marketsArticleAgeMs,
+} from './markets-freshness.js';
+
+export {
+  evaluateMarketsNewsRelevance,
+  looksLikeSingleNameContamination,
+  hasSingleNameTitleShape,
+  type MarketsRelevance,
+  type MarketsRelevanceClass,
+} from './markets-relevance.js';
+
+export {
+  runMarketsDryRun,
+  formatMarketsDryRunReport,
+  type MarketsDryRunDeps,
+  type MarketsDryRunResult,
+  type MarketsDryRunArticleView,
+  type MarketsOverlapLookup,
+} from './markets-dry-run.js';
+
+export {
+  ingestMarketsOnce,
+  fetchMarketsRawArticles,
+  formatMarketsProductionSimulation,
+  MARKETS_ITEMS_PER_PAGE,
+  MARKETS_MAX_PAGES,
+  type MarketsIngestDeps,
+  type MarketsIngestResult,
+} from './markets-ingest.js';
 export { getEnabledQuoteAssets } from './repos/quotes.js';
 export { getNewsArticleForConcepts } from './repos/article.js';
 

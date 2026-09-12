@@ -9,6 +9,18 @@ export function isNewsPublicDisplayEnabled(
   return raw === 'true' || raw === '1' || raw === 'yes';
 }
 
+/**
+ * Markets persistence + Markets checkpoint mutation gate (N4B.1).
+ * Default OFF. Fail-safe: only explicit true-like values enable writes.
+ * When false/unset, Markets must perform zero DB mutations.
+ */
+export function isMarketsNewsWriteEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const raw = (env.SCOOP_MARKETS_NEWS_WRITE_ENABLED ?? 'false').trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes';
+}
+
 export function assertNewsPublicDisplayAllowed(
   env: NodeJS.ProcessEnv = process.env,
 ): void {

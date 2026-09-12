@@ -17,6 +17,8 @@
     "ingest:once": "tsx src/commands/ingest-once.ts",
     "ingest": "tsx src/commands/ingest-once.ts",
     "catchup": "tsx src/commands/catchup.ts",
+    "markets:dry-run": "tsx src/commands/markets-dry-run.ts",
+    "markets:simulate": "tsx src/commands/markets-simulate.ts",
     "smoke": "tsx src/commands/smoke.ts",
     "concepts": "tsx src/commands/concepts.ts",
     "draft:create": "tsx src/commands/draft-create.ts",

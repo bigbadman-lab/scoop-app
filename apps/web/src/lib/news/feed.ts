@@ -1,8 +1,10 @@
 import {
+  checkpointProviderForCategory,
   getLatestNews,
   getNewsCheckpoint,
   isNewsPublicDisplayEnabled,
   STOCKNEWS_PROVIDER,
+  type NewsFeedCategory,
   type NewsFeedCursor,
   type NewsFeedItem,
 } from '@scoop/news';
@@ -21,6 +23,8 @@ export type { LeadNewsResult, LeadNewsArticle } from '@/lib/news/load-home';
 export { loadLeadNews } from '@/lib/news/load-home';
 
 export type LoadPublicNewsOptions = {
+  /** Explicit feed category. Defaults to stocks for backward compatibility. */
+  category?: NewsFeedCategory;
   limit?: number;
   cursor?: NewsFeedCursor | null;
 };
@@ -51,10 +55,15 @@ function toPublicMarket(m: {
   };
 }
 
-/** Canonical ingest freshness for the public Stock News provider only. */
-async function loadLastSuccessfulIngestAt(): Promise<string | null> {
+/** Category-aware ingest freshness (Stocks vs Markets checkpoint streams). */
+async function loadLastSuccessfulIngestAt(
+  category: NewsFeedCategory,
+): Promise<string | null> {
   try {
-    const checkpoint = await getNewsCheckpoint(serverDb(), STOCKNEWS_PROVIDER);
+    const checkpoint = await getNewsCheckpoint(
+      serverDb(),
+      checkpointProviderForCategory(category),
+    );
     const at = checkpoint?.lastSuccessAt ?? null;
     if (!at) return null;
     const iso = at instanceof Date ? at.toISOString() : new Date(at).toISOString();
@@ -66,12 +75,14 @@ async function loadLastSuccessfulIngestAt(): Promise<string | null> {
 
 function emptyFeed(
   status: PublicNewsFeedResponse['status'],
+  category: NewsFeedCategory,
   asOf: string,
   lastSuccessfulIngestAt: string | null,
   message?: string,
 ): PublicNewsFeedResponse {
   return {
     status,
+    category,
     items: [],
     nextCursor: null,
     message,
@@ -84,12 +95,16 @@ function emptyFeed(
  * Canonical public news read — homepage + `/news` + `/api/news`.
  * Always DB-backed; never calls the upstream news provider.
  * Markets attached in one batched query (no N+1).
+ *
+ * Category membership is authoritative via feed_categories (N4C.1).
+ * Default category is stocks so existing /news behavior is preserved.
  */
 export async function loadPublicNewsFeed(
   options: LoadPublicNewsOptions = {},
 ): Promise<PublicNewsFeedResponse> {
+  const category: NewsFeedCategory = options.category ?? 'stocks';
   const asOf = new Date().toISOString();
-  const lastSuccessfulIngestAt = await loadLastSuccessfulIngestAt();
+  const lastSuccessfulIngestAt = await loadLastSuccessfulIngestAt(category);
   const limit = Math.min(
     Math.max(options.limit ?? NEWS_PAGE_SIZE, 1),
     50,
@@ -98,6 +113,7 @@ export async function loadPublicNewsFeed(
   if (!isNewsPublicDisplayEnabled()) {
     return emptyFeed(
       'gated',
+      category,
       asOf,
       lastSuccessfulIngestAt,
       'News display is not enabled yet.',
@@ -107,8 +123,10 @@ export async function loadPublicNewsFeed(
   try {
     const rows: NewsFeedItem[] = await getLatestNews(serverDb(), {
       limit,
+      category,
       excludeBackfill: true,
-      stockRelevantOnly: true,
+      // Stocks keep the historical public quality gate; Markets membership is ingest-authoritative.
+      stockRelevantOnly: category === 'stocks',
       orderBy: 'published',
       cursor: options.cursor ?? undefined,
     });
@@ -133,7 +151,6 @@ export async function loadPublicNewsFeed(
         ]),
       );
     } catch {
-      // Failure isolation: feed still renders without market status.
       marketByArticle = new Map();
     }
 
@@ -141,17 +158,18 @@ export async function loadPublicNewsFeed(
       toPublicNewsItem(row, marketByArticle.get(row.providerArticleId)),
     );
     if (items.length === 0 && !options.cursor) {
-      return emptyFeed('empty', asOf, lastSuccessfulIngestAt, 'No stories yet.');
+      return emptyFeed('empty', category, asOf, lastSuccessfulIngestAt, 'No stories yet.');
     }
 
     return {
       status: 'ok',
+      category,
       items,
       nextCursor: nextCursorFromItems(rows, limit),
       asOf,
       lastSuccessfulIngestAt,
     };
   } catch {
-    return emptyFeed('error', asOf, lastSuccessfulIngestAt, 'Could not load news.');
+    return emptyFeed('error', category, asOf, lastSuccessfulIngestAt, 'Could not load news.');
   }
 }

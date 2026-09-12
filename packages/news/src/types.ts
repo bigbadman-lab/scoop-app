@@ -35,6 +35,11 @@ export type ProviderNewsArticle = {
   marketRelevanceScore?: number | null;
   relevanceClass?: string | null;
   relevanceReasons?: string[];
+  /**
+   * Canonical feed membership (`stocks` / `markets`).
+   * Upsert merges with existing DB membership — never replaces wholesale.
+   */
+  feedCategories?: string[];
 };
 
 export type NewsFeedItem = {
@@ -61,7 +66,16 @@ export type GetLatestNewsOptions = {
   limit?: number;
   ticker?: string;
   onlyWithTickers?: boolean;
+  /**
+   * Legacy quality gate (D.1). Prefer pairing with `category: 'stocks'` for
+   * public Stocks feeds. Alone does NOT prevent Markets leakage.
+   */
   stockRelevantOnly?: boolean;
+  /**
+   * Authoritative feed membership filter via `feed_categories`.
+   * Public loaders must pass this for category isolation (N4C.1).
+   */
+  category?: 'stocks' | 'markets';
   excludeBackfill?: boolean;
   provider?: string;
   orderBy?: 'crawled' | 'published';
