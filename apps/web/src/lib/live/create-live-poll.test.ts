@@ -53,8 +53,14 @@ function item(
     quoteAsset: '0x0000000000000000000000000000000000000000',
     quoteSymbol: 'ETH',
     quoteImageUrl: null,
+    launchedAt: 1_700_000_000,
+    ageSeconds: 100,
     fdvUsdX18,
     fdvUsdDisplay: fdvUsdX18,
+    tradeCountAllTime: null,
+    tradeCount24h: null,
+    holderCountAll: null,
+    holderCountRetail: null,
     ...overrides,
   };
 }

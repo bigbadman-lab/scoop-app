@@ -232,6 +232,44 @@ w3m-router-container {
   }
 }
 
+/* Markets board — restrained #1 leader treatments */
+.markets-leader-row {
+  background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--scoop-orange) 70%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .markets-leader-row[data-ambient='true'] {
+    animation: markets-leader-ambient 8s ease-in-out infinite;
+  }
+
+  .markets-leader-row[data-pulse='true'] {
+    animation: markets-leader-pulse 750ms ease-out 1;
+  }
+}
+
+@keyframes markets-leader-ambient {
+  0%,
+  85%,
+  100% {
+    background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
+  }
+  92% {
+    background: color-mix(in srgb, var(--scoop-orange) 9%, var(--bg));
+  }
+}
+
+@keyframes markets-leader-pulse {
+  0% {
+    background: color-mix(in srgb, var(--scoop-orange) 14%, var(--bg));
+    box-shadow: inset 3px 0 0 var(--scoop-orange);
+  }
+  100% {
+    background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--scoop-orange) 70%, transparent);
+  }
+}
+
 @keyframes news-fresh-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-live) 50%, transparent);
@@ -262,6 +300,10 @@ w3m-router-container {
   .news-fresh-dot {
     animation: none !important;
     box-shadow: none;
+  }
+
+  .markets-leader-row {
+    animation: none !important;
   }
 
   .scoop-home-mark:hover .scoop-home-mark__img,

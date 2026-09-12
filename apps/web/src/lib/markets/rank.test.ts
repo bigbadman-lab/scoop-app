@@ -38,6 +38,7 @@ function token(
     volume24hUsdX18: null,
     volume24hUsdDisplay: null,
     tradeCount24h: null,
+    tradeCountAllTime: null,
     buyCount24h: null,
     sellCount24h: null,
     holderCountAll: null,
@@ -134,21 +135,28 @@ describe('markets ranking', () => {
 });
 
 describe('buildMarketsBoardItems', () => {
-  it('maps quote label, link identity, and FDV fields', () => {
+  it('maps quote label, FDV, launch age, all-time trades, and holders', () => {
     const items = buildMarketsBoardItems(
       [
         token({
           tokenAddress: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
           name: 'Hello World',
           symbol: 'HELLO',
+          launchedAt: 1_700_000_100,
+          ageSeconds: 50,
           fdvUsdX18: '184200000000000000000000',
           fdvUsdDisplay: '184200',
+          tradeCountAllTime: 116,
+          tradeCount24h: 12,
+          holderCountAll: 40,
+          holderCountRetail: 31,
         }),
         token({
           tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           symbol: 'NOFDV',
           fdvUsdX18: null,
           fdvUsdDisplay: null,
+          tradeCountAllTime: null,
         }),
       ],
       catalogue,
@@ -159,7 +167,13 @@ describe('buildMarketsBoardItems', () => {
     expect(items[0]!.tokenAddress).toBe(
       '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
     );
+    expect(items[0]!.launchedAt).toBe(1_700_000_100);
+    expect(items[0]!.ageSeconds).toBe(50);
+    expect(items[0]!.tradeCountAllTime).toBe(116);
+    expect(items[0]!.tradeCount24h).toBe(12);
+    expect(items[0]!.holderCountRetail).toBe(31);
     expect(items[1]!.fdvUsdDisplay).toBeNull();
+    expect(items[1]!.tradeCountAllTime).toBeNull();
     expect(items.map((i: MarketsBoardItem) => i.symbol)).toEqual(['HELLO', 'NOFDV']);
   });
 });

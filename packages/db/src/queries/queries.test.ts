@@ -95,9 +95,52 @@ describe('query validation / SQL mapping', () => {
     expect(db.query).toHaveBeenCalledOnce();
     const [sql, params] = db.query.mock.calls[0]!;
     expect(String(sql)).toContain('FROM launches l');
+    expect(String(sql)).toContain('trade_count_all_time');
+    expect(String(sql)).toContain('trade_count_24h');
     expect(String(sql)).not.toMatch(/\bLIMIT\b/i);
     expect(String(sql)).not.toMatch(/\bOFFSET\b/i);
     expect(params).toEqual([4663, 604800, 8000]);
+  });
+
+  it('mapDiscoveryItem exposes tradeCountAllTime from trade_count_all_time', async () => {
+    const db = mockDb([
+      {
+        chain_id: 4663,
+        token_address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+        name: 'Hello World',
+        symbol: 'HELLO',
+        decimals: 18,
+        image_uri: '',
+        display_image_url: null,
+        pool_id: `0x${'c'.repeat(64)}`,
+        creator_id: `0x${'d'.repeat(64)}`,
+        quote_asset: '0x0000000000000000000000000000000000000000',
+        launched_at: 1,
+        age_seconds: 100,
+        launch_progress_bps: 0,
+        launch_complete: false,
+        is_new: false,
+        is_soon: false,
+        is_bonded: false,
+        price_quote_x18: null,
+        price_usd_x18: null,
+        fdv_usd_x18: null,
+        volume_24h_quote_raw: null,
+        volume_24h_usd_x18: null,
+        trade_count_24h: 7,
+        trade_count_all_time: 116,
+        buy_count_24h: 2,
+        sell_count_24h: 1,
+        holder_count_all: 4,
+        holder_count_retail: 2,
+        last_trade_at: null,
+        price_change_24h_bps: null,
+        quote_decimals: 18,
+      },
+    ]);
+    const items = await getTokens(db, { chainId: 4663 });
+    expect(items[0]?.tradeCount24h).toBe(7);
+    expect(items[0]?.tradeCountAllTime).toBe(116);
   });
 
   it('getTokens defaults to 7-day NEW window', async () => {
@@ -133,6 +176,7 @@ describe('query validation / SQL mapping', () => {
         volume_24h_quote_raw: '0',
         volume_24h_usd_x18: null,
         trade_count_24h: 7,
+        trade_count_all_time: 7,
         buy_count_24h: 2,
         sell_count_24h: 1,
         holder_count_all: 4,
@@ -184,6 +228,7 @@ describe('query validation / SQL mapping', () => {
         volume_24h_quote_raw: '0',
         volume_24h_usd_x18: null,
         trade_count_24h: 1,
+        trade_count_all_time: 1,
         buy_count_24h: 2,
         sell_count_24h: 1,
         holder_count_all: 2,
@@ -197,7 +242,6 @@ describe('query validation / SQL mapping', () => {
         quote_usd_x18: null,
         quote_volume_all_time_raw: '0',
         token_volume_all_time_raw: '0',
-        trade_count_all_time: 1,
         buy_count_all_time: 1,
         sell_count_all_time: 0,
         initial_token_inventory_raw: null,
@@ -329,6 +373,7 @@ describe('query validation / SQL mapping', () => {
         volume_24h_quote_raw: '5',
         volume_24h_usd_x18: null,
         trade_count_24h: 1,
+        trade_count_all_time: 1,
         buy_count_24h: 2,
         sell_count_24h: 1,
         holder_count_all: 1,

@@ -42,6 +42,7 @@ describe('live-market helpers', () => {
       volume24hUsdDisplay: null,
       volume24hQuoteDisplay: '4',
       tradeCount24h: 1,
+      tradeCountAllTime: null,
     buyCount24h: null,
     sellCount24h: null,
     } as TokenDetail;

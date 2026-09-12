@@ -49,6 +49,22 @@ export function formatCompactAge(ageSeconds: number): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+/**
+ * Markets board launch age from unix seconds.
+ * under 1m → `now`; else `8m ago` / `3h ago` / `2d ago`.
+ */
+export function formatLaunchAge(launchedAtUnix: number, nowMs = Date.now()): string {
+  if (!Number.isFinite(launchedAtUnix) || launchedAtUnix <= 0) return '—';
+  const ageSec = Math.max(0, Math.floor(nowMs / 1000 - launchedAtUnix));
+  if (ageSec < 60) return 'now';
+  const mins = Math.floor(ageSec / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 /** Bonding progress percent from bps. */
 export function formatProgressPercent(bps: number): string {
   const pct = Math.max(0, Math.min(100, Math.round(bps / 100)));
@@ -210,13 +226,22 @@ export function displayVolume24hMetric(args: {
 }
 
 /** Prefer retail holders; fall back to all. Null when unknown. */
+export function resolveHolderCount(
+  retail: number | null | undefined,
+  all: number | null | undefined,
+): number | null {
+  const n = retail ?? all;
+  if (n == null || !Number.isFinite(n)) return null;
+  return Math.max(0, Math.floor(n));
+}
+
+/** Prefer retail holders; fall back to all. Null when unknown. */
 export function displayHolderCount(
   retail: number | null | undefined,
   all: number | null | undefined,
 ): string | null {
-  const n = retail ?? all;
-  if (n == null || !Number.isFinite(n)) return null;
-  const count = Math.max(0, Math.floor(n));
+  const count = resolveHolderCount(retail, all);
+  if (count == null) return null;
   return `${count} holder${count === 1 ? '' : 's'}`;
 }
 

@@ -58,6 +58,8 @@ export interface TokenDiscoveryItem {
   volume24hUsdX18: string | null;
   volume24hUsdDisplay: string | null;
   tradeCount24h: number | null;
+  /** Lifetime indexed trade count from token_market_state.trade_count_all_time. */
+  tradeCountAllTime: number | null;
   /** Projected 24h buy trades — used by Discover TRENDING tie-break. */
   buyCount24h: number | null;
   /** Projected 24h sell trades. */
@@ -87,7 +89,6 @@ export interface TokenDetail extends TokenDiscoveryItem {
   quoteUsdX18: string | null;
   quoteVolumeAllTimeRaw: string | null;
   tokenVolumeAllTimeRaw: string | null;
-  tradeCountAllTime: number | null;
   buyCountAllTime: number | null;
   sellCountAllTime: number | null;
   initialTokenInventoryRaw: string | null;

@@ -39,6 +39,7 @@ function discoveryRow(overrides: Record<string, unknown> = {}) {
     volume_24h_quote_raw: '1',
     volume_24h_usd_x18: '100',
     trade_count_24h: 5,
+    trade_count_all_time: 5,
     buy_count_24h: 3,
     sell_count_24h: 2,
     holder_count_all: 1,
@@ -78,6 +79,7 @@ describe('getDiscoverTrending', () => {
         buy_count_24h: 9,
         sell_count_24h: 4,
         trade_count_24h: 13,
+        trade_count_all_time: 13,
         volume_24h_usd_x18: '500',
       }),
     ]);
@@ -86,6 +88,7 @@ describe('getDiscoverTrending', () => {
     expect(items[0]!.buyCount24h).toBe(9);
     expect(items[0]!.sellCount24h).toBe(4);
     expect(items[0]!.tradeCount24h).toBe(13);
+    expect(items[0]!.tradeCountAllTime).toBe(13);
   });
 });
 

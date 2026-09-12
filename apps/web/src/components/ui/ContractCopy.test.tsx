@@ -25,5 +25,6 @@ describe('ContractCopy', () => {
       );
     });
     expect(screen.getByRole('button', { name: /address copied/i })).toBeTruthy();
+    expect(screen.getByTestId('contract-copy').textContent).toMatch(/✓ Copied/);
   });
 });

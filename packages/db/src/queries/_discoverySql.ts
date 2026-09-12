@@ -34,6 +34,7 @@ export interface DiscoverySqlRow {
   volume_24h_quote_raw: string | null;
   volume_24h_usd_x18: string | null;
   trade_count_24h: number | null;
+  trade_count_all_time: number | null;
   buy_count_24h: number | null;
   sell_count_24h: number | null;
   holder_count_all: number | null;
@@ -89,6 +90,8 @@ export function mapDiscoveryItem(
     volume24hUsdX18: volume24hUsd,
     volume24hUsdDisplay: formatX18(volume24hUsd),
     tradeCount24h: row.trade_count_24h == null ? null : Number(row.trade_count_24h),
+    tradeCountAllTime:
+      row.trade_count_all_time == null ? null : Number(row.trade_count_all_time),
     buyCount24h: row.buy_count_24h == null ? null : Number(row.buy_count_24h),
     sellCount24h: row.sell_count_24h == null ? null : Number(row.sell_count_24h),
     holderCountAll: row.holder_count_all == null ? null : Number(row.holder_count_all),
@@ -127,6 +130,7 @@ export const DISCOVERY_SELECT = `
     m.volume_24h_quote_raw::text AS volume_24h_quote_raw,
     m.volume_24h_usd_x18::text AS volume_24h_usd_x18,
     m.trade_count_24h,
+    m.trade_count_all_time,
     m.buy_count_24h,
     m.sell_count_24h,
     m.holder_count_all,

@@ -12,10 +12,12 @@ import {
   formatCompactAge,
   formatCompactUsdMarketValue,
   formatFeeSplitPercent,
+  formatLaunchAge,
   formatNewsAge,
   formatPoolTradingFeePercent,
   formatProgressPercent,
   formatRelativeTime,
+  resolveHolderCount,
   truncateAddress,
 } from '@/lib/format';
 
@@ -40,6 +42,21 @@ describe('format helpers', () => {
   it('formats compact age and progress', () => {
     expect(formatCompactAge(125)).toBe('2m');
     expect(formatProgressPercent(7100)).toBe('71%');
+  });
+
+  it('formats markets launch age', () => {
+    const now = Date.parse('2026-09-12T12:00:00.000Z');
+    const at = Math.floor(now / 1000);
+    expect(formatLaunchAge(at - 30, now)).toBe('now');
+    expect(formatLaunchAge(at - 8 * 60, now)).toBe('8m ago');
+    expect(formatLaunchAge(at - 3 * 3600, now)).toBe('3h ago');
+    expect(formatLaunchAge(at - 2 * 86400, now)).toBe('2d ago');
+  });
+
+  it('resolveHolderCount prefers retail then all', () => {
+    expect(resolveHolderCount(17, 20)).toBe(17);
+    expect(resolveHolderCount(null, 20)).toBe(20);
+    expect(resolveHolderCount(null, null)).toBeNull();
   });
 
   it('never invents FDV or USD', () => {

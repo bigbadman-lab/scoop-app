@@ -16,15 +16,27 @@ export type MarketsBoardItem = {
   quoteAsset: string;
   quoteSymbol: string;
   quoteImageUrl: string | null;
+  launchedAt: number;
+  ageSeconds: number;
   fdvUsdX18: string | null;
   fdvUsdDisplay: string | null;
+  /** Lifetime trades — token_market_state.trade_count_all_time */
+  tradeCountAllTime: number | null;
+  /** Preserved 24h window; not shown on the Phase-1 board. */
+  tradeCount24h: number | null;
+  holderCountAll: number | null;
+  holderCountRetail: number | null;
 };
+
+export type MarketsLiveHealth = 'live' | 'stale';
 
 export type MarketsBoardSnapshot = {
   status: 'ok' | 'empty' | 'error';
   items: MarketsBoardItem[];
   /** Epoch ms of last successful snapshot (SSR or live). */
   updatedAt: number | null;
+  /** Poll health for the LIVE indicator (client-managed after mount). */
+  liveHealth?: MarketsLiveHealth;
   message?: string;
 };
 
@@ -41,8 +53,14 @@ export function toMarketsBoardItem(
     quoteAsset: token.quoteAsset,
     quoteSymbol: quoteDisplaySymbol(token.quoteAsset, catalogue),
     quoteImageUrl: quoteCatalogueImageUrl(token.quoteAsset, catalogue),
+    launchedAt: token.launchedAt,
+    ageSeconds: token.ageSeconds,
     fdvUsdX18: token.fdvUsdX18,
     fdvUsdDisplay: token.fdvUsdDisplay,
+    tradeCountAllTime: token.tradeCountAllTime,
+    tradeCount24h: token.tradeCount24h,
+    holderCountAll: token.holderCountAll,
+    holderCountRetail: token.holderCountRetail,
   };
 }
 
