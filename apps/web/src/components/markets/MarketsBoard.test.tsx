@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { MarketsBoard } from '@/components/markets/MarketsBoard';
 import { MarketRow } from '@/components/markets/MarketRow';
 import type { MarketsBoardItem, MarketsBoardSnapshot } from '@/lib/markets/types';
@@ -112,6 +113,10 @@ function renderBoard(items = boardItems(), overrides: Partial<MarketsBoardSnapsh
 }
 
 describe('MarketsBoard UI', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders MARKET FEED header, discovery controls, LIVE, and denser rows', () => {
     renderBoard();
 
@@ -128,6 +133,43 @@ describe('MarketsBoard UI', () => {
     expect(rows[0]!.querySelector('[data-testid="market-leader-flame"]')).toBeTruthy();
     expect(rows[1]!.getAttribute('data-leader')).toBe('false');
     expect(rows[1]!.querySelector('[data-testid="market-leader-flame"]')).toBeNull();
+  });
+
+  it('SSR Updated label is stable against wall-clock drift past snapshot.updatedAt', () => {
+    const updatedAt = 1_700_000_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(updatedAt + 1_500);
+
+    const html = renderToString(
+      <MarketsBoard
+        initial={{
+          status: 'ok',
+          updatedAt,
+          liveHealth: 'live',
+          items: boardItems(),
+        }}
+      />,
+    );
+    expect(html).toContain('Updated now');
+    expect(html).not.toContain('Updated 1s ago');
+  });
+
+  it('ticks the Updated label from wall clock after mount', () => {
+    const updatedAt = 1_700_000_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(updatedAt + 1_500);
+
+    const { unmount } = renderBoard(boardItems(), { updatedAt });
+
+    // Mount effect syncs nowMs to Date.now().
+    expect(screen.getByTestId('markets-updated-at').textContent).toBe('Updated 1s ago');
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId('markets-updated-at').textContent).toBe('Updated 2s ago');
+
+    unmount();
   });
 
   it('shows quote badge with catalogue icon when present', () => {

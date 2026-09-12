@@ -35,7 +35,9 @@ export function MarketsBoard({ initial }: Props) {
   });
   const [sort, setSort] = useState<MarketsSortId>(DEFAULT_MARKETS_SORT);
   const [query, setQuery] = useState('');
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // Seed from snapshot.updatedAt so SSR and hydration agree (avoid Date.now() drift).
+  // Real wall-clock ticking starts after mount.
+  const [nowMs, setNowMs] = useState(() => initial.updatedAt ?? 0);
   const [pulseLeaderId, setPulseLeaderId] = useState<string | null>(null);
 
   const lastGoodRef = useRef<MarketsBoardSnapshot>({
@@ -95,8 +97,9 @@ export function MarketsBoard({ initial }: Props) {
     };
   }, []);
 
-  // Tick relative "Updated Xs ago" between polls.
+  // Tick relative "Updated Xs ago" between polls (client-only after hydration).
   useEffect(() => {
+    setNowMs(Date.now());
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
