@@ -37,15 +37,15 @@ function NewsDeskHeader({
   lastSuccessfulIngestAt: string | null;
 }) {
   return (
-    <header className="mb-3" data-testid="news-desk-header">
+    <header className="mb-2" data-testid="news-desk-header">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
         News
       </p>
-      <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
+      <div className="mt-0.5 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Market feed</h1>
         <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
       </div>
-      <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)]">
+      <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
         Stock-moving stories, as they break.
       </p>
     </header>
@@ -91,31 +91,39 @@ function usePrefersReducedMotion(): boolean {
 function StoryBody({
   item,
   quoteCatalogue,
-  leadMarker,
+  variant = 'feed',
 }: {
   item: PublicNewsItem;
   quoteCatalogue: readonly PublicQuoteCatalogueItem[];
-  leadMarker?: 'latest' | 'live_story';
+  variant?: 'feed' | 'lead';
 }) {
   const freshness = classifyNewsFreshness(item.publishedAt);
-  const fresh = leadMarker != null || isNewsFresh(freshness);
+  const fresh = variant === 'lead' || isNewsFresh(freshness);
+  const isLead = variant === 'lead';
 
   return (
     <>
       <h2
         className={[
-          'max-w-3xl text-[15px] font-semibold leading-snug tracking-tight line-clamp-2 md:text-base md:leading-snug',
-          fresh ? 'text-[var(--fg)]' : 'text-[var(--fg)]/90',
+          'max-w-3xl font-semibold tracking-tight',
+          isLead
+            ? 'text-lg leading-snug text-[var(--fg)] line-clamp-3 md:text-xl md:leading-[1.2]'
+            : [
+                'text-[15px] leading-snug line-clamp-2 md:text-base md:leading-snug',
+                fresh ? 'text-[var(--fg)]' : 'text-[var(--fg)]/90',
+              ].join(' '),
         ].join(' ')}
       >
         {item.headline}
       </h2>
 
       <div
-        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"
+        className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5"
         data-testid="news-feed-meta"
       >
-        <NewsFreshnessBadge publishedAt={item.publishedAt} leadMarker={leadMarker} />
+        {isLead ? null : (
+          <NewsFreshnessBadge publishedAt={item.publishedAt} />
+        )}
         <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
           <span>{item.sourceDomain}</span>
           <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
@@ -140,7 +148,7 @@ function StoryBody({
       </div>
 
       <div
-        className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+        className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5"
         data-testid="news-feed-actions"
       >
         <LaunchAsTokenLink
@@ -170,7 +178,7 @@ function NewsFeedStaticRow({
   const fresh = isNewsFresh(freshness);
 
   return (
-    <li className="py-2 first:pt-0 md:py-2.5">
+    <li className="border-b border-[var(--divider)] pb-6 pt-5 last:border-b-0 last:pb-0">
       <article
         className={fresh ? 'border-l-2 border-[var(--scoop-live)]/40 pl-2.5' : 'pl-0'}
         data-testid="news-feed-item"
@@ -259,13 +267,15 @@ function NewsLeadSlot({
   if (!displayed) return null;
 
   const newestId = pool[0]?.id ?? null;
-  const leadMarker: 'latest' | 'live_story' =
-    displayed.id === newestId ? 'latest' : 'live_story';
+  const isLatest = displayed.id === newestId;
   const position = leadArticleIndex(pool, displayed.id);
+  const markerLabel = isLatest ? 'Latest' : 'Live story';
+  const positionLabel =
+    pool.length > 1 && position >= 0 ? `${position + 1} of ${pool.length}` : null;
 
   return (
     <div
-      className="border-b border-[var(--divider)] pb-2 md:pb-2.5"
+      className="border-b border-[var(--divider)] pb-6"
       data-testid="news-lead-slot"
       data-lead-id={displayed.id}
       data-lead-paused={paused ? 'true' : 'false'}
@@ -280,10 +290,9 @@ function NewsLeadSlot({
       }}
     >
       <article
-        className="border-l-[3px] border-[var(--scoop-live)] pl-3"
         data-testid="news-feed-item"
         data-lead="true"
-        data-freshness={leadMarker === 'latest' ? 'latest' : 'live_story'}
+        data-freshness={isLatest ? 'latest' : 'live_story'}
         data-market-count={String(displayed.marketCount)}
       >
         <div
@@ -294,19 +303,37 @@ function NewsLeadSlot({
           }}
           data-testid="news-lead-content"
         >
-          {pool.length > 1 ? (
-            <p
-              className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]"
-              data-testid="news-lead-position"
-              aria-hidden
-            >
-              {position + 1} / {pool.length}
-            </p>
-          ) : null}
+          <p
+            className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]"
+            data-testid="news-lead-kicker"
+            aria-hidden
+          >
+            <span className="inline-flex items-center gap-1.5 text-[var(--scoop-live)]">
+              <span
+                className="news-fresh-dot h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--scoop-live)]"
+                data-pulse={isLatest ? 'true' : undefined}
+                aria-hidden
+              />
+              {markerLabel}
+            </span>
+            {positionLabel ? (
+              <>
+                <span className="text-[var(--muted-2)]" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className="text-[var(--muted-2)]"
+                  data-testid="news-lead-position"
+                >
+                  {positionLabel}
+                </span>
+              </>
+            ) : null}
+          </p>
           <StoryBody
             item={displayed}
             quoteCatalogue={quoteCatalogue}
-            leadMarker={leadMarker}
+            variant="lead"
           />
         </div>
       </article>
@@ -537,7 +564,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
 
       <NewsLeadSlot pool={leadPool} quoteCatalogue={quoteCatalogue} />
 
-      <ul className="divide-y divide-[var(--divider)]" data-testid="news-feed-list">
+      <ul data-testid="news-feed-list">
         {staticFeed.map((item) => (
           <NewsFeedStaticRow
             key={item.id}

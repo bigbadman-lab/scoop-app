@@ -242,15 +242,19 @@ describe('NewsFeed lead rotation', () => {
     );
   });
 
-  it('marks the newest lead as Latest and later pool items as Live story', () => {
+  it('marks the newest lead as Latest and later pool items as Live story with N of M', () => {
     renderFeed();
-    expect(screen.getByTestId('news-freshness-badge').textContent).toMatch(/Latest/i);
+    const kicker = () => screen.getByTestId('news-lead-kicker');
+    expect(kicker().textContent).toMatch(/Latest/i);
+    expect(kicker().textContent).not.toMatch(/Live desk/i);
+    expect(within(kicker()).getByTestId('news-lead-position').textContent).toMatch(/1 of 5/i);
 
     act(() => {
       vi.advanceTimersByTime(NEWS_LEAD_ROTATION_MS);
     });
     flushLeadFade();
-    expect(screen.getByTestId('news-freshness-badge').textContent).toMatch(/Live story/i);
+    expect(kicker().textContent).toMatch(/Live story/i);
+    expect(within(kicker()).getByTestId('news-lead-position').textContent).toMatch(/2 of 5/i);
   });
 
   it('does not rotate a single-story lead pool', () => {
@@ -446,7 +450,11 @@ describe('NewsFeed baseline', () => {
     );
 
     expect(screen.getByText('Newer story')).toBeTruthy();
-    expect(screen.getByTestId('news-freshness-badge').textContent).toMatch(/Latest/i);
+    expect(screen.getByRole('heading', { name: /Market feed/i })).toBeTruthy();
+    expect(screen.getByTestId('news-lead-kicker').textContent).toMatch(/Latest/i);
+    expect(screen.getByTestId('news-lead-kicker').textContent).not.toMatch(/Live desk/i);
+    expect(screen.queryByTestId('news-lead-position')).toBeNull();
+    expect(screen.queryByTestId('news-freshness-badge')).toBeNull();
     expect(screen.getByTestId('news-market-status').textContent).toMatch(/NO LIVE MARKETS/i);
     expect(screen.getByTestId('news-market-status').tagName).toBe('SPAN');
     expect(screen.getByTestId('news-last-pull').textContent).toMatch(/Last pull 4m ago/);
