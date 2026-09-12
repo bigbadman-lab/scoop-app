@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     '@reown/appkit-adapter-wagmi',
   ],
   outputFileTracingRoot: path.join(configDir, '../..'),
+  // Ensure canonical protocol docs Markdown is available to the /docs route at runtime.
+  outputFileTracingIncludes: {
+    '/docs': [path.join(configDir, '../../scoop-protocol-docs.md')],
+  },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.
   webpack: (config) => {
