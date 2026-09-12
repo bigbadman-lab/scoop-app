@@ -11,6 +11,12 @@ export const SCOOP_AVATAR_SRC = '/brand/SCOOPAV.png' as const;
 /** Front-page brand strip — `public/scoophero.png`. */
 export const SCOOP_HERO_SRC = '/scoophero.png' as const;
 
+/** /news Browse Feeds card artwork (WebP). Intrinsic 1200×675 (16:9). */
+export const NEWS_CATEGORY_ARTWORK = {
+  stocks: { src: '/brand/stocknews.webp' as const },
+  markets: { src: '/brand/marketnews.webp' as const },
+} as const;
+
 /**
  * Evergreen house imagery for the NOW lead tile.
  * Production uses a single cover; multiple paths enable optional rotation.

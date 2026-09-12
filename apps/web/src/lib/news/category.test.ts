@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NEWS_CATEGORY_ARTWORK } from '@/lib/brand';
 import {
   NEWS_CATEGORY_COPY,
   newsCategoryHref,
@@ -30,5 +31,10 @@ describe('news page category helpers', () => {
       label: 'Markets',
       description: 'Macro, policy and events moving the tape.',
     });
+  });
+
+  it('maps Browse Feeds artwork to the correct category WebP paths', () => {
+    expect(NEWS_CATEGORY_ARTWORK.stocks.src).toBe('/brand/stocknews.webp');
+    expect(NEWS_CATEGORY_ARTWORK.markets.src).toBe('/brand/marketnews.webp');
   });
 });
