@@ -17,6 +17,7 @@ import {
 } from '@/lib/format';
 import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import { ContractCopy } from '@/components/ui/ContractCopy';
+import { CopyMarketLinkButton } from '@/components/ui/CopyMarketLinkButton';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
@@ -141,9 +142,12 @@ function TokenMarketLiveBody({
           />
           <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-8 lg:gap-10">
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--fg)] sm:text-xl">
-                {token.name}
-              </h1>
+              <div className="flex items-start gap-2">
+                <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-[var(--fg)] sm:text-xl">
+                  {token.name}
+                </h1>
+                <CopyMarketLinkButton />
+              </div>
               <div
                 className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
                 data-testid="token-pair"

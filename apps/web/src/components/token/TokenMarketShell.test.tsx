@@ -199,6 +199,9 @@ describe('TokenMarketShell', () => {
     expect(screen.getByTestId('token-detail-pair').textContent).toMatch(/ETH/);
     expect(screen.getAllByTestId('quote-asset-badge').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Hello World')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /copy market link/i })).toBeTruthy();
+    expect(screen.getByTestId('copy-market-link')).toBeTruthy();
+    expect(screen.getAllByTestId('contract-copy').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByTestId('token-price-primary').textContent).toContain('$0.000005031');
     expect(screen.getByTestId('token-price-quote').textContent).toBe('0.000000002031 ETH');
     expect(screen.getByTestId('token-change-24h').textContent).toMatch(/-1\.5%/);
