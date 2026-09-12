@@ -1,28 +1,45 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
+import { DisclaimerContent } from '@/components/legal/DisclaimerContent';
+import { PrivacyPolicyContent } from '@/components/legal/PrivacyPolicyContent';
+import { RiskDisclosureContent } from '@/components/legal/RiskDisclosureContent';
+import { TermsOfUseContent } from '@/components/legal/TermsOfUseContent';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { buildPageMetadata } from '@/lib/seo/site';
 
-const COPY: Record<string, { title: string; description: string; body: string }> = {
+type LegalPageCopy = {
+  title: string;
+  description: string;
+  /** Plain placeholder body when structured content is not yet available. */
+  body?: string;
+  content?: ReactNode;
+};
+
+const COPY: Record<string, LegalPageCopy> = {
   terms: {
-    title: 'Terms',
-    description: 'SCOOP terms of use.',
-    body: 'Terms of use placeholder — formal legal copy ships separately.',
+    title: 'Terms of Use',
+    description:
+      'Terms of Use for scoop.fun, the SCOOP interface and the SCOOP Protocol, operated by Scoop Tech Ltd.',
+    content: <TermsOfUseContent />,
   },
   privacy: {
-    title: 'Privacy',
-    description: 'SCOOP privacy policy.',
-    body: 'Privacy policy placeholder — formal legal copy ships separately.',
+    title: 'Privacy Policy',
+    description:
+      'Privacy Policy for scoop.fun and related SCOOP services operated by Scoop Tech Ltd.',
+    content: <PrivacyPolicyContent />,
   },
   risk: {
-    title: 'Risk disclosure',
-    description: 'SCOOP risk disclosure for tokenized markets.',
-    body: 'Trading tokenized markets involves risk of loss. Formal disclosure ships separately.',
+    title: 'Risk Disclosure',
+    description:
+      'Important risks associated with using scoop.fun, the SCOOP Protocol and digital assets accessible through them.',
+    content: <RiskDisclosureContent />,
   },
   disclaimer: {
     title: 'Disclaimer',
-    description: 'SCOOP disclaimer.',
-    body: 'Disclaimer placeholder — formal legal copy ships separately.',
+    description:
+      'Disclaimer for scoop.fun and related SCOOP content and services operated by Scoop Tech Ltd.',
+    content: <DisclaimerContent />,
   },
 };
 
@@ -55,7 +72,7 @@ export default async function LegalPage({ params }: Props) {
     <main className="mx-auto max-w-3xl px-4 py-16 md:px-8">
       <SectionHeading>Legal</SectionHeading>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">{page.title}</h1>
-      <p className="mt-4 text-[var(--muted)]">{page.body}</p>
+      {page.content ?? <p className="mt-4 text-[var(--muted)]">{page.body}</p>}
     </main>
   );
 }
