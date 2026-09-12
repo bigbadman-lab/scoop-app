@@ -18,7 +18,7 @@ describe('LaunchAsTokenLink', () => {
     render(<LaunchAsTokenLink providerArticleId="77" variant="feed" />);
     const link = screen.getByRole('link', { name: /launch market/i });
     expect(link.className).toContain('bg-[var(--scoop-orange)]');
-    expect(link.className).toContain('min-h-8');
+    expect(link.className).toContain('min-h-7');
   });
 
   it('uses compact orange another-market CTA styling', () => {

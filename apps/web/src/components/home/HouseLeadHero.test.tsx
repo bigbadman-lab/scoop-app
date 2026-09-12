@@ -152,6 +152,38 @@ describe('HouseLeadHero', () => {
     expect(read.className).toMatch(/rounded/);
     expect(launch.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
     expect(read.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
+
+    // Action row is only CTAs — market status lives in source metadata.
+    expect(actions.querySelector('[data-testid="news-market-status"]')).toBeNull();
+    const meta = screen.getByTestId('house-lead-source-meta');
+    expect(meta.textContent).toMatch(/reuters\.com/i);
+    expect(meta.textContent).toMatch(/NO LIVE MARKETS/i);
+    const status = screen.getByTestId('news-market-status');
+    expect(status.getAttribute('data-variant')).toBe('metadata');
+    expect(status.getAttribute('data-interactive')).toBe('false');
+    expect(status.className).not.toMatch(/border/);
+    expect(status.className).not.toMatch(/rounded/);
+  });
+
+  it('renders live market status as metadata with the source line', () => {
+    render(
+      <HouseLeadHero news={okNews([makeArticle('live', 'Live markets story', 2)])} />,
+    );
+    const meta = screen.getByTestId('house-lead-source-meta');
+    expect(meta.textContent).toMatch(/reuters\.com/i);
+    expect(meta.textContent).toMatch(/2 LIVE MARKETS/i);
+    expect(screen.getByTestId('news-market-status').getAttribute('data-variant')).toBe(
+      'metadata',
+    );
+    expect(screen.getByTestId('house-lead-actions').querySelector('[data-testid="news-market-status"]')).toBeNull();
+  });
+
+  it('renders singular live market metadata', () => {
+    render(
+      <HouseLeadHero news={okNews([makeArticle('one', 'One market story', 1)])} />,
+    );
+    expect(screen.getByTestId('news-market-status').textContent).toMatch(/1 LIVE MARKET/);
+    expect(screen.getByTestId('news-market-status').textContent).not.toMatch(/MARKETS$/);
   });
 
   it('sizes the lead frame from story content instead of a fixed aspect ratio', () => {
@@ -348,7 +380,10 @@ describe('HouseLeadHero', () => {
         makeArticle('3', 'Story three headline', 1),
       ];
       render(<HouseLeadHero news={okNews(rotating)} />);
-      expect(screen.getByTestId('news-market-status').textContent).toMatch(/2 LIVE MARKETS/i);
+      const status = screen.getByTestId('news-market-status');
+      expect(status.textContent).toMatch(/2 LIVE MARKETS/i);
+      expect(status.getAttribute('data-variant')).toBe('metadata');
+      expect(screen.getByTestId('house-lead-source-meta').contains(status)).toBe(true);
 
       act(() => {
         vi.advanceTimersByTime(HOMEPAGE_NEWS_ROTATION_MS);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
 import { NewsFreshnessBadge } from '@/components/news/NewsFreshnessBadge';
@@ -14,12 +14,43 @@ import {
   type PublicNewsItem,
 } from '@/lib/news/public';
 import { classifyNewsFreshness, isNewsFresh } from '@/lib/news/freshness';
+import {
+  NEWS_LEAD_FADE_MS,
+  NEWS_LEAD_ROTATION_MS,
+  leadArticleIndex,
+  leadPoolSignature,
+  nextLeadArticleId,
+  reconcileLeadArticleId,
+  shouldRotateNewsLead,
+  splitNewsLeadFeed,
+} from '@/lib/news/lead-rotation';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
 type Props = {
   initial: PublicNewsFeedResponse;
   quoteCatalogue?: readonly PublicQuoteCatalogueItem[];
 };
+
+function NewsDeskHeader({
+  lastSuccessfulIngestAt,
+}: {
+  lastSuccessfulIngestAt: string | null;
+}) {
+  return (
+    <header className="mb-3" data-testid="news-desk-header">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+        News
+      </p>
+      <div className="mt-1 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
+        <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
+      </div>
+      <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)]">
+        Stock-moving stories, as they break.
+      </p>
+    </header>
+  );
+}
 
 function mergeUnique(
   existing: PublicNewsItem[],
@@ -44,81 +75,242 @@ function mergeUnique(
   return [...head, ...tail];
 }
 
-function NewsFeedItemRow({
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return reduced;
+}
+
+function StoryBody({
   item,
-  index,
   quoteCatalogue,
+  leadMarker,
 }: {
   item: PublicNewsItem;
-  index: number;
   quoteCatalogue: readonly PublicQuoteCatalogueItem[];
+  leadMarker?: 'latest' | 'live_story';
 }) {
-  const isLead = index === 0;
   const freshness = classifyNewsFreshness(item.publishedAt);
-  const fresh = isLead || isNewsFresh(freshness);
+  const fresh = leadMarker != null || isNewsFresh(freshness);
 
   return (
-    <li className="py-2.5 first:pt-0 md:py-3">
-      <article
+    <>
+      <h2
         className={[
-          isLead
-            ? 'border-l-[3px] border-[var(--scoop-live)] pl-3'
-            : fresh
-              ? 'border-l-2 border-[var(--scoop-live)]/40 pl-2.5'
-              : 'pl-0',
+          'max-w-3xl text-[15px] font-semibold leading-snug tracking-tight line-clamp-2 md:text-base md:leading-snug',
+          fresh ? 'text-[var(--fg)]' : 'text-[var(--fg)]/90',
         ].join(' ')}
-        data-testid="news-feed-item"
-        data-lead={isLead ? 'true' : undefined}
-        data-freshness={isLead ? 'latest' : freshness}
-        data-market-count={String(item.marketCount)}
       >
-        <h2
-          className={[
-            'max-w-3xl text-[15px] font-semibold leading-snug tracking-tight line-clamp-2 md:text-base md:leading-snug',
-            fresh ? 'text-[var(--fg)]' : 'text-[var(--fg)]/90',
-          ].join(' ')}
-        >
-          {item.headline}
-        </h2>
+        {item.headline}
+      </h2>
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <NewsFreshnessBadge publishedAt={item.publishedAt} isLead={isLead} />
-          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
-            <span>{item.sourceDomain}</span>
-            <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
-            <NewsAge iso={item.publishedAt} />
-            {item.tickers.length > 0 ? (
-              <>
-                <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
-                <span className="text-[var(--muted-2)]">
-                  {item.tickers.slice(0, 4).join(' · ')}
-                </span>
-              </>
-            ) : null}
-          </p>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div
+        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"
+        data-testid="news-feed-meta"
+      >
+        <NewsFreshnessBadge publishedAt={item.publishedAt} leadMarker={leadMarker} />
+        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+          <span>{item.sourceDomain}</span>
+          <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
+          <NewsAge iso={item.publishedAt} />
+          {item.tickers.length > 0 ? (
+            <>
+              <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
+              <span className="text-[var(--muted-2)]">
+                {item.tickers.slice(0, 4).join(' · ')}
+              </span>
+            </>
+          ) : null}
+          <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
           <NewsMarketStatus
             providerArticleId={item.id}
             marketCount={item.marketCount}
             markets={item.markets}
             quoteCatalogue={quoteCatalogue}
+            variant="feed"
           />
-          <LaunchAsTokenLink
-            providerArticleId={item.id}
-            variant={item.marketCount > 0 ? 'another' : 'feed'}
-          />
-          <CtaLink
-            href={item.url}
-            external
-            className="min-h-8 px-0 text-[10px] text-[var(--muted)] hover:text-[var(--fg)]"
-          >
-            Read story ↗
-          </CtaLink>
         </div>
+      </div>
+
+      <div
+        className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+        data-testid="news-feed-actions"
+      >
+        <LaunchAsTokenLink
+          providerArticleId={item.id}
+          variant={item.marketCount > 0 ? 'another' : 'feed'}
+        />
+        <CtaLink
+          href={item.url}
+          external
+          className="min-h-7 px-0 text-[10px] text-[var(--muted)] hover:text-[var(--fg)]"
+        >
+          Read story ↗
+        </CtaLink>
+      </div>
+    </>
+  );
+}
+
+function NewsFeedStaticRow({
+  item,
+  quoteCatalogue,
+}: {
+  item: PublicNewsItem;
+  quoteCatalogue: readonly PublicQuoteCatalogueItem[];
+}) {
+  const freshness = classifyNewsFreshness(item.publishedAt);
+  const fresh = isNewsFresh(freshness);
+
+  return (
+    <li className="py-2 first:pt-0 md:py-2.5">
+      <article
+        className={fresh ? 'border-l-2 border-[var(--scoop-live)]/40 pl-2.5' : 'pl-0'}
+        data-testid="news-feed-item"
+        data-freshness={freshness}
+        data-market-count={String(item.marketCount)}
+      >
+        <StoryBody item={item} quoteCatalogue={quoteCatalogue} />
       </article>
     </li>
+  );
+}
+
+function NewsLeadSlot({
+  pool,
+  quoteCatalogue,
+}: {
+  pool: PublicNewsItem[];
+  quoteCatalogue: readonly PublicQuoteCatalogueItem[];
+}) {
+  const reducedMotion = usePrefersReducedMotion();
+  const poolSig = leadPoolSignature(pool);
+  const [activeId, setActiveId] = useState<string | null>(() => pool[0]?.id ?? null);
+  const [hovering, setHovering] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [tabHidden, setTabHidden] = useState(false);
+  const [opacity, setOpacity] = useState(1);
+  const [displayed, setDisplayed] = useState<PublicNewsItem | null>(pool[0] ?? null);
+  const paused = hovering || focused;
+
+  // Reconcile active id when the lead pool snapshot changes (poll / reveal).
+  useEffect(() => {
+    setActiveId((prev) => reconcileLeadArticleId(pool, prev));
+    // poolSig captures identity/order; avoid resetting on referential churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolSig]);
+
+  const target = useMemo(() => {
+    const id = reconcileLeadArticleId(pool, activeId);
+    return pool.find((item) => item.id === id) ?? pool[0] ?? null;
+  }, [pool, activeId]);
+
+  const targetId = target?.id ?? null;
+  const displayedId = displayed?.id ?? null;
+  const canRotate = shouldRotateNewsLead(pool.length);
+
+  useEffect(() => {
+    const onVisibility = () => setTabHidden(document.hidden);
+    onVisibility();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!canRotate || paused || tabHidden) return;
+    const id = window.setInterval(() => {
+      setActiveId((prev) => nextLeadArticleId(pool, prev));
+    }, NEWS_LEAD_ROTATION_MS);
+    return () => window.clearInterval(id);
+  }, [canRotate, paused, tabHidden, poolSig, pool]);
+
+  useEffect(() => {
+    if (!target) {
+      setDisplayed(null);
+      setOpacity(1);
+      return;
+    }
+    // Same identity: refresh payload (poll market updates) without a fade.
+    if (targetId === displayedId) {
+      setDisplayed(target);
+      setOpacity(1);
+      return;
+    }
+    if (reducedMotion || !displayedId) {
+      setDisplayed(target);
+      setOpacity(1);
+      return;
+    }
+    setOpacity(0);
+    const id = window.setTimeout(() => {
+      setDisplayed(target);
+      setOpacity(1);
+    }, NEWS_LEAD_FADE_MS / 2);
+    return () => window.clearTimeout(id);
+  }, [targetId, target, displayedId, reducedMotion]);
+
+  if (!displayed) return null;
+
+  const newestId = pool[0]?.id ?? null;
+  const leadMarker: 'latest' | 'live_story' =
+    displayed.id === newestId ? 'latest' : 'live_story';
+  const position = leadArticleIndex(pool, displayed.id);
+
+  return (
+    <div
+      className="border-b border-[var(--divider)] pb-2 md:pb-2.5"
+      data-testid="news-lead-slot"
+      data-lead-id={displayed.id}
+      data-lead-paused={paused ? 'true' : 'false'}
+      data-lead-count={String(pool.length)}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        const next = event.relatedTarget as Node | null;
+        if (next && event.currentTarget.contains(next)) return;
+        setFocused(false);
+      }}
+    >
+      <article
+        className="border-l-[3px] border-[var(--scoop-live)] pl-3"
+        data-testid="news-feed-item"
+        data-lead="true"
+        data-freshness={leadMarker === 'latest' ? 'latest' : 'live_story'}
+        data-market-count={String(displayed.marketCount)}
+      >
+        <div
+          style={{
+            opacity,
+            transitionProperty: reducedMotion ? 'none' : 'opacity',
+            transitionDuration: `${NEWS_LEAD_FADE_MS}ms`,
+          }}
+          data-testid="news-lead-content"
+        >
+          {pool.length > 1 ? (
+            <p
+              className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]"
+              data-testid="news-lead-position"
+              aria-hidden
+            >
+              {position + 1} / {pool.length}
+            </p>
+          ) : null}
+          <StoryBody
+            item={displayed}
+            quoteCatalogue={quoteCatalogue}
+            leadMarker={leadMarker}
+          />
+        </div>
+      </article>
+    </div>
   );
 }
 
@@ -274,6 +466,8 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
     }
   }
 
+  const { leadPool, staticFeed } = splitNewsLeadFeed(items);
+
   if (status === 'gated') {
     return (
       <div className="space-y-2 py-8">
@@ -312,18 +506,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   if (status === 'empty' || items.length === 0) {
     return (
       <div>
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-              News
-            </p>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
-            <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-              Stock-moving stories, as they break.
-            </p>
-          </div>
-          <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
-        </div>
+        <NewsDeskHeader lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
         <div className="space-y-2 py-8">
           <h2 className="text-xl font-semibold tracking-tight">No stories yet.</h2>
           <p className="max-w-md text-sm text-[var(--muted)]">
@@ -336,18 +519,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
 
   return (
     <div className="relative">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-            News
-          </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
-          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-            Stock-moving stories, as they break.
-          </p>
-        </div>
-        <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
-      </div>
+      <NewsDeskHeader lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
 
       {pendingNew.length > 0 ? (
         <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
@@ -363,12 +535,13 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
         </div>
       ) : null}
 
+      <NewsLeadSlot pool={leadPool} quoteCatalogue={quoteCatalogue} />
+
       <ul className="divide-y divide-[var(--divider)]" data-testid="news-feed-list">
-        {items.map((item, index) => (
-          <NewsFeedItemRow
+        {staticFeed.map((item) => (
+          <NewsFeedStaticRow
             key={item.id}
             item={item}
-            index={index}
             quoteCatalogue={quoteCatalogue}
           />
         ))}

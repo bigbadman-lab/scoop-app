@@ -28,10 +28,13 @@ export function NewsIngestFreshness({ lastSuccessfulIngestAt }: Props) {
   const pullLabel = formatNewsLastPull(lastSuccessfulIngestAt, nowMs);
 
   return (
-    <div className="shrink-0 text-right" data-testid="news-ingest-freshness">
+    <div
+      className="shrink-0 text-left sm:text-right"
+      data-testid="news-ingest-freshness"
+    >
       <p
         className={[
-          'flex items-center justify-end gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em]',
+          'flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] sm:justify-end',
           isLive ? 'text-[var(--scoop-live)]' : 'text-[var(--muted)]',
         ].join(' ')}
         data-health={health}

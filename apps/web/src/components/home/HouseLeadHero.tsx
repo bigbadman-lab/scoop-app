@@ -8,7 +8,6 @@ import { CtaLink } from '@/components/ui/CtaLink';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import { NewsMarketStatus } from '@/components/news/NewsMarketStatus';
 import type { LeadNewsArticle, LeadNewsResult } from '@/lib/news/load-home';
-import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   HOMEPAGE_NEWS_FADE_MS,
   HOMEPAGE_NEWS_ROTATION_MS,
@@ -31,7 +30,6 @@ export {
 
 type Props = {
   news: LeadNewsResult;
-  quoteCatalogue?: readonly PublicQuoteCatalogueItem[];
 };
 
 function usePrefersReducedMotion(): boolean {
@@ -58,6 +56,8 @@ function OverlayCopy({
     'font-mono text-[11px] uppercase tracking-[0.16em] text-white/85 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
   const headlineClass =
     'mt-1.5 max-w-3xl text-[1.25rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-2 md:mt-2 md:text-2xl lg:text-[1.85rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
+  const sourceMetaClass =
+    'mt-2 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white/80 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
 
   if (news.status === 'ok' && article) {
     return (
@@ -66,8 +66,17 @@ function OverlayCopy({
           <NewsAge iso={article.publishedAt} className="text-white/85" />
         </p>
         <h1 className={headlineClass}>{article.headline}</h1>
-        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/80 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-          {article.sourceDomain}
+        <p className={sourceMetaClass} data-testid="house-lead-source-meta">
+          <span>{article.sourceDomain}</span>
+          <span className="text-white/40" aria-hidden>
+            ·
+          </span>
+          <NewsMarketStatus
+            providerArticleId={article.providerArticleId}
+            marketCount={article.marketCount}
+            variant="metadata"
+            tone="onDark"
+          />
         </p>
       </>
     );
@@ -96,7 +105,7 @@ function OverlayCopy({
  * Editorial NOW lead: rotating evergreen house imagery with live story overlay.
  * Story pool rotates client-side every HOMEPAGE_NEWS_ROTATION_MS — no network.
  */
-export function HouseLeadHero({ news, quoteCatalogue = [] }: Props) {
+export function HouseLeadHero({ news }: Props) {
   const images = HOUSE_IMAGE_SET;
   const articles =
     news.status === 'ok'
@@ -277,13 +286,6 @@ export function HouseLeadHero({ news, quoteCatalogue = [] }: Props) {
               className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center md:gap-3"
               data-testid="house-lead-actions"
             >
-              <NewsMarketStatus
-                providerArticleId={article.providerArticleId}
-                marketCount={article.marketCount}
-                markets={article.markets}
-                quoteCatalogue={quoteCatalogue}
-                tone="onDark"
-              />
               <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
               {href ? (
                 <CtaLink href={href} external variant="secondary">
