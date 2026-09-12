@@ -1,7 +1,7 @@
 import type { PublicNewsItem } from '@/lib/news/public';
 
-/** Match homepage desk cadence — lead story only, not full-feed reshuffle. */
-export const NEWS_LEAD_ROTATION_MS = 8_000;
+/** Lead-slot rotation cadence — independent of `/api/news` poll interval. */
+export const NEWS_LEAD_ROTATION_MS = 4_000;
 
 /** Soft fade when swapping the dedicated lead slot. */
 export const NEWS_LEAD_FADE_MS = 300;

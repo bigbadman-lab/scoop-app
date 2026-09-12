@@ -11,8 +11,8 @@ import {
 } from '@/lib/news/lead-rotation';
 
 describe('news lead rotation helpers', () => {
-  it('uses an 8s interval and top-5 pool', () => {
-    expect(NEWS_LEAD_ROTATION_MS).toBe(8_000);
+  it('uses a 4s interval and top-5 pool', () => {
+    expect(NEWS_LEAD_ROTATION_MS).toBe(4_000);
     expect(NEWS_LEAD_ROTATION_COUNT).toBe(5);
   });
 

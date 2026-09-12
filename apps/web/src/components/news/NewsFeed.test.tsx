@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NewsFeed } from '@/components/news/NewsFeed';
 import { NEWS_LEAD_ROTATION_MS } from '@/lib/news/lead-rotation';
-import type { PublicNewsItem } from '@/lib/news/public';
+import { NEWS_UI_POLL_MS, type PublicNewsItem } from '@/lib/news/public';
 
 function item(
   partial: Partial<PublicNewsItem> & Pick<PublicNewsItem, 'id' | 'headline'>,
@@ -314,10 +314,10 @@ describe('NewsFeed lead rotation', () => {
     flushLeadFade();
     expect(screen.getByTestId('news-lead-slot').getAttribute('data-lead-id')).toBe('B');
 
-    // Pause rotation so only the feed poll fires on the shared 8s cadence.
+    // Pause rotation so only the feed poll (still 8s) can update the snapshot.
     fireEvent.mouseEnter(screen.getByTestId('news-lead-slot'));
     act(() => {
-      vi.advanceTimersByTime(NEWS_LEAD_ROTATION_MS);
+      vi.advanceTimersByTime(NEWS_UI_POLL_MS - NEWS_LEAD_ROTATION_MS);
     });
     await flushMicrotasks();
 
@@ -352,7 +352,7 @@ describe('NewsFeed lead rotation', () => {
 
     fireEvent.mouseEnter(screen.getByTestId('news-lead-slot'));
     act(() => {
-      vi.advanceTimersByTime(NEWS_LEAD_ROTATION_MS);
+      vi.advanceTimersByTime(NEWS_UI_POLL_MS - NEWS_LEAD_ROTATION_MS);
     });
     await flushMicrotasks();
     flushLeadFade();
