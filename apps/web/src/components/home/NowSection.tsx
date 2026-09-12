@@ -5,12 +5,14 @@ import { HouseLeadHero } from '@/components/home/HouseLeadHero';
 import { HomepageInfrastructureBadges } from '@/components/home/HomepageInfrastructureBadges';
 import { HOUSE_IMAGE_SET, SCOOP_HERO_SRC } from '@/lib/brand';
 import type { LeadNewsResult } from '@/lib/news/load-home';
+import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
 type Props = {
   news: LeadNewsResult;
+  quoteCatalogue?: readonly PublicQuoteCatalogueItem[];
 };
 
-export function NowSection({ news }: Props) {
+export function NowSection({ news, quoteCatalogue = [] }: Props) {
   return (
     <section aria-label="Now">
       <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-3 lg:px-10">
@@ -57,7 +59,7 @@ export function NowSection({ news }: Props) {
         />
 
         <div>
-          <HouseLeadHero news={news} />
+          <HouseLeadHero news={news} quoteCatalogue={quoteCatalogue} />
           {HOUSE_IMAGE_SET.length === 0 ? (
             <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
               Add a house image under /house and register it in HOUSE_IMAGE_SET

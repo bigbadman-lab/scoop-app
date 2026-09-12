@@ -22,20 +22,7 @@ export default async function NewsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-5 md:px-8 md:py-6 lg:px-10">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-        News
-      </p>
-      <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">
-        Live desk
-      </h1>
-      <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-        Syndicated market headlines. Stories open on the publisher site — SCOOP does not
-        republish full articles.
-      </p>
-
-      <div className="mt-4">
-        <NewsFeed initial={initial} quoteCatalogue={quoteCatalogue} />
-      </div>
+      <NewsFeed initial={initial} quoteCatalogue={quoteCatalogue} />
     </main>
   );
 }

@@ -9,7 +9,7 @@ import {
   HouseLeadHero,
 } from '@/components/home/HouseLeadHero';
 import type { LeadNewsResult } from '@/lib/news/load-home';
-import type { NewsFeedItem } from '@scoop/news';
+import type { LeadNewsArticle } from '@/lib/news/load-home';
 
 vi.mock('next/image', () => ({
   default: (props: {
@@ -40,7 +40,7 @@ vi.mock('@/lib/brand', () => ({
   },
 }));
 
-function makeArticle(id: string, headline: string): NewsFeedItem {
+function makeArticle(id: string, headline: string, marketCount = 0): LeadNewsArticle {
   return {
     providerArticleId: id,
     headline,
@@ -52,12 +52,14 @@ function makeArticle(id: string, headline: string): NewsFeedItem {
     tickers: [],
     tags: [],
     isBackfillCandidate: false,
+    marketCount,
+    markets: [],
   };
 }
 
 const article = makeArticle('77', 'Markets react to rate decision');
 
-function okNews(articles: NewsFeedItem[]): LeadNewsResult {
+function okNews(articles: LeadNewsArticle[]): LeadNewsResult {
   return {
     status: 'ok',
     article: articles[0] ?? null,
@@ -137,12 +139,12 @@ describe('HouseLeadHero', () => {
     ).toBeNull();
   });
 
-  it('overlays Launch as Token and Read story on the house image', () => {
+  it('overlays Launch market and Read story on the house image', () => {
     render(<HouseLeadHero news={okNews([article])} />);
     const actions = screen.getByTestId('house-lead-actions');
     expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
 
-    const launch = screen.getByRole('link', { name: /launch as token/i });
+    const launch = screen.getByRole('link', { name: /launch market/i });
     expect(launch.getAttribute('href')).toBe('/news/77/launch');
     const read = screen.getByRole('link', { name: /read story/i });
     expect(read.getAttribute('href')).toBe(article.url);
@@ -161,13 +163,13 @@ describe('HouseLeadHero', () => {
     expect(story.className).not.toMatch(/absolute/);
   });
 
-  it('keeps Launch as Token without Read story when article has no URL', () => {
+  it('keeps Launch market without Read story when article has no URL', () => {
     render(
       <HouseLeadHero
         news={okNews([{ ...article, url: '' }])}
       />,
     );
-    expect(screen.getByRole('link', { name: /launch as token/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /launch market/i })).toBeTruthy();
     expect(screen.queryByRole('link', { name: /read story/i })).toBeNull();
     expect(screen.getByText('Markets react to rate decision')).toBeTruthy();
   });
@@ -184,7 +186,7 @@ describe('HouseLeadHero', () => {
       />,
     );
     expect(screen.queryByTestId('house-lead-actions')).toBeNull();
-    expect(screen.queryByRole('link', { name: /launch as token/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /launch market/i })).toBeNull();
   });
 
   it('does not invent a headline when news is unavailable', () => {
@@ -338,6 +340,25 @@ describe('HouseLeadHero', () => {
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
+    it('rotates market status with the story without new network polling', () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      const rotating = [
+        makeArticle('1', 'Story one headline', 2),
+        makeArticle('2', 'Story two headline', 0),
+        makeArticle('3', 'Story three headline', 1),
+      ];
+      render(<HouseLeadHero news={okNews(rotating)} />);
+      expect(screen.getByTestId('news-market-status').textContent).toMatch(/2 LIVE MARKETS/i);
+
+      act(() => {
+        vi.advanceTimersByTime(HOMEPAGE_NEWS_ROTATION_MS);
+      });
+      flushStoryFade();
+      expect(screen.getByText('Story two headline')).toBeTruthy();
+      expect(screen.getByTestId('news-market-status').textContent).toMatch(/NO LIVE MARKETS/i);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
     it('rotates to the next story at 8s and advances again', () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
       render(<HouseLeadHero news={okNews(pool)} />);
@@ -347,7 +368,7 @@ describe('HouseLeadHero', () => {
       });
       flushStoryFade();
       expect(screen.getByText('Story two headline')).toBeTruthy();
-      expect(screen.getByRole('link', { name: /launch as token/i }).getAttribute('href')).toBe(
+      expect(screen.getByRole('link', { name: /launch market/i }).getAttribute('href')).toBe(
         '/news/2/launch',
       );
 
@@ -451,7 +472,7 @@ describe('HouseLeadHero', () => {
       flushStoryFade();
       expect(screen.getByText('Story two headline')).toBeTruthy();
       expect(screen.getByTestId('house-lead-story').getAttribute('data-story-id')).toBe('2');
-      expect(screen.getByRole('link', { name: /launch as token/i }).getAttribute('href')).toBe(
+      expect(screen.getByRole('link', { name: /launch market/i }).getAttribute('href')).toBe(
         '/news/2/launch',
       );
       expect(screen.getByRole('link', { name: /read story/i }).getAttribute('href')).toBe(

@@ -44,7 +44,14 @@ export type PublicNewsFeedResponse = {
   items: PublicNewsItem[];
   nextCursor: string | null;
   message?: string;
+  /** When this feed response/snapshot was generated (request wall clock). */
   asOf: string;
+  /**
+   * When Stock News ingest last completed successfully
+   * (`news_ingestion_checkpoints.last_success_at` for stocknewsapi).
+   * Null when no successful checkpoint exists — never fake LIVE.
+   */
+  lastSuccessfulIngestAt: string | null;
 };
 
 const SUMMARY_MAX = 160;

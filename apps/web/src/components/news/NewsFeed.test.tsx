@@ -26,6 +26,7 @@ describe('NewsFeed', () => {
         initial={{
           status: 'ok',
           asOf: new Date(now).toISOString(),
+          lastSuccessfulIngestAt: new Date(now - 4 * 60_000).toISOString(),
           nextCursor: null,
           items: [
             item({
@@ -55,13 +56,24 @@ describe('NewsFeed', () => {
     expect(rows[0]!.getAttribute('data-lead')).toBe('true');
     expect(rows[1]!.getAttribute('data-freshness')).toBe('older');
 
-    const launchLinks = screen.getAllByRole('link', { name: /launch as token/i });
+    const launchLinks = screen.getAllByRole('link', { name: /launch market/i });
     expect(launchLinks).toHaveLength(2);
     expect(launchLinks[0]!.getAttribute('href')).toBe('/news/2/launch');
     expect(launchLinks[0]!.className).toContain('bg-[var(--scoop-orange)]');
     expect(screen.queryByTestId('news-feed-summary')).toBeNull();
     const readLinks = screen.getAllByRole('link', { name: /read story/i });
     expect(readLinks[0]!.getAttribute('href')).toBe('https://ft.com/2');
+
+    const statuses = screen.getAllByTestId('news-market-status');
+    expect(statuses).toHaveLength(2);
+    expect(statuses[0]!.textContent).toMatch(/NO LIVE MARKETS/i);
+    expect(statuses[0]!.getAttribute('data-interactive')).toBe('false');
+    expect(
+      screen.getByTestId('news-ingest-freshness').querySelector('[data-health]')?.getAttribute(
+        'data-health',
+      ),
+    ).toBe('live');
+    expect(screen.getByTestId('news-last-pull').textContent).toMatch(/Last pull 4m ago/);
 
     vi.useRealTimers();
   });
@@ -71,6 +83,7 @@ describe('NewsFeed', () => {
       <NewsFeed
         initial={{
           status: 'ok',
+          lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
           items: [
@@ -98,8 +111,9 @@ describe('NewsFeed', () => {
       />,
     );
 
-    const live = screen.getByTestId('news-market-live');
-    expect(live.textContent).toMatch(/MARKET LIVE · \$HELLO/i);
+    const live = screen.getByTestId('news-market-status');
+    expect(live.textContent).toMatch(/1 LIVE MARKET/i);
+    expect(live.className).not.toContain('bg-[var(--scoop-orange)]');
     expect(live.getAttribute('href')).toBe(
       '/token/0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
     );
@@ -111,6 +125,7 @@ describe('NewsFeed', () => {
       <NewsFeed
         initial={{
           status: 'ok',
+          lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
           items: [
@@ -162,8 +177,8 @@ describe('NewsFeed', () => {
       />,
     );
 
-    const live = screen.getByTestId('news-market-live');
-    expect(live.textContent).toMatch(/3 MARKETS LIVE/i);
+    const live = screen.getByTestId('news-market-status');
+    expect(live.textContent).toMatch(/3 LIVE MARKETS/i);
     fireEvent.click(live);
     expect(screen.getByText(/Markets from this story/i)).toBeTruthy();
     expect(screen.getByRole('link', { name: /\$AAA/i })).toBeTruthy();
@@ -179,6 +194,7 @@ describe('NewsFeed', () => {
       <NewsFeed
         initial={{
           status: 'ok',
+          lastSuccessfulIngestAt: null,
           asOf: new Date(now).toISOString(),
           nextCursor: null,
           items: [
@@ -207,6 +223,7 @@ describe('NewsFeed', () => {
       <NewsFeed
         initial={{
           status: 'gated',
+          lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
           items: [],
@@ -221,6 +238,7 @@ describe('NewsFeed', () => {
       <NewsFeed
         initial={{
           status: 'empty',
+          lastSuccessfulIngestAt: null,
           asOf: new Date().toISOString(),
           nextCursor: null,
           items: [],

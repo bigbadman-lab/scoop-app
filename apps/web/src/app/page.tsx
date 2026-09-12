@@ -36,7 +36,7 @@ export default async function HomePage() {
   return (
     <main>
       <JsonLdScript data={buildHomeJsonLd()} />
-      <NowSection news={news} />
+      <NowSection news={news} quoteCatalogue={catalogue} />
       <DiscoverSection
         initialTab={DEFAULT_DISCOVER_TAB}
         initialSnapshot={discover}

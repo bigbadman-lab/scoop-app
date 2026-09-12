@@ -33,6 +33,8 @@ describe('NowSection news lead', () => {
             tickers: [],
             tags: [],
             isBackfillCandidate: false,
+            marketCount: 0,
+            markets: [],
           },
           articles: [
             {
@@ -46,6 +48,8 @@ describe('NowSection news lead', () => {
               tickers: [],
               tags: [],
               isBackfillCandidate: false,
+              marketCount: 0,
+              markets: [],
             },
           ],
         }}
@@ -60,14 +64,14 @@ describe('NowSection news lead', () => {
     const actions = screen.getByTestId('house-lead-actions');
     expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
 
-    const launch = screen.getByRole('link', { name: /launch as token/i });
+    const launch = screen.getByRole('link', { name: /launch market/i });
     expect(launch.getAttribute('href')).toBe('/news/77/launch');
     const read = screen.getByRole('link', { name: /read story/i });
     expect(read.getAttribute('href')).toBe('https://reuters.com/markets/rate-decision');
     expect(launch).not.toBe(read);
   });
 
-  it('does not show Launch as Token when there is no article', () => {
+  it('does not show Launch market when there is no article', () => {
     render(
       <NowSection
         news={{
@@ -78,7 +82,7 @@ describe('NowSection news lead', () => {
         }}
       />,
     );
-    expect(screen.queryByRole('link', { name: /launch as token/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /launch market/i })).toBeNull();
   });
 
   it('shows gated overlay without inventing a headline', () => {

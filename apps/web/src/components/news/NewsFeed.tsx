@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
 import { NewsFreshnessBadge } from '@/components/news/NewsFreshnessBadge';
-import { NewsMarketLiveControl } from '@/components/news/NewsMarketLiveControl';
+import { NewsIngestFreshness } from '@/components/news/NewsIngestFreshness';
+import { NewsMarketStatus } from '@/components/news/NewsMarketStatus';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
 import {
   NEWS_PAGE_SIZE,
@@ -55,7 +56,6 @@ function NewsFeedItemRow({
   const isLead = index === 0;
   const freshness = classifyNewsFreshness(item.publishedAt);
   const fresh = isLead || isNewsFresh(freshness);
-  const hasMarkets = item.marketCount > 0;
 
   return (
     <li className="py-2.5 first:pt-0 md:py-3">
@@ -99,17 +99,15 @@ function NewsFeedItemRow({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {hasMarkets ? (
-            <NewsMarketLiveControl
-              providerArticleId={item.id}
-              marketCount={item.marketCount}
-              markets={item.markets}
-              quoteCatalogue={quoteCatalogue}
-            />
-          ) : null}
+          <NewsMarketStatus
+            providerArticleId={item.id}
+            marketCount={item.marketCount}
+            markets={item.markets}
+            quoteCatalogue={quoteCatalogue}
+          />
           <LaunchAsTokenLink
             providerArticleId={item.id}
-            variant={hasMarkets ? 'another' : 'feed'}
+            variant={item.marketCount > 0 ? 'another' : 'feed'}
           />
           <CtaLink
             href={item.url}
@@ -132,6 +130,9 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
   const [pendingNew, setPendingNew] = useState<PublicNewsItem[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastSuccessfulIngestAt, setLastSuccessfulIngestAt] = useState(
+    initial.lastSuccessfulIngestAt,
+  );
 
   const itemsRef = useRef(items);
   const pendingRef = useRef(pendingNew);
@@ -166,6 +167,9 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
       });
       if (!res.ok) return;
       const data = (await res.json()) as PublicNewsFeedResponse;
+      if (data.lastSuccessfulIngestAt !== undefined) {
+        setLastSuccessfulIngestAt(data.lastSuccessfulIngestAt);
+      }
       if (data.status === 'gated' || data.status === 'error') {
         setStatus(data.status);
         setMessage(data.message);
@@ -307,20 +311,44 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
 
   if (status === 'empty' || items.length === 0) {
     return (
-      <div className="space-y-2 py-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          Desk
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">No stories yet.</h2>
-        <p className="max-w-md text-sm text-[var(--muted)]">
-          {message ?? 'Fresh stories will appear here after ingestion.'}
-        </p>
+      <div>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+              News
+            </p>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
+            <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
+              Stock-moving stories, as they break.
+            </p>
+          </div>
+          <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
+        </div>
+        <div className="space-y-2 py-8">
+          <h2 className="text-xl font-semibold tracking-tight">No stories yet.</h2>
+          <p className="max-w-md text-sm text-[var(--muted)]">
+            {message ?? 'Fresh stories will appear here after ingestion.'}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="relative">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            News
+          </p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight md:text-2xl">Live desk</h1>
+          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
+            Stock-moving stories, as they break.
+          </p>
+        </div>
+        <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
+      </div>
+
       {pendingNew.length > 0 ? (
         <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
           <button

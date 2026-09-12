@@ -7,7 +7,7 @@ type Props = {
 };
 
 /**
- * Reusable Launch as Token CTA — carries canonical providerArticleId only.
+ * Reusable Launch Market CTA — carries canonical providerArticleId only.
  */
 export function LaunchAsTokenLink({
   providerArticleId,
@@ -19,7 +19,7 @@ export function LaunchAsTokenLink({
 
   const href = `/news/${encodeURIComponent(id)}/launch`;
   const label =
-    variant === 'another' ? 'Launch another market →' : 'Launch as token →';
+    variant === 'another' ? 'Launch another market →' : 'Launch market →';
 
   if (variant === 'primary') {
     return (

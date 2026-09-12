@@ -22,6 +22,7 @@ describe('GET /api/news', () => {
         },
       ],
       nextCursor: null,
+      lastSuccessfulIngestAt: null,
       asOf: '2026-09-07T12:00:00.000Z',
     });
   });

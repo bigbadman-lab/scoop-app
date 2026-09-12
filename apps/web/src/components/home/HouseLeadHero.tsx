@@ -6,8 +6,9 @@ import { HOUSE_IMAGE_SET } from '@/lib/brand';
 import { NewsAge } from '@/components/news/NewsAge';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { LaunchAsTokenLink } from '@/components/launch-assist/LaunchAsTokenLink';
-import type { LeadNewsResult } from '@/lib/news/load-home';
-import type { NewsFeedItem } from '@scoop/news';
+import { NewsMarketStatus } from '@/components/news/NewsMarketStatus';
+import type { LeadNewsArticle, LeadNewsResult } from '@/lib/news/load-home';
+import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   HOMEPAGE_NEWS_FADE_MS,
   HOMEPAGE_NEWS_ROTATION_MS,
@@ -30,6 +31,7 @@ export {
 
 type Props = {
   news: LeadNewsResult;
+  quoteCatalogue?: readonly PublicQuoteCatalogueItem[];
 };
 
 function usePrefersReducedMotion(): boolean {
@@ -49,7 +51,7 @@ function OverlayCopy({
   article,
   news,
 }: {
-  article: NewsFeedItem | null;
+  article: LeadNewsArticle | null;
   news: LeadNewsResult;
 }) {
   const metaClass =
@@ -94,7 +96,7 @@ function OverlayCopy({
  * Editorial NOW lead: rotating evergreen house imagery with live story overlay.
  * Story pool rotates client-side every HOMEPAGE_NEWS_ROTATION_MS — no network.
  */
-export function HouseLeadHero({ news }: Props) {
+export function HouseLeadHero({ news, quoteCatalogue = [] }: Props) {
   const images = HOUSE_IMAGE_SET;
   const articles =
     news.status === 'ok'
@@ -166,7 +168,7 @@ export function HouseLeadHero({ news }: Props) {
     HOMEPAGE_VISIBLE_NEWS_SLOTS,
   );
   const targetArticle = visible[0] ?? null;
-  const [displayedArticle, setDisplayedArticle] = useState<NewsFeedItem | null>(
+  const [displayedArticle, setDisplayedArticle] = useState<LeadNewsArticle | null>(
     targetArticle,
   );
   const displayedId = displayedArticle?.providerArticleId ?? null;
@@ -275,6 +277,13 @@ export function HouseLeadHero({ news }: Props) {
               className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center md:gap-3"
               data-testid="house-lead-actions"
             >
+              <NewsMarketStatus
+                providerArticleId={article.providerArticleId}
+                marketCount={article.marketCount}
+                markets={article.markets}
+                quoteCatalogue={quoteCatalogue}
+                tone="onDark"
+              />
               <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
               {href ? (
                 <CtaLink href={href} external variant="secondary">
