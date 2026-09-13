@@ -8,6 +8,9 @@ import {
 } from '@scoop/shared';
 import { resolveUsdMarketFields } from './usd.js';
 
+/** Rolling 24h window length used by market-state aggregation (unix seconds). */
+export const MARKET_VOLUME_24H_WINDOW_SECONDS = 86_400;
+
 export interface TradeMetricInput {
   side: 'buy' | 'sell';
   quoteAmountRaw: bigint;
@@ -51,7 +54,7 @@ export async function refreshTokenMarketFromTrades(
   const token = normalizeAddress(args.tokenAddress);
   const tokenIsCurrency1 = args.tokenIsCurrency1 ?? true;
   const nowSec = args.nowSec ?? Math.floor(Date.now() / 1000);
-  const windowStart = nowSec - 86400;
+  const windowStart = nowSec - MARKET_VOLUME_24H_WINDOW_SECONDS;
 
   const meta = await db.query<{
     quote_asset: string;

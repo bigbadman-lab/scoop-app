@@ -44,6 +44,8 @@ describe('indexer config', () => {
     });
     expect(config.SCOOP_INDEXING_ENABLED).toBe(true);
     expect(config.SCOOP_POLL_INTERVAL_MS).toBe(2000);
+    expect(config.SCOOP_VOLUME_24H_SWEEP_SECONDS).toBe(60);
+    expect(publicConfigView(config).volume24hSweepSeconds).toBe(60);
     expect(config.INDEXER_LOCK_RETRY_MS).toBe(5000);
     expect(config.INDEXER_LOCK_WAIT_TIMEOUT_MS).toBe(120_000);
     expect(resolveIndexerLockDatabaseUrl(config)).toBe('postgres://localhost/scoop');

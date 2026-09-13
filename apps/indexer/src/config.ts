@@ -67,6 +67,11 @@ const indexerEnvSchema = z
     SCOOP_SOON_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10000).default(8000),
     SCOOP_REORG_WINDOW_BLOCKS: z.coerce.number().int().positive().default(128),
     SCOOP_QUOTE_SNAPSHOT_SECONDS: z.coerce.number().int().positive().default(60),
+    /**
+     * How often the live runner recomputes 24h market metrics for idle markets
+     * so launch/dev-buy volume can age out without a new trade.
+     */
+    SCOOP_VOLUME_24H_SWEEP_SECONDS: z.coerce.number().int().positive().default(60),
     /** Max age of quote_price_snapshots before USD/FDV fields are nulled. */
     SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
@@ -191,6 +196,7 @@ export function publicConfigView(config: IndexerConfig) {
     soonThresholdBps: config.SCOOP_SOON_THRESHOLD_BPS,
     reorgWindowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,
     quoteSnapshotSeconds: config.SCOOP_QUOTE_SNAPSHOT_SECONDS,
+    volume24hSweepSeconds: config.SCOOP_VOLUME_24H_SWEEP_SECONDS,
     quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
     pollIntervalMs: config.SCOOP_POLL_INTERVAL_MS,
     maxBlockBatch: config.SCOOP_MAX_BLOCK_BATCH,

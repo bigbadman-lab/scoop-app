@@ -18,6 +18,7 @@ import {
   type ConfirmMode,
 } from './targetHead.js';
 import { maybeSnapshotQuoteUsd } from './quoteSnapshot.js';
+import { maybeExpireStale24hVolume } from './projections/expire24hVolume.js';
 import {
   acquireIndexerAdvisoryLock,
   assertMigrationCompatibilityFromPool,
@@ -149,6 +150,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   let batches = 0;
   let lastBlock: bigint | null = null;
   let lastQuoteAtMs = 0;
+  let lastVolumeSweepAtMs = 0;
   let reorgCount = 0;
   let wakePromise: Promise<void> | null = null;
   let wakeResolve: (() => void) | null = null;
@@ -300,6 +302,23 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             lastSnapshotAtMs: lastQuoteAtMs,
           }).then((r) => {
             lastQuoteAtMs = r.nextLastAtMs;
+          });
+          await maybeExpireStale24hVolume({
+            db,
+            chainId: config.SCOOP_CHAIN_ID,
+            intervalSeconds: config.SCOOP_VOLUME_24H_SWEEP_SECONDS,
+            lastSweepAtMs: lastVolumeSweepAtMs,
+            quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
+            dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+          }).then((r) => {
+            lastVolumeSweepAtMs = r.nextLastAtMs;
+            if (r.swept && (r.refreshed > 0 || r.failed > 0)) {
+              logJson('info', '24h volume sweep', {
+                candidates: r.candidates,
+                refreshed: r.refreshed,
+                failed: r.failed,
+              });
+            }
           });
           await upsertIndexerHealth(db, {
             chainId: config.SCOOP_CHAIN_ID,
@@ -453,6 +472,22 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           lastSnapshotAtMs: lastQuoteAtMs,
         });
         lastQuoteAtMs = snap.nextLastAtMs;
+        const volSweep = await maybeExpireStale24hVolume({
+          db,
+          chainId: config.SCOOP_CHAIN_ID,
+          intervalSeconds: config.SCOOP_VOLUME_24H_SWEEP_SECONDS,
+          lastSweepAtMs: lastVolumeSweepAtMs,
+          quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
+          dustRaw: config.SCOOP_LAUNCH_DUST_RAW,
+        });
+        lastVolumeSweepAtMs = volSweep.nextLastAtMs;
+        if (volSweep.swept && (volSweep.refreshed > 0 || volSweep.failed > 0)) {
+          logJson('info', '24h volume sweep', {
+            candidates: volSweep.candidates,
+            refreshed: volSweep.refreshed,
+            failed: volSweep.failed,
+          });
+        }
         const indexed = lastBlock ?? 0n;
         const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
         await upsertIndexerHealth(db, {

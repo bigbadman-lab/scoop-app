@@ -83,7 +83,8 @@ export async function upsertTokenMarketState(
       trade_count_24h = COALESCE(EXCLUDED.trade_count_24h, token_market_state.trade_count_24h),
       buy_count_24h = COALESCE(EXCLUDED.buy_count_24h, token_market_state.buy_count_24h),
       sell_count_24h = COALESCE(EXCLUDED.sell_count_24h, token_market_state.sell_count_24h),
-      price_change_24h_bps = COALESCE(EXCLUDED.price_change_24h_bps, token_market_state.price_change_24h_bps),
+      -- Allow explicit NULL when the 24h window is empty (do not COALESCE-preserve stale %).
+      price_change_24h_bps = EXCLUDED.price_change_24h_bps,
       holder_count_all = COALESCE(EXCLUDED.holder_count_all, token_market_state.holder_count_all),
       holder_count_retail = COALESCE(EXCLUDED.holder_count_retail, token_market_state.holder_count_retail),
       initial_token_inventory_raw = COALESCE(EXCLUDED.initial_token_inventory_raw, token_market_state.initial_token_inventory_raw),
