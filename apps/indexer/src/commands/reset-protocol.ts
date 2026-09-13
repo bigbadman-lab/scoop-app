@@ -183,12 +183,19 @@ export async function runProtocolReset(opts: ProtocolResetOptions): Promise<{
           kind: historicalTestCanaryManifest.deploymentKind,
           factory: historicalTestCanaryManifest.contracts.ScoopFactory,
           baseline: historicalTestCanaryManifest.baseline,
+          indexingStartBlock:
+            historicalTestCanaryManifest.metadata.indexingStartBlock,
         }
       : {
           kind: canonicalProductionManifest.deploymentKind,
           status: canonicalProductionManifest.status,
           factory: isCanonicalProductionDeployed(canonicalProductionManifest)
             ? canonicalProductionManifest.contracts.factory
+            : null,
+          indexingStartBlock: isCanonicalProductionDeployed(
+            canonicalProductionManifest,
+          )
+            ? canonicalProductionManifest.metadata.indexingStartBlock
             : null,
         };
 

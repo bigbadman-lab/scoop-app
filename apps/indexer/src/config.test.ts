@@ -2,12 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig, publicConfigView, resolveIndexerLockDatabaseUrl } from './config.js';
 
 describe('indexer config', () => {
-  it('defaults indexing to disabled', () => {
+  it('defaults indexing to disabled with canonical start block', () => {
     const config = loadConfig({
       SCOOP_CHAIN_ID: '4663',
     });
     expect(config.SCOOP_INDEXING_ENABLED).toBe(false);
+    expect(config.SCOOP_START_BLOCK).toBe(60525572);
     expect(publicConfigView(config).indexingEnabled).toBe(false);
+    expect(publicConfigView(config).startBlock).toBe(60525572);
+  });
+
+  it('rejects start block below canonical indexingStartBlock', () => {
+    expect(() =>
+      loadConfig({
+        SCOOP_CHAIN_ID: '4663',
+        SCOOP_START_BLOCK: '55863290',
+      }),
+    ).toThrow(/canonical indexingStartBlock/);
   });
 
   it('refuses wrong chain ID', () => {

@@ -1,6 +1,7 @@
 import type { Address, Hex, PublicClient } from 'viem';
-import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
+import { scoopAbis } from '@scoop/contracts';
 import type { TokenMetadataInput } from './normalizeLaunch.js';
+import { requireIndexerCanonicalDeployment } from '../deployment.js';
 
 export async function hydrateTokenMetadata(
   client: PublicClient,
@@ -60,11 +61,11 @@ export async function hydrateTokenMetadata(
 }
 
 export async function hydrateLaunchView(client: PublicClient, tokenAddress: string) {
-  const factory = scoopV1MainnetCanaryManifest.contracts.ScoopFactory as Address;
-  // Historical canary Factory return shape ≠ P3 getLaunch; use canary ABI.
+  const factory = requireIndexerCanonicalDeployment().factory as Address;
+  // Canonical P3 Factory Launch struct (includes fee-routing fields unused below).
   const launch = await client.readContract({
     address: factory,
-    abi: scoopAbis.ScoopFactoryHistoricalCanary,
+    abi: scoopAbis.ScoopFactory,
     functionName: 'getLaunch',
     args: [tokenAddress as Address],
   });

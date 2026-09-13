@@ -1,9 +1,10 @@
 import { encodeEventTopics, type Hex, type Log, type PublicClient } from 'viem';
 import type { Queryable } from '@scoop/db';
 import { upsertProcessedBlock, upsertIndexerCheckpoint } from '@scoop/db';
-import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
+import { scoopAbis } from '@scoop/contracts';
 import { normalizeAddress, normalizeBytes32 } from '@scoop/shared';
 import { MAIN_STREAM_NAME } from '../config.js';
+import { requireIndexerCanonicalDeployment } from '../deployment.js';
 import { processBlock, type ProcessBlockResult } from './processBlock.js';
 import type { Watchlist } from './watchlist.js';
 import type { ConfirmationHeads } from './confirmations.js';
@@ -70,13 +71,10 @@ function logJson(level: string, message: string, fields: Record<string, unknown>
  * processBlock then fetches PoolManager logs for those blocks only.
  */
 export function buildLogAddressFilters(watchlist: Watchlist): Hex[] {
-  const factory = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.ScoopFactory);
-  const creatorRewards = normalizeAddress(
-    scoopV1MainnetCanaryManifest.contracts.ScoopCreatorRewards,
-  );
+  const deployment = requireIndexerCanonicalDeployment();
   const addresses = [
-    factory,
-    creatorRewards,
+    deployment.factory,
+    deployment.creatorRewards,
     ...watchlist.tokenAddresses,
     ...watchlist.distributorAddresses,
     ...(watchlist.holderVaultAddresses ?? []),

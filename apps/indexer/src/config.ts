@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { SCOOP_CHAIN_ID, NEW_MARKET_WINDOW_SECONDS } from '@scoop/shared';
+import { requireCanonicalIndexingStartBlock } from './deployment.js';
+
+/** Canonical P10.3 indexing start — kept in sync with production manifest metadata. */
+export const CANONICAL_INDEXING_START_BLOCK = 60525572;
 
 const boolFromEnv = z
   .union([z.boolean(), z.string()])
@@ -45,7 +49,11 @@ const indexerEnvSchema = z
     NODE_ENV: z.string().optional(),
     SCOOP_CHAIN_ID: z.coerce.number().int().default(SCOOP_CHAIN_ID),
     SCOOP_INDEXING_ENABLED: boolFromEnv,
-    SCOOP_START_BLOCK: z.coerce.number().int().positive().default(55863290),
+    SCOOP_START_BLOCK: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(CANONICAL_INDEXING_START_BLOCK),
     /**
      * Live ingest head policy:
      * - safe / finalized / latest — use that RPC head as target
@@ -115,6 +123,15 @@ const indexerEnvSchema = z
         code: z.ZodIssueCode.custom,
         path: ['SCOOP_CHAIN_ID'],
         message: `SCOOP_CHAIN_ID must be ${SCOOP_CHAIN_ID}`,
+      });
+    }
+
+    const canonicalStart = requireCanonicalIndexingStartBlock();
+    if (env.SCOOP_START_BLOCK < canonicalStart) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SCOOP_START_BLOCK'],
+        message: `SCOOP_START_BLOCK (${env.SCOOP_START_BLOCK}) must be >= canonical indexingStartBlock ${canonicalStart}`,
       });
     }
 

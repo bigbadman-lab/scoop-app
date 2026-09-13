@@ -79,6 +79,15 @@ describe('fast catchup helpers', () => {
     const wl = emptyWatchlist();
     const base = buildLogAddressFilters(wl);
     expect(base.length).toBeGreaterThanOrEqual(2);
+    expect(base.map((a) => a.toLowerCase())).toEqual(
+      expect.arrayContaining([
+        '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+        '0xdb80eed1d52c8c80ae3e221c85da94319132f6ef',
+      ]),
+    );
+    expect(base.map((a) => a.toLowerCase())).not.toContain(
+      '0x15e874bc667435ddbf2a67c0362701dc23c90833',
+    );
     const poolManager =
       '0x8366a39cc670b4001a1121b8f6a443a643e40951';
     expect(base.map((a) => a.toLowerCase()).includes(poolManager)).toBe(false);
@@ -90,7 +99,7 @@ describe('fast catchup helpers', () => {
       feeDistributorAddress: '0x1111111111111111111111111111111111111111',
       liquidityLockerAddress: '0x2222222222222222222222222222222222222222',
       quoteAsset: ZERO_ADDRESS,
-      factoryAddress: '0x15E874Bc667435ddbF2a67c0362701DC23C90833',
+      factoryAddress: '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
       deployerAddress: '0x3333333333333333333333333333333333333333',
       creatorId: `0x${'b'.repeat(64)}`,
       tickLower: -100,
@@ -130,7 +139,7 @@ describe('getLogsWithRangeReduction', () => {
     const result = await getLogsWithRangeReduction(client, {
       fromBlock: 1n,
       toBlock: 200n,
-      address: ['0x15E874Bc667435ddbF2a67c0362701DC23C90833'],
+      address: ['0x4B227d5E6199f42ceA4e638875fF8C740757DD3C'],
       initialRangeSize: 200,
       onReduce: (prev, next) => {
         reductions.push(prev, next);
@@ -227,7 +236,7 @@ describe('processFastCatchupRange', () => {
             feeDistributorAddress: '0x1111111111111111111111111111111111111111',
             liquidityLockerAddress: '0x2222222222222222222222222222222222222222',
             quoteAsset: ZERO_ADDRESS,
-            factoryAddress: '0x15E874Bc667435ddbF2a67c0362701DC23C90833',
+            factoryAddress: '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
             deployerAddress: '0x3333333333333333333333333333333333333333',
             creatorId: `0x${'b'.repeat(64)}`,
             tickLower: -100,
@@ -352,7 +361,7 @@ describe('processFastCatchupRange', () => {
             feeDistributorAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
             liquidityLockerAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
             quoteAsset: ZERO_ADDRESS,
-            factoryAddress: '0x15E874Bc667435ddbF2a67c0362701DC23C90833',
+            factoryAddress: '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
             deployerAddress: '0xdddddddddddddddddddddddddddddddddddddddd',
             creatorId: `0x${'d'.repeat(64)}`,
             tickLower: -100,

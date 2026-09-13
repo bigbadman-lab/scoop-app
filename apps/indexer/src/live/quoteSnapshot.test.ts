@@ -64,6 +64,9 @@ describe('maybeSnapshotQuoteUsd multi-asset loop', () => {
       nowMs: 60_000,
     });
 
+    expect(client.readContract.mock.calls[0]?.[0]?.address?.toLowerCase()).toBe(
+      '0x346a84fbab49a50a2255f2808fd6bce812dafe5c',
+    );
     expect(result.snapped).toBe(true);
     expect(result.results.filter((r) => r.ok)).toHaveLength(2);
     expect(result.results.find((r) => r.symbol === 'USDG')?.ok).toBe(false);

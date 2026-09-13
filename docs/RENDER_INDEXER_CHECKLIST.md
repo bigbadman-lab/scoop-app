@@ -16,7 +16,7 @@ Staged enablement for the SCOOP background worker on Render.
 | `ROBINHOOD_FALLBACK_RPC_URL` | recommended | Public fallback |
 | `SCOOP_CHAIN_ID` | yes | `4663` |
 | `SCOOP_INDEXING_ENABLED` | yes | Default **`false`** until ready |
-| `SCOOP_START_BLOCK` | yes | `55863290` (HELLO launch) |
+| `SCOOP_START_BLOCK` | yes | `60525572` (canonical P10.3 deployment block) |
 | `SCOOP_CONFIRM_MODE` | recommended | `safe` (conservative) or `fixed-lag` (low-latency UX). Keep `safe` available for incidents. |
 | `SCOOP_CONFIRM_LAG_BLOCKS` | recommended with fixed-lag | Tip lag for `fixed-lag` (`target = latest − N`). Default **16** when mode is `fixed-lag` and unset. Also used as RPC safe/finalized tag fallback. |
 | `SCOOP_NEW_WINDOW_SECONDS` | optional | default `604800` (7 days) |

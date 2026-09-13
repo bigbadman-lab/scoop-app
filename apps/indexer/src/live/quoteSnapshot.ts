@@ -5,9 +5,10 @@ import {
   listSnapshotEligibleQuoteAssets,
   upsertIndexerHealth,
 } from '@scoop/db';
-import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
+import { scoopAbis } from '@scoop/contracts';
 import type { HexAddress } from '@scoop/shared';
 import { revalueMarketsForQuote } from './projections/revalueQuoteMarkets.js';
+import { requireIndexerCanonicalDeployment } from '../deployment.js';
 
 export type QuoteSnapshotAssetResult = {
   quoteAsset: string;
@@ -53,7 +54,7 @@ export async function maybeSnapshotQuoteUsd(args: {
     return { snapped: false, nextLastAtMs: args.lastSnapshotAtMs, results: [] };
   }
 
-  const oracle = scoopV1MainnetCanaryManifest.contracts.ScoopPriceOracle;
+  const oracle = requireIndexerCanonicalDeployment().priceOracle as HexAddress;
   const results: QuoteSnapshotAssetResult[] = [];
   let anyOk = false;
   let ethPrice: bigint | undefined;

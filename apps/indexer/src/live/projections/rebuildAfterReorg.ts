@@ -1,5 +1,4 @@
 import type { Queryable } from '@scoop/db';
-import { scoopV1MainnetCanaryManifest } from '@scoop/contracts';
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
@@ -7,6 +6,7 @@ import {
   normalizeBytes32,
   resolvePoolOrientation,
 } from '@scoop/shared';
+import { requireIndexerCanonicalDeployment } from '../../deployment.js';
 import {
   bucketStartFor,
   mergeTradeIntoMinuteCandle,
@@ -32,10 +32,9 @@ export async function rebuildProjectionsAfterReorg(
     quoteUsdMaxAgeSeconds?: number;
   },
 ): Promise<void> {
-  const poolManager = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.PoolManager);
-  const positionManager = normalizeAddress(
-    scoopV1MainnetCanaryManifest.contracts.PositionManager,
-  );
+  const deployment = requireIndexerCanonicalDeployment();
+  const poolManager = deployment.poolManager;
+  const positionManager = deployment.positionManager;
 
   for (const row of args.affected) {
     const token = normalizeAddress(row.token_address);

@@ -2,11 +2,10 @@ import {
   CANONICAL_PROTOCOL_COMMIT,
   CANONICAL_PROTOCOL_TAG,
   canonicalProductionManifest,
-  historicalTestCanaryManifest,
-  scoopV1MainnetCanaryManifest,
 } from '@scoop/contracts';
 import { loadConfig, publicConfigView } from './config.js';
 import { createChainDefinition } from './chain.js';
+import { requireIndexerCanonicalDeployment } from './deployment.js';
 import { initDb } from './db.js';
 import { getHealthStatus } from './health.js';
 import { runIndexer } from './live/runner.js';
@@ -33,17 +32,21 @@ async function main() {
   const chain = createChainDefinition(config);
   const db = initDb(config);
   const health = getHealthStatus(config.SCOOP_INDEXING_ENABLED);
+  const deployment = requireIndexerCanonicalDeployment();
 
   logJson('info', 'scoop-indexer startup', {
     service: 'scoop-indexer',
-    phase: 'E.1b',
+    phase: 'P10.4-5B',
     protocol: {
       tag: CANONICAL_PROTOCOL_TAG,
       commit: CANONICAL_PROTOCOL_COMMIT,
       productionStatus: canonicalProductionManifest.status,
-      operationalManifest: 'historical-test-only',
-      factory: historicalTestCanaryManifest.contracts.ScoopFactory,
-      helloToken: scoopV1MainnetCanaryManifest.fixtures.hello.token,
+      operationalManifest: deployment.deploymentKind,
+      factory: deployment.factory,
+      creatorRewards: deployment.creatorRewards,
+      priceOracle: deployment.priceOracle,
+      poolManager: deployment.poolManager,
+      indexingStartBlock: deployment.indexingStartBlock,
     },
     chain: {
       id: chain.id,

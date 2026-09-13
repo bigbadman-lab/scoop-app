@@ -20,7 +20,7 @@ services:
       - key: SCOOP_INDEXING_ENABLED
         value: "false"
       - key: SCOOP_START_BLOCK
-        value: "55863290"
+        value: "60525572"
       - key: SCOOP_CONFIRM_MODE
         value: safe
       # For low-latency UX set SCOOP_CONFIRM_MODE=fixed-lag and SCOOP_CONFIRM_LAG_BLOCKS=16

@@ -10,7 +10,7 @@ import {
   upsertPool,
   getQuoteAssetDecimals,
 } from '@scoop/db';
-import { scoopAbis, scoopV1MainnetCanaryManifest } from '@scoop/contracts';
+import { scoopAbis } from '@scoop/contracts';
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
@@ -24,6 +24,7 @@ import {
   quoteAndTokenAmountsFromSwapDeltas,
 } from '@scoop/shared';
 import { MAIN_STREAM_NAME } from '../config.js';
+import { requireIndexerCanonicalDeployment } from '../deployment.js';
 import { decodeLogs, decodeReceiptLogs, type DecodedChainEvent } from './decode.js';
 import { normalizeLaunch } from './normalizeLaunch.js';
 import { hydrateLaunchView, hydrateTokenMetadata } from './hydrate.js';
@@ -88,14 +89,11 @@ export async function processBlock(
   const { client, chainId, blockNumber, watchlist } = args;
   const quoteUsdMaxAgeSeconds = args.quoteUsdMaxAgeSeconds ?? 300;
   const streamName = args.streamName ?? MAIN_STREAM_NAME;
-  const factory = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.ScoopFactory);
-  const poolManager = normalizeAddress(scoopV1MainnetCanaryManifest.contracts.PoolManager);
-  const positionManager = normalizeAddress(
-    scoopV1MainnetCanaryManifest.contracts.PositionManager,
-  );
-  const creatorRewards = normalizeAddress(
-    scoopV1MainnetCanaryManifest.contracts.ScoopCreatorRewards,
-  );
+  const deployment = requireIndexerCanonicalDeployment();
+  const factory = deployment.factory;
+  const poolManager = deployment.poolManager;
+  const positionManager = deployment.positionManager;
+  const creatorRewards = deployment.creatorRewards;
 
   const block = await client.getBlock({ blockNumber, includeTransactions: false });
   const blockHash = normalizeBytes32(block.hash!);
@@ -250,7 +248,7 @@ export async function processBlock(
       protocol: {
         poolManager,
         positionManager,
-        universalRouter: scoopV1MainnetCanaryManifest.contracts.UniversalRouter,
+        universalRouter: deployment.universalRouter,
         poolFee: economics.totalPoolFee,
       },
       confirmationStatus,
