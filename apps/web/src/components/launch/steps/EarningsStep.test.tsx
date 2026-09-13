@@ -80,3 +80,55 @@ describe('EarningsStep holder rewards hourly copy', () => {
     expect(screen.queryByText(/arrive in your wallet every hour/i)).toBeNull();
   });
 });
+
+describe('EarningsStep creator mode MVP gating', () => {
+  const wallet = '0x1111111111111111111111111111111111111111';
+
+  it('keeps wallet creator options available and selectable', () => {
+    const onMode = vi.fn();
+    render(
+      <EarningsStep
+        state={createInitialLaunchState({ creatorMode: 'connected' })}
+        errors={{}}
+        connectedAddress={wallet}
+        onMode={onMode}
+        onPatch={vi.fn()}
+      />,
+    );
+
+    const connected = screen.getByRole('radio', { name: /My connected wallet/i });
+    const custom = screen.getByRole('radio', { name: /Another wallet/i });
+    expect((connected as HTMLButtonElement).disabled).toBe(false);
+    expect((custom as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(custom);
+    expect(onMode).toHaveBeenCalledWith('custom');
+  });
+
+  it('renders X creator as disabled with exact In development label', () => {
+    const onMode = vi.fn();
+    render(
+      <EarningsStep
+        state={createInitialLaunchState()}
+        errors={{}}
+        connectedAddress={wallet}
+        onMode={onMode}
+        onPatch={vi.fn()}
+      />,
+    );
+
+    const xOption = screen.getByRole('radio', { name: /X account/i });
+    expect((xOption as HTMLButtonElement).disabled).toBe(true);
+    expect(xOption.getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByText('In development')).toBeTruthy();
+    expect(screen.queryByText('Not available')).toBeNull();
+
+    fireEvent.click(xOption);
+    expect(onMode).not.toHaveBeenCalled();
+  });
+
+  it('defaults MVP launch state to connected wallet creator mode', () => {
+    const state = createInitialLaunchState();
+    expect(state.creatorMode).toBe('connected');
+  });
+});

@@ -109,8 +109,7 @@ export function validateEarningsStep(
   const errors: FieldErrors = {};
 
   if (state.creatorMode === 'x') {
-    errors.creatorMode =
-      'X creator rewards are coming next. Profiles will be resolved by immutable X user ID.';
+    errors.creatorMode = 'X creator attribution is in development.';
   } else {
     const recipient = resolveCreatorRecipient(state, liveConnectedAddress ?? null);
     if (!isCreatorResolved(recipient)) {

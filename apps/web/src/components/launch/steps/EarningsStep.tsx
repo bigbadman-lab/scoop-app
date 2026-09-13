@@ -51,7 +51,7 @@ const MODE_OPTIONS: {
     mode: 'x',
     label: 'X account',
     description:
-      'X creator rewards are coming next. Profiles will be resolved by immutable X user ID.',
+      'Profiles will be resolved by immutable X user ID once attribution is available.',
     supported: false,
   },
 ];
@@ -378,7 +378,10 @@ export function EarningsStep({
                   aria-checked={selected}
                   aria-disabled={!opt.supported}
                   disabled={!opt.supported}
-                  onClick={() => onMode(opt.mode)}
+                  onClick={() => {
+                    if (!opt.supported) return;
+                    onMode(opt.mode);
+                  }}
                   className={[
                     'relative flex w-full flex-col items-start gap-0.5 rounded-[var(--radius-md)] border px-3 py-2.5 text-left transition-colors',
                     selected
@@ -399,7 +402,7 @@ export function EarningsStep({
                   <span className="text-sm text-[var(--muted)]">{opt.description}</span>
                   {!opt.supported ? (
                     <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-                      Not available
+                      In development
                     </span>
                   ) : null}
                 </button>

@@ -145,7 +145,7 @@ describe('launch market + earnings', () => {
     expect(
       validateEarningsStep(createInitialLaunchState({ creatorMode: 'x' }), WALLET)
         .creatorMode,
-    ).toMatch(/coming next|immutable/i);
+    ).toMatch(/in development/i);
   });
 
   it('validates custom wallet address', () => {
