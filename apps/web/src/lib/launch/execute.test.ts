@@ -4,6 +4,7 @@ import {
   encodeEventTopics,
   keccak256,
   parseEther,
+  parseUnits,
   zeroAddress,
 } from 'viem';
 import {
@@ -20,6 +21,7 @@ import {
   LaunchChainChangedError,
   LAUNCH_WRITE_ENABLED,
   canLaunchCanonicalProduction,
+  computeLaunchAndBuyMsgValue,
   prepareAndSimulateLaunchWrite,
   prepareWalletLaunchAndBuyRequest,
   prepareWalletLaunchRequest,
@@ -103,6 +105,26 @@ describe('V2.G wallet launch preparation', () => {
         expectedTokensOut: BigInt(10_000),
       }),
     ).toThrow(/undeployed/);
+  });
+
+  it('computes msg.value for ETH vs ERC-20 launchAndBuy without factory deploy', () => {
+    const fee = parseEther('0.0005');
+    const ethBuy = parseEther('0.01');
+    const usdgBuy = parseUnits('10', 6);
+    expect(
+      computeLaunchAndBuyMsgValue({
+        quoteAsset: zeroAddress,
+        launchFeeWei: fee,
+        quoteAmountIn: ethBuy,
+      }),
+    ).toBe(fee + ethBuy);
+    expect(
+      computeLaunchAndBuyMsgValue({
+        quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        launchFeeWei: fee,
+        quoteAmountIn: usdgBuy,
+      }),
+    ).toBe(fee);
   });
 
   it('blocks probe+final simulation while undeployed', async () => {

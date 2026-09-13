@@ -81,6 +81,8 @@ export type LaunchFormState = {
   // Step 2 — Market — canonical quote token address (ETH = zero address)
   quoteAsset: string | null;
   quoteSymbol: string | null;
+  /** Catalogue decimals for selected quote — required to parse ERC-20 / ETH buys. */
+  quoteDecimals: number | null;
   // Step 3 — Earnings & Buy
   creatorMode: CreatorRecipientMode;
   /** Typed custom recipient — only used when creatorMode === 'custom'. */
@@ -150,6 +152,7 @@ export function createInitialLaunchState(
     image: { ...INITIAL_IMAGE },
     quoteAsset: null,
     quoteSymbol: null,
+    quoteDecimals: null,
     creatorMode: 'connected',
     creatorCustomAddress: '',
     creatorX: { status: 'unresolved' },

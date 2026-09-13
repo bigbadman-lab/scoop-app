@@ -14,7 +14,12 @@ export type LaunchAction =
   | { type: 'SET_TICKER'; ticker: string }
   | { type: 'SET_IMAGE'; image: TokenImageState }
   | { type: 'CLEAR_IMAGE' }
-  | { type: 'SELECT_QUOTE'; quoteAsset: string; quoteSymbol: string }
+  | {
+      type: 'SELECT_QUOTE';
+      quoteAsset: string;
+      quoteSymbol: string;
+      quoteDecimals: number;
+    }
   | { type: 'SET_CREATOR_MODE'; mode: CreatorRecipientMode }
   | { type: 'RESET' };
 
@@ -54,6 +59,7 @@ export function launchReducer(state: LaunchFormState, action: LaunchAction): Lau
         ...state,
         quoteAsset: action.quoteAsset.toLowerCase(),
         quoteSymbol: action.quoteSymbol,
+        quoteDecimals: action.quoteDecimals,
         // Quote change revalidates quote-dependent state
         devBuyAmount: quoteChanged ? '' : state.devBuyAmount,
       };

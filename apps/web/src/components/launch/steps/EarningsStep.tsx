@@ -471,13 +471,20 @@ export function EarningsStep({
         >
           Dev buy · optional
         </h3>
-        {ethQuote ? (
+        {!state.quoteAsset ? (
+          <p className="text-sm text-[var(--muted)]" data-testid="dev-buy-need-quote">
+            Select a market pair first to enable an optional initial buy.
+          </p>
+        ) : (
           <>
             <p className="text-sm text-[var(--muted)]">
-              Optional initial ETH purchase in the same transaction (
+              Optional initial {quoteLabel} purchase in the same transaction (
               <span className="font-mono">launchAndBuy</span>). Tokens go to your
               connected wallet (the deployer). Leave empty or{' '}
-              <span className="font-mono">0</span> to launch without a buy.
+              <span className="font-mono">0</span> to launch without a buy
+              {ethQuote
+                ? '.'
+                : `. ERC-20 quotes may require a one-time approval of ${quoteLabel} to the Factory before launch.`}
             </p>
             <div>
               <input
@@ -485,8 +492,8 @@ export function EarningsStep({
                 inputMode="decimal"
                 value={state.devBuyAmount}
                 onChange={(e) => onPatch({ devBuyAmount: e.target.value })}
-                placeholder="Amount (ETH) · optional"
-                aria-label="Dev buy amount in ETH"
+                placeholder={`Amount (${quoteLabel}) · optional`}
+                aria-label={`Dev buy amount in ${quoteLabel}`}
                 data-testid="dev-buy-input"
                 className="w-full min-h-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 font-mono text-[15px] tabular-nums outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--fg)]"
               />
@@ -497,13 +504,6 @@ export function EarningsStep({
               ) : null}
             </div>
           </>
-        ) : (
-          <p className="text-sm text-[var(--muted)]" data-testid="dev-buy-disabled">
-            Initial buy is currently available for ETH pairs only.
-            {state.quoteAsset
-              ? ` Selected pair uses ${quoteLabel}.`
-              : ' Choose an ETH market pair to enable an initial buy.'}
-          </p>
         )}
       </section>
     </div>

@@ -1,7 +1,8 @@
 /**
  * Production wallet launch path (V2.C / V2.G).
  * Canonical LaunchParams only — refuses historical Factory and undeployed production.
- * launch when no ETH buy; launchAndBuy when ETH quoteAmountIn > 0.
+ * launch when quoteAmountIn = 0; launchAndBuy when quoteAmountIn > 0 (ETH or ERC-20).
+ * Native: msg.value = fee + quoteIn. ERC-20: msg.value = fee only (+ Factory allowance).
  * Mandatory simulate → account/chain recheck → write → receipt.
  */
 import type {
@@ -20,6 +21,7 @@ import {
 import type { FactoryLaunchParams } from '@/lib/launch/build-launch-params';
 import {
   computeMinTokensOut,
+  isNativeEthQuote,
   LAUNCH_DEV_BUY_SLIPPAGE_BPS,
   selectLaunchFunction,
   type LaunchWriteFunction,
@@ -143,8 +145,23 @@ export function prepareWalletLaunchRequest(args: {
 }
 
 /**
+ * msg.value for launchAndBuy: native = fee + quoteIn; ERC-20 = fee only.
+ */
+export function computeLaunchAndBuyMsgValue(args: {
+  quoteAsset: string;
+  launchFeeWei: bigint;
+  quoteAmountIn: bigint;
+}): bigint {
+  if (isNativeEthQuote(args.quoteAsset)) {
+    return args.launchFeeWei + args.quoteAmountIn;
+  }
+  return args.launchFeeWei;
+}
+
+/**
  * Build launchAndBuy request with known minTokensOut.
- * msg.value = launchFee + quoteAmountIn (ETH quote only).
+ * Native: msg.value = launchFee + quoteAmountIn.
+ * ERC-20: msg.value = launchFee (quote pulled via Factory allowance).
  */
 export function prepareWalletLaunchAndBuyRequest(args: {
   params: FactoryLaunchParams;
@@ -170,17 +187,21 @@ export function prepareWalletLaunchAndBuyRequest(args: {
 
   const functionName = selectLaunchFunction({
     quoteAsset: args.params.quoteAsset,
-    quoteAmountInWei: args.quoteAmountIn,
+    quoteAmountIn: args.quoteAmountIn,
   });
   if (functionName !== 'launchAndBuy') {
-    throw new Error('launchAndBuy requires native ETH quote and positive buy.');
+    throw new Error('launchAndBuy requires positive quoteAmountIn.');
   }
   return {
     address: factory,
     abi: scoopFactoryLaunchAbi,
     functionName: 'launchAndBuy',
     args: [args.params, args.quoteAmountIn, args.minTokensOut],
-    value: args.launchFeeWei + args.quoteAmountIn,
+    value: computeLaunchAndBuyMsgValue({
+      quoteAsset: args.params.quoteAsset,
+      launchFeeWei: args.launchFeeWei,
+      quoteAmountIn: args.quoteAmountIn,
+    }),
     chainId: ROBINHOOD_CHAIN_ID,
     account: args.account.toLowerCase() as `0x${string}`,
     quoteAmountIn: args.quoteAmountIn,
@@ -394,7 +415,10 @@ export function shortenLaunchError(raw: string): string {
   if (/Historical Factory/i.test(msg)) {
     return 'Launch blocked: historical Factory cannot receive canonical params.';
   }
-  if (/Initial buy is currently available/i.test(msg)) {
+  if (/Insufficient .+ balance for the initial buy/i.test(msg)) {
+    return msg;
+  }
+  if (/Quote token approval/i.test(msg)) {
     return msg;
   }
   if (/PINATA|IPFS pin|pinning/i.test(msg)) {

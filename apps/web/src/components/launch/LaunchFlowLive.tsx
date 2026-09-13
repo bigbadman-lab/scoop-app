@@ -137,9 +137,11 @@ function applyAssistedPrefill(
   let quoteWarning: string | null = null;
   let quoteAsset: string | null = null;
   let quoteSymbol: string | null = null;
+  let quoteDecimals: number | null = null;
   if (match) {
     quoteAsset = match.quoteAsset;
     quoteSymbol = match.displaySymbol || match.symbol;
+    quoteDecimals = match.decimals;
   } else if (address) {
     quoteWarning =
       'The recommended quote is no longer enabled. Choose a market pair to continue.';
@@ -154,6 +156,7 @@ function applyAssistedPrefill(
       description: handoff.concept.description,
       quoteAsset,
       quoteSymbol,
+      quoteDecimals,
       sourceProvider: 'stocknewsapi',
       sourceProviderArticleId: handoff.providerArticleId,
       sourceDraftId: resolveSourceDraftId(handoff),
@@ -852,9 +855,14 @@ function LaunchFlowInner({ catalogue }: Props) {
           errors={visibleErrors}
           catalogue={catalogue}
           quoteWarning={quoteWarning}
-          onSelect={(quoteAsset, quoteSymbol) => {
+          onSelect={(quoteAsset, quoteSymbol, quoteDecimals) => {
             setQuoteWarning(null);
-            dispatch({ type: 'SELECT_QUOTE', quoteAsset, quoteSymbol });
+            dispatch({
+              type: 'SELECT_QUOTE',
+              quoteAsset,
+              quoteSymbol,
+              quoteDecimals,
+            });
           }}
         />
       ) : null}
@@ -933,6 +941,8 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
   switch (phase) {
     case 'preparing_artwork':
       return 'Preparing artwork…';
+    case 'approving_quote':
+      return 'Approve quote token in your wallet…';
     case 'simulating':
       return 'Simulating launch…';
     case 'awaiting_wallet':

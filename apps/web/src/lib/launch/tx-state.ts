@@ -5,6 +5,7 @@
 export type LaunchTxPhase =
   | 'idle'
   | 'preparing_artwork'
+  | 'approving_quote'
   | 'simulating'
   | 'awaiting_wallet'
   | 'submitted'
@@ -119,6 +120,7 @@ export const INITIAL_LAUNCH_TX_STATE: LaunchTxState = {
 export function isLaunchTxBusy(phase: LaunchTxPhase): boolean {
   return (
     phase === 'preparing_artwork' ||
+    phase === 'approving_quote' ||
     phase === 'simulating' ||
     phase === 'awaiting_wallet' ||
     phase === 'submitted' ||
@@ -154,6 +156,8 @@ export function launchTxStatusLabel(phase: LaunchTxPhase): string {
       return '';
     case 'preparing_artwork':
       return 'Preparing artwork…';
+    case 'approving_quote':
+      return 'Approve quote token…';
     case 'simulating':
       return 'Simulating launch…';
     case 'awaiting_wallet':

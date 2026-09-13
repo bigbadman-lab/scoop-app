@@ -3,7 +3,7 @@ import {
   isCreatorResolved,
   resolveCreatorRecipient,
 } from '@/lib/launch/creator-recipient';
-import { isNativeEthQuote, parseEthDevBuyWei } from '@/lib/launch/dev-buy';
+import { isNativeEthQuote, parseDevBuyAmount } from '@/lib/launch/dev-buy';
 import {
   AdditionalFeeDestination,
   CreatorAllocationDestination,
@@ -127,13 +127,23 @@ export function validateEarningsStep(
       errors.devBuyAmount = 'Enter a valid amount.';
     } else if (Number(buy) < 0) {
       errors.devBuyAmount = 'Amount cannot be negative.';
-    } else if (hasDevBuy(state) && !isNativeEthQuote(state.quoteAsset)) {
-      errors.devBuyAmount =
-        'Initial buy is currently available for ETH pairs only.';
-    } else if (hasDevBuy(state) && isNativeEthQuote(state.quoteAsset)) {
-      const parsed = parseEthDevBuyWei(buy);
-      if (!parsed.ok) {
-        errors.devBuyAmount = parsed.error;
+    } else if (hasDevBuy(state)) {
+      const decimals =
+        state.quoteDecimals ??
+        (isNativeEthQuote(state.quoteAsset) ? 18 : null);
+      if (decimals == null) {
+        errors.devBuyAmount =
+          'Quote decimals missing. Re-select the market pair.';
+      } else {
+        const parsed = parseDevBuyAmount({
+          raw: buy,
+          decimals,
+          quoteSymbol: state.quoteSymbol,
+          quoteAsset: state.quoteAsset,
+        });
+        if (!parsed.ok) {
+          errors.devBuyAmount = parsed.error;
+        }
       }
     }
   }

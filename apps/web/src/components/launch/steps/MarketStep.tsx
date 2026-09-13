@@ -9,7 +9,11 @@ type Props = {
   errors: FieldErrors;
   catalogue: readonly PublicQuoteCatalogueItem[];
   quoteWarning?: string | null;
-  onSelect: (quoteAsset: string, quoteSymbol: string) => void;
+  onSelect: (
+    quoteAsset: string,
+    quoteSymbol: string,
+    quoteDecimals: number,
+  ) => void;
 };
 
 function QuoteIcon({ item }: { item: PublicQuoteCatalogueItem }) {
@@ -115,7 +119,9 @@ export function MarketStep({ state, errors, catalogue, quoteWarning, onSelect }:
                     aria-selected={isSelected}
                     aria-label={`${symbol} — ${item.name}`}
                     title={item.name}
-                    onClick={() => onSelect(item.quoteAsset, symbol)}
+                    onClick={() =>
+                      onSelect(item.quoteAsset, symbol, item.decimals)
+                    }
                     className={[
                       'flex w-full flex-col items-center gap-1.5 rounded-[var(--radius-lg)] border px-1.5 py-2.5 transition-colors',
                       isSelected

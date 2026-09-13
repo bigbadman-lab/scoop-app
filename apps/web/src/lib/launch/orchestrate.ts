@@ -22,7 +22,11 @@ import {
   decodeInitialBuyFromReceipt,
   decodeTokenLaunchedFromReceipt,
 } from '@/lib/launch/decode-launch';
-import { resolveDevBuyIntent } from '@/lib/launch/dev-buy';
+import { resolveDevBuyIntent, isNativeEthQuote } from '@/lib/launch/dev-buy';
+import {
+  approveQuoteForFactory,
+  checkLaunchQuoteFunding,
+} from '@/lib/launch/erc20-funding';
 import { ensureArtworkPinned } from '@/lib/launch/ensure-ipfs';
 import {
   canLaunchCanonicalProduction,
@@ -166,7 +170,7 @@ export async function runWalletLaunch(
       return { ok: false, state: fail(callbacks, first) };
     }
 
-    // 3) Authoritative fee + ETH buy intent
+    // 3) Authoritative fee + buy intent (any enabled quote)
     const { feeWei } = await readLaunchFeeWei(input.publicClient);
     const buyIntent = resolveDevBuyIntent(stateForParams, built.params.quoteAsset);
     if (!buyIntent.ok) {
@@ -176,6 +180,110 @@ export async function runWalletLaunch(
           provenance: built.provenance,
         }),
       };
+    }
+
+    // 3b) ERC-20: balance + allowance; approve Factory before simulate when needed
+    if (
+      buyIntent.quoteAmountIn > BigInt(0) &&
+      !isNativeEthQuote(built.params.quoteAsset)
+    ) {
+      let funding: Awaited<ReturnType<typeof checkLaunchQuoteFunding>>;
+      try {
+        funding = await checkLaunchQuoteFunding({
+          publicClient: input.publicClient,
+          account: input.liveAddress,
+          quoteAsset: built.params.quoteAsset,
+          quoteAmountIn: buyIntent.quoteAmountIn,
+          quoteSymbol: stateForParams.quoteSymbol,
+        });
+      } catch (e) {
+        return {
+          ok: false,
+          state: fail(
+            callbacks,
+            e instanceof Error ? e.message : 'Failed to read quote balance/allowance.',
+            { provenance: built.provenance },
+          ),
+        };
+      }
+      if (!funding.ok) {
+        return {
+          ok: false,
+          state: fail(callbacks, funding.error, {
+            provenance: built.provenance,
+          }),
+        };
+      }
+
+      if (funding.needsApproval) {
+        patch({ phase: 'approving_quote', error: null });
+        const liveBeforeApprove = input.getLiveAccount();
+        if (!liveBeforeApprove.address) {
+          return {
+            ok: false,
+            state: fail(callbacks, 'Wallet disconnected before approval.', {
+              provenance: built.provenance,
+            }),
+          };
+        }
+        if (
+          liveBeforeApprove.address.toLowerCase() !==
+          input.liveAddress.toLowerCase()
+        ) {
+          return {
+            ok: false,
+            state: fail(callbacks, 'Wallet account changed before approval.', {
+              provenance: built.provenance,
+            }),
+          };
+        }
+        try {
+          await approveQuoteForFactory({
+            walletClient: input.walletClient,
+            publicClient: input.publicClient,
+            account: liveBeforeApprove.address,
+            quoteAsset: built.params.quoteAsset as `0x${string}`,
+            quoteAmountIn: buyIntent.quoteAmountIn,
+            spender: funding.spender,
+          });
+        } catch (e) {
+          return {
+            ok: false,
+            state: fail(
+              callbacks,
+              e instanceof Error ? e.message : 'Quote approval failed.',
+              { provenance: built.provenance },
+            ),
+          };
+        }
+
+        // Re-check allowance after confirmed approval
+        const post = await checkLaunchQuoteFunding({
+          publicClient: input.publicClient,
+          account: input.liveAddress,
+          quoteAsset: built.params.quoteAsset,
+          quoteAmountIn: buyIntent.quoteAmountIn,
+          quoteSymbol: stateForParams.quoteSymbol,
+        });
+        if (!post.ok) {
+          return {
+            ok: false,
+            state: fail(callbacks, post.error, {
+              provenance: built.provenance,
+            }),
+          };
+        }
+        if (post.needsApproval) {
+          return {
+            ok: false,
+            state: fail(
+              callbacks,
+              'Quote allowance still insufficient after approval.',
+              { provenance: built.provenance },
+            ),
+          };
+        }
+      }
     }
 
     // 4) Simulate (probe+final for buy; single for launch)
@@ -190,7 +298,7 @@ export async function runWalletLaunch(
         params: built.params,
         account: input.liveAddress,
         launchFeeWei: feeWei,
-        quoteAmountIn: buyIntent.quoteAmountInWei,
+        quoteAmountIn: buyIntent.quoteAmountIn,
       });
       prepared = sim.prepared;
       simulatedRequest = sim.simulatedRequest;

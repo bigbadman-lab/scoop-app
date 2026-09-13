@@ -211,28 +211,58 @@ describe('launch reducer navigation', () => {
     let state = createInitialLaunchState({
       quoteAsset: '0x0000000000000000000000000000000000000000',
       quoteSymbol: 'ETH',
+      quoteDecimals: 18,
       devBuyAmount: '0.01',
     });
     state = launchReducer(state, {
       type: 'SELECT_QUOTE',
       quoteAsset: '0x1111111111111111111111111111111111111111',
       quoteSymbol: 'NVDA',
+      quoteDecimals: 18,
     });
     expect(state.devBuyAmount).toBe('');
     expect(state.quoteSymbol).toBe('NVDA');
+    expect(state.quoteDecimals).toBe(18);
   });
 
-  it('rejects non-ETH positive dev buy on earnings step', () => {
+  it('accepts ERC-20 positive dev buy with catalogue decimals', () => {
     const errors = validateEarningsStep(
       createInitialLaunchState({
         creatorMode: 'connected',
         quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
         quoteSymbol: 'USDG',
+        quoteDecimals: 6,
+        devBuyAmount: '10',
+      }),
+      WALLET,
+    );
+    expect(errors.devBuyAmount).toBeUndefined();
+  });
+
+  it('rejects ERC-20 buy without decimals', () => {
+    const errors = validateEarningsStep(
+      createInitialLaunchState({
+        creatorMode: 'connected',
+        quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        quoteSymbol: 'USDG',
+        quoteDecimals: null,
         devBuyAmount: '1',
       }),
       WALLET,
     );
-    expect(errors.devBuyAmount).toMatch(/ETH pairs only/i);
+    expect(errors.devBuyAmount).toMatch(/decimals/i);
+  });
+
+  it('keeps X creator disabled as in development', () => {
+    const errors = validateEarningsStep(
+      createInitialLaunchState({
+        creatorMode: 'x',
+        quoteAsset: '0x0000000000000000000000000000000000000000',
+        quoteDecimals: 18,
+      }),
+      WALLET,
+    );
+    expect(errors.creatorMode).toMatch(/in development/i);
   });
 
   it('only advances when step is valid', () => {

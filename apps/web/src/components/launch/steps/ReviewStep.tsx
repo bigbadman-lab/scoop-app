@@ -23,8 +23,9 @@ import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import {
   formatEthWei,
+  formatQuoteRaw,
   isNativeEthQuote,
-  parseEthDevBuyWei,
+  parseDevBuyAmount,
 } from '@/lib/launch/dev-buy';
 import { truncateAddress } from '@/lib/format';
 import {
@@ -59,15 +60,27 @@ export function ReviewStep({
     (q) => q.quoteAsset.toLowerCase() === state.quoteAsset?.toLowerCase(),
   );
   const quoteSymbol = state.quoteSymbol ?? quote?.displaySymbol ?? '—';
+  const quoteDecimals =
+    state.quoteDecimals ??
+    quote?.decimals ??
+    (isNativeEthQuote(state.quoteAsset) ? 18 : null);
   const buy = hasDevBuy(state);
-  const ethBuy =
-    buy && isNativeEthQuote(state.quoteAsset)
-      ? parseEthDevBuyWei(state.devBuyAmount)
+  const parsedBuy =
+    buy && quoteDecimals != null
+      ? parseDevBuyAmount({
+          raw: state.devBuyAmount,
+          decimals: quoteDecimals,
+          quoteSymbol,
+          quoteAsset: state.quoteAsset,
+        })
       : null;
-  const buyWei =
-    ethBuy && ethBuy.ok && ethBuy.wei > BigInt(0) ? ethBuy.wei : BigInt(0);
-  const totalWei = LAUNCH_FEE_WEI + buyWei;
-  const ethBuyActive = buyWei > BigInt(0);
+  const buyRaw =
+    parsedBuy && parsedBuy.ok && parsedBuy.amount > BigInt(0)
+      ? parsedBuy.amount
+      : BigInt(0);
+  const buyActive = buyRaw > BigInt(0);
+  const nativeQuote = isNativeEthQuote(state.quoteAsset);
+  const msgValueWei = nativeQuote ? LAUNCH_FEE_WEI + buyRaw : LAUNCH_FEE_WEI;
   const recipient = resolveCreatorRecipient(state, connectedAddress);
   const busy = isLaunchTxBusy(tx.phase);
   const routing = computeEffectiveFeeRouting({
@@ -282,7 +295,7 @@ export function ReviewStep({
                 {creatorLines.join('\n')}
               </dd>
             </div>
-            {ethBuyActive ? (
+            {buyActive ? (
               <div>
                 <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
                   Initial buy recipient
@@ -305,23 +318,25 @@ export function ReviewStep({
         </TicketBlock>
 
         <TicketBlock title="Dev buy">
-          {ethBuyActive ? (
+          {buyActive && quoteDecimals != null ? (
             <>
               <p
                 className="font-mono text-[14px] tabular-nums"
                 data-testid="review-dev-buy-amount"
               >
-                {formatEthWei(buyWei)} ETH
+                {formatQuoteRaw(buyRaw, quoteDecimals)} {quoteSymbol}
               </p>
               <p className="mt-2 text-sm text-[var(--muted)]">
                 Submitted atomically with launch via{' '}
-                <span className="font-mono">launchAndBuy</span>.
+                <span className="font-mono">launchAndBuy</span>
+                {nativeQuote
+                  ? '.'
+                  : `. ${quoteSymbol} is authorized to the Factory before launch; msg.value is launch fee only.`}
               </p>
             </>
-          ) : buy && !isNativeEthQuote(state.quoteAsset) ? (
+          ) : buy && quoteDecimals == null ? (
             <p className="text-sm text-[#b42318]" role="alert">
-              Initial buy is currently available for ETH pairs only. Clear the
-              amount or switch to ETH to continue.
+              Quote decimals missing. Re-select the market pair before launch.
             </p>
           ) : (
             <p className="text-sm text-[var(--muted)]" data-testid="review-dev-buy-none">
@@ -333,19 +348,19 @@ export function ReviewStep({
         <TicketBlock title="Costs">
           <dl className="space-y-2 text-sm">
             <Row label="Launch fee" value={`${LAUNCH_FEE_ETH} ETH`} />
-            {ethBuyActive ? (
+            {buyActive && quoteDecimals != null ? (
               <Row
                 label="Initial dev buy"
-                value={`${formatEthWei(buyWei)} ETH`}
+                value={`${formatQuoteRaw(buyRaw, quoteDecimals)} ${quoteSymbol}`}
               />
             ) : null}
             <Row
               label="Total transaction value"
-              value={`${formatEthWei(totalWei)} ETH (msg.value)`}
+              value={`${formatEthWei(msgValueWei)} ETH (msg.value)`}
             />
             <Row
               label="Function"
-              value={ethBuyActive ? 'launchAndBuy' : 'launch'}
+              value={buyActive ? 'launchAndBuy' : 'launch'}
             />
             <Row label="Network" value={`${ROBINHOOD_CHAIN_LABEL} · ${ROBINHOOD_CHAIN_ID}`} />
           </dl>
