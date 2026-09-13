@@ -20,6 +20,8 @@ import {
   executionPriceQuoteX18,
   normalizeAddress,
   normalizeBytes32,
+  resolvePoolOrientation,
+  quoteAndTokenAmountsFromSwapDeltas,
 } from '@scoop/shared';
 import { MAIN_STREAM_NAME } from '../config.js';
 import { decodeLogs, decodeReceiptLogs, type DecodedChainEvent } from './decode.js';
@@ -259,6 +261,11 @@ export async function processBlock(
     const quoteDecimals =
       (await getQuoteAssetDecimals(db, chainId, launchView.quoteAsset)) ?? 18;
 
+    const orientation = resolvePoolOrientation({
+      tokenAddress,
+      quoteAsset: launchView.quoteAsset,
+    });
+
     watchlistAddLaunch(watchlist, {
       chainId,
       tokenAddress,
@@ -276,12 +283,12 @@ export async function processBlock(
       tickUpper: launchView.tickUpper,
       openingSqrtPriceX96: launchView.openingSqrtPriceX96.toString(),
       lpTokenId: launchView.lpTokenId.toString(),
-      currency0: normalizeAddress(launchView.quoteAsset),
-      currency1: tokenAddress,
+      currency0: orientation.currency0,
+      currency1: orientation.currency1,
       fee: economics.totalPoolFee,
       tickSpacing: TICK_SPACING,
       hooks: ZERO_ADDRESS,
-      tokenIsCurrency1: true,
+      tokenIsCurrency1: orientation.tokenIsCurrency1,
       tokenDecimals: tokenMeta.decimals || 18,
       quoteDecimals,
     });
@@ -313,9 +320,12 @@ export async function processBlock(
     const sqrtAfter = BigInt(String(ev.args.sqrtPriceX96));
     const tickAfter = Number(ev.args.tick);
     const liqAfter = BigInt(String(ev.args.liquidity));
-    const side = classifyBuySell(amount0, amount1);
-    const quoteAmountRaw = amount0 < 0n ? -amount0 : amount0;
-    const tokenAmountRaw = amount1 < 0n ? -amount1 : amount1;
+    const side = classifyBuySell(amount0, amount1, entry.tokenIsCurrency1);
+    const { quoteAmountRaw, tokenAmountRaw } = quoteAndTokenAmountsFromSwapDeltas({
+      amount0,
+      amount1,
+      tokenIsCurrency1: entry.tokenIsCurrency1,
+    });
     const quoteDecimals = entry.quoteDecimals;
     const tokenDecimals = entry.tokenDecimals;
     const executionPrice = executionPriceQuoteX18({

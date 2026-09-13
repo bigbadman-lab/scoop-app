@@ -56,6 +56,35 @@ describe('trade pool key', () => {
       }),
     ).toBe(false);
   });
+
+  it('sets zeroForOne correctly when launched token is currency0', () => {
+    // token < quote ⇒ token=currency0, quote=currency1
+    const token = '0x1111111111111111111111111111111111111111' as const;
+    const quote = '0x5fc5360d00000000000000000000000000000000' as const;
+    const key = {
+      currency0: token,
+      currency1: quote,
+      fee: 10000,
+      tickSpacing: 10,
+      hooks: '0x0000000000000000000000000000000000000000' as const,
+    };
+    expect(
+      zeroForOneForTrade({
+        mode: 'buy',
+        poolKey: key,
+        quoteAsset: quote,
+        tokenAddress: token,
+      }),
+    ).toBe(false);
+    expect(
+      zeroForOneForTrade({
+        mode: 'sell',
+        poolKey: key,
+        quoteAsset: quote,
+        tokenAddress: token,
+      }),
+    ).toBe(true);
+  });
 });
 
 describe('slippage', () => {

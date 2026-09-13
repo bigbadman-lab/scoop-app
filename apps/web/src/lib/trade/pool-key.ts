@@ -60,7 +60,8 @@ export function isNativeCurrency(address: string): boolean {
 /**
  * BUY = spend quote → receive token.
  * SELL = spend token → receive quote.
- * zeroForOne when tokenIn is currency0 (SCOOP: quote is usually currency0 for ETH pools).
+ * zeroForOne when tokenIn is currency0 (works for both pool orientations when
+ * currency0/currency1 come from the indexed Uniswap-sorted pool key).
  */
 export function zeroForOneForTrade(args: {
   mode: TradeSideMode;

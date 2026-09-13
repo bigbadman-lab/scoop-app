@@ -1,5 +1,11 @@
 import type { Queryable } from '@scoop/db';
-import { normalizeAddress, normalizeBytes32, BASE_FEE, TICK_SPACING } from '@scoop/shared';
+import {
+  normalizeAddress,
+  normalizeBytes32,
+  BASE_FEE,
+  TICK_SPACING,
+  resolvePoolOrientation,
+} from '@scoop/shared';
 
 export interface WatchlistEntry {
   chainId: number;
@@ -118,8 +124,14 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
   for (const row of result.rows) {
     const quote = normalizeAddress(row.quote_asset);
     const token = normalizeAddress(row.token_address);
-    const currency0 = row.currency0 ? normalizeAddress(row.currency0) : quote;
-    const currency1 = row.currency1 ? normalizeAddress(row.currency1) : token;
+    // Prefer Uniswap address sort of (token, quote). Validate stored currencies when present.
+    const orientation = resolvePoolOrientation({
+      tokenAddress: token,
+      quoteAsset: quote,
+      currency0: row.currency0,
+      currency1: row.currency1,
+      onCurrencyMismatch: 'prefer-sorted',
+    });
     const poolFee =
       row.fee ??
       (row.total_pool_fee != null ? Number(row.total_pool_fee) : null) ??
@@ -141,12 +153,12 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
       tickUpper: row.tick_upper,
       openingSqrtPriceX96: row.opening_sqrt_price_x96,
       lpTokenId: row.lp_token_id,
-      currency0,
-      currency1,
+      currency0: orientation.currency0,
+      currency1: orientation.currency1,
       fee: poolFee,
       tickSpacing: row.tick_spacing ?? TICK_SPACING,
       hooks: row.hooks ? normalizeAddress(row.hooks) : quote,
-      tokenIsCurrency1: currency1 === token,
+      tokenIsCurrency1: orientation.tokenIsCurrency1,
       tokenDecimals: row.token_decimals ?? 18,
       quoteDecimals: row.quote_decimals ?? 18,
     });
@@ -185,7 +197,14 @@ export function watchlistAddLaunch(
     currency1: normalizeAddress(entry.currency1),
     hooks: normalizeAddress(entry.hooks),
     tokenIsCurrency1:
-      entry.tokenIsCurrency1 ?? normalizeAddress(entry.currency1) === token,
+      entry.tokenIsCurrency1 ??
+      resolvePoolOrientation({
+        tokenAddress: token,
+        quoteAsset: entry.quoteAsset,
+        currency0: entry.currency0,
+        currency1: entry.currency1,
+        onCurrencyMismatch: 'prefer-sorted',
+      }).tokenIsCurrency1,
     tokenDecimals: entry.tokenDecimals ?? 18,
     quoteDecimals: entry.quoteDecimals ?? 18,
   };

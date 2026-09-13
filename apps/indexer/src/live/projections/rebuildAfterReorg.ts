@@ -5,6 +5,7 @@ import {
   ZERO_ADDRESS,
   normalizeAddress,
   normalizeBytes32,
+  resolvePoolOrientation,
 } from '@scoop/shared';
 import {
   bucketStartFor,
@@ -115,6 +116,10 @@ export async function rebuildProjectionsAfterReorg(
       sourceTxHash: t.tx_hash,
       sourceLogIndex: t.log_index,
       quoteAsset: L.quote_asset,
+      tokenIsCurrency1: resolvePoolOrientation({
+        tokenAddress: token,
+        quoteAsset: L.quote_asset,
+      }).tokenIsCurrency1,
       quoteUsdMaxAgeSeconds: args.quoteUsdMaxAgeSeconds,
     });
   }

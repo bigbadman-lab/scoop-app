@@ -4,7 +4,7 @@ export const DEFAULT_LAUNCH_DUST_RAW = 1000n;
 
 /**
  * Token inventory remaining in the initial LP position at `sqrtPriceX96`.
- * HELLO / ETH-quote launches use tokenIsCurrency1=true.
+ * ETH-quote launches typically use tokenIsCurrency1=true; ERC-20 quotes may flip.
  */
 export function amountTokenInPosition(args: {
   liquidity: bigint;

@@ -117,6 +117,13 @@ export {
   NEW_MARKET_WINDOW_SECONDS,
   type DiscoveryBucket,
 } from './discoveryFilters.js';
+export {
+  resolvePoolOrientation,
+  quoteAndTokenAmountsFromSwapDeltas,
+  initialBuySwapDeltas,
+  type PoolOrientation,
+  type OrientationAddress,
+} from './poolOrientation.js';
 
 /** Canonical Robinhood Chain ID for SCOOP production. */
 export const SCOOP_CHAIN_ID = CANONICAL_CHAIN_ID;
@@ -273,13 +280,31 @@ export function fdvUsdX18FromPrice(args: {
 export type TradeSide = 'buy' | 'sell';
 
 /**
- * Classify swap side when ETH (quote) is currency0.
- * Buy: amount0 < 0, amount1 > 0. Sell: amount1 < 0, amount0 > 0.
+ * Classify swap side relative to the launched token.
+ *
+ * Project convention (HELLO / Factory initial buy): for a buy, the quote-currency
+ * delta is negative and the token-currency delta is positive.
+ *
+ * - tokenIsCurrency1 (quote=currency0): buy = amount0 < 0 && amount1 > 0
+ * - !tokenIsCurrency1 (token=currency0): buy = amount1 < 0 && amount0 > 0
+ *
+ * Default `tokenIsCurrency1=true` preserves ETH-quote / HELLO callers.
  */
-export function classifyBuySell(amount0: bigint, amount1: bigint): TradeSide {
-  if (amount0 < 0n && amount1 > 0n) return 'buy';
-  if (amount1 < 0n && amount0 > 0n) return 'sell';
-  throw new Error(`Ambiguous swap deltas amount0=${amount0} amount1=${amount1}`);
+export function classifyBuySell(
+  amount0: bigint,
+  amount1: bigint,
+  tokenIsCurrency1: boolean = true,
+): TradeSide {
+  if (tokenIsCurrency1) {
+    if (amount0 < 0n && amount1 > 0n) return 'buy';
+    if (amount1 < 0n && amount0 > 0n) return 'sell';
+  } else {
+    if (amount1 < 0n && amount0 > 0n) return 'buy';
+    if (amount0 < 0n && amount1 > 0n) return 'sell';
+  }
+  throw new Error(
+    `Ambiguous swap deltas amount0=${amount0} amount1=${amount1} tokenIsCurrency1=${tokenIsCurrency1}`,
+  );
 }
 
 export type TransferClass =

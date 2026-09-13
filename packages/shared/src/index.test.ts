@@ -166,6 +166,11 @@ describe('buy/sell classification', () => {
   it('classifies sell when amount1 < 0 and amount0 > 0', () => {
     expect(classifyBuySell(1n, -2n)).toBe('sell');
   });
+
+  it('classifies flipped-orientation buy/sell when token is currency0', () => {
+    expect(classifyBuySell(2n, -1n, false)).toBe('buy');
+    expect(classifyBuySell(-2n, 1n, false)).toBe('sell');
+  });
 });
 
 describe('transfer classification', () => {

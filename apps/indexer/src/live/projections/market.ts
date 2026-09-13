@@ -5,6 +5,7 @@ import {
   computeLaunchProgress,
   priceQuoteX18FromSqrt,
   normalizeAddress,
+  resolvePoolOrientation,
 } from '@scoop/shared';
 import { resolveUsdMarketFields } from './usd.js';
 
@@ -52,7 +53,6 @@ export async function refreshTokenMarketFromTrades(
   },
 ): Promise<void> {
   const token = normalizeAddress(args.tokenAddress);
-  const tokenIsCurrency1 = args.tokenIsCurrency1 ?? true;
   const nowSec = args.nowSec ?? Math.floor(Date.now() / 1000);
   const windowStart = nowSec - MARKET_VOLUME_24H_WINDOW_SECONDS;
 
@@ -76,6 +76,9 @@ export async function refreshTokenMarketFromTrades(
     throw new Error(`Missing quote asset metadata for token ${token}`);
   }
   const quoteAsset = normalizeAddress(rawQuote);
+  const tokenIsCurrency1 =
+    args.tokenIsCurrency1 ??
+    resolvePoolOrientation({ tokenAddress: token, quoteAsset }).tokenIsCurrency1;
   const tokenDecimals = args.tokenDecimals ?? metaRow?.token_decimals ?? 18;
   const quoteDecimals = args.quoteDecimals ?? metaRow?.quote_decimals ?? 18;
   const totalSupplyRaw =

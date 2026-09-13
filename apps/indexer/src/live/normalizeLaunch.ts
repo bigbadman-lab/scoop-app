@@ -26,6 +26,9 @@ import {
   normalizeBytes32,
   getSqrtRatioAtTick,
   computeLaunchProgress,
+  resolvePoolOrientation,
+  quoteAndTokenAmountsFromSwapDeltas,
+  initialBuySwapDeltas,
 } from '@scoop/shared';
 import type { DecodedChainEvent } from './decode.js';
 import { resolveUsdMarketFields, resolveTradeUsdFields } from './projections/usd.js';
@@ -141,9 +144,20 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   const tickSpacing = input.protocol.tickSpacing ?? TICK_SPACING;
   const hooks = normalizeAddress(input.protocol.hooks ?? ZERO_ADDRESS);
   const confirmationStatus = input.confirmationStatus ?? 'confirmed';
-  const currency0 = quoteAsset;
-  const currency1 = token;
-  const tokenIsCurrency1 = true;
+  const initEvent = input.decoded.find((e) => e.kind === 'Initialize');
+  const orientation = resolvePoolOrientation({
+    tokenAddress: token,
+    quoteAsset,
+    currency0:
+      initEvent && initEvent.kind === 'Initialize'
+        ? String(initEvent.args.currency0)
+        : null,
+    currency1:
+      initEvent && initEvent.kind === 'Initialize'
+        ? String(initEvent.args.currency1)
+        : null,
+  });
+  const { currency0, currency1, tokenIsCurrency1 } = orientation;
   const tokenDecimals = input.tokenMeta.decimals || 18;
   const quoteDecimals =
     (await getQuoteAssetDecimals(db, chainId, quoteAsset)) ?? 18;
@@ -228,23 +242,31 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   });
 
   const swapEvent = input.decoded.find((e) => e.kind === 'Swap');
-  const fallbackQuote =
+  const fallbackQuoteAbs =
     input.launch.initialBuyQuoteRaw != null
-      ? -BigInt(String(input.launch.initialBuyQuoteRaw))
+      ? BigInt(String(input.launch.initialBuyQuoteRaw))
       : 0n;
-  const fallbackTokens =
+  const fallbackTokensAbs =
     input.launch.initialBuyTokensRaw != null
       ? BigInt(String(input.launch.initialBuyTokensRaw))
       : 0n;
+  const fallbackDeltas =
+    fallbackQuoteAbs > 0n || fallbackTokensAbs > 0n
+      ? initialBuySwapDeltas({
+          quoteAmountRaw: fallbackQuoteAbs,
+          tokenAmountRaw: fallbackTokensAbs,
+          tokenIsCurrency1,
+        })
+      : { amount0: 0n, amount1: 0n };
 
   const amount0 =
     swapEvent && swapEvent.kind === 'Swap'
       ? BigInt(String(swapEvent.args.amount0))
-      : fallbackQuote;
+      : fallbackDeltas.amount0;
   const amount1 =
     swapEvent && swapEvent.kind === 'Swap'
       ? BigInt(String(swapEvent.args.amount1))
-      : fallbackTokens;
+      : fallbackDeltas.amount1;
   const sqrtAfter =
     swapEvent && swapEvent.kind === 'Swap'
       ? BigInt(String(swapEvent.args.sqrtPriceX96))
@@ -300,9 +322,14 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
   };
 
   if (hasTrade) {
-    side = classifyBuySell(amount0, amount1);
-    quoteAmountRaw = amount0 < 0n ? -amount0 : amount0;
-    tokenAmountRaw = amount1 < 0n ? -amount1 : amount1;
+    side = classifyBuySell(amount0, amount1, tokenIsCurrency1);
+    const legs = quoteAndTokenAmountsFromSwapDeltas({
+      amount0,
+      amount1,
+      tokenIsCurrency1,
+    });
+    quoteAmountRaw = legs.quoteAmountRaw;
+    tokenAmountRaw = legs.tokenAmountRaw;
     if (tokenAmountRaw > 0n) {
       executionPrice = executionPriceQuoteX18({
         quoteAmountRaw,

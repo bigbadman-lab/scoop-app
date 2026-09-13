@@ -1,5 +1,5 @@
 import type { Queryable } from '@scoop/db';
-import { HELLO_FIXTURE, normalizeAddress, normalizeBytes32 } from '@scoop/shared';
+import { HELLO_FIXTURE, normalizeAddress, normalizeBytes32, resolvePoolOrientation } from '@scoop/shared';
 import { resolveTradeUsdFields } from './usd.js';
 import {
   bucketStartFor,
@@ -298,6 +298,10 @@ export async function enrichTokenHistoricalUsd(
         sourceTxHash: last.tx_hash,
         sourceLogIndex: last.log_index,
         quoteAsset,
+        tokenIsCurrency1: resolvePoolOrientation({
+          tokenAddress: token,
+          quoteAsset,
+        }).tokenIsCurrency1,
         quoteDecimals,
         quoteUsdMaxAgeSeconds: options.quoteUsdMaxAgeSeconds,
       });
