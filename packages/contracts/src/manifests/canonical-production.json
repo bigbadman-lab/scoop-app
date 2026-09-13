@@ -1,7 +1,7 @@
 {
   "protocol": "SCOOP",
   "deploymentKind": "canonical-production",
-  "status": "undeployed",
+  "status": "deployed",
   "chainId": 4663,
   "baseline": "p3-canonical-0157a9b",
   "source": {
@@ -9,10 +9,31 @@
     "tag": "p3-canonical",
     "commit": "0157a9b47a7ad44e48b8671e58eca1e16227f34b"
   },
-  "contracts": null,
-  "fixtures": null,
+  "contracts": {
+    "factory": "0x4B227d5E6199f42ceA4e638875fF8C740757DD3C",
+    "creatorRegistry": "0xC99ec41AAe874B02D6e7392B43b713B6dD2E03C2",
+    "creatorRewards": "0xdB80eED1d52c8c80Ae3E221C85dA94319132f6EF",
+    "tokenDeployer": "0x259D3f3474fD192174BC245feb6d676CC4Fe4379",
+    "launchDeployer": "0x3f6dF184ff86F32bf431c7Aff5267d1C899DAcBd",
+    "quoteRegistry": "0xE3782bef83cfB17B5a84B2649405a944dc58e40C",
+    "priceOracle": "0x346a84fbAB49a50a2255F2808fd6BCe812DaFe5c",
+    "rootPublisher": "0xe37C1c028201054461d0F283896B56552b054B29",
+    "poolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+    "positionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+    "universalRouter": "0x8876789976dEcBfCbBbe364623C63652db8C0904",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "launchFeeRecipient": "0xCb2D4ceD82B5E9e013F4db58F999662052aE1FA3",
+    "buybackVault": "0x4DD3fe45AD34A0De7182f51822246A2E4379bA15",
+    "operations": "0x17CD9659e8cB03c49F9C631218f57d65089d7C95",
+    "verificationAuthority": "0xe176aCa5227F4c59c843cD0f2BAef21924DbfFE8",
+    "registryAuthority": "0x54dCe3F53bbe3fBa3d1035E045a8a4de850eDcE7",
+    "oracleAuthority": "0x54dCe3F53bbe3fBa3d1035E045a8a4de850eDcE7"
+  },
+  "fixtures": {
+    "hello": null
+  },
   "metadata": {
-    "description": "Canonical production deployment slot for post-P3 protocol. Addresses are intentionally absent until the guarded redeploy lands.",
-    "indexingStartBlock": null
+    "description": "Canonical production deployment (P10.3 freeze / P10.4 Phase 5A cutover). Indexing enable remains separately gated.",
+    "indexingStartBlock": 60525572
   }
 }

@@ -27,12 +27,15 @@ describe('holder rewards config', () => {
     expect(publicConfigView(cfg).publisherAddress).toBeNull();
   });
 
-  it('canonical-production while undeployed fails safely', () => {
-    expect(() =>
-      loadHolderRewardsConfig(
-        baseEnv({ SCOOP_HOLDER_REWARDS_DEPLOYMENT_MODE: 'canonical-production' }),
-      ),
-    ).toThrow(/undeployed/);
+  it('canonical-production accepts deployed P10.3 manifest with required env', () => {
+    const cfg = loadHolderRewardsConfig(
+      baseEnv({
+        SCOOP_HOLDER_REWARDS_DEPLOYMENT_MODE: 'canonical-production',
+        ROBINHOOD_RPC_URL: 'https://example.invalid/rpc',
+        DATABASE_URL: 'postgres://localhost/scoop',
+      }),
+    );
+    expect(cfg.deploymentMode).toBe('canonical-production');
   });
 
   it('refuses fee-keeper key reuse as publisher', () => {

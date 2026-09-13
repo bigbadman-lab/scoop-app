@@ -132,7 +132,7 @@ describe('buildLaunchParams', () => {
 });
 
 describe('prepareWalletLaunchRequest', () => {
-  it('refuses prepare while canonical production is undeployed', () => {
+  it('prepares launch against the canonical production Factory', () => {
     expect(LAUNCH_WRITE_ENABLED).toBe(true);
     const built = buildLaunchParams({
       state: readyState(),
@@ -141,13 +141,15 @@ describe('prepareWalletLaunchRequest', () => {
     expect(built.ok).toBe(true);
     if (!built.ok) return;
     expect(built.params.additionalFee).toBe(0);
-    expect(() =>
-      prepareWalletLaunchRequest({
-        params: built.params,
-        account: WALLET,
-        launchFeeWei: LAUNCH_FEE_WEI,
-      }),
-    ).toThrow(/undeployed/);
+    const prepared = prepareWalletLaunchRequest({
+      params: built.params,
+      account: WALLET,
+      launchFeeWei: LAUNCH_FEE_WEI,
+    });
+    expect(prepared.functionName).toBe('launch');
+    expect(prepared.address.toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+    );
   });
 });
 

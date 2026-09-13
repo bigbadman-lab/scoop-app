@@ -24,8 +24,10 @@ describe('protocol reset tooling', () => {
     expect(() => parseProtocolResetArgs(['--chain-id', '4663'])).toThrow(/mode/);
   });
 
-  it('canonical production remains undeployed (no silent historical Factory)', () => {
-    expect(isCanonicalProductionDeployed(canonicalProductionManifest)).toBe(false);
-    expect(canonicalProductionManifest.contracts).toBeNull();
+  it('canonical production is deployed and distinct from historical canary', () => {
+    expect(isCanonicalProductionDeployed(canonicalProductionManifest)).toBe(true);
+    expect(canonicalProductionManifest.contracts?.factory.toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+    );
   });
 });

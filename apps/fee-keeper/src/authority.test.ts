@@ -39,14 +39,20 @@ describe('deployment mode safety', () => {
     expect(cfg.deploymentMode).toBe('historical-test');
   });
 
-  it('canonical-production while undeployed fails safely (no historical fallback)', () => {
-    expect(() =>
-      loadFeeKeeperConfig(
-        baseEnv({ SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production' }),
-      ),
-    ).toThrow(/undeployed/);
-    expect(() => resolveDeploymentFactory('canonical-production')).toThrow(
-      /refusing to fall back/,
+  it('canonical-production resolves P10.3 Factory with no historical fallback', () => {
+    const resolved = resolveDeploymentFactory('canonical-production');
+    expect(resolved.factoryAddress?.toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+    );
+    expect(resolved.factoryAddress?.toLowerCase()).not.toBe(
+      historicalTestCanaryManifest.contracts.ScoopFactory.toLowerCase(),
+    );
+    const cfg = loadFeeKeeperConfig(
+      baseEnv({ SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production' }),
+    );
+    expect(cfg.deploymentMode).toBe('canonical-production');
+    expect(cfg.factoryAddress?.toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
     );
   });
 

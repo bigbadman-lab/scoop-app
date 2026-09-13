@@ -88,29 +88,35 @@ describe('canonical LaunchParams fee fields', () => {
   });
 });
 
-describe('undeployed production safety', () => {
-  it('canonical production undeployed → no broadcast helpers', () => {
-    expect(canLaunchCanonicalProduction()).toBe(false);
-    expect(() => resolveCanonicalLaunchFactoryAddress()).toThrow(/undeployed/);
+describe('canonical production launch gate', () => {
+  it('resolves canonical Factory with no historical fallback', () => {
+    expect(canLaunchCanonicalProduction()).toBe(true);
+    expect(resolveCanonicalLaunchFactoryAddress().toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+    );
+    expect(resolveCanonicalLaunchFactoryAddress().toLowerCase()).not.toBe(
+      HISTORICAL_TEST_FACTORY_ADDRESS.toLowerCase(),
+    );
   });
 
-  it('prepareWalletLaunchRequest refuses while undeployed', () => {
+  it('prepareWalletLaunchRequest targets canonical Factory', () => {
     const built = buildLaunchParams({
       state: readyState(),
       liveConnectedAddress: null,
     });
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    expect(() =>
-      prepareWalletLaunchRequest({
-        params: built.params,
-        account: WALLET,
-        launchFeeWei: BigInt('500000000000000'),
-      }),
-    ).toThrow(/undeployed/);
+    const prepared = prepareWalletLaunchRequest({
+      params: built.params,
+      account: WALLET,
+      launchFeeWei: BigInt('500000000000000'),
+    });
+    expect(prepared.address.toLowerCase()).toBe(
+      '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
+    );
   });
 
-  it('writeLaunchAfterSimulation refuses while undeployed', async () => {
+  it('writeLaunchAfterSimulation refuses historical Factory', async () => {
     expect(LAUNCH_WRITE_ENABLED).toBe(true);
     await expect(
       writeLaunchAfterSimulation({
@@ -125,7 +131,7 @@ describe('undeployed production safety', () => {
         liveAccount: WALLET,
         liveChainId: 4663,
       }),
-    ).rejects.toThrow(/undeployed|Historical/);
+    ).rejects.toThrow(/Historical/);
   });
 
   it('never silently drops fee selections from built params', () => {

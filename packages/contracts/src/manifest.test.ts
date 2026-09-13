@@ -54,27 +54,97 @@ describe('@scoop/contracts manifest', () => {
     );
   });
 
-  it('represents canonical production as undeployed with rootPublisher in schema', () => {
+  it('represents canonical production as deployed P10.3 stack', () => {
     expect(canonicalProductionManifest.deploymentKind).toBe(
       'canonical-production',
     );
-    expect(canonicalProductionManifest.status).toBe('undeployed');
-    expect(canonicalProductionManifest.contracts).toBeNull();
+    expect(canonicalProductionManifest.status).toBe('deployed');
     expect(canonicalProductionManifest.source.commit).toBe(
       CANONICAL_PROTOCOL_COMMIT,
     );
-    expect(CANONICAL_ADDRESS_KEYS).toContain('rootPublisher');
-    expect(isCanonicalProductionDeployed()).toBe(false);
+    expect(isCanonicalProductionDeployed()).toBe(true);
+    expect(canonicalProductionManifest.metadata.indexingStartBlock).toBe(
+      60525572,
+    );
+    expect(canonicalProductionManifest.fixtures).toEqual({ hello: null });
+
+    const addresses = requireCanonicalProductionAddresses();
+    expect(CANONICAL_ADDRESS_KEYS).toHaveLength(18);
+    for (const key of CANONICAL_ADDRESS_KEYS) {
+      expect(addresses[key]).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    }
+
+    expect(addresses.factory).toBe(
+      '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+    );
+    expect(addresses.factory.toLowerCase()).not.toBe(
+      HISTORICAL_TEST_FACTORY_ADDRESS.toLowerCase(),
+    );
+    expect(addresses.creatorRegistry).toBe(
+      '0xC99ec41AAe874B02D6e7392B43b713B6dD2E03C2',
+    );
+    expect(addresses.creatorRewards).toBe(
+      '0xdB80eED1d52c8c80Ae3E221C85dA94319132f6EF',
+    );
+    expect(addresses.tokenDeployer).toBe(
+      '0x259D3f3474fD192174BC245feb6d676CC4Fe4379',
+    );
+    expect(addresses.launchDeployer).toBe(
+      '0x3f6dF184ff86F32bf431c7Aff5267d1C899DAcBd',
+    );
+    expect(addresses.quoteRegistry).toBe(
+      '0xE3782bef83cfB17B5a84B2649405a944dc58e40C',
+    );
+    expect(addresses.priceOracle).toBe(
+      '0x346a84fbAB49a50a2255F2808fd6BCe812DaFe5c',
+    );
+    expect(addresses.rootPublisher).toBe(
+      '0xe37C1c028201054461d0F283896B56552b054B29',
+    );
+    expect(addresses.poolManager).toBe(
+      '0x8366a39CC670B4001A1121B8F6A443A643e40951',
+    );
+    expect(addresses.positionManager).toBe(
+      '0x58daec3116aae6D93017bAAea7749052E8a04fA7',
+    );
+    expect(addresses.universalRouter).toBe(
+      '0x8876789976dEcBfCbBbe364623C63652db8C0904',
+    );
+    expect(addresses.permit2).toBe(
+      '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+    );
+    expect(addresses.launchFeeRecipient).toBe(
+      '0xCb2D4ceD82B5E9e013F4db58F999662052aE1FA3',
+    );
+    expect(addresses.buybackVault).toBe(
+      '0x4DD3fe45AD34A0De7182f51822246A2E4379bA15',
+    );
+    expect(addresses.operations).toBe(
+      '0x17CD9659e8cB03c49F9C631218f57d65089d7C95',
+    );
+    expect(addresses.verificationAuthority).toBe(
+      '0xe176aCa5227F4c59c843cD0f2BAef21924DbfFE8',
+    );
+    expect(addresses.registryAuthority).toBe(
+      '0x54dCe3F53bbe3fBa3d1035E045a8a4de850eDcE7',
+    );
+    expect(addresses.oracleAuthority).toBe(
+      '0x54dCe3F53bbe3fBa3d1035E045a8a4de850eDcE7',
+    );
   });
 
   it('rejects treating historical Factory as canonical production', () => {
-    expect(() => requireCanonicalProductionAddresses()).toThrow(
-      /not yet deployed/,
-    );
-
     const fakeDeployed = {
-      ...canonicalProductionManifest,
+      protocol: 'SCOOP' as const,
+      deploymentKind: 'canonical-production' as const,
       status: 'deployed' as const,
+      chainId: CANONICAL_CHAIN_ID,
+      baseline: 'fake',
+      source: {
+        repo: 'scoop-protocol' as const,
+        tag: 'p3-canonical' as const,
+        commit: CANONICAL_PROTOCOL_COMMIT,
+      },
       contracts: Object.fromEntries(
         CANONICAL_ADDRESS_KEYS.map((key) => [
           key,
@@ -84,13 +154,25 @@ describe('@scoop/contracts manifest', () => {
       fixtures: { hello: null },
       metadata: {
         description: 'fake',
-        indexingStartBlock: null,
+        indexingStartBlock: 60525572,
       },
     };
 
     expect(() => validateCanonicalProductionManifest(fakeDeployed)).toThrow(
       /must not equal the historical test Factory/,
     );
+  });
+
+  it('keeps historical canary Factory distinct from canonical production', () => {
+    expect(historicalTestCanaryManifest.deploymentKind).toBe(
+      'historical-test-only',
+    );
+    expect(historicalTestCanaryManifest.contracts.ScoopFactory).toBe(
+      HISTORICAL_TEST_FACTORY_ADDRESS,
+    );
+    expect(
+      requireCanonicalProductionAddresses().factory.toLowerCase(),
+    ).not.toBe(HISTORICAL_TEST_FACTORY_ADDRESS.toLowerCase());
   });
 
   it('rejects wrong chain ID on historical manifest', () => {
