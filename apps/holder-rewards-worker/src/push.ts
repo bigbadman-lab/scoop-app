@@ -2,7 +2,7 @@
  * Permissionless pushBatch settlement — separate from publisher authority.
  * Failed recipients remain claimable.
  */
-import { type Address, type Hash, type Hex, type PublicClient } from 'viem';
+import { type Address, type Hash } from 'viem';
 import {
   assertPushAllowed,
   resolvePushWriteGate,

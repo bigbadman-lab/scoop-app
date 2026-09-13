@@ -1,6 +1,10 @@
 /**
  * Holder rewards worker env — writes disabled unless WRITE_ENABLED=true.
  * Never reuse fee-keeper private key. Never log secrets.
+ *
+ * Deployment mode:
+ *   fixture-test — explicit HELLO/canary Factory (local/fixture only)
+ *   canonical-production — P10.3 Factory + PoolManager + RootPublisher
  */
 import { z } from 'zod';
 import { isAddress, type Address, type Hex } from 'viem';
@@ -8,9 +12,13 @@ import { privateKeyToAccount } from 'viem/accounts';
 import {
   SCOOP_CHAIN_ID,
   canonicalProductionManifest,
+  historicalTestCanaryManifest,
   isCanonicalProductionDeployed,
   requireCanonicalProductionAddresses,
 } from '@scoop/shared';
+
+const HISTORICAL_FACTORY =
+  historicalTestCanaryManifest.contracts.ScoopFactory.toLowerCase();
 
 function parseBool(raw: string | undefined, defaultValue: boolean): boolean {
   if (raw == null || raw.trim() === '') return defaultValue;
@@ -33,11 +41,22 @@ const hexKeySchema = z
 
 export type HolderRewardsDeploymentMode = 'fixture-test' | 'canonical-production';
 
+export type DeploymentAddresses = {
+  factoryAddress: Address;
+  poolManagerAddress: Address | null;
+  rootPublisherAddress: Address | null;
+  source: string;
+};
+
 export type LoadedHolderRewardsConfig = {
   writeEnabled: boolean;
   mode: 'dry-run' | 'write';
   chainId: number;
   deploymentMode: HolderRewardsDeploymentMode;
+  factoryAddress: Address;
+  poolManagerAddress: Address | null;
+  /** Canonical RootPublisher from manifest when in canonical-production; else null. */
+  rootPublisherAddress: Address | null;
   rpcUrl: string | null;
   databaseUrl: string | null;
   lockDatabaseUrl: string | null;
@@ -64,6 +83,43 @@ function parseDeploymentMode(raw: string | undefined): HolderRewardsDeploymentMo
   );
 }
 
+/**
+ * Resolve Factory / PoolManager / RootPublisher for the selected mode.
+ * Canonical mode never falls back to the historical canary Factory.
+ */
+export function resolveDeploymentAddresses(
+  mode: HolderRewardsDeploymentMode,
+): DeploymentAddresses {
+  if (mode === 'fixture-test') {
+    return {
+      factoryAddress:
+        historicalTestCanaryManifest.contracts.ScoopFactory.toLowerCase() as Address,
+      poolManagerAddress:
+        historicalTestCanaryManifest.contracts.PoolManager.toLowerCase() as Address,
+      rootPublisherAddress: null,
+      source: 'historicalTestCanaryManifest',
+    };
+  }
+  if (!isCanonicalProductionDeployed(canonicalProductionManifest)) {
+    throw new Error(
+      'FATAL: SCOOP_HOLDER_REWARDS_DEPLOYMENT_MODE=canonical-production but canonical production is undeployed; refusing historical Factory fallback',
+    );
+  }
+  const addresses = requireCanonicalProductionAddresses(canonicalProductionManifest);
+  const factoryAddress = addresses.factory.toLowerCase() as Address;
+  if (factoryAddress === HISTORICAL_FACTORY) {
+    throw new Error(
+      'FATAL: refusing historical test Factory as canonical-production Factory',
+    );
+  }
+  return {
+    factoryAddress,
+    poolManagerAddress: addresses.poolManager.toLowerCase() as Address,
+    rootPublisherAddress: addresses.rootPublisher.toLowerCase() as Address,
+    source: 'canonicalProductionManifest',
+  };
+}
+
 function parsePinnedKey(args: {
   pkRaw: string;
   addressRaw: string;
@@ -86,9 +142,6 @@ export function loadHolderRewardsConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): LoadedHolderRewardsConfig {
   // Hard refuse accidental fee-keeper key reuse.
-  if ((env.SCOOP_FEE_KEEPER_PRIVATE_KEY ?? '').trim()) {
-    // Presence of fee-keeper key in env is fine for other processes; worker must not read it.
-  }
   if (
     (env.SCOOP_HOLDER_REWARDS_PUBLISHER_PRIVATE_KEY ?? '').trim() &&
     (env.SCOOP_FEE_KEEPER_PRIVATE_KEY ?? '').trim() &&
@@ -110,13 +163,16 @@ export function loadHolderRewardsConfig(
   }
 
   const deploymentMode = parseDeploymentMode(env.SCOOP_HOLDER_REWARDS_DEPLOYMENT_MODE);
-  if (deploymentMode === 'canonical-production') {
-    if (!isCanonicalProductionDeployed(canonicalProductionManifest)) {
-      throw new Error(
-        'FATAL: SCOOP_HOLDER_REWARDS_DEPLOYMENT_MODE=canonical-production but canonical production is undeployed; refusing historical fallback',
-      );
-    }
-    requireCanonicalProductionAddresses(canonicalProductionManifest);
+  const deployment = resolveDeploymentAddresses(deploymentMode);
+
+  if (
+    writeEnabled &&
+    deploymentMode === 'canonical-production' &&
+    !(env.SCOOP_HOLDER_REWARDS_PUBLISHER_PRIVATE_KEY ?? '').trim()
+  ) {
+    throw new Error(
+      'SCOOP_HOLDER_REWARDS_PUBLISHER_PRIVATE_KEY required when WRITE_ENABLED=true',
+    );
   }
 
   const maxRoundsPerRun = parsePositiveInt(
@@ -129,7 +185,7 @@ export function loadHolderRewardsConfig(
     64,
     'SCOOP_HOLDER_REWARDS_SNAPSHOT_CONFIRMATIONS',
   );
-  let pushBatchSize = parsePositiveInt(
+  const pushBatchSize = parsePositiveInt(
     env.SCOOP_HOLDER_REWARDS_PUSH_BATCH_SIZE,
     50,
     'SCOOP_HOLDER_REWARDS_PUSH_BATCH_SIZE',
@@ -172,6 +228,20 @@ export function loadHolderRewardsConfig(
   } else if (pubAddr) {
     if (!isAddress(pubAddr)) throw new Error('SCOOP_HOLDER_REWARDS_PUBLISHER_ADDRESS invalid');
     expectedPublisherAddress = pubAddr.toLowerCase() as Address;
+  } else if (deployment.rootPublisherAddress) {
+    // Canonical dry-run: pin expected publisher to manifest for vault authority checks.
+    expectedPublisherAddress = deployment.rootPublisherAddress;
+  }
+
+  if (
+    deploymentMode === 'canonical-production' &&
+    deployment.rootPublisherAddress &&
+    expectedPublisherAddress &&
+    expectedPublisherAddress !== deployment.rootPublisherAddress
+  ) {
+    throw new Error(
+      `FATAL: SCOOP_HOLDER_REWARDS_PUBLISHER_ADDRESS must match canonical RootPublisher ${deployment.rootPublisherAddress}`,
+    );
   }
 
   let expectedPushAddress: Address | null = null;
@@ -201,6 +271,9 @@ export function loadHolderRewardsConfig(
     mode: writeEnabled ? 'write' : 'dry-run',
     chainId,
     deploymentMode,
+    factoryAddress: deployment.factoryAddress,
+    poolManagerAddress: deployment.poolManagerAddress,
+    rootPublisherAddress: deployment.rootPublisherAddress,
     rpcUrl,
     databaseUrl,
     lockDatabaseUrl,
@@ -222,6 +295,9 @@ export function publicConfigView(
     writeEnabled: config.writeEnabled,
     chainId: config.chainId,
     deploymentMode: config.deploymentMode,
+    factoryAddress: config.factoryAddress,
+    poolManagerAddress: config.poolManagerAddress,
+    rootPublisherAddress: config.rootPublisherAddress,
     publisherAddress: config.expectedPublisherAddress,
     pushAddress: config.expectedPushAddress,
     maxRoundsPerRun: config.maxRoundsPerRun,

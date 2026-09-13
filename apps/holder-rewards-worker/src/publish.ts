@@ -2,7 +2,7 @@
  * publishRound simulation + gated broadcast.
  * Publisher role only — never fee-keeper key.
  */
-import { type Address, type Hash, type Hex, type PublicClient } from 'viem';
+import { type Address, type Hash, type Hex } from 'viem';
 import {
   assertPublishAllowed,
   resolvePublishWriteGate,

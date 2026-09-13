@@ -20,6 +20,7 @@ describe('LocalAccount write path (V1.E/V1.F regression)', () => {
       ROBINHOOD_RPC_URL: 'https://example.invalid/rpc',
       DATABASE_URL: 'postgres://localhost/scoop',
       SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+      SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production',
       SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
       SCOOP_FEE_KEEPER_ADDRESS: derived,
     });

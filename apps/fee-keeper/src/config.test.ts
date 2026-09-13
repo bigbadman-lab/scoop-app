@@ -46,7 +46,12 @@ describe('loadFeeKeeperConfig', () => {
 
   it('requires PK + address pin when writes enabled', () => {
     expect(() =>
-      loadFeeKeeperConfig(baseEnv({ SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true' })),
+      loadFeeKeeperConfig(
+        baseEnv({
+          SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+          SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production',
+        }),
+      ),
     ).toThrow(/PRIVATE_KEY/);
   });
 
@@ -56,6 +61,7 @@ describe('loadFeeKeeperConfig', () => {
       loadFeeKeeperConfig(
         baseEnv({
           SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+          SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production',
           SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
           SCOOP_FEE_KEEPER_ADDRESS: '0x0000000000000000000000000000000000000001',
         }),
@@ -65,6 +71,7 @@ describe('loadFeeKeeperConfig', () => {
     const cfg = loadFeeKeeperConfig(
       baseEnv({
         SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+        SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'canonical-production',
         SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
         SCOOP_FEE_KEEPER_ADDRESS: derived,
       }),
@@ -106,9 +113,22 @@ describe('loadFeeKeeperConfig', () => {
     ).toThrow(/CHAIN_ID must be 4663/);
   });
 
-  it('defaults deploymentMode to historical-test', () => {
-    const cfg = loadFeeKeeperConfig(baseEnv());
+  it('local dry-run defaults deploymentMode to historical-test when unset', () => {
+    const cfg = loadFeeKeeperConfig(baseEnv({ NODE_ENV: 'test' }));
     expect(cfg.deploymentMode).toBe('historical-test');
     expect(cfg.factoryAddress).toMatch(/^0x/i);
+  });
+
+  it('requires explicit deployment mode for write path', () => {
+    const derived = privateKeyToAccount(PK).address;
+    expect(() =>
+      loadFeeKeeperConfig(
+        baseEnv({
+          SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+          SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
+          SCOOP_FEE_KEEPER_ADDRESS: derived,
+        }),
+      ),
+    ).toThrow(/DEPLOYMENT_MODE is required/);
   });
 });

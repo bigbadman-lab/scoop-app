@@ -3,8 +3,12 @@
  * Never log private keys.
  *
  * Deployment mode:
- *   historical-test (default until canonical redeploy) — explicit HELLO/canary stack
- *   canonical-production — refuses to start while production manifest is undeployed
+ *   historical-test — explicit HELLO/canary stack (local/dry-run only by default)
+ *   canonical-production — P10.3 Factory; refuses historical Factory
+ *
+ * Unset mode defaults to historical-test only for non-production dry-run.
+ * NODE_ENV=production or WRITE_ENABLED=true require an explicit mode.
+ * Write + historical-test requires SCOOP_FEE_KEEPER_ALLOW_HISTORICAL_WRITES=true.
  */
 import { z } from 'zod';
 import { isAddress, type Address, type Hex } from 'viem';
@@ -16,6 +20,9 @@ import {
   isCanonicalProductionDeployed,
   requireCanonicalProductionAddresses,
 } from '@scoop/shared';
+
+const HISTORICAL_FACTORY =
+  historicalTestCanaryManifest.contracts.ScoopFactory.toLowerCase();
 
 function parseBool(raw: string | undefined, defaultValue: boolean): boolean {
   if (raw == null || raw.trim() === '') return defaultValue;
@@ -65,9 +72,25 @@ export type LoadedFeeKeeperConfig = FeeKeeperConfig & {
   mode: 'dry-run' | 'write';
 };
 
-function parseDeploymentMode(raw: string | undefined): FeeKeeperDeploymentMode {
-  // Default historical-test: operational path until canonical redeploy.
-  if (raw == null || raw.trim() === '') return 'historical-test';
+/**
+ * Parse deployment mode.
+ * Unset → historical-test only when not production and writes are off.
+ * Production or write mode without an explicit mode fails closed.
+ */
+export function parseDeploymentMode(
+  raw: string | undefined,
+  opts: { nodeEnv?: string; writeEnabled: boolean },
+): FeeKeeperDeploymentMode {
+  const isProduction = (opts.nodeEnv ?? '').trim().toLowerCase() === 'production';
+  if (raw == null || raw.trim() === '') {
+    if (isProduction || opts.writeEnabled) {
+      throw new Error(
+        'FATAL: SCOOP_FEE_KEEPER_DEPLOYMENT_MODE is required when NODE_ENV=production or SCOOP_FEE_KEEPER_WRITE_ENABLED=true (expected historical-test | canonical-production)',
+      );
+    }
+    // Local/dev dry-run convenience only — cannot be inherited by production/write.
+    return 'historical-test';
+  }
   const v = raw.trim().toLowerCase();
   if (v === 'historical-test' || v === 'historical') return 'historical-test';
   if (v === 'canonical-production' || v === 'canonical' || v === 'production') {
@@ -97,8 +120,14 @@ export function resolveDeploymentFactory(
     );
   }
   const addresses = requireCanonicalProductionAddresses(canonicalProductionManifest);
+  const factoryAddress = addresses.factory;
+  if (factoryAddress.toLowerCase() === HISTORICAL_FACTORY) {
+    throw new Error(
+      'FATAL: refusing historical test Factory as canonical-production Factory',
+    );
+  }
   return {
-    factoryAddress: addresses.factory,
+    factoryAddress,
     source: 'canonicalProductionManifest',
   };
 }
@@ -122,7 +151,25 @@ export function loadFeeKeeperConfig(
     );
   }
 
-  const deploymentMode = parseDeploymentMode(env.SCOOP_FEE_KEEPER_DEPLOYMENT_MODE);
+  const deploymentMode = parseDeploymentMode(env.SCOOP_FEE_KEEPER_DEPLOYMENT_MODE, {
+    nodeEnv: env.NODE_ENV,
+    writeEnabled,
+  });
+
+  const allowHistoricalWrites = parseBool(
+    env.SCOOP_FEE_KEEPER_ALLOW_HISTORICAL_WRITES,
+    false,
+  );
+  if (
+    writeEnabled &&
+    deploymentMode === 'historical-test' &&
+    !allowHistoricalWrites
+  ) {
+    throw new Error(
+      'FATAL: SCOOP_FEE_KEEPER_WRITE_ENABLED=true with historical-test requires SCOOP_FEE_KEEPER_ALLOW_HISTORICAL_WRITES=true (production writes must use canonical-production)',
+    );
+  }
+
   const deployment = resolveDeploymentFactory(deploymentMode);
 
   const rpcUrl = (env.ROBINHOOD_RPC_URL ?? '').trim();

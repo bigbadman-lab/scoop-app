@@ -5,13 +5,42 @@ import {
   erc20Abi,
   zeroAddress,
 } from 'viem';
-import { scoopV1MainnetCanaryManifest } from '@scoop/shared';
+import {
+  historicalTestCanaryManifest,
+  isCanonicalProductionDeployed,
+  requireCanonicalProductionAddresses,
+} from '@scoop/shared';
 import type { ClaimAsset, ClaimAssetToken } from './types';
 import { shortenAddress } from './format';
 import { scoopCreatorRewardsAbi } from './creator-rewards-abi';
 
+/** Historical HELLO/canary CreatorRewards — fixtures/decode only; never production claims. */
+export const HISTORICAL_TEST_CREATOR_REWARDS_ADDRESS =
+  historicalTestCanaryManifest.contracts.ScoopCreatorRewards as Address;
+
+/**
+ * Resolve CreatorRewards for production claim reads/writes.
+ * Throws if undeployed — never falls back to the historical canary.
+ */
+export function resolveCanonicalCreatorRewardsAddress(): Address {
+  if (!isCanonicalProductionDeployed()) {
+    throw new Error(
+      'Canonical production CreatorRewards is undeployed; claim reads/writes are disabled.',
+    );
+  }
+  const address =
+    requireCanonicalProductionAddresses().creatorRewards.toLowerCase() as Address;
+  if (address === HISTORICAL_TEST_CREATOR_REWARDS_ADDRESS.toLowerCase()) {
+    throw new Error(
+      'Refusing historical CreatorRewards as canonical production.',
+    );
+  }
+  return address;
+}
+
+/** Production CreatorRewards — fail-closed canonical resolution. */
 export const SCOOP_CREATOR_REWARDS_ADDRESS =
-  scoopV1MainnetCanaryManifest.contracts.ScoopCreatorRewards as Address;
+  resolveCanonicalCreatorRewardsAddress();
 
 const creatorRewardsAbi = scoopCreatorRewardsAbi;
 

@@ -8,6 +8,7 @@ import {
   resolveDeploymentFactory,
 } from './config.js';
 import { historicalTestCanaryManifest } from '@scoop/shared';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const PK =
   '0x1111111111111111111111111111111111111111111111111111111111111111' as const;
@@ -21,8 +22,8 @@ function baseEnv(overrides: Record<string, string | undefined> = {}): NodeJS.Pro
 }
 
 describe('deployment mode safety', () => {
-  it('defaults to historical-test with historical Factory', () => {
-    const cfg = loadFeeKeeperConfig(baseEnv());
+  it('local dry-run may default to historical-test when mode unset', () => {
+    const cfg = loadFeeKeeperConfig(baseEnv({ NODE_ENV: 'development' }));
     expect(cfg.deploymentMode).toBe('historical-test');
     expect(cfg.factoryAddress?.toLowerCase()).toBe(
       historicalTestCanaryManifest.contracts.ScoopFactory.toLowerCase(),
@@ -32,7 +33,55 @@ describe('deployment mode safety', () => {
     expect(view.factoryAddress).toBe(cfg.factoryAddress);
   });
 
-  it('explicit historical-test is allowed', () => {
+  it('NODE_ENV=production refuses silent historical default', () => {
+    expect(() =>
+      loadFeeKeeperConfig(baseEnv({ NODE_ENV: 'production' })),
+    ).toThrow(/DEPLOYMENT_MODE is required/);
+  });
+
+  it('write mode refuses silent historical default', () => {
+    const derived = privateKeyToAccount(PK).address;
+    expect(() =>
+      loadFeeKeeperConfig(
+        baseEnv({
+          SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+          SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
+          SCOOP_FEE_KEEPER_ADDRESS: derived,
+        }),
+      ),
+    ).toThrow(/DEPLOYMENT_MODE is required/);
+  });
+
+  it('write + historical-test requires explicit allow flag', () => {
+    const derived = privateKeyToAccount(PK).address;
+    expect(() =>
+      loadFeeKeeperConfig(
+        baseEnv({
+          SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+          SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'historical-test',
+          SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
+          SCOOP_FEE_KEEPER_ADDRESS: derived,
+        }),
+      ),
+    ).toThrow(/ALLOW_HISTORICAL_WRITES/);
+  });
+
+  it('write + historical-test allowed only with escape hatch', () => {
+    const derived = privateKeyToAccount(PK).address;
+    const cfg = loadFeeKeeperConfig(
+      baseEnv({
+        SCOOP_FEE_KEEPER_WRITE_ENABLED: 'true',
+        SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'historical-test',
+        SCOOP_FEE_KEEPER_ALLOW_HISTORICAL_WRITES: 'true',
+        SCOOP_FEE_KEEPER_PRIVATE_KEY: PK,
+        SCOOP_FEE_KEEPER_ADDRESS: derived,
+      }),
+    );
+    expect(cfg.deploymentMode).toBe('historical-test');
+    expect(cfg.writeEnabled).toBe(true);
+  });
+
+  it('explicit historical-test is allowed for dry-run', () => {
     const cfg = loadFeeKeeperConfig(
       baseEnv({ SCOOP_FEE_KEEPER_DEPLOYMENT_MODE: 'historical-test' }),
     );

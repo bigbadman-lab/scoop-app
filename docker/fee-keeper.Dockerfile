@@ -27,6 +27,8 @@ FROM base AS runner
 ENV NODE_ENV=production
 # Writes OFF by default — set SCOOP_FEE_KEEPER_WRITE_ENABLED=true only after canary review.
 ENV SCOOP_FEE_KEEPER_WRITE_ENABLED=false
+# Production images require an explicit mode via Render/env (unset fails closed).
+# SCOOP_FEE_KEEPER_DEPLOYMENT_MODE=canonical-production
 WORKDIR /app
 COPY --from=build /app /app
 WORKDIR /app/apps/fee-keeper

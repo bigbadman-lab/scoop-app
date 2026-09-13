@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { zeroAddress } from 'viem';
 import {
   enrichTokenMetadataFromChain,
+  HISTORICAL_TEST_CREATOR_REWARDS_ADDRESS,
   readAuthoritativeClaimables,
   readClaimableEth,
   readClaimableToken,
+  resolveCanonicalCreatorRewardsAddress,
   SCOOP_CREATOR_REWARDS_ADDRESS,
 } from './read-claimable';
 import type { ClaimAsset } from './types';
@@ -12,6 +14,25 @@ import type { ClaimAsset } from './types';
 const CREATOR_ID =
   '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef' as const;
 const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;
+const CANONICAL_CREATOR_REWARDS =
+  '0xdb80eed1d52c8c80ae3e221c85da94319132f6ef';
+
+describe('canonical CreatorRewards resolution', () => {
+  it('resolves P10.3 CreatorRewards and refuses historical canary', () => {
+    expect(resolveCanonicalCreatorRewardsAddress().toLowerCase()).toBe(
+      CANONICAL_CREATOR_REWARDS,
+    );
+    expect(SCOOP_CREATOR_REWARDS_ADDRESS.toLowerCase()).toBe(
+      CANONICAL_CREATOR_REWARDS,
+    );
+    expect(SCOOP_CREATOR_REWARDS_ADDRESS.toLowerCase()).not.toBe(
+      HISTORICAL_TEST_CREATOR_REWARDS_ADDRESS.toLowerCase(),
+    );
+    expect(HISTORICAL_TEST_CREATOR_REWARDS_ADDRESS.toLowerCase()).toBe(
+      '0x1248070fc454757b91337e66df883f90b7a06fa4',
+    );
+  });
+});
 
 describe('authoritative claimable reads', () => {
   it('reads claimableETH against ScoopCreatorRewards', async () => {
@@ -27,6 +48,9 @@ describe('authoritative claimable reads', () => {
         functionName: 'claimableETH',
         args: [CREATOR_ID],
       }),
+    );
+    expect(SCOOP_CREATOR_REWARDS_ADDRESS.toLowerCase()).toBe(
+      CANONICAL_CREATOR_REWARDS,
     );
   });
 

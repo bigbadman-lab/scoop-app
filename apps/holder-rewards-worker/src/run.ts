@@ -10,10 +10,8 @@ import {
 } from '@scoop/db';
 import {
   canonicalProductionManifest,
-  historicalTestCanaryManifest,
   isCanonicalProductionDeployed,
 } from '@scoop/shared';
-import { type Address } from 'viem';
 import {
   assertRpcChainId,
   createHolderRewardsClients,
@@ -237,11 +235,8 @@ export async function runHolderRewardsWorker(
         });
     }
 
-    const factoryAddress =
-      (historicalTestCanaryManifest.contracts.ScoopFactory?.toLowerCase() as
-        | Address
-        | undefined) ?? null;
-    const poolManagerAddress = null;
+    const factoryAddress = config.factoryAddress;
+    const poolManagerAddress = config.poolManagerAddress;
 
     const service = deps.serviceVaultFn ?? serviceVault;
     const nowUnix = (deps.nowSec ?? (() => Math.floor(Date.now() / 1000)))();

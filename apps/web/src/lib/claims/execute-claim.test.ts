@@ -233,10 +233,14 @@ describe('executeWalletCreatorClaim', () => {
 
     expect(publicClient.simulateContract).toHaveBeenCalledWith(
       expect.objectContaining({
+        address: SCOOP_CREATOR_REWARDS_ADDRESS,
         functionName: 'claimETH',
         args: [creatorId, WALLET_A],
         account: WALLET_A,
       }),
+    );
+    expect(SCOOP_CREATOR_REWARDS_ADDRESS.toLowerCase()).toBe(
+      '0xdb80eed1d52c8c80ae3e221c85da94319132f6ef',
     );
     expect(writeContract).toHaveBeenCalledWith(
       expect.objectContaining({
