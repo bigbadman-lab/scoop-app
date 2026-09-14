@@ -2,14 +2,14 @@
 
 **Date:** 2026-09-14  
 **Verdict:** `PARTIAL — CODE FIXED; PRODUCTION VERIFICATION REMAINS`  
-(Token image repaired in production; code pushed — confirm Vercel/Render Ready + Alex’s next canary for end-to-end UX.)
+(Token image repaired in production; code pushed as `c2eef21` — confirm Vercel/Render Ready + Alex’s next canary for end-to-end UX.)
 
 ## Identity
 
 | Field | Value |
 | --- | --- |
 | Pre-HEAD | `2f30f5390fc6a7b6a2054f64ddf225edb4a57798` |
-| Final HEAD | *(set after commit)* |
+| Final HEAD | `c2eef21dbcdf7e0cc00a916595f44d23392eb3b4` |
 | Branch | `main` |
 | Token | `0x8292b1af08e0b2efbc0f383091d11ebed33bac5b` |
 | Name / symbol | Double Hawk / **2HAWK** |
@@ -93,7 +93,9 @@ Intent sat `awaiting_token` / attempts 0 ⇒ reconcile **did not successfully bi
 
 ## Commits / push / deploy
 
-*(filled after git)*
+- Commit: `c2eef21` `fix(web): repair post-launch image and success flow`
+- Pushed: `main` → `origin/main`
+- Vercel/Render: await Ready on web + indexer for this SHA before next canary
 
 ## Confirmations
 
