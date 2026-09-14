@@ -10,6 +10,7 @@ import {
   mapDiscoveryItem,
   type DiscoverySqlRow,
 } from './_discoverySql.js';
+import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
 
 export interface GetTokensOptions {
   chainId: number;
@@ -75,6 +76,7 @@ export async function getTokens(
   const sql = `
     ${DISCOVERY_SELECT}
     WHERE l.chain_id = $1
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
     ${filterClause(filter)}
     ${orderClause(sort)}
     LIMIT $4 OFFSET $5
@@ -105,6 +107,7 @@ export async function getActiveMarkets(
   const sql = `
     ${DISCOVERY_SELECT}
     WHERE l.chain_id = $1
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
   `;
 
   const result = await db.query(sql, [options.chainId, newWindow, soonBps]);

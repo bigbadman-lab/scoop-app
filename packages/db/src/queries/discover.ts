@@ -8,6 +8,7 @@ import {
   mapDiscoveryItem,
   type DiscoverySqlRow,
 } from './_discoverySql.js';
+import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
 import { getTokens } from './tokens.js';
 
 /** Homepage Discover board page size. */
@@ -54,6 +55,7 @@ export async function getDiscoverTrending(
   const sql = `
     ${DISCOVERY_SELECT}
     WHERE l.chain_id = $1
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
       AND COALESCE(m.trade_count_24h, 0) >= $4::INT
       AND m.volume_24h_usd_x18 IS NOT NULL
       AND m.volume_24h_usd_x18 > 0
@@ -99,6 +101,7 @@ export async function getDiscoverBonding(
   const sql = `
     ${DISCOVERY_SELECT}
     WHERE l.chain_id = $1
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
       AND COALESCE(m.launch_complete, FALSE) = FALSE
     ORDER BY
       COALESCE(m.launch_progress_bps, 0) DESC,

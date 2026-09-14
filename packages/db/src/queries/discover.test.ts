@@ -99,8 +99,9 @@ describe('getDiscoverBonding', () => {
     const [sql, params] = db.query.mock.calls[0]!;
     const text = String(sql);
     expect(text).toMatch(
-      /WHERE l\.chain_id = \$1\s+AND COALESCE\(m\.launch_complete, FALSE\) = FALSE/,
+      /WHERE l\.chain_id = \$1[\s\S]*AND COALESCE\(m\.launch_complete, FALSE\) = FALSE/,
     );
+    expect(text).toMatch(/NOT IN/i);
     expect(text).not.toMatch(
       /WHERE[\s\S]*launch_progress_bps[\s\S]*>= \$3[\s\S]*launch_complete/,
     );

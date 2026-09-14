@@ -1,5 +1,10 @@
 export { getTokens, getToken, getActiveMarkets, type GetTokensOptions, type GetActiveMarketsOptions } from './tokens.js';
 export {
+  HIDDEN_PRODUCTION_CANARY_TOKENS,
+  HIDDEN_PRODUCTION_CANARY_SQL,
+  isHiddenProductionCanary,
+} from './hidden-production-canaries.js';
+export {
   getDiscoverBoard,
   getDiscoverTrending,
   getDiscoverBonding,

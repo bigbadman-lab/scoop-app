@@ -8,6 +8,7 @@ import {
   mapDiscoveryItem,
   type DiscoverySqlRow,
 } from './_discoverySql.js';
+import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
 
 export interface GetRankingsOptions {
   limit?: number;
@@ -119,6 +120,7 @@ export async function getRankings(
         `SELECT ${metric} AS metric_raw,`,
       )}
       WHERE l.chain_id = $1
+      ${HIDDEN_PRODUCTION_CANARY_SQL}
       ${where}
       ${order}
       LIMIT $4
@@ -170,6 +172,7 @@ export async function getRankings(
     LEFT JOIN token_market_state m
       ON m.chain_id = l.chain_id AND m.token_address = l.token_address
     WHERE l.chain_id = $1
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
     ${where}
     ${order}
     LIMIT $4
