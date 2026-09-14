@@ -108,16 +108,18 @@ export async function POST(request: Request) {
     }
 
     /**
-     * Belt-and-suspenders: when a trusted news draft is present, persist the
-     * news↔market intent on this same server request so navigation cannot
-     * erase correctness even if the separate news activate call is dropped.
+     * Belt-and-suspenders: persist news↔market intent from trusted draft id.
+     * Prefer request draftId; fall back to draft already stored on the bound
+     * display intent (pin-time provenance) so missing client provenance cannot
+     * skip news linking after a successful image bind.
      */
-    if (draftId) {
+    const newsDraftId = (draftId || result.draftId || '').trim();
+    if (newsDraftId) {
       try {
         const news = await upsertNewsArticleMarketIntentAndLink(db, {
           chainId,
           tokenAddress,
-          draftId,
+          draftId: newsDraftId,
         });
         if (!news.ok && news.reason !== 'token_already_linked') {
           console.warn(

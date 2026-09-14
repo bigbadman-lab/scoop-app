@@ -31,6 +31,8 @@ export type BindTokenDisplayImageResult =
       bound: true;
       finalized: boolean;
       intentId: string | null;
+      /** Trusted draft on the bound intent, when present. */
+      draftId: string | null;
       source: 'path' | 'draft' | 'existing';
       tokenRowPresent: boolean;
     }
@@ -144,6 +146,7 @@ export async function bindAndFinalizeTokenDisplayImage(
     tokenAddress,
   });
   const tokenRowPresent = Boolean(fields);
+  const resolvedDraftId = intent.draftId?.trim() || null;
 
   if (fields?.displayImageUrl && /^https:\/\//i.test(fields.displayImageUrl)) {
     if (intent.status !== 'done') {
@@ -170,6 +173,7 @@ export async function bindAndFinalizeTokenDisplayImage(
       bound: true,
       finalized: true,
       intentId: intent.id,
+      draftId: resolvedDraftId,
       source: 'existing',
       tokenRowPresent: true,
     };
@@ -240,6 +244,7 @@ export async function bindAndFinalizeTokenDisplayImage(
       bound: true,
       finalized: false,
       intentId: intent.id,
+      draftId: resolvedDraftId,
       source,
       tokenRowPresent: false,
     };
@@ -278,6 +283,7 @@ export async function bindAndFinalizeTokenDisplayImage(
       bound: true,
       finalized: true,
       intentId: intent.id,
+      draftId: resolvedDraftId,
       source,
       tokenRowPresent: true,
     };
@@ -299,6 +305,7 @@ export async function bindAndFinalizeTokenDisplayImage(
       bound: true,
       finalized: false,
       intentId: intent.id,
+      draftId: resolvedDraftId,
       source,
       tokenRowPresent: true,
     };

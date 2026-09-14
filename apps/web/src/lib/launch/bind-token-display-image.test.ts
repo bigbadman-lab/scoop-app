@@ -267,6 +267,52 @@ describe('bindAndFinalizeTokenDisplayImage', () => {
     });
   });
 
+  it('KEY regression: returns draftId from bound intent when client omits it', async () => {
+    const DRAFT = '5b992fb0-dc38-4ae7-9aca-e58ba3b8ae08';
+    const intent = {
+      id: 'intent-key',
+      chain_id: 4663,
+      token_address: TOKEN,
+      draft_id: DRAFT,
+      display_image_path: MANUAL_PATH,
+      image_uri: IPFS,
+      status: 'pending',
+      attempts: 0,
+      last_error: null,
+    };
+    const db = mockDb((sql) => {
+      if (sql.includes('UPDATE token_display_finalize_intents') && sql.includes('awaiting_token')) {
+        return { rows: [intent] };
+      }
+      if (sql.includes('SELECT display_image_url, image_uri')) {
+        return { rows: [{ display_image_url: null, image_uri: IPFS }] };
+      }
+      if (sql.includes('SELECT display_image_url FROM tokens')) {
+        return { rows: [{ display_image_url: null }] };
+      }
+      if (sql.includes('UPDATE tokens') && sql.includes('display_image_url')) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const result = await bindAndFinalizeTokenDisplayImage({
+      db,
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      imageUri: IPFS,
+      // Client omitted draftId (provenance gap) — server must still surface it.
+      supabaseOrigin: ORIGIN,
+      log: () => undefined,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      draftId: DRAFT,
+      intentId: 'intent-key',
+    });
+  });
+
   it('security: rejects non-ipfs imageUri', async () => {
     const db = mockDb(() => ({ rows: [] }));
     const result = await bindAndFinalizeTokenDisplayImage({
