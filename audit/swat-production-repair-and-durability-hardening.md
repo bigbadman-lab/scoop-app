@@ -18,9 +18,7 @@
 
 ## 5. Final HEAD
 
-
-
-## 6. Pre/post git status
+`e59fcd4` tip includes docs SHA fill; durability implementation `817eee3ca9777b9af6bf549d15787c6ae827ab83`## 6. Pre/post git status
 
 Pre: dirty unrelated untracked audits/`P10.4-*`; this task touched launch durability + cron auth order + SWAT repair (DB only) + this report.  
 Post: only task files committed.
@@ -233,7 +231,7 @@ Only SWAT image intent + SWAT news intent/nam mutated. Prior MUSE/2HAWK/T110 unt
 
 > **NEWS RECONCILIATION HEALTHY:** YES
 
-> **VERCEL PRODUCTION SHA:**  (confirm Ready)
+> **VERCEL PRODUCTION SHA:** `e59fcd4` / implementation `817eee3`
 
 > **RENDER SCOOP-APP SHA:** `df74b3f` (`dep-dak7932fngtc73c200c0`)
 
