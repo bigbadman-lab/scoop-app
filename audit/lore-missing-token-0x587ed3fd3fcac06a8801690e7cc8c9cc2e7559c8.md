@@ -18,7 +18,7 @@
 
 ## 5. Final HEAD
 
-_(set after commit)_
+`f72aa98aa65d76eb97ff3bf529e5f4ce05bb7842`
 
 ## 6. Git status
 
