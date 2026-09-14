@@ -76,6 +76,12 @@ describe('indexer config', () => {
     expect(config.SCOOP_POLL_INTERVAL_MS).toBe(2000);
     expect(config.SCOOP_VOLUME_24H_SWEEP_SECONDS).toBe(60);
     expect(publicConfigView(config).volume24hSweepSeconds).toBe(60);
+    expect(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS).toBe(512);
+    expect(config.SCOOP_LIVE_REPLAY_WINDOW_BLOCKS).toBe(192);
+    expect(config.SCOOP_LIVE_STALE_LAG_BLOCKS).toBe(256);
+    expect(publicConfigView(config).liveMaxCatchupBlocks).toBe(512);
+    expect(publicConfigView(config).liveReplayWindowBlocks).toBe(192);
+    expect(publicConfigView(config).liveStaleLagBlocks).toBe(256);
     expect(config.INDEXER_LOCK_RETRY_MS).toBe(5000);
     expect(config.INDEXER_LOCK_WAIT_TIMEOUT_MS).toBe(120_000);
     expect(resolveIndexerLockDatabaseUrl(config)).toBe('postgres://localhost/scoop');

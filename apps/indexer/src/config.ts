@@ -77,7 +77,11 @@ const indexerEnvSchema = z
     /** Best-effort presentation-only observer; canonical fixed-lag ingest is unchanged. */
     SCOOP_LIVE_OVERLAY_ENABLED: boolFromEnv.default(true),
     SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(1000),
-    SCOOP_LIVE_MAX_CATCHUP_BLOCKS: z.coerce.number().int().positive().default(48),
+    SCOOP_LIVE_MAX_CATCHUP_BLOCKS: z.coerce.number().int().positive().default(512),
+    /** Near-tip replay on missing/stale live checkpoint; canonical owns full history. */
+    SCOOP_LIVE_REPLAY_WINDOW_BLOCKS: z.coerce.number().int().positive().default(192),
+    /** Jump near tip when the presentation checkpoint falls farther behind. */
+    SCOOP_LIVE_STALE_LAG_BLOCKS: z.coerce.number().int().positive().default(256),
     SCOOP_LIVE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     /** Enter fast historical catch-up when lag (safe - next) exceeds this. */
     SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(5000),
@@ -261,6 +265,8 @@ export function publicConfigView(config: IndexerConfig) {
     liveOverlayEnabled: config.SCOOP_LIVE_OVERLAY_ENABLED,
     livePollMs: config.SCOOP_LIVE_POLL_MS,
     liveMaxCatchupBlocks: config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS,
+    liveReplayWindowBlocks: config.SCOOP_LIVE_REPLAY_WINDOW_BLOCKS,
+    liveStaleLagBlocks: config.SCOOP_LIVE_STALE_LAG_BLOCKS,
     liveTtlSeconds: config.SCOOP_LIVE_TTL_SECONDS,
     fastCatchupThresholdBlocks: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
     fastCatchupRange: config.SCOOP_FAST_CATCHUP_RANGE,

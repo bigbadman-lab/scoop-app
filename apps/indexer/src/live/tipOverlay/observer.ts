@@ -30,6 +30,7 @@ import { hydrateLaunchView, hydrateTokenMetadata } from '../hydrate.js';
 import { resolveTradeUsdFields } from '../projections/usd.js';
 import { createFailoverRpc } from '../rpc/failover.js';
 import { loadWatchlist, watchlistAddLaunch } from '../watchlist.js';
+import { resolveLiveScanWindow } from './scanWindow.js';
 
 type ObserverArgs = {
   config: IndexerConfig;
@@ -96,16 +97,21 @@ async function observeRange(args: {
   fromBlock: bigint;
   toBlock: bigint;
   watchlist: Awaited<ReturnType<typeof loadWatchlist>>;
-}): Promise<void> {
+}): Promise<{ rpcMs: number; decodeMs: number; writeMs: number }> {
   const { db, client, config, fromBlock, toBlock, watchlist } = args;
   const deployment = requireIndexerCanonicalDeployment();
   const addresses = [deployment.factory, deployment.poolManager] as Hex[];
+  const rpcStartedAt = Date.now();
   const logs = await client.getLogs({ address: addresses, fromBlock, toBlock });
+  const rpcMs = Date.now() - rpcStartedAt;
+  const decodeStartedAt = Date.now();
+  const decodedLogs = logs.map((log) => ({ log, decoded: decodeLog(log) }));
+  const decodeMs = Date.now() - decodeStartedAt;
+  const writeStartedAt = Date.now();
   const cache = new Map<bigint, { hash: string; timestamp: bigint }>();
 
   // Launches first so swaps later in the same range can resolve their pool.
-  for (const log of logs) {
-    const decoded = decodeLog(log);
+  for (const { log, decoded } of decodedLogs) {
     if (
       decoded.kind !== 'TokenLaunched' ||
       normalizeAddress(decoded.address) !== deployment.factory ||
@@ -216,8 +222,7 @@ async function observeRange(args: {
     });
   }
 
-  for (const log of logs) {
-    const decoded = decodeLog(log);
+  for (const { log, decoded } of decodedLogs) {
     if (
       decoded.kind !== 'Swap' ||
       normalizeAddress(decoded.address) !== deployment.poolManager ||
@@ -335,6 +340,8 @@ async function observeRange(args: {
       source: 'live',
     });
   }
+
+  return { rpcMs, decodeMs, writeMs: Date.now() - writeStartedAt };
 }
 
 /**
@@ -349,14 +356,20 @@ export async function startLiveTipOverlay({ config, pool, signal }: ObserverArgs
   });
   let watchlist: Awaited<ReturnType<typeof loadWatchlist>> | null = null;
   let lastCleanupAt = 0;
+  let lastHealthyLogAt = 0;
 
   while (!signal.aborted) {
+    const loopStartedAt = Date.now();
     try {
       if (!watchlist) {
         watchlist = await withTransaction(pool, (db) => loadWatchlist(db, config.SCOOP_CHAIN_ID));
       }
       const activeWatchlist = watchlist;
+      const latestStartedAt = Date.now();
       const latest = await rpc.withClient((client) => client.getBlockNumber());
+      let rpcMs = Date.now() - latestStartedAt;
+      let decodeMs = 0;
+      let writeMs = 0;
       const checkpoint = await withTransaction(pool, (db) =>
         getLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID),
       );
@@ -366,22 +379,19 @@ export async function startLiveTipOverlay({ config, pool, signal }: ObserverArgs
               getIndexerMainCheckpointBlock(db, config.SCOOP_CHAIN_ID),
             )
           : null;
-      const fallbackStart =
-        latest > BigInt(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS)
-          ? latest - BigInt(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS)
-          : 0n;
-      const last =
-        checkpoint != null
-          ? BigInt(checkpoint)
-          : canonicalCheckpoint != null
-            ? BigInt(canonicalCheckpoint)
-            : fallbackStart;
-      const fromBlock = last + 1n;
-      const maxEnd = last + BigInt(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS);
-      const toBlock = latest < maxEnd ? latest : maxEnd;
+      const window = resolveLiveScanWindow({
+        latest,
+        liveCheckpoint: checkpoint == null ? null : BigInt(checkpoint),
+        canonicalCheckpoint:
+          canonicalCheckpoint == null ? null : BigInt(canonicalCheckpoint),
+        maxCatchupBlocks: config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS,
+        replayWindowBlocks: config.SCOOP_LIVE_REPLAY_WINDOW_BLOCKS,
+        staleLagBlocks: config.SCOOP_LIVE_STALE_LAG_BLOCKS,
+      });
+      const { fromBlock, toBlock } = window;
       if (fromBlock <= toBlock) {
-        await withTransaction(pool, async (db) => {
-          await observeRange({
+        const timings = await withTransaction(pool, async (db) => {
+          const result = await observeRange({
             db,
             client: rpc.getClient(),
             config,
@@ -390,18 +400,60 @@ export async function startLiveTipOverlay({ config, pool, signal }: ObserverArgs
             watchlist: activeWatchlist,
           });
           await setLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID, toBlock);
+          return result;
         });
+        rpcMs += timings.rpcMs;
+        decodeMs = timings.decodeMs;
+        writeMs = timings.writeMs;
       }
       if (Date.now() - lastCleanupAt >= 60_000) {
         await withTransaction(pool, (db) => expireLiveOverlayRows(db, config.SCOOP_CHAIN_ID));
         lastCleanupAt = Date.now();
       }
-      await wait(config.SCOOP_LIVE_POLL_MS, signal);
+
+      const checkpointBlock = fromBlock <= toBlock ? toBlock : window.last;
+      const remainingLag = latest > checkpointBlock ? latest - checkpointBlock : 0n;
+      const healthFields = {
+        source: 'live-observer',
+        latestBlock: latest.toString(),
+        checkpointBlock: checkpointBlock.toString(),
+        lagBlocks: remainingLag.toString(),
+        scanFrom: fromBlock.toString(),
+        scanTo: toBlock.toString(),
+        rpcMs,
+        decodeMs,
+        writeMs,
+        loopMs: Date.now() - loopStartedAt,
+        jumped: window.jumped,
+      };
+      if (window.jumped) {
+        logJson('warn', 'live overlay near-tip jump', {
+          ...healthFields,
+          from: fromBlock.toString(),
+          to: toBlock.toString(),
+          lag: window.lagBlocks.toString(),
+          latest: latest.toString(),
+        });
+      } else if (toBlock < latest) {
+        logJson('info', 'live overlay catch-up batch', healthFields);
+      } else if (
+        remainingLag > BigInt(config.SCOOP_LIVE_STALE_LAG_BLOCKS)
+      ) {
+        logJson('warn', 'live overlay lag threshold exceeded', healthFields);
+      } else if (Date.now() - lastHealthyLogAt >= 30_000) {
+        logJson('info', 'live overlay healthy at tip', healthFields);
+        lastHealthyLogAt = Date.now();
+      }
+
+      // Never throttle catch-up. Poll only after reaching the observed tip.
+      if (fromBlock > latest || toBlock >= latest) {
+        await wait(config.SCOOP_LIVE_POLL_MS, signal);
+      }
     } catch (error) {
       logJson('warn', 'live overlay observer error — retrying', {
         chainId: config.SCOOP_CHAIN_ID,
         error: error instanceof Error ? error.message : String(error),
-        source: 'live',
+        source: 'live-observer',
       });
       // Reload after a DB/RPC failure so newly canonical launches are included.
       try {

@@ -2,6 +2,7 @@ import {
   createPool,
   withTransaction,
   getIndexerCheckpoint,
+  getLiveObserverCheckpoint,
   upsertIndexerHealth,
   expireLiveOverlayRows,
   deleteConfirmedLiveRows,
@@ -348,6 +349,13 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             await deleteConfirmedLiveRows(db, config.SCOOP_CHAIN_ID);
             lastLiveCleanupAtMs = Date.now();
           }
+          const liveCheckpoint = config.SCOOP_LIVE_OVERLAY_ENABLED
+            ? await getLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID)
+            : null;
+          const liveLag =
+            liveCheckpoint != null && latest > BigInt(liveCheckpoint)
+              ? latest - BigInt(liveCheckpoint)
+              : 0n;
           await upsertIndexerHealth(db, {
             chainId: config.SCOOP_CHAIN_ID,
             heartbeatAt: new Date(),
@@ -370,6 +378,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
               `targetHead=${targetHead.toString()}`,
               `latestLag=${(latest - indexed).toString()}`,
               `safeLag=${(latest - safe).toString()}`,
+              config.SCOOP_LIVE_OVERLAY_ENABLED
+                ? `liveLagBlocks=${liveLag.toString()}`
+                : null,
             ]
               .filter(Boolean)
               .join(' '),
@@ -518,6 +529,13 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         }
         const indexed = lastBlock ?? 0n;
         const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
+        const liveCheckpoint = config.SCOOP_LIVE_OVERLAY_ENABLED
+          ? await getLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID)
+          : null;
+        const liveLag =
+          liveCheckpoint != null && latest > BigInt(liveCheckpoint)
+            ? latest - BigInt(liveCheckpoint)
+            : 0n;
         await upsertIndexerHealth(db, {
           chainId: config.SCOOP_CHAIN_ID,
           heartbeatAt: new Date(),
@@ -539,6 +557,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             `targetHead=${targetHead.toString()}`,
             lastBlock != null ? `latestLag=${(latest - lastBlock).toString()}` : null,
             `safeLag=${(latest - safe).toString()}`,
+            config.SCOOP_LIVE_OVERLAY_ENABLED
+              ? `liveLagBlocks=${liveLag.toString()}`
+              : null,
           ]
             .filter(Boolean)
             .join(' '),
