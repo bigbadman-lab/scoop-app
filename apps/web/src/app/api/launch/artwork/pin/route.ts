@@ -14,6 +14,8 @@ import { isProtocolIpfsImageUri } from '@/lib/launch/protocol-metadata';
 import { META_LIMITS } from '@/lib/launch/types';
 import { assertNoSecretLeakage } from '@/lib/server/validate';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
+import { recordDisplayFinalizeIntent } from '@/lib/launch/record-display-finalize-intent';
+import { serverDb } from '@/lib/server/queries';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,6 +28,8 @@ type Body = {
   persistDisplayCopy?: unknown;
   displayCopyOnly?: unknown;
   existingIpfsUri?: unknown;
+  /** Launch Assist draft — used to attach display path to server-owned intent. */
+  draftId?: unknown;
 };
 
 /**
@@ -69,6 +73,8 @@ export async function POST(request: Request) {
     const displayCopyOnly = body.displayCopyOnly === true;
     const existingIpfsUri =
       typeof body.existingIpfsUri === 'string' ? body.existingIpfsUri.trim() : '';
+    const draftId =
+      typeof body.draftId === 'string' ? body.draftId.trim() : '';
 
     if (!b64) {
       return NextResponse.json(
@@ -148,6 +154,24 @@ export async function POST(request: Request) {
         // Non-fatal: IPFS canonical pin remains; token page may use gateway.
         console.warn(
           '[launch-pin] token-image display copy failed',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
+    // Server-owned finalization: record pin-time intent so post-launch browser
+    // finalize is optional. Failure here must not fail the pin.
+    if (ipfsUri && /^ipfs:\/\//i.test(ipfsUri)) {
+      try {
+        await recordDisplayFinalizeIntent({
+          db: serverDb(),
+          imageUri: ipfsUri,
+          draftId: draftId || null,
+          displayImagePath,
+        });
+      } catch (err) {
+        console.warn(
+          '[launch-pin] display finalize intent failed',
           err instanceof Error ? err.message : err,
         );
       }

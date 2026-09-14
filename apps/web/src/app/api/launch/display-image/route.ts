@@ -86,6 +86,25 @@ export async function POST(request: Request) {
       throw new ValidationError('imageUri must be an ipfs:// URI');
     }
 
+    // Keep a durable intent even if this request dies mid-wait.
+    if (imageUri) {
+      try {
+        const { recordDisplayFinalizeIntent } = await import(
+          '@/lib/launch/record-display-finalize-intent'
+        );
+        await recordDisplayFinalizeIntent({
+          db: serverDb(),
+          imageUri,
+          draftId: draftId || null,
+          displayImagePath: displayImagePath || null,
+          chainId,
+          tokenAddress,
+        });
+      } catch {
+        /* intent is best-effort alongside finalize */
+      }
+    }
+
     const result = await finalizeTokenDisplayImage({
       db: serverDb(),
       chainId,
@@ -94,6 +113,7 @@ export async function POST(request: Request) {
       draftId: displayImagePath ? null : draftId || null,
       imageUri: imageUri || null,
       waitForIndex,
+      owner: 'client_fast_path',
     });
 
     if (!result.ok) {

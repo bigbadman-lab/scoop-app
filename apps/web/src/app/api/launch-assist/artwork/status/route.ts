@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       mimeType: status.mimeType,
       width: status.width,
       height: status.height,
+      displayImagePath: status.displayImagePath,
     };
     assertNoSecretLeakage(payload);
     return NextResponse.json(payload, {

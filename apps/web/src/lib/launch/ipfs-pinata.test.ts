@@ -50,15 +50,28 @@ describe('Pinata pinner', () => {
 
 describe('ensureArtworkPinned', () => {
   it('reuses existing ipfsUri without calling pin API', async () => {
-    const fetchImpl = vi.fn() as unknown as typeof fetch;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/launch/display-image/enqueue')) {
+        return Response.json({ ok: true, intentId: 'i1' }, { status: 200 });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }) as unknown as typeof fetch;
     const image = createInitialLaunchState().image;
     image.ipfsUri = IPFS;
     image.persistence = 'ipfs_ready';
     image.previewUrl = 'blob:x';
-    const result = await ensureArtworkPinned({ image, fetchImpl });
+    image.source = 'ai';
+    image.displayImagePath =
+      'drafts/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/aaaaaaaaaaaaaaaa.png';
+    const result = await ensureArtworkPinned({
+      image,
+      draftId: '11111111-1111-4111-8111-111111111111',
+      fetchImpl,
+    });
     expect(result.reused).toBe(true);
     expect(result.ipfsUri).toBe(IPFS);
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalled();
   });
 
   it('pins when ipfsUri missing', async () => {

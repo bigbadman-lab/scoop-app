@@ -125,6 +125,7 @@ export async function runWalletLaunch(
     patch({ phase: 'preparing_artwork', error: null });
     const pinned = await ensureArtworkPinned({
       image: input.state.image,
+      draftId: input.state.sourceDraftId,
       signal: input.signal,
     });
     const imageAfterPin: TokenImageState = {

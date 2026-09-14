@@ -482,6 +482,7 @@ function LaunchFlowInner({ catalogue }: Props) {
           previewUrl?: string | null;
           artworkAssetId?: string | null;
           mimeType?: string | null;
+          displayImagePath?: string | null;
         };
         if (cancelled) return;
         if (imageSourceRef.current.source === 'user') return;
@@ -497,6 +498,7 @@ function LaunchFlowInner({ catalogue }: Props) {
               ),
               draftId: pollDraftId,
               regenerated: wasRegen,
+              hasDisplayPath: Boolean(data.displayImagePath?.trim()),
             }),
           );
           setArtworkJobBusy(false);
@@ -510,7 +512,7 @@ function LaunchFlowInner({ catalogue }: Props) {
               byteSize: null,
               persistence: 'local_only',
               ipfsUri: null,
-      displayImagePath: null,
+              displayImagePath: data.displayImagePath?.trim() || null,
               source: 'ai',
               artworkStatus: 'ready',
               artworkError: null,

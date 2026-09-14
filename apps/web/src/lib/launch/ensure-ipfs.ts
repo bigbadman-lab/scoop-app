@@ -58,6 +58,8 @@ async function readSelectedBytes(
  */
 export async function ensureArtworkPinned(args: {
   image: TokenImageState;
+  /** Launch Assist draft id — recorded on pin-time server intent. */
+  draftId?: string | null;
   signal?: AbortSignal;
   fetchImpl?: typeof fetch;
 }): Promise<EnsurePinnedResult> {
@@ -65,9 +67,18 @@ export async function ensureArtworkPinned(args: {
   const persistDisplayCopy = args.image.source === 'user';
   const existing = args.image.ipfsUri?.trim() ?? '';
   const existingPath = args.image.displayImagePath?.trim() || null;
+  const draftId = args.draftId?.trim() || null;
 
   if (existing && isProtocolIpfsImageUri(existing)) {
     if (!persistDisplayCopy || existingPath) {
+      // Reuse path: still enqueue server intent (no new pin HTTP).
+      await enqueueReuseIntent({
+        fetchFn,
+        imageUri: existing,
+        displayImagePath: existingPath,
+        draftId,
+        signal: args.signal,
+      });
       return {
         ipfsUri: existing,
         reused: true,
@@ -92,6 +103,7 @@ export async function ensureArtworkPinned(args: {
         persistDisplayCopy: true,
         displayCopyOnly: true,
         existingIpfsUri: existing,
+        draftId: draftId || undefined,
       }),
     });
     const body = (await pinRes.json().catch(() => null)) as {
@@ -133,6 +145,7 @@ export async function ensureArtworkPinned(args: {
       mimeType,
       fileName: args.image.fileName,
       persistDisplayCopy,
+      draftId: draftId || undefined,
     }),
   });
 
@@ -157,6 +170,30 @@ export async function ensureArtworkPinned(args: {
     ipfsUri: body.ipfsUri,
     reused: false,
     cid: body.cid,
-    displayImagePath: body.displayImagePath ?? null,
+    displayImagePath: body.displayImagePath ?? existingPath,
   };
+}
+
+async function enqueueReuseIntent(args: {
+  fetchFn: typeof fetch;
+  imageUri: string;
+  displayImagePath: string | null;
+  draftId: string | null;
+  signal?: AbortSignal;
+}): Promise<void> {
+  try {
+    await args.fetchFn('/api/launch/display-image/enqueue', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      signal: args.signal,
+      body: JSON.stringify({
+        imageUri: args.imageUri,
+        displayImagePath: args.displayImagePath || undefined,
+        draftId: args.draftId || undefined,
+      }),
+    });
+  } catch {
+    /* best-effort; pin-time cron orphan path still covers IPFS */
+  }
 }

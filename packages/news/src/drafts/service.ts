@@ -58,6 +58,8 @@ export type DraftArtworkStatusView = {
   mimeType: string | null;
   width: number | null;
   height: number | null;
+  /** Public token-image object path when display copy exists. */
+  displayImagePath: string | null;
 };
 
 type ArtworkRow = {
@@ -553,6 +555,7 @@ export async function getDraftArtworkStatus(
   let mimeType: string | null = null;
   let width: number | null = null;
   let height: number | null = null;
+  let displayImagePath: string | null = null;
 
   if (status === 'ready' && artworkAssetId) {
     const art = await deps.db.query<ArtworkRow>(
@@ -564,6 +567,8 @@ export async function getDraftArtworkStatus(
       mimeType = row.mime_type;
       width = row.width;
       height = row.height;
+      const path = String(row.display_image_path ?? '').trim();
+      displayImagePath = path.length > 0 ? path : null;
       previewUrl = await storage.createSignedPreviewUrl(row.storage_path, 3600);
     }
   }
@@ -577,6 +582,7 @@ export async function getDraftArtworkStatus(
     mimeType,
     width,
     height,
+    displayImagePath,
   };
 }
 

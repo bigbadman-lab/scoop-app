@@ -36,6 +36,11 @@ export type FinalizeTokenDisplayImageResult =
       source?: FinalizeDisplaySource;
     };
 
+export type FinalizeDisplayOwner =
+  | 'client_fast_path'
+  | 'server_reconciliation'
+  | 'pin_enqueue';
+
 export type FinalizeTokenDisplayImageInput = {
   db: Queryable;
   chainId: number;
@@ -53,6 +58,8 @@ export type FinalizeTokenDisplayImageInput = {
   waitForIndex?: boolean;
   waitIntervalMs?: number;
   waitTimeoutMs?: number;
+  /** Who triggered finalization — for production diagnosis. */
+  owner?: FinalizeDisplayOwner;
   tokenImageStorage?: TokenImageStorage;
   supabaseOrigin?: string;
   fetchImpl?: typeof fetch;
@@ -74,16 +81,20 @@ function defaultSleep(ms: number): Promise<void> {
  * 3. Selected draft artwork display_image_url
  * 4. Mirror imageUri (ipfs://) → token-image/canonical/{cid}/…
  *
- * Does not depend on the browser remaining open once the request reaches the server.
+ * Browser post-launch POST is optional fast-path only; server reconciliation
+ * owns correctness via pin-time intents + cron/orphan scan.
  */
 export async function finalizeTokenDisplayImage(
   input: FinalizeTokenDisplayImageInput,
 ): Promise<FinalizeTokenDisplayImageResult> {
-  const log =
+  const owner = input.owner ?? 'client_fast_path';
+  const baseLog =
     input.log ??
     ((fields) => {
       console.info('[token-display-finalize]', JSON.stringify(fields));
     });
+  const log = (fields: Record<string, unknown>) =>
+    baseLog({ owner, chainId: input.chainId, ...fields });
   const sleep = input.sleep ?? defaultSleep;
   const now = input.now ?? Date.now;
   const waitForIndex = input.waitForIndex !== false;

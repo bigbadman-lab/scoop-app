@@ -165,6 +165,20 @@ export {
   applyDisplayImagePathToToken,
   type TokenRow,
 } from './repos/tokens.js';
+export {
+  upsertTokenDisplayFinalizeIntent,
+  bindAwaitingDisplayFinalizeIntents,
+  listPendingDisplayFinalizeIntents,
+  listOrphanTokenDisplayCandidates,
+  markDisplayFinalizeIntentResult,
+  bumpDisplayFinalizeIntentAttempt,
+  expireStaleAwaitingDisplayFinalizeIntents,
+  getDraftSelectedDisplayImagePath,
+  type TokenDisplayFinalizeIntent,
+  type TokenDisplayFinalizeIntentStatus,
+  type UpsertDisplayFinalizeIntentInput,
+  type OrphanTokenDisplayCandidate,
+} from './repos/token-display-finalize-intents.js';
 export { upsertCreator, type CreatorRow } from './repos/creators.js';
 export { upsertPool, type PoolRow } from './repos/pools.js';
 export { upsertTrade, type TradeRow } from './repos/trades.js';
