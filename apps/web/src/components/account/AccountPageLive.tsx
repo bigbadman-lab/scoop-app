@@ -20,6 +20,7 @@ import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
+import { accountLaunchStatusLabel } from '@/lib/account/launch-status';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { CreatorClaimsLane } from '@/components/account/CreatorClaimsLane';
@@ -360,7 +361,7 @@ function AccountReady({
                     <p className="font-mono text-[12px] text-[var(--muted)]">
                       ${token.symbol}
                       <span className="text-[var(--muted-2)]"> · </span>
-                      {token.launchComplete ? 'Bonded' : 'Launching'}
+                      {accountLaunchStatusLabel(token.launchComplete)}
                     </p>
                   </div>
                   <Link
