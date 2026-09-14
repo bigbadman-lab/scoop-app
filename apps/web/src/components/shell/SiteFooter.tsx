@@ -17,7 +17,6 @@ const PRODUCT: FooterLink[] = [
 ];
 
 const PROTOCOL: FooterLink[] = [
-  { label: '$SCOOP', href: '/docs', available: true },
   { label: 'Docs', href: '/docs', available: true },
 ];
 
