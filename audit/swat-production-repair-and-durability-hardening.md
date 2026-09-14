@@ -18,7 +18,7 @@
 
 ## 5. Final HEAD
 
-_(filled after commit)_
+
 
 ## 6. Pre/post git status
 
@@ -233,7 +233,7 @@ Only SWAT image intent + SWAT news intent/nam mutated. Prior MUSE/2HAWK/T110 unt
 
 > **NEWS RECONCILIATION HEALTHY:** YES
 
-> **VERCEL PRODUCTION SHA:** _(post-push)_
+> **VERCEL PRODUCTION SHA:**  (confirm Ready)
 
 > **RENDER SCOOP-APP SHA:** `df74b3f` (`dep-dak7932fngtc73c200c0`)
 
