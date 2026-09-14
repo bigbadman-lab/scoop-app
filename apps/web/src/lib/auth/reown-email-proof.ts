@@ -1,5 +1,7 @@
 /**
- * C.3-proof gate — temporary. Do not treat as production Join SCOOP enablement.
+ * Gates the isolated `/dev/reown-email-proof` route only.
+ * Do NOT use this for production Join SCOOP email enablement — AppKit email
+ * is controlled by `buildScoopAppKitFeatures()` (always on in product UX).
  * Uses static NEXT_PUBLIC_* access so Next inlines the same SSR/client value.
  */
 export function isScoopReownEmailProofEnabled(

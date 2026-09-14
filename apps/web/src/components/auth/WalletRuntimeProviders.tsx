@@ -6,10 +6,13 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { cookieToInitialState, type Config, WagmiProvider } from 'wagmi';
 import { EmailDeviceApprovalHelper } from '@/components/auth/EmailDeviceApprovalHelper';
 import {
+  buildScoopAppKitDefaultAccountTypes,
+  buildScoopAppKitFeatures,
+} from '@/lib/auth/appkit-auth-features';
+import {
   buildAppKitMetadata,
   robinhoodAppKitChain,
 } from '@/lib/auth/chain';
-import { isScoopReownEmailProofEnabled } from '@/lib/auth/reown-email-proof';
 import {
   scoopAppKitNetworks,
   scoopCustomRpcUrls,
@@ -24,8 +27,6 @@ function ensureAppKit() {
   if (appKitCreated) return;
   if (!scoopWagmiAdapter || !scoopReownProjectId) return;
 
-  const emailProof = isScoopReownEmailProofEnabled();
-
   createAppKit({
     adapters: [scoopWagmiAdapter],
     networks: scoopAppKitNetworks,
@@ -37,16 +38,10 @@ function ensureAppKit() {
       '--w3m-accent': '#FC4C00',
       '--w3m-border-radius-master': '2px',
     },
-    // AppKit 1.8.23: prefer EOA for embedded wallets during C.3-proof (avoid SA/Pimlico).
-    defaultAccountTypes: emailProof ? { eip155: 'eoa' } : undefined,
+    // Prefer EOA for Reown embedded (email) wallets — avoid SA/Pimlico.
+    defaultAccountTypes: buildScoopAppKitDefaultAccountTypes(),
     customRpcUrls: scoopCustomRpcUrls,
-    features: {
-      analytics: false,
-      // Proof-only: email OTP path. Socials stay off. Normal UX keeps both false.
-      email: emailProof,
-      socials: false,
-      emailShowWallets: true,
-    },
+    features: buildScoopAppKitFeatures(),
   });
   appKitCreated = true;
 }
