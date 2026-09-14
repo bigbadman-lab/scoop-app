@@ -3,6 +3,7 @@ import { NowSection } from '@/components/home/NowSection';
 import { DiscoverSection, DEFAULT_DISCOVER_TAB } from '@/components/home/DiscoverSection';
 import { ProtocolSection } from '@/components/home/ProtocolSection';
 import { loadDiscoverSnapshot } from '@/lib/discovery/load-home';
+import { loadDeskSpotSafe } from '@/lib/market/spot';
 import { loadLeadNews } from '@/lib/news/load-home';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
 import { buildHomeJsonLd, JsonLdScript } from '@/lib/seo/json-ld';
@@ -27,16 +28,17 @@ async function loadCatalogueSafe() {
 }
 
 export default async function HomePage() {
-  const [news, catalogue, discover] = await Promise.all([
+  const [news, catalogue, discover, deskSpot] = await Promise.all([
     loadLeadNews(),
     loadCatalogueSafe(),
     loadDiscoverSnapshot(),
+    loadDeskSpotSafe(),
   ]);
 
   return (
     <main>
       <JsonLdScript data={buildHomeJsonLd()} />
-      <NowSection news={news} />
+      <NowSection news={news} deskSpot={deskSpot} />
       <DiscoverSection
         initialTab={DEFAULT_DISCOVER_TAB}
         initialSnapshot={discover}

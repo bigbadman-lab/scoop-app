@@ -4,17 +4,19 @@ import { LiveDeskStrip } from '@/components/home/LiveDeskStrip';
 import { HouseLeadHero } from '@/components/home/HouseLeadHero';
 import { HomepageInfrastructureBadges } from '@/components/home/HomepageInfrastructureBadges';
 import { HOUSE_IMAGE_SET, SCOOP_HERO_SRC } from '@/lib/brand';
+import type { SpotPayload } from '@/lib/market/spot';
 import type { LeadNewsResult } from '@/lib/news/load-home';
 
 type Props = {
   news: LeadNewsResult;
+  deskSpot: SpotPayload;
 };
 
-export function NowSection({ news }: Props) {
+export function NowSection({ news, deskSpot }: Props) {
   return (
     <section aria-label="Now">
       <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-3 lg:px-10">
-        <LiveDeskStrip />
+        <LiveDeskStrip initialSpot={deskSpot} />
 
         {/* Brand mark + infrastructure badges + Launch */}
         <div className="mb-3 flex flex-col gap-4 md:mb-4 md:flex-row md:items-start md:justify-between md:gap-8 lg:items-center">

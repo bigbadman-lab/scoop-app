@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { DeskInstrument, SpotPayload } from '@/lib/market/spot';
+import { emptySpotPayload, type DeskInstrument, type SpotPayload } from '@/lib/market/spot';
 
 function formatPrice(id: DeskInstrument['id'], value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
@@ -90,13 +90,18 @@ function MarketPill({ instrument }: { instrument: DeskInstrument }) {
   );
 }
 
+type Props = {
+  /** SSR / RSC snapshot so ETH/BTC/S&P/FTSE exist on first paint. */
+  initialSpot: SpotPayload;
+};
+
 /**
  * Bloomberg-style desk strip — local clock + live ETH/BTC/S&P/FTSE.
- * Prices from `/api/market/spot` (real feed); never mocked.
+ * First paint uses `initialSpot` from the server; client polls `/api/market/spot`.
  */
-export function LiveDeskStrip() {
+export function LiveDeskStrip({ initialSpot }: Props) {
   const [now, setNow] = useState<Date | null>(null);
-  const [spot, setSpot] = useState<SpotPayload | null>(null);
+  const [spot, setSpot] = useState<SpotPayload>(initialSpot);
 
   useEffect(() => {
     setNow(new Date());
@@ -114,18 +119,7 @@ export function LiveDeskStrip() {
         const data = (await res.json()) as SpotPayload;
         if (!cancelled) setSpot(data);
       } catch {
-        if (!cancelled) {
-          setSpot({
-            instruments: [
-              { id: 'eth', label: 'ETH', price: null, changePct: null },
-              { id: 'btc', label: 'BTC', price: null, changePct: null },
-              { id: 'spx', label: 'S&P 500', price: null, changePct: null },
-              { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
-            ],
-            asOf: new Date().toISOString(),
-            source: 'unavailable',
-          });
-        }
+        // Keep SSR / last-good values — do not blank the strip on transient failures.
       }
     }
 
@@ -139,15 +133,11 @@ export function LiveDeskStrip() {
 
   const timeLabel = now ? formatLocalTime(now) : '—:—:—';
   const zoneLabel = now ? formatTimeZone(now) : '';
-  const instruments = spot?.instruments ?? [
-    { id: 'eth' as const, label: 'ETH', price: null, changePct: null },
-    { id: 'btc' as const, label: 'BTC', price: null, changePct: null },
-    { id: 'spx' as const, label: 'S&P 500', price: null, changePct: null },
-    { id: 'ftse' as const, label: 'FTSE 100', price: null, changePct: null },
-  ];
+  const instruments =
+    spot.instruments.length > 0 ? spot.instruments : emptySpotPayload().instruments;
 
   return (
-    <div className="live-desk-strip mb-3 md:mb-4" aria-label="Live desk">
+    <div className="live-desk-strip mb-3 md:mb-4" aria-label="Live desk" data-testid="live-desk-strip">
       <span className="desk-pill desk-pill-live">
         <span className="desk-live-dot" aria-hidden />
         <span className="desk-pill-label">Live</span>

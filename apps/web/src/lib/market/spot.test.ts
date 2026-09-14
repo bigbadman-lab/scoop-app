@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { loadDeskSpot } from '@/lib/market/spot';
+import { emptySpotPayload, loadDeskSpot, loadDeskSpotSafe } from '@/lib/market/spot';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -71,5 +71,26 @@ describe('loadDeskSpot', () => {
     expect(spot.instruments[0]?.price).toBe(2500);
     expect(spot.instruments[2]?.price).toBeNull();
     expect(spot.instruments[3]?.price).toBeNull();
+  });
+
+  it('emptySpotPayload reserves all four slots', () => {
+    const empty = emptySpotPayload();
+    expect(empty.source).toBe('unavailable');
+    expect(empty.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
+    expect(empty.instruments.every((i) => i.price == null)).toBe(true);
+  });
+
+  it('loadDeskSpotSafe returns reserved slots when all feeds fail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    );
+
+    const spot = await loadDeskSpotSafe();
+    expect(spot.source).toBe('unavailable');
+    expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
+    expect(spot.instruments.every((i) => i.price == null)).toBe(true);
   });
 });

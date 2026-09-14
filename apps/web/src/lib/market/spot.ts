@@ -21,6 +21,15 @@ const EMPTY: DeskInstrument[] = [
   { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
 ];
 
+/** Stable empty snapshot for SSR / failed feeds — keeps pill slots reserved. */
+export function emptySpotPayload(): SpotPayload {
+  return {
+    instruments: EMPTY.map((item) => ({ ...item })),
+    asOf: new Date().toISOString(),
+    source: 'unavailable',
+  };
+}
+
 function finiteOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -35,7 +44,7 @@ async function fetchCrypto(): Promise<Pick<Record<DeskInstrumentId, DeskInstrume
     'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd&include_24hr_change=true',
     {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 30 },
+      next: { revalidate: 20 },
     },
   );
   if (!response.ok) {
@@ -74,7 +83,7 @@ async function fetchYahooIndex(
         Accept: 'application/json',
         'User-Agent': 'Mozilla/5.0 (compatible; ScoopDesk/1.0)',
       },
-      next: { revalidate: 60 },
+      next: { revalidate: 20 },
     },
   );
   if (!response.ok) {
@@ -137,4 +146,16 @@ export async function loadDeskSpot(): Promise<SpotPayload> {
     withPrice === 0 ? 'unavailable' : withPrice === instruments.length ? 'live' : 'partial';
 
   return { instruments, asOf, source };
+}
+
+/**
+ * Homepage-safe loader: never throws; returns empty slots if upstream fails.
+ * Relies on fetch `next.revalidate` inside loadDeskSpot for short caching.
+ */
+export async function loadDeskSpotSafe(): Promise<SpotPayload> {
+  try {
+    return await loadDeskSpot();
+  } catch {
+    return emptySpotPayload();
+  }
 }

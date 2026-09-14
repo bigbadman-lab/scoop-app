@@ -16,10 +16,22 @@ vi.mock('@/components/home/LiveDeskStrip', () => ({
   LiveDeskStrip: () => <div data-testid="live-desk" />,
 }));
 
+const emptyDesk = {
+  instruments: [
+    { id: 'eth' as const, label: 'ETH', price: null, changePct: null },
+    { id: 'btc' as const, label: 'BTC', price: null, changePct: null },
+    { id: 'spx' as const, label: 'S&P 500', price: null, changePct: null },
+    { id: 'ftse' as const, label: 'FTSE 100', price: null, changePct: null },
+  ],
+  asOf: new Date().toISOString(),
+  source: 'unavailable' as const,
+};
+
 describe('NowSection news lead', () => {
   it('renders house lead hero with real article overlay link', () => {
     render(
       <NowSection
+        deskSpot={emptyDesk}
         news={{
           status: 'ok',
           article: {
@@ -74,6 +86,7 @@ describe('NowSection news lead', () => {
   it('does not show Launch market when there is no article', () => {
     render(
       <NowSection
+        deskSpot={emptyDesk}
         news={{
           status: 'empty',
           article: null,
@@ -88,6 +101,7 @@ describe('NowSection news lead', () => {
   it('shows gated overlay without inventing a headline', () => {
     render(
       <NowSection
+        deskSpot={emptyDesk}
         news={{
           status: 'gated',
           article: null,
@@ -103,6 +117,7 @@ describe('NowSection news lead', () => {
   it('renders infrastructure badges beside the title with Launch intact', () => {
     render(
       <NowSection
+        deskSpot={emptyDesk}
         news={{
           status: 'empty',
           article: null,
