@@ -15,9 +15,9 @@ const nextConfig: NextConfig = {
     '@reown/appkit-adapter-wagmi',
   ],
   outputFileTracingRoot: path.join(configDir, '../..'),
-  // Ensure canonical protocol docs Markdown is available to the /docs route at runtime.
+  // Relative to apps/web — absolute paths break Vercel NFT tracing under rootDirectory.
   outputFileTracingIncludes: {
-    '/docs': [path.join(configDir, '../../scoop-protocol-docs.md')],
+    '/docs': ['../../scoop-protocol-docs.md'],
   },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.

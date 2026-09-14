@@ -36,5 +36,8 @@ yarn-error.log*
 .turbo/
 .cache/
 
+# Vercel local link
+.vercel/
+
 # Quote asset image ingest workspace
 .cache/quote-asset-images/
