@@ -10,8 +10,9 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 /**
- * Vercel Cron / internal: server-owned token display finalization.
- * Auth: Authorization Bearer CRON_SECRET, x-vercel-cron header, or internal secret.
+ * Vercel Cron / internal: recovery-only token display finalization.
+ * Normal launches bind via receipt POST /api/launch/display-image/bind and
+ * canonical indexer enrichment. Auth: Bearer CRON_SECRET, x-vercel-cron, or internal secret.
  */
 function assertReconcileAccess(request: Request): void {
   const cronSecret = (process.env.CRON_SECRET ?? '').trim();

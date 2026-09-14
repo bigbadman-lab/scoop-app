@@ -13,17 +13,26 @@ describe('ensureTokenDisplayImage', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('omits draftId when manual path is present', async () => {
-    const fetchImpl = vi.fn(async (_url, init?: RequestInit) => {
+  it('posts to bind endpoint with path and imageUri', async () => {
+    const fetchImpl = vi.fn(async (url, init?: RequestInit) => {
+      expect(url).toBe('/api/launch/display-image/bind');
       const body = JSON.parse(String(init?.body ?? '{}')) as {
         displayImagePath?: string;
         draftId?: string;
+        imageUri?: string;
       };
       expect(body.displayImagePath).toBe(
         'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
       );
       expect(body.draftId).toBeUndefined();
-      return Response.json({ ok: true, status: 'applied' });
+      expect(body.imageUri).toBe('ipfs://bafybeiabc');
+      return Response.json({
+        ok: true,
+        displayImageUrl:
+          'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+        finalized: true,
+        source: 'path',
+      });
     }) as unknown as typeof fetch;
 
     const result = await ensureTokenDisplayImage({
@@ -31,24 +40,35 @@ describe('ensureTokenDisplayImage', () => {
       tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
       sourceDraftId: 'draft-ai-should-not-apply',
+      imageUri: 'ipfs://bafybeiabc',
       fetchImpl,
     });
-    expect(result).toEqual({ ok: true, status: 'applied' });
+    expect(result).toEqual({
+      ok: true,
+      status: 'applied',
+      source: 'path',
+      displayImageUrl:
+        'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+      finalized: true,
+      uploaded: false,
+    });
   });
 
-  it('posts imageUri with waitForIndex for IPFS-only durable finalize', async () => {
-    const fetchImpl = vi.fn(async (_url, init?: RequestInit) => {
+  it('posts imageUri to bind without waiting for index', async () => {
+    const fetchImpl = vi.fn(async (url, init?: RequestInit) => {
+      expect(url).toBe('/api/launch/display-image/bind');
       const body = JSON.parse(String(init?.body ?? '{}')) as {
         imageUri?: string;
         waitForIndex?: boolean;
       };
       expect(body.imageUri).toBe('ipfs://bafybeiabc');
-      expect(body.waitForIndex).toBe(true);
+      expect(body.waitForIndex).toBeUndefined();
       return Response.json({
         ok: true,
-        status: 'applied',
-        source: 'ipfs_fallback',
-        uploaded: true,
+        displayImageUrl:
+          'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aa/aa.png',
+        finalized: false,
+        source: 'path',
       });
     }) as unknown as typeof fetch;
 
@@ -60,9 +80,12 @@ describe('ensureTokenDisplayImage', () => {
     });
     expect(result).toEqual({
       ok: true,
-      status: 'applied',
-      source: 'ipfs_fallback',
-      uploaded: true,
+      status: 'skipped',
+      source: 'path',
+      displayImageUrl:
+        'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aa/aa.png',
+      finalized: false,
+      uploaded: false,
     });
   });
 });

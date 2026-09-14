@@ -117,14 +117,14 @@ describe('runLaunchCompletion', () => {
       ensureDisplayImage,
       activateNews,
     });
-    // Display request starts immediately (server-owned wait); News still after index.
+    // Display bind starts immediately (no wait-for-index); News still after index.
     expect(order).toEqual(['display', 'indexed', 'news']);
     expect(ensureDisplayImage).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceDraftId: 'draft-1',
         displayImagePath: null,
         imageUri: 'ipfs://bafybeiabc',
-        waitForIndex: true,
+        waitForIndex: false,
         honorAbort: false,
       }),
     );
@@ -157,7 +157,7 @@ describe('runLaunchCompletion', () => {
       expect.objectContaining({
         displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
         sourceDraftId: null,
-        waitForIndex: true,
+        waitForIndex: false,
         honorAbort: false,
       }),
     );

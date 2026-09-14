@@ -78,8 +78,8 @@ function displaySyncField(
 }
 
 /**
- * After receipt_success: wait for canonical market readiness, finalize display
- * image, optionally activate News, then market_live.
+ * After receipt_success: wait for canonical market readiness, bind display
+ * image immediately (server-owned), optionally activate News, then market_live.
  * Display sync failure never fails the launch.
  */
 export async function runLaunchCompletion(
@@ -101,9 +101,10 @@ export async function runLaunchCompletion(
   const shouldFinalizeDisplay = Boolean(displayPath || draftId || imageUri);
 
   /**
-   * Start durable display finalization immediately (server waits for index).
+   * Start receipt-driven display bind immediately (no wait-for-index).
    * Not tied to completion AbortSignal — tab close must not cancel server work
-   * once the request is in flight.
+   * once the request is in flight. Canonical row enrichment is owned by the
+   * indexer when the token is inserted; cron is recovery-only.
    */
   const displayPromise = shouldFinalizeDisplay
     ? ensureDisplay({
@@ -112,7 +113,7 @@ export async function runLaunchCompletion(
         displayImagePath: displayPath || null,
         sourceDraftId: displayPath ? null : draftId || null,
         imageUri: imageUri || null,
-        waitForIndex: true,
+        waitForIndex: false,
         honorAbort: false,
       })
     : Promise.resolve({ ok: true as const, status: 'noop' as const });

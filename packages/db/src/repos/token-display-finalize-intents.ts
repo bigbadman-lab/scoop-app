@@ -1,5 +1,7 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress } from '../hex.js';
+import { buildPublicTokenImageUrl } from './live-overlay.js';
+import { setTokenDisplayImageUrl } from './tokens.js';
 
 export type TokenDisplayFinalizeIntentStatus =
   | 'awaiting_token'
@@ -62,6 +64,9 @@ function normalizeImageUri(imageUri: string): string {
 /**
  * Upsert a pin-time / post-receipt finalize intent.
  * When token is known → pending; otherwise awaiting_token matched by image_uri.
+ *
+ * Critical: when a token address arrives, bind the existing awaiting_token row
+ * for this image_uri instead of inserting a duplicate open intent.
  */
 export async function upsertTokenDisplayFinalizeIntent(
   db: Queryable,
@@ -85,6 +90,28 @@ export async function upsertTokenDisplayFinalizeIntent(
     chainId != null && tokenAddress ? 'pending' : 'awaiting_token';
 
   if (tokenAddress && chainId != null) {
+    const boundAwaiting = await db.query<IntentRow>(
+      `UPDATE token_display_finalize_intents
+       SET chain_id = $2,
+           token_address = $3,
+           draft_id = COALESCE($4, draft_id),
+           display_image_path = COALESCE($5, display_image_path),
+           status = 'pending',
+           updated_at = NOW()
+       WHERE id = (
+         SELECT id FROM token_display_finalize_intents
+         WHERE image_uri = $1
+           AND status = 'awaiting_token'
+         ORDER BY created_at DESC
+         LIMIT 1
+       )
+       RETURNING *`,
+      [imageUri, chainId, tokenAddress, draftId, displayImagePath],
+    );
+    if (boundAwaiting.rows[0]) {
+      return mapRow(boundAwaiting.rows[0]);
+    }
+
     const result = await db.query<IntentRow>(
       `INSERT INTO token_display_finalize_intents (
          chain_id, token_address, draft_id, display_image_path, image_uri, status
@@ -136,6 +163,216 @@ export async function upsertTokenDisplayFinalizeIntent(
     [draftId, displayImagePath, imageUri],
   );
   return inserted.rows[0] ? mapRow(inserted.rows[0]) : null;
+}
+
+function isTrustedDisplayImagePath(path: string): boolean {
+  const trimmed = path.trim().replace(/^\/+/, '');
+  if (!trimmed || trimmed.includes('..') || trimmed.includes('\\')) return false;
+  return /^(drafts|manual|canonical)\//.test(trimmed);
+}
+
+export type BindDisplayFinalizeIntentInput = {
+  chainId: number;
+  tokenAddress: string;
+  imageUri: string;
+  draftId?: string | null;
+  displayImagePath?: string | null;
+};
+
+/**
+ * Receipt-side bind: attach token address to an existing trusted finalize intent.
+ * Does not create intents — pin/enqueue owns creation. Returns null when no
+ * open intent exists for the image_uri (prevents arbitrary path injection).
+ */
+export async function bindDisplayFinalizeIntentToToken(
+  db: Queryable,
+  input: BindDisplayFinalizeIntentInput,
+): Promise<TokenDisplayFinalizeIntent | null> {
+  const imageUri = normalizeImageUri(input.imageUri);
+  if (!imageUri || !/^ipfs:\/\//i.test(imageUri)) {
+    return null;
+  }
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const draftId = input.draftId?.trim() || null;
+  const displayImagePath =
+    input.displayImagePath?.trim().replace(/^\/+/, '') || null;
+  if (displayImagePath && !isTrustedDisplayImagePath(displayImagePath)) {
+    return null;
+  }
+
+  // Prefer binding an awaiting_token intent for this image_uri.
+  const boundAwaiting = await db.query<IntentRow>(
+    `UPDATE token_display_finalize_intents
+     SET chain_id = $2,
+         token_address = $3,
+         draft_id = COALESCE($4, draft_id),
+         display_image_path = COALESCE($5, display_image_path),
+         status = 'pending',
+         updated_at = NOW()
+     WHERE id = (
+       SELECT id FROM token_display_finalize_intents
+       WHERE image_uri = $1
+         AND status = 'awaiting_token'
+       ORDER BY created_at DESC
+       LIMIT 1
+     )
+     RETURNING *`,
+    [imageUri, input.chainId, tokenAddress, draftId, displayImagePath],
+  );
+  if (boundAwaiting.rows[0]) {
+    return mapRow(boundAwaiting.rows[0]);
+  }
+
+  // Already pending/done for this token + image_uri.
+  const existingForToken = await db.query<IntentRow>(
+    `SELECT * FROM token_display_finalize_intents
+     WHERE chain_id = $1
+       AND token_address = $2
+       AND image_uri = $3
+       AND status IN ('pending', 'done')
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [input.chainId, tokenAddress, imageUri],
+  );
+  if (existingForToken.rows[0]) {
+    if (draftId || displayImagePath) {
+      const updated = await db.query<IntentRow>(
+        `UPDATE token_display_finalize_intents
+         SET draft_id = COALESCE($2, draft_id),
+             display_image_path = COALESCE($3, display_image_path),
+             status = CASE WHEN status = 'done' THEN 'done' ELSE 'pending' END,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [existingForToken.rows[0].id, draftId, displayImagePath],
+      );
+      return updated.rows[0] ? mapRow(updated.rows[0]) : mapRow(existingForToken.rows[0]);
+    }
+    return mapRow(existingForToken.rows[0]);
+  }
+
+  // Open pending for same image_uri (e.g. prior bind without row) — re-bind.
+  const openByUri = await db.query<IntentRow>(
+    `UPDATE token_display_finalize_intents
+     SET chain_id = $2,
+         token_address = $3,
+         draft_id = COALESCE($4, draft_id),
+         display_image_path = COALESCE($5, display_image_path),
+         status = 'pending',
+         updated_at = NOW()
+     WHERE id = (
+       SELECT id FROM token_display_finalize_intents
+       WHERE image_uri = $1
+         AND status = 'pending'
+       ORDER BY updated_at DESC
+       LIMIT 1
+     )
+     RETURNING *`,
+    [imageUri, input.chainId, tokenAddress, draftId, displayImagePath],
+  );
+  if (openByUri.rows[0]) {
+    return mapRow(openByUri.rows[0]);
+  }
+
+  return null;
+}
+
+export type ApplyBoundDisplayImageResult = {
+  applied: boolean;
+  skipped: boolean;
+  displayImageUrl: string | null;
+  intentId: string | null;
+  intentFound: boolean;
+  pathFound: boolean;
+};
+
+/**
+ * Canonical insert enrichment: if a bound/awaiting intent already has a trusted
+ * display path for this token's image_uri, set tokens.display_image_url and
+ * mark the intent done. Image metadata only — never touches price/trade state.
+ */
+export async function applyBoundDisplayImageOnTokenInsert(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    imageUri: string;
+    supabaseUrl?: string | null;
+  },
+): Promise<ApplyBoundDisplayImageResult> {
+  const imageUri = normalizeImageUri(input.imageUri);
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const empty: ApplyBoundDisplayImageResult = {
+    applied: false,
+    skipped: false,
+    displayImageUrl: null,
+    intentId: null,
+    intentFound: false,
+    pathFound: false,
+  };
+  if (!imageUri || !/^ipfs:\/\//i.test(imageUri)) {
+    return empty;
+  }
+
+  const intentResult = await db.query<IntentRow>(
+    `SELECT * FROM token_display_finalize_intents
+     WHERE display_image_path IS NOT NULL
+       AND TRIM(display_image_path) <> ''
+       AND (
+         (chain_id = $1 AND token_address = $2 AND status IN ('pending', 'awaiting_token', 'done'))
+         OR (image_uri = $3 AND status IN ('awaiting_token', 'pending'))
+       )
+     ORDER BY
+       CASE WHEN chain_id = $1 AND token_address = $2 THEN 0 ELSE 1 END,
+       CASE status
+         WHEN 'pending' THEN 0
+         WHEN 'awaiting_token' THEN 1
+         WHEN 'done' THEN 2
+         ELSE 3
+       END,
+       updated_at DESC
+     LIMIT 1`,
+    [input.chainId, tokenAddress, imageUri],
+  );
+  const intent = intentResult.rows[0] ? mapRow(intentResult.rows[0]) : null;
+  if (!intent) {
+    return empty;
+  }
+  const path = intent.displayImagePath?.trim().replace(/^\/+/, '') || '';
+  if (!path || !isTrustedDisplayImagePath(path)) {
+    return { ...empty, intentFound: true, intentId: intent.id, pathFound: false };
+  }
+
+  const displayImageUrl = buildPublicTokenImageUrl(path, input.supabaseUrl);
+  if (!displayImageUrl) {
+    return { ...empty, intentFound: true, intentId: intent.id, pathFound: true };
+  }
+
+  const write = await setTokenDisplayImageUrl(db, {
+    chainId: input.chainId,
+    tokenAddress,
+    displayImageUrl,
+  });
+
+  await db.query(
+    `UPDATE token_display_finalize_intents
+     SET chain_id = $2,
+         token_address = $3,
+         status = 'done',
+         updated_at = NOW()
+     WHERE id = $1
+       AND status IN ('awaiting_token', 'pending', 'done')`,
+    [intent.id, input.chainId, tokenAddress],
+  );
+
+  return {
+    applied: write === 'applied',
+    skipped: write === 'skipped',
+    displayImageUrl,
+    intentId: intent.id,
+    intentFound: true,
+    pathFound: true,
+  };
 }
 
 /**

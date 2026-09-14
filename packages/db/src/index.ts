@@ -167,7 +167,9 @@ export {
 } from './repos/tokens.js';
 export {
   upsertTokenDisplayFinalizeIntent,
+  bindDisplayFinalizeIntentToToken,
   bindAwaitingDisplayFinalizeIntents,
+  applyBoundDisplayImageOnTokenInsert,
   listPendingDisplayFinalizeIntents,
   listOrphanTokenDisplayCandidates,
   markDisplayFinalizeIntentResult,
@@ -177,6 +179,8 @@ export {
   type TokenDisplayFinalizeIntent,
   type TokenDisplayFinalizeIntentStatus,
   type UpsertDisplayFinalizeIntentInput,
+  type BindDisplayFinalizeIntentInput,
+  type ApplyBoundDisplayImageResult,
   type OrphanTokenDisplayCandidate,
 } from './repos/token-display-finalize-intents.js';
 export {

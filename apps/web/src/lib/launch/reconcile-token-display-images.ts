@@ -37,9 +37,12 @@ function defaultLog(fields: Record<string, unknown>): void {
 }
 
 /**
- * Server-owned display finalization: bind pin-time intents → finalize pending →
- * orphan-scan recent tokens still missing display_image_url.
- * Does not require a browser post-launch request.
+ * Server-owned display finalization (recovery path):
+ * bind pin-time intents → finalize pending → orphan-scan recent tokens.
+ *
+ * Normal launches should bind via receipt POST /api/launch/display-image/bind
+ * and canonical indexer enrichment. This cron remains for recovery only
+ * (closed browser, transient failures, deploy interruption).
  */
 export async function reconcileTokenDisplayImages(
   input: ReconcileTokenDisplayImagesInput,

@@ -243,9 +243,16 @@ export async function lookupLiveDisplayImageUrl(
     `SELECT display_image_path
        FROM token_display_finalize_intents
       WHERE image_uri = $1
-        AND status IN ('awaiting_token', 'pending')
+        AND status IN ('awaiting_token', 'pending', 'done')
         AND display_image_path IS NOT NULL
-      ORDER BY updated_at DESC
+      ORDER BY
+        CASE status
+          WHEN 'pending' THEN 0
+          WHEN 'awaiting_token' THEN 1
+          WHEN 'done' THEN 2
+          ELSE 3
+        END,
+        updated_at DESC
       LIMIT 1`,
     [imageUri.trim()],
   );
