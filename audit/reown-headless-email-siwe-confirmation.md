@@ -17,7 +17,8 @@ Headless email was stuck on **Confirming…** because AppKit still opens `Approv
 
 ## 3. Final HEAD
 
-See git after commit `fix(web): restore headless email SIWE confirmation`.
+`90d7cc252739e147debcbb5e841977eb67775e2b`  
+(`fix(web): restore headless email SIWE confirmation`)
 
 ---
 
@@ -184,7 +185,12 @@ Passed: headless-email-siwe, join-flow, custom-auth-ui, appkit-auth-features, si
 
 ## 22. Production deployment
 
-Pushed `main`; wait for Vercel `scoop-web` Ready (recorded at deploy time).
+- Pushed `main` → `90d7cc2`
+- Vercel team `cope2` / project `scoop-web`
+- Deployment: `7eSis5PouRcg4cBDYHKeiU7kWZQA`
+- Status: **Ready** (`Deployment has completed`)
+- Dashboard: https://vercel.com/cope2/scoop-web/7eSis5PouRcg4cBDYHKeiU7kWZQA
+- Production: https://scoop.fun
 
 ---
 
