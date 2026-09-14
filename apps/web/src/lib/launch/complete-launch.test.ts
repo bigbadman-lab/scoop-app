@@ -85,7 +85,7 @@ describe('runLaunchCompletion', () => {
     });
   });
 
-  it('starts durable display finalization in parallel with indexer wait', async () => {
+  it('awaits durable display + news binds before indexer wait', async () => {
     const order: string[] = [];
     const ensureDisplayImage = vi.fn(async () => {
       order.push('display');
@@ -93,7 +93,7 @@ describe('runLaunchCompletion', () => {
     });
     const activateNews = vi.fn(async () => {
       order.push('news');
-      return { ok: true };
+      return { ok: true, linked: false, pending: true };
     });
     await runLaunchCompletion({
       chainId: 4663,
@@ -117,7 +117,7 @@ describe('runLaunchCompletion', () => {
       ensureDisplayImage,
       activateNews,
     });
-    // Display + news binds start immediately (no wait-for-index).
+    // Binds complete before index wait — navigation-safe after this point.
     expect(order).toEqual(['display', 'news', 'indexed']);
     expect(ensureDisplayImage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -137,7 +137,7 @@ describe('runLaunchCompletion', () => {
     );
   });
 
-  it('manual displayImagePath wins over draftId (late AI must not overwrite)', async () => {
+  it('forwards draftId with manual path so server can dual-write news intent', async () => {
     const ensureDisplayImage = vi.fn(async () => ({
       ok: true as const,
       status: 'applied' as const,
@@ -163,7 +163,7 @@ describe('runLaunchCompletion', () => {
     expect(ensureDisplayImage).toHaveBeenCalledWith(
       expect.objectContaining({
         displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
-        sourceDraftId: null,
+        sourceDraftId: 'draft-ai',
         waitForIndex: false,
         honorAbort: false,
       }),
@@ -194,7 +194,7 @@ describe('runLaunchCompletion', () => {
     }
   });
 
-  it('starts durable News bind in parallel with indexer wait', async () => {
+  it('persists News intent before indexer wait (pending counts as ok)', async () => {
     const order: string[] = [];
     const activateNews = vi.fn(async () => {
       order.push('activate');
@@ -225,10 +225,31 @@ describe('runLaunchCompletion', () => {
       activateNews,
     });
     expect(order.indexOf('activate')).toBeLessThan(order.indexOf('indexed_ready'));
+    expect(order.indexOf('activating_news')).toBeLessThan(order.indexOf('waiting_for_indexer'));
     expect(activateNews).toHaveBeenCalledTimes(1);
     expect(activateNews).toHaveBeenCalledWith(
       expect.objectContaining({ honorAbort: false }),
     );
+  });
+
+  it('non-news launch does not require news intent', async () => {
+    const activateNews = vi.fn();
+    const result = await runLaunchCompletion({
+      chainId: 4663,
+      tokenAddress: decoded.token,
+      txHash: launch.launchTxHash as `0x${string}`,
+      decoded,
+      expectedCreatorId: decoded.creatorId,
+      expectedDeployer: decoded.deployer,
+      provenance: null,
+      imageUri: 'ipfs://bafybeiabc',
+      callbacks: { onPhase: () => {} },
+      waitForIndexed: async () => ({ status: 'ready', launch }),
+      ensureDisplayImage: async () => ({ ok: true as const, status: 'applied' as const }),
+      activateNews,
+    });
+    expect(activateNews).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: 'market_live', news: 'skipped', displayImage: 'ok' });
   });
 
   it('News activation failure still yields market_live', async () => {

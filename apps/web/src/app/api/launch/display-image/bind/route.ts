@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { upsertNewsArticleMarketIntentAndLink } from '@scoop/db';
 import { SCOOP_CHAIN_ID } from '@scoop/shared';
 import { readSessionFromRequest } from '@/lib/auth/session';
 import { bindAndFinalizeTokenDisplayImage } from '@/lib/launch/bind-token-display-image';
@@ -78,8 +79,9 @@ export async function POST(request: Request) {
       throw new ValidationError('imageUri must be an ipfs:// URI');
     }
 
+    const db = serverDb();
     const result = await bindAndFinalizeTokenDisplayImage({
-      db: serverDb(),
+      db,
       chainId,
       tokenAddress,
       imageUri,
@@ -103,6 +105,32 @@ export async function POST(request: Request) {
         },
         { status, headers: { 'Cache-Control': 'private, no-store' } },
       );
+    }
+
+    /**
+     * Belt-and-suspenders: when a trusted news draft is present, persist the
+     * news↔market intent on this same server request so navigation cannot
+     * erase correctness even if the separate news activate call is dropped.
+     */
+    if (draftId) {
+      try {
+        const news = await upsertNewsArticleMarketIntentAndLink(db, {
+          chainId,
+          tokenAddress,
+          draftId,
+        });
+        if (!news.ok && news.reason !== 'token_already_linked') {
+          console.warn(
+            '[launch-display-bind] news intent upsert skipped',
+            news.reason,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          '[launch-display-bind] news intent upsert failed',
+          error instanceof Error ? error.message : 'error',
+        );
+      }
     }
 
     const payload = {

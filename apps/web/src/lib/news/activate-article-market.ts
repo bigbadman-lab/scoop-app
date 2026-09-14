@@ -24,6 +24,8 @@ export async function activateNewsArticleMarket(args: {
       cache: 'no-store',
       // Durability: do not attach AbortSignal unless explicitly requested.
       signal: args.honorAbort ? args.signal : undefined,
+      // Survive soft navigations long enough for the server to persist the intent.
+      keepalive: true,
       body: JSON.stringify({
         chainId: args.chainId,
         tokenAddress: args.tokenAddress,

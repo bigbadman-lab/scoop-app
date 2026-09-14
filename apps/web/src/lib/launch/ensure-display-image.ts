@@ -62,11 +62,13 @@ export async function ensureTokenDisplayImage(
         },
         cache: 'no-store',
         signal,
+        keepalive: true,
         body: JSON.stringify({
           chainId: input.chainId,
           tokenAddress: input.tokenAddress,
           displayImagePath: path || undefined,
-          draftId: path ? undefined : draftId || undefined,
+          // Always forward draftId when known (news dual-write on server).
+          draftId: draftId || undefined,
           imageUri,
         }),
       });

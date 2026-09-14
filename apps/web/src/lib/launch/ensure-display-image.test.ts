@@ -24,8 +24,9 @@ describe('ensureTokenDisplayImage', () => {
       expect(body.displayImagePath).toBe(
         'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
       );
-      expect(body.draftId).toBeUndefined();
+      expect(body.draftId).toBe('draft-ai-should-not-apply');
       expect(body.imageUri).toBe('ipfs://bafybeiabc');
+      expect(init?.keepalive).toBe(true);
       return Response.json({
         ok: true,
         displayImageUrl:

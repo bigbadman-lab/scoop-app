@@ -10,12 +10,13 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 function assertReconcileAccess(request: Request): void {
+  // Vercel Cron sends this on scheduled invocations.
+  if (request.headers.get('x-vercel-cron') === '1') {
+    return;
+  }
   const cronSecret = (process.env.CRON_SECRET ?? '').trim();
   const auth = request.headers.get('authorization') ?? '';
   if (cronSecret && auth === `Bearer ${cronSecret}`) {
-    return;
-  }
-  if (request.headers.get('x-vercel-cron') === '1') {
     return;
   }
   assertInternalAccess(request);

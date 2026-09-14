@@ -77,10 +77,43 @@ function displaySyncField(
   return 'skipped';
 }
 
+async function persistNewsIntent(args: {
+  activate: typeof activateNewsArticleMarket;
+  chainId: number;
+  tokenAddress: string;
+  providerArticleId?: string | null;
+  draftId?: string | null;
+  attempts: number;
+}): Promise<{ ok: boolean }> {
+  let result = await args.activate({
+    chainId: args.chainId,
+    tokenAddress: args.tokenAddress,
+    providerArticleId: args.providerArticleId,
+    draftId: args.draftId,
+    honorAbort: false,
+  });
+  if (result.ok) return { ok: true };
+  for (let i = 0; i < args.attempts; i++) {
+    result = await args.activate({
+      chainId: args.chainId,
+      tokenAddress: args.tokenAddress,
+      providerArticleId: args.providerArticleId,
+      draftId: args.draftId,
+      honorAbort: false,
+    });
+    if (result.ok) return { ok: true };
+  }
+  return { ok: false };
+}
+
 /**
- * After receipt_success: wait for canonical market readiness, bind display
- * image immediately (server-owned), optionally activate News, then market_live.
- * Display sync failure never fails the launch.
+ * After receipt_success:
+ * 1) Persist durable display bind + news intent (awaited — navigation-safe once done)
+ * 2) Wait for canonical market readiness
+ * 3) market_live
+ *
+ * News `ok` means durable intent persisted (linked or pending). Display sync
+ * failure never fails the launch.
  */
 export async function runLaunchCompletion(
   input: RunLaunchCompletionInput,
@@ -90,11 +123,6 @@ export async function runLaunchCompletion(
   const ensureDisplay = input.ensureDisplayImage ?? ensureTokenDisplayImage;
   const newsAttempts = input.newsAttempts ?? 2;
 
-  input.callbacks.onPhase({
-    phase: 'waiting_for_indexer',
-    error: null,
-  });
-
   const displayPath = input.displayImagePath?.trim() || '';
   const draftId = input.provenance?.sourceDraftId?.trim() || '';
   const imageUri = input.imageUri?.trim() || '';
@@ -102,36 +130,77 @@ export async function runLaunchCompletion(
   const hasNews = hasNewsProvenance(input.provenance);
 
   /**
-   * Start receipt-driven display bind immediately (no wait-for-index).
-   * Not tied to completion AbortSignal — tab close must not cancel server work
-   * once the request is in flight. Canonical row enrichment is owned by the
-   * indexer when the token is inserted; cron is recovery-only.
+   * Await durable receipt binds BEFORE indexer wait / navigation risk.
+   * Pending news (launch not indexed) counts as success — cron finishes join.
    */
+  let displayImage: 'ok' | 'failed' | 'skipped' = 'skipped';
+  let news: 'skipped' | 'ok' | 'failed' = 'skipped';
+
+  if (shouldFinalizeDisplay || hasNews) {
+    input.callbacks.onPhase({
+      phase: hasNews ? 'activating_news' : 'waiting_for_indexer',
+      error: null,
+    });
+  }
+
   const displayPromise = shouldFinalizeDisplay
     ? ensureDisplay({
         chainId: input.chainId,
         tokenAddress: input.tokenAddress,
         displayImagePath: displayPath || null,
-        sourceDraftId: displayPath ? null : draftId || null,
+        // Always pass draftId when known so server can dual-write news intent.
+        sourceDraftId: draftId || null,
         imageUri: imageUri || null,
         waitForIndex: false,
         honorAbort: false,
       })
     : Promise.resolve({ ok: true as const, status: 'noop' as const });
 
-  /**
-   * Durable news↔market intent at receipt time (before index wait).
-   * Cron reconciles if launch is not indexed yet.
-   */
   const newsPromise = hasNews
-    ? activate({
+    ? persistNewsIntent({
+        activate,
         chainId: input.chainId,
         tokenAddress: input.tokenAddress,
         providerArticleId: input.provenance?.sourceProviderArticleId,
         draftId: input.provenance?.sourceDraftId,
-        honorAbort: false,
+        attempts: newsAttempts,
       })
-    : Promise.resolve({ ok: true as const, linked: false, pending: false });
+    : Promise.resolve({ ok: true });
+
+  const [displayResult, newsResult] = await Promise.all([displayPromise, newsPromise]);
+
+  if (shouldFinalizeDisplay) {
+    if (displayResult.ok) {
+      displayImage = displayResult.status === 'noop' ? 'skipped' : 'ok';
+    } else {
+      displayImage = 'failed';
+      console.warn(
+        '[launch] display image sync failed (continuing)',
+        'error' in displayResult ? displayResult.error : 'error',
+      );
+    }
+    input.callbacks.onPhase({
+      displayImageSync: displaySyncField(displayImage),
+    });
+  }
+
+  if (hasNews) {
+    news = newsResult.ok ? 'ok' : 'failed';
+    if (news === 'failed') {
+      input.callbacks.onPhase({
+        newsActivation: 'failed',
+      });
+    } else {
+      input.callbacks.onPhase({
+        newsActivation: 'ok',
+      });
+    }
+  }
+
+  input.callbacks.onPhase({
+    phase: 'waiting_for_indexer',
+    error: null,
+  });
 
   const waitArgs: WaitForIndexedLaunchInput = {
     chainId: input.chainId,
@@ -144,6 +213,7 @@ export async function runLaunchCompletion(
   const indexed = await wait(waitArgs);
 
   if (indexed.status === 'aborted') {
+    // Durable binds already attempted above — abort only skips waiting for index.
     return { status: 'aborted' };
   }
   if (indexed.status === 'timeout') {
@@ -167,67 +237,26 @@ export async function runLaunchCompletion(
     indexedLaunch: indexed.launch,
   });
 
-  let displayImage: 'ok' | 'failed' | 'skipped' = 'skipped';
-  if (shouldFinalizeDisplay) {
-    const displayResult = await displayPromise;
-    if (displayResult.ok) {
-      displayImage = displayResult.status === 'noop' ? 'skipped' : 'ok';
-    } else if (displayResult.error === 'aborted') {
-      displayImage = 'failed';
-    } else {
-      displayImage = 'failed';
-      console.warn(
-        '[launch] display image sync failed (market still live)',
-        displayResult.error,
-      );
-    }
+  if (news === 'failed') {
     input.callbacks.onPhase({
+      phase: 'news_activation_failed',
+      error: null,
+      newsActivation: 'failed',
+      indexedLaunch: indexed.launch,
+    });
+    input.callbacks.onPhase({
+      phase: 'market_live',
+      error: null,
+      newsActivation: 'failed',
+      indexedLaunch: indexed.launch,
       displayImageSync: displaySyncField(displayImage),
     });
-  }
-
-  let news: 'skipped' | 'ok' | 'failed' = 'skipped';
-  if (hasNews) {
-    input.callbacks.onPhase({ phase: 'activating_news', error: null });
-    news = 'failed';
-    let result = await newsPromise;
-    if (!result.ok) {
-      for (let i = 0; i < newsAttempts; i++) {
-        result = await activate({
-          chainId: input.chainId,
-          tokenAddress: input.tokenAddress,
-          providerArticleId: input.provenance?.sourceProviderArticleId,
-          draftId: input.provenance?.sourceDraftId,
-          honorAbort: false,
-        });
-        if (result.ok) break;
-      }
-    }
-    if (result.ok) {
-      news = 'ok';
-    }
-
-    if (news === 'failed') {
-      input.callbacks.onPhase({
-        phase: 'news_activation_failed',
-        error: null,
-        newsActivation: 'failed',
-        indexedLaunch: indexed.launch,
-      });
-      input.callbacks.onPhase({
-        phase: 'market_live',
-        error: null,
-        newsActivation: 'failed',
-        indexedLaunch: indexed.launch,
-        displayImageSync: displaySyncField(displayImage),
-      });
-      return {
-        status: 'market_live',
-        launch: indexed.launch,
-        news: 'failed',
-        displayImage,
-      };
-    }
+    return {
+      status: 'market_live',
+      launch: indexed.launch,
+      news: 'failed',
+      displayImage,
+    };
   }
 
   input.callbacks.onPhase({

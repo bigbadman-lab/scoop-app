@@ -15,13 +15,13 @@ export const maxDuration = 60;
  * canonical indexer enrichment. Auth: Bearer CRON_SECRET, x-vercel-cron, or internal secret.
  */
 function assertReconcileAccess(request: Request): void {
+  // Vercel Cron sends this on scheduled invocations.
+  if (request.headers.get('x-vercel-cron') === '1') {
+    return;
+  }
   const cronSecret = (process.env.CRON_SECRET ?? '').trim();
   const auth = request.headers.get('authorization') ?? '';
   if (cronSecret && auth === `Bearer ${cronSecret}`) {
-    return;
-  }
-  // Vercel invokes crons with this header; still prefer CRON_SECRET when set.
-  if (request.headers.get('x-vercel-cron') === '1') {
     return;
   }
   assertInternalAccess(request);
