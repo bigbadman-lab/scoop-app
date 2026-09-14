@@ -45,6 +45,6 @@ export function formatNewsLastPull(
 export function formatNewsMarketStatusLabel(marketCount: number): string {
   const n = Number.isFinite(marketCount) ? Math.max(0, Math.floor(marketCount)) : 0;
   if (n <= 0) return 'NO LIVE MARKETS';
-  if (n === 1) return '1 LIVE MARKET';
-  return `${n} LIVE MARKETS`;
+  if (n === 1) return '1 live market';
+  return `${n} live markets`;
 }

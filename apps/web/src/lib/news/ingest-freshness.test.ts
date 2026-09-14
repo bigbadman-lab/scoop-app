@@ -43,7 +43,8 @@ describe('news ingest freshness', () => {
 
   it('formats singular/plural market status labels', () => {
     expect(formatNewsMarketStatusLabel(0)).toBe('NO LIVE MARKETS');
-    expect(formatNewsMarketStatusLabel(1)).toBe('1 LIVE MARKET');
-    expect(formatNewsMarketStatusLabel(2)).toBe('2 LIVE MARKETS');
+    expect(formatNewsMarketStatusLabel(1)).toBe('1 live market');
+    expect(formatNewsMarketStatusLabel(2)).toBe('2 live markets');
+    expect(formatNewsMarketStatusLabel(3)).toBe('3 live markets');
   });
 });

@@ -6,6 +6,7 @@
 export {
   getTokens,
   getToken,
+  getNewsArticleLoreForToken,
   getActiveMarkets,
   getDiscoverBoard,
   getDiscoverTrending,

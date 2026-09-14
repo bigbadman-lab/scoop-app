@@ -4,8 +4,19 @@ import {
   quoteDisplaySymbol,
   quotePairLabel,
 } from '@/lib/quotes/resolve';
-import { getToken, serverDb, type TokenDetail } from '@/lib/server/queries';
+import {
+  getNewsArticleLoreForToken,
+  getToken,
+  serverDb,
+  type TokenDetail,
+} from '@/lib/server/queries';
 import { ValidationError, parseAddress } from '@/lib/server/validate';
+
+export type TokenNewsLore = {
+  title: string;
+  url: string;
+  sourceDomain: string;
+};
 
 export type TokenPageLoadResult =
   | {
@@ -15,6 +26,7 @@ export type TokenPageLoadResult =
       /** Rich pair label for OG/identity (may include catalogue name). */
       quotePairLabel: string;
       quoteImageUrl: string | null;
+      lore: TokenNewsLore | null;
     }
   | { status: 'invalid' }
   | { status: 'not_found'; address: string }
@@ -34,17 +46,29 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
   }
 
   try {
-    const [token, catalogue] = await Promise.all([
+    const [token, catalogue, loreRow] = await Promise.all([
       getToken(serverDb(), SCOOP_CHAIN_ID, address),
       loadEnabledQuoteCatalogue({ chainId: SCOOP_CHAIN_ID }),
+      getNewsArticleLoreForToken(serverDb(), {
+        chainId: SCOOP_CHAIN_ID,
+        tokenAddress: address,
+      }).catch(() => null),
     ]);
     if (!token) return { status: 'not_found', address };
+    const lore: TokenNewsLore | null = loreRow
+      ? {
+          title: loreRow.title,
+          url: (loreRow.canonicalUrl?.trim() || loreRow.url).trim(),
+          sourceDomain: loreRow.sourceDomain,
+        }
+      : null;
     return {
       status: 'ok',
       token,
       quoteSymbol: quoteDisplaySymbol(token.quoteAsset, catalogue),
       quotePairLabel: quotePairLabel(token.quoteAsset, catalogue),
       quoteImageUrl: quoteCatalogueImageUrl(token.quoteAsset, catalogue),
+      lore,
     };
   } catch (error) {
     console.error(

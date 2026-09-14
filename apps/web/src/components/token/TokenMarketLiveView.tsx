@@ -30,11 +30,13 @@ import {
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { shouldShowBondingProgress } from '@/lib/token/market-status';
 import { safeHttpsUrl } from '@/lib/token/safe-external-url';
+import type { TokenNewsLore } from '@/lib/token/load-token-page';
 
 type Props = {
   token: TokenDetail;
   quoteSymbol: string;
   quoteImageUrl?: string | null;
+  lore?: TokenNewsLore | null;
 };
 
 function DetailRow({
@@ -69,11 +71,14 @@ function MarketGroup({ children }: { children: ReactNode }) {
 function TokenMarketLiveBody({
   quoteSymbol,
   quoteImageUrl = null,
+  lore = null,
 }: {
   quoteSymbol: string;
   quoteImageUrl?: string | null;
+  lore?: TokenNewsLore | null;
 }) {
   const { token, refreshNow } = useTokenMarketLive();
+  const loreHref = lore ? safeHttpsUrl(lore.url) : null;
 
   const imageSrc = pickTokenImageSrc(token.displayImageUrl, token.imageUri);
   const priceUsd = displayUsd(token.priceUsdDisplay);
@@ -207,6 +212,36 @@ function TokenMarketLiveBody({
           </div>
         </div>
       </header>
+
+      {lore && loreHref ? (
+        <section
+          className="mt-2 border-t border-[var(--divider)] pt-2.5"
+          aria-labelledby="token-lore-heading"
+          data-testid="token-lore"
+        >
+          <h2
+            id="token-lore-heading"
+            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+          >
+            Lore
+          </h2>
+          <p
+            className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]"
+            data-testid="token-lore-headline"
+          >
+            {lore.title}
+          </p>
+          <a
+            href={loreHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
+            data-testid="token-lore-link"
+          >
+            {lore.sourceDomain?.trim() || 'Original article'}
+          </a>
+        </section>
+      ) : null}
 
       {showAbout ? (
         <section
@@ -422,10 +457,15 @@ export function TokenMarketLiveView({
   token,
   quoteSymbol,
   quoteImageUrl = null,
+  lore = null,
 }: Props) {
   return (
     <TokenMarketLiveProvider initialToken={token}>
-      <TokenMarketLiveBody quoteSymbol={quoteSymbol} quoteImageUrl={quoteImageUrl} />
+      <TokenMarketLiveBody
+        quoteSymbol={quoteSymbol}
+        quoteImageUrl={quoteImageUrl}
+        lore={lore}
+      />
     </TokenMarketLiveProvider>
   );
 }

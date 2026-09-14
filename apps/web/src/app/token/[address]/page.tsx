@@ -95,6 +95,7 @@ export default async function TokenPage({ params }: Props) {
           token={result.token}
           quoteSymbol={result.quoteSymbol}
           quoteImageUrl={result.quoteImageUrl}
+          lore={result.lore}
         />
       ) : null}
     </main>

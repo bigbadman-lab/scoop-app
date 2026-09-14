@@ -1,10 +1,12 @@
 import type { TokenDetail } from '@/lib/server/queries';
 import { TokenMarketLiveView } from '@/components/token/TokenMarketLiveView';
+import type { TokenNewsLore } from '@/lib/token/load-token-page';
 
 type Props = {
   token: TokenDetail;
   quoteSymbol: string;
   quoteImageUrl?: string | null;
+  lore?: TokenNewsLore | null;
 };
 
 /**
@@ -14,12 +16,14 @@ export function TokenMarketShell({
   token,
   quoteSymbol,
   quoteImageUrl = null,
+  lore = null,
 }: Props) {
   return (
     <TokenMarketLiveView
       token={token}
       quoteSymbol={quoteSymbol}
       quoteImageUrl={quoteImageUrl}
+      lore={lore}
     />
   );
 }
