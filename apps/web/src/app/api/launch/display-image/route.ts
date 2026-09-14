@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
-import {
-  applyDisplayImagePathToToken,
-  applyDraftDisplayImageToToken,
-} from '@scoop/db';
-import {
-  deriveTokenImagePublicUrl,
-  isAllowedTokenDisplayImagePath,
-} from '@scoop/news';
 import { SCOOP_CHAIN_ID } from '@scoop/shared';
 import { readSessionFromRequest } from '@/lib/auth/session';
+import { finalizeTokenDisplayImage } from '@/lib/launch/finalize-token-display-image';
 import { serverDb } from '@/lib/server/queries';
 import {
   ValidationError,
@@ -20,17 +13,22 @@ import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
+/** Allow bounded wait-for-index + IPFS mirror inside one request. */
+export const maxDuration = 90;
 
 type Body = {
   chainId?: unknown;
   tokenAddress?: unknown;
   draftId?: unknown;
   displayImagePath?: unknown;
+  imageUri?: unknown;
+  waitForIndex?: unknown;
 };
 
 /**
- * Finalize tokens.display_image_url after canonical indexed launch.
- * Never trusts client-supplied displayImageUrl — only draft DB state or allowlisted path.
+ * Durable finalize of tokens.display_image_url after launch.
+ * Server-owned: path reuse → draft copy → IPFS→Supabase fallback.
+ * Never trusts client-supplied displayImageUrl.
  */
 export async function POST(request: Request) {
   try {
@@ -72,64 +70,60 @@ export async function POST(request: Request) {
       typeof body.displayImagePath === 'string'
         ? body.displayImagePath.trim().replace(/^\/+/, '')
         : '';
+    const imageUri =
+      typeof body.imageUri === 'string' ? body.imageUri.trim() : '';
+    const waitForIndex = body.waitForIndex !== false;
 
-    if (!displayImagePath && !draftId) {
+    if (!displayImagePath && !draftId && !imageUri) {
       return NextResponse.json(
-        { ok: true, status: 'noop' as const },
+        { ok: true, status: 'noop' as const, source: 'noop' as const },
         { headers: { 'Cache-Control': 'private, no-store' } },
       );
     }
 
-    const db = serverDb();
-
-    // Manual / pin path wins — never apply draft artwork over selected manual bytes.
-    if (displayImagePath) {
-      if (!isAllowedTokenDisplayImagePath(displayImagePath)) {
-        throw new ValidationError('Invalid displayImagePath');
-      }
-      const origin = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
-        .trim()
-        .replace(/\/$/, '');
-      if (!origin) {
-        return NextResponse.json(
-          { ok: false, error: 'Display storage not configured', code: 'CONFIG' },
-          { status: 503 },
-        );
-      }
-      const publicUrl = deriveTokenImagePublicUrl(origin, displayImagePath);
-      const result = await applyDisplayImagePathToToken(db, {
-        chainId,
-        tokenAddress,
-        displayImageUrl: publicUrl,
-      });
-      if (result === 'missing_token') {
-        return NextResponse.json(
-          { ok: false, error: 'launch_not_indexed', code: 'NOT_INDEXED' },
-          { status: 409 },
-        );
-      }
-      const payload = { ok: true as const, status: result };
-      assertNoSecretLeakage(payload);
-      return NextResponse.json(payload, {
-        headers: { 'Cache-Control': 'private, no-store' },
-      });
+    if (imageUri && !/^ipfs:\/\//i.test(imageUri) && imageUri.length > 0) {
+      // Only canonical IPFS is accepted for server-side mirror (never arbitrary URLs).
+      throw new ValidationError('imageUri must be an ipfs:// URI');
     }
 
-    const applied = await applyDraftDisplayImageToToken(db, {
+    const result = await finalizeTokenDisplayImage({
+      db: serverDb(),
       chainId,
       tokenAddress,
-      draftId,
+      displayImagePath: displayImagePath || null,
+      draftId: displayImagePath ? null : draftId || null,
+      imageUri: imageUri || null,
+      waitForIndex,
     });
-    if (!applied) {
-      // Missing draft display copy or not yet indexed — non-fatal for caller.
-      const payload = { ok: true as const, status: 'noop' as const };
-      assertNoSecretLeakage(payload);
-      return NextResponse.json(payload, {
-        headers: { 'Cache-Control': 'private, no-store' },
-      });
+
+    if (!result.ok) {
+      const status = result.error === 'launch_not_indexed' ? 409 : result.retryable ? 503 : 400;
+      const code =
+        result.error === 'launch_not_indexed'
+          ? 'NOT_INDEXED'
+          : result.retryable
+            ? 'RETRYABLE'
+            : 'FAILED';
+      return NextResponse.json(
+        {
+          ok: false,
+          error: result.error,
+          code,
+          retryable: result.retryable,
+          retries: result.retries,
+          source: result.source,
+        },
+        { status, headers: { 'Cache-Control': 'private, no-store' } },
+      );
     }
 
-    const payload = { ok: true as const, status: 'applied' as const };
+    const payload = {
+      ok: true as const,
+      status: result.status,
+      source: result.source,
+      uploaded: result.uploaded,
+      retries: result.retries,
+    };
     assertNoSecretLeakage(payload);
     return NextResponse.json(payload, {
       headers: { 'Cache-Control': 'private, no-store' },

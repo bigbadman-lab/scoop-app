@@ -157,7 +157,14 @@ export {
   resolveArticleFromDraft,
   type NewsArticleMarketLink,
 } from './repos/news-article-markets.js';
-export { upsertToken, setTokenDisplayImageUrl, applyDraftDisplayImageToToken, applyDisplayImagePathToToken, type TokenRow } from './repos/tokens.js';
+export {
+  upsertToken,
+  getTokenImageFields,
+  setTokenDisplayImageUrl,
+  applyDraftDisplayImageToToken,
+  applyDisplayImagePathToToken,
+  type TokenRow,
+} from './repos/tokens.js';
 export { upsertCreator, type CreatorRow } from './repos/creators.js';
 export { upsertPool, type PoolRow } from './repos/pools.js';
 export { upsertTrade, type TradeRow } from './repos/trades.js';

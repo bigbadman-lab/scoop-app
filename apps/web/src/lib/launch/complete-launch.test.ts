@@ -85,7 +85,7 @@ describe('runLaunchCompletion', () => {
     });
   });
 
-  it('applies display image after indexed and before News', async () => {
+  it('starts durable display finalization in parallel with indexer wait', async () => {
     const order: string[] = [];
     const ensureDisplayImage = vi.fn(async () => {
       order.push('display');
@@ -108,6 +108,7 @@ describe('runLaunchCompletion', () => {
         sourceDraftId: 'draft-1',
       },
       displayImagePath: null,
+      imageUri: 'ipfs://bafybeiabc',
       callbacks: { onPhase: () => {} },
       waitForIndexed: async () => {
         order.push('indexed');
@@ -116,11 +117,15 @@ describe('runLaunchCompletion', () => {
       ensureDisplayImage,
       activateNews,
     });
-    expect(order).toEqual(['indexed', 'display', 'news']);
+    // Display request starts immediately (server-owned wait); News still after index.
+    expect(order).toEqual(['display', 'indexed', 'news']);
     expect(ensureDisplayImage).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceDraftId: 'draft-1',
         displayImagePath: null,
+        imageUri: 'ipfs://bafybeiabc',
+        waitForIndex: true,
+        honorAbort: false,
       }),
     );
   });
@@ -152,6 +157,8 @@ describe('runLaunchCompletion', () => {
       expect.objectContaining({
         displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
         sourceDraftId: null,
+        waitForIndex: true,
+        honorAbort: false,
       }),
     );
   });
@@ -207,6 +214,7 @@ describe('runLaunchCompletion', () => {
         order.push('indexed_ready');
         return { status: 'ready', launch };
       },
+      ensureDisplayImage: async () => ({ ok: true as const, status: 'applied' as const }),
       activateNews,
     });
     expect(order.indexOf('indexed_ready')).toBeLessThan(order.indexOf('activate'));

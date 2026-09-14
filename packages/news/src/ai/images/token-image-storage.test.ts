@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildCanonicalTokenDisplayImagePath,
   buildManualTokenDisplayImagePath,
   buildTokenDisplayImagePath,
   deriveTokenImagePublicUrl,
   isAllowedTokenDisplayImagePath,
+  parseIpfsCid,
   TOKEN_IMAGE_BUCKET,
   validateTokenDisplayImage,
 } from './token-image-storage.js';
 import { persistSelectedArtworkDisplayCopy } from './display-copy.js';
+import { mirrorIpfsUriToTokenImage } from './mirror-ipfs-display.js';
 
 describe('token-image display path', () => {
   it('builds content-addressed draft object path', () => {
@@ -34,7 +37,7 @@ describe('token-image display path', () => {
     ).toBe(`manual/${hash}/${hash}.png`);
   });
 
-  it('allowlists only drafts/ and manual/ object paths', () => {
+  it('allowlists drafts/, manual/, and canonical/ object paths', () => {
     expect(
       isAllowedTokenDisplayImagePath(
         'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
@@ -43,6 +46,11 @@ describe('token-image display path', () => {
     expect(
       isAllowedTokenDisplayImagePath(
         'drafts/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/aaaaaaaaaaaaaaaa.png',
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedTokenDisplayImagePath(
+        'canonical/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.png',
       ),
     ).toBe(true);
     expect(isAllowedTokenDisplayImagePath('../etc/passwd')).toBe(false);
@@ -160,5 +168,60 @@ describe('persistSelectedArtworkDisplayCopy', () => {
       log: () => undefined,
     });
     expect(result).toEqual({ ok: false, reason: 'boom' });
+  });
+});
+
+describe('canonical IPFS display path + mirror', () => {
+  it('parses ipfs CID and builds canonical path', () => {
+    expect(parseIpfsCid('ipfs://bafybeiabc/foo.png')).toBe('bafybeiabc');
+    expect(parseIpfsCid('https://ipfs.io/ipfs/x')).toBeNull();
+    const path = buildCanonicalTokenDisplayImagePath({
+      cid: 'bafybeiabc',
+      mimeType: 'image/png',
+    });
+    expect(path).toBe('canonical/bafybeiabc/bafybeiabc.png');
+  });
+
+  it('mirrors IPFS bytes into token-image once', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+    const storage = {
+      uploadDisplayCopy: vi.fn(async ({ path }: { path: string }) => ({
+        path,
+        publicUrl: `https://proj.supabase.co/storage/v1/object/public/token-image/${path}`,
+      })),
+      publicUrlForPath: (path: string) =>
+        `https://proj.supabase.co/storage/v1/object/public/token-image/${path}`,
+    };
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'HEAD') return new Response(null, { status: 404 });
+      return new Response(png, {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    }) as unknown as typeof fetch;
+
+    const first = await mirrorIpfsUriToTokenImage({
+      imageUri: 'ipfs://bafybeimirror1',
+      storage,
+      fetchImpl,
+    });
+    expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.uploaded).toBe(true);
+      expect(first.path).toContain('canonical/bafybeimirror1');
+    }
+
+    const fetchReuse = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'HEAD') return new Response(null, { status: 200 });
+      return new Response(png, { status: 200, headers: { 'content-type': 'image/png' } });
+    }) as unknown as typeof fetch;
+    const second = await mirrorIpfsUriToTokenImage({
+      imageUri: 'ipfs://bafybeimirror1',
+      storage,
+      fetchImpl: fetchReuse,
+    });
+    expect(second.ok).toBe(true);
+    if (second.ok) expect(second.uploaded).toBe(false);
+    expect(storage.uploadDisplayCopy).toHaveBeenCalledTimes(1);
   });
 });

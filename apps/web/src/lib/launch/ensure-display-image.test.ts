@@ -36,23 +36,33 @@ describe('ensureTokenDisplayImage', () => {
     expect(result).toEqual({ ok: true, status: 'applied' });
   });
 
-  it('posts draftId when path absent', async () => {
+  it('posts imageUri with waitForIndex for IPFS-only durable finalize', async () => {
     const fetchImpl = vi.fn(async (_url, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body ?? '{}')) as {
-        draftId?: string;
-        displayImagePath?: string;
+        imageUri?: string;
+        waitForIndex?: boolean;
       };
-      expect(body.draftId).toBe('draft-1');
-      expect(body.displayImagePath).toBeUndefined();
-      return Response.json({ ok: true, status: 'skipped' });
+      expect(body.imageUri).toBe('ipfs://bafybeiabc');
+      expect(body.waitForIndex).toBe(true);
+      return Response.json({
+        ok: true,
+        status: 'applied',
+        source: 'ipfs_fallback',
+        uploaded: true,
+      });
     }) as unknown as typeof fetch;
 
-    await ensureTokenDisplayImage({
+    const result = await ensureTokenDisplayImage({
       chainId: 4663,
       tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      sourceDraftId: 'draft-1',
+      imageUri: 'ipfs://bafybeiabc',
       fetchImpl,
     });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      ok: true,
+      status: 'applied',
+      source: 'ipfs_fallback',
+      uploaded: true,
+    });
   });
 });

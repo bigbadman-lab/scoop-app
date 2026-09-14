@@ -25,6 +25,8 @@ export type RunLaunchCompletionInput = {
   provenance: LaunchTxState['provenance'];
   /** Manual token-image object path from pin (wins over draft). */
   displayImagePath?: string | null;
+  /** Canonical ipfs:// for durable Supabase mirror fallback. */
+  imageUri?: string | null;
   signal?: AbortSignal;
   callbacks: LaunchCompletionCallbacks;
   waitForIndexed?: typeof waitForIndexedLaunch;
@@ -93,6 +95,28 @@ export async function runLaunchCompletion(
     error: null,
   });
 
+  const displayPath = input.displayImagePath?.trim() || '';
+  const draftId = input.provenance?.sourceDraftId?.trim() || '';
+  const imageUri = input.imageUri?.trim() || '';
+  const shouldFinalizeDisplay = Boolean(displayPath || draftId || imageUri);
+
+  /**
+   * Start durable display finalization immediately (server waits for index).
+   * Not tied to completion AbortSignal — tab close must not cancel server work
+   * once the request is in flight.
+   */
+  const displayPromise = shouldFinalizeDisplay
+    ? ensureDisplay({
+        chainId: input.chainId,
+        tokenAddress: input.tokenAddress,
+        displayImagePath: displayPath || null,
+        sourceDraftId: displayPath ? null : draftId || null,
+        imageUri: imageUri || null,
+        waitForIndex: true,
+        honorAbort: false,
+      })
+    : Promise.resolve({ ok: true as const, status: 'noop' as const });
+
   const waitArgs: WaitForIndexedLaunchInput = {
     chainId: input.chainId,
     tokenAddress: input.tokenAddress,
@@ -128,23 +152,12 @@ export async function runLaunchCompletion(
   });
 
   let displayImage: 'ok' | 'failed' | 'skipped' = 'skipped';
-  const displayPath = input.displayImagePath?.trim() || '';
-  const draftId = input.provenance?.sourceDraftId?.trim() || '';
-  if (displayPath || draftId) {
-    if (input.signal?.aborted) {
-      return { status: 'aborted' };
-    }
-    const displayResult = await ensureDisplay({
-      chainId: input.chainId,
-      tokenAddress: input.tokenAddress,
-      displayImagePath: displayPath || null,
-      sourceDraftId: displayPath ? null : draftId || null,
-      signal: input.signal,
-    });
+  if (shouldFinalizeDisplay) {
+    const displayResult = await displayPromise;
     if (displayResult.ok) {
       displayImage = displayResult.status === 'noop' ? 'skipped' : 'ok';
     } else if (displayResult.error === 'aborted') {
-      return { status: 'aborted' };
+      displayImage = 'failed';
     } else {
       displayImage = 'failed';
       console.warn(

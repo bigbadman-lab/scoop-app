@@ -43,6 +43,8 @@ export {
   TOKEN_IMAGE_MIME,
   buildTokenDisplayImagePath,
   buildManualTokenDisplayImagePath,
+  buildCanonicalTokenDisplayImagePath,
+  parseIpfsCid,
   isAllowedTokenDisplayImagePath,
   deriveTokenImagePublicUrl,
   validateTokenDisplayImage,
@@ -53,3 +55,8 @@ export {
   persistSelectedArtworkDisplayCopy,
   type PersistDisplayCopyResult,
 } from './display-copy.js';
+export {
+  mirrorIpfsUriToTokenImage,
+  SCOOP_IPFS_GATEWAY_PREFIX,
+  type MirrorIpfsDisplayResult,
+} from './mirror-ipfs-display.js';

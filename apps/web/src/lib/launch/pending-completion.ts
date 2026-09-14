@@ -10,7 +10,7 @@ const MAX_AGE_MS = 30 * 60 * 1000;
 let memoryFallback: string | null = null;
 
 export type PendingLaunchCompletion = {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   chainId: number;
   tokenAddress: `0x${string}`;
   txHash: `0x${string}`;
@@ -20,6 +20,8 @@ export type PendingLaunchCompletion = {
   provenance: LaunchTxState['provenance'];
   /** Manual token-image path from pin (V2.F). */
   displayImagePath: string | null;
+  /** Canonical ipfs:// for durable display mirror (V3). */
+  imageUri: string | null;
   savedAt: number;
 };
 
@@ -63,13 +65,17 @@ function clearRaw(): void {
 }
 
 export function savePendingLaunchCompletion(
-  pending: Omit<PendingLaunchCompletion, 'version' | 'savedAt' | 'displayImagePath'> & {
+  pending: Omit<
+    PendingLaunchCompletion,
+    'version' | 'savedAt' | 'displayImagePath' | 'imageUri'
+  > & {
     displayImagePath?: string | null;
+    imageUri?: string | null;
     savedAt?: number;
   },
 ): void {
   const payload: PendingLaunchCompletion = {
-    version: 2,
+    version: 3,
     chainId: pending.chainId,
     tokenAddress: pending.tokenAddress,
     txHash: pending.txHash,
@@ -78,6 +84,7 @@ export function savePendingLaunchCompletion(
     decoded: pending.decoded,
     provenance: pending.provenance,
     displayImagePath: pending.displayImagePath ?? null,
+    imageUri: pending.imageUri ?? null,
     savedAt: pending.savedAt ?? Date.now(),
   };
   writeRaw(JSON.stringify(payload));
@@ -88,7 +95,9 @@ export function loadPendingLaunchCompletion(): PendingLaunchCompletion | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as PendingLaunchCompletion;
-    if (parsed.version !== 1 && parsed.version !== 2) return null;
+    if (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) {
+      return null;
+    }
     if (!parsed.tokenAddress || !parsed.txHash || !parsed.decoded) return null;
     if (Date.now() - parsed.savedAt > MAX_AGE_MS) {
       clearPendingLaunchCompletion();
@@ -97,6 +106,7 @@ export function loadPendingLaunchCompletion(): PendingLaunchCompletion | null {
     return {
       ...parsed,
       displayImagePath: parsed.displayImagePath ?? null,
+      imageUri: parsed.imageUri ?? null,
     };
   } catch {
     return null;

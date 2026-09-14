@@ -57,8 +57,34 @@ export function buildManualTokenDisplayImagePath(input: {
   return `manual/${hash}/${hash}.${ext}`;
 }
 
+/**
+ * IPFS fallback path: canonical/{cid}/{cid}.{ext}
+ * Same CID + mime → same path (upsert-idempotent).
+ */
+export function buildCanonicalTokenDisplayImagePath(input: {
+  cid: string;
+  mimeType: string;
+}): string {
+  const cid = sanitizePathSegment(input.cid);
+  if (!cid || !/^[a-zA-Z0-9]+$/.test(cid)) {
+    throw new Error('Invalid IPFS CID for display path');
+  }
+  const ext = extensionForMime(input.mimeType);
+  return `canonical/${cid}/${cid}.${ext}`;
+}
+
+/** Extract root CID from `ipfs://…` (null if not an IPFS URI). */
+export function parseIpfsCid(imageUri: string): string | null {
+  const trimmed = imageUri.trim();
+  if (!trimmed.toLowerCase().startsWith('ipfs://')) return null;
+  const rest = trimmed.slice('ipfs://'.length).replace(/^ipfs\//i, '');
+  const cid = rest.split('/')[0]?.trim() ?? '';
+  if (!cid || !/^[a-zA-Z0-9]+$/.test(cid)) return null;
+  return cid;
+}
+
 const ALLOWED_DISPLAY_PATH =
-  /^(drafts\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/[a-f0-9]{16}\.(png|jpg|webp)|manual\/[a-f0-9]{16}\/[a-f0-9]{16}\.(png|jpg|webp))$/;
+  /^(drafts\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/[a-f0-9]{16}\.(png|jpg|webp)|manual\/[a-f0-9]{16}\/[a-f0-9]{16}\.(png|jpg|webp)|canonical\/[a-zA-Z0-9]+\/[a-zA-Z0-9]+\.(png|jpg|webp))$/;
 
 /** Server-side allowlist for client-supplied display object paths (never raw URLs). */
 export function isAllowedTokenDisplayImagePath(path: string): boolean {

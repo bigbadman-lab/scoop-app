@@ -58,10 +58,12 @@ describe('pending launch completion session', () => {
       decoded,
       provenance: null,
       displayImagePath: 'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
+      imageUri: 'ipfs://bafybeiabc',
     });
     expect(loadPendingLaunchCompletion()?.displayImagePath).toBe(
       'manual/aaaaaaaaaaaaaaaa/aaaaaaaaaaaaaaaa.png',
     );
+    expect(loadPendingLaunchCompletion()?.imageUri).toBe('ipfs://bafybeiabc');
   });
 
   it('clears after explicit clear', () => {

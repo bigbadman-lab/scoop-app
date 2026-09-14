@@ -279,7 +279,11 @@ function LaunchFlowInner({ catalogue }: Props) {
     setTx((prev) => ({ ...prev, ...partial }));
   }
 
-  function startCompletionFromTx(base: LaunchTxState, displayImagePath?: string | null) {
+  function startCompletionFromTx(
+    base: LaunchTxState,
+    displayImagePath?: string | null,
+    imageUriArg?: string | null,
+  ) {
     if (!base.decoded?.token || !base.txHash) return;
     const key = `${base.txHash}:${base.decoded.token}`.toLowerCase();
     if (completionKeyRef.current === key) return;
@@ -300,6 +304,11 @@ function LaunchFlowInner({ catalogue }: Props) {
       (typeof state.image.displayImagePath === 'string'
         ? state.image.displayImagePath
         : null);
+    const imageUri =
+      imageUriArg ??
+      (typeof state.image.ipfsUri === 'string' && state.image.ipfsUri.startsWith('ipfs://')
+        ? state.image.ipfsUri
+        : null);
 
     savePendingLaunchCompletion({
       chainId: ROBINHOOD_CHAIN_ID,
@@ -310,6 +319,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       decoded: base.decoded,
       provenance: base.provenance,
       displayImagePath: path,
+      imageUri,
     });
     saveFreshLaunchHandoff({
       chainId: ROBINHOOD_CHAIN_ID,
@@ -329,6 +339,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       expectedDeployer: base.expectedDeployer,
       provenance: base.provenance,
       displayImagePath: path,
+      imageUri,
       signal: ac.signal,
       callbacks: {
         onPhase: (partial) => {
@@ -421,7 +432,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       provenance: pending.provenance,
     };
     setTx(restored);
-    startCompletionFromTx(restored, pending.displayImagePath);
+    startCompletionFromTx(restored, pending.displayImagePath, pending.imageUri);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only resume
   }, []);
 

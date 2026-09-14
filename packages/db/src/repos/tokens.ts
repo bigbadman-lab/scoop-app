@@ -70,6 +70,38 @@ export async function upsertToken(db: Queryable, row: TokenRow): Promise<void> {
 }
 
 /**
+ * Read token image fields for durable display finalization.
+ * Returns null when the token row is not indexed yet.
+ */
+export async function getTokenImageFields(
+  db: Queryable,
+  input: { chainId: number; tokenAddress: string },
+): Promise<{
+  displayImageUrl: string | null;
+  imageUri: string | null;
+} | null> {
+  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const result = await db.query<{
+    display_image_url: string | null;
+    image_uri: string | null;
+  }>(
+    `SELECT display_image_url, image_uri
+     FROM tokens
+     WHERE chain_id = $1 AND token_address = $2
+     LIMIT 1`,
+    [input.chainId, tokenAddress],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const display = String(row.display_image_url ?? '').trim();
+  const imageUri = String(row.image_uri ?? '').trim();
+  return {
+    displayImageUrl: display.length > 0 ? display : null,
+    imageUri: imageUri.length > 0 ? imageUri : null,
+  };
+}
+
+/**
  * Set SCOOP display HTTPS URL without touching canonical image_uri.
  * Ownership: launch finalization / ops backfill — not the chain indexer.
  * Idempotent when the token already has the same URL.
