@@ -89,8 +89,8 @@ describe('quote revalidation', () => {
 });
 
 describe('image prompts', () => {
-  it('includes anti-photo and no-publisher-logo instructions', () => {
-    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/NOT documentary news photography/i);
+  it('requires market/ticker editorial language and publisher-logo safeguards', () => {
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/ticker board|market terminal/i);
     expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/No publisher logos/i);
     const prompt = buildTokenArtworkPrompt({
       article: {
@@ -102,6 +102,7 @@ describe('image prompts', () => {
       style: 'iconic',
     });
     expect(prompt).toContain('untrusted');
+    expect(prompt).toContain('tokenTicker: FLOOD');
     assertSafeImagePrompt(prompt);
   });
 });
