@@ -19,6 +19,10 @@ describe('SiteFooter', () => {
     expect(screen.getByRole('link', { name: 'News' }).getAttribute('href')).toBe('/news');
     expect(screen.getByRole('link', { name: 'Launch' }).getAttribute('href')).toBe('/launch');
     expect(screen.getByRole('link', { name: 'Account' }).getAttribute('href')).toBe('/account');
+    expect(screen.getByRole('link', { name: '$TAPE' }).getAttribute('href')).toBe(
+      '/protocol/tape',
+    );
+    expect(screen.getByRole('link', { name: 'Docs' }).getAttribute('href')).toBe('/docs');
     expect(screen.getByRole('link', { name: 'Terms' }).getAttribute('href')).toBe('/legal/terms');
     expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe(
       '/legal/privacy',

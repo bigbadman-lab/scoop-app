@@ -5,6 +5,12 @@ export {
   isHiddenProductionCanary,
 } from './hidden-production-canaries.js';
 export {
+  getProtocolStats,
+  type ProtocolStats,
+  type ProtocolFeeSemantics,
+  type ProtocolFeeCoverage,
+} from './protocol-stats.js';
+export {
   getDiscoverBoard,
   getDiscoverTrending,
   getDiscoverBonding,

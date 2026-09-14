@@ -14,3 +14,9 @@ export function robinhoodTxUrl(txHash: string): string {
   const hash = txHash.trim();
   return `${ROBINHOOD_EXPLORER_BASE}/tx/${hash}`;
 }
+
+/** Address / contract page on Robinhood Chain explorer. */
+export function robinhoodAddressUrl(address: string): string {
+  const addr = address.trim();
+  return `${ROBINHOOD_EXPLORER_BASE}/address/${addr}`;
+}

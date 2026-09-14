@@ -1,0 +1,89 @@
+import type { Metadata } from 'next';
+import { ProtocolStatsLive } from '@/components/protocol/ProtocolStatsLive';
+import { TapeContractCard } from '@/components/protocol/TapeContractCard';
+import { emptyProtocolStats, loadProtocolStatsSafe } from '@/lib/protocol/load-stats';
+import { resolveTapeTokenAddress } from '@/lib/protocol/tape';
+import { buildPageMetadata } from '@/lib/seo/site';
+
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = buildPageMetadata({
+  title: '$TAPE — SCOOP Protocol',
+  description:
+    '$TAPE is the official token of SCOOP. Track SCOOP protocol markets, trades, volume and fees in near real time.',
+  path: '/protocol/tape',
+  absoluteTitle: true,
+});
+
+export default async function TapeProtocolPage() {
+  let initialStats = emptyProtocolStats();
+  try {
+    initialStats = await loadProtocolStatsSafe();
+  } catch {
+    initialStats = emptyProtocolStats();
+  }
+
+  const tapeAddress = resolveTapeTokenAddress();
+
+  return (
+    <main className="relative overflow-hidden" data-testid="tape-protocol-page">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[22rem] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--scoop-orange)_12%,transparent)_0%,transparent_65%)]"
+      />
+
+      <div className="relative mx-auto max-w-[1400px] px-4 py-12 md:px-8 md:py-16 lg:px-10 lg:py-20">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+          Protocol
+        </p>
+        <h1 className="mt-4 font-serif text-5xl leading-[0.95] tracking-tight text-[var(--fg)] md:text-6xl lg:text-7xl">
+          $TAPE
+        </h1>
+        <p className="mt-3 font-serif text-2xl tracking-tight text-[var(--fg)] md:text-3xl">
+          Trade the Tape.
+        </p>
+        <p className="mt-5 max-w-2xl text-base leading-snug text-[var(--muted)] md:text-lg">
+          $TAPE is the official token of SCOOP — the protocol for turning market-moving
+          stories into onchain markets.
+        </p>
+        <p className="mt-3 max-w-2xl text-sm leading-snug text-[var(--muted-2)] md:text-base">
+          Follow the protocol as it grows: markets launched, trades, volume and fees —
+          updated near real time from indexed Robinhood Chain data.
+        </p>
+
+        <div className="mt-10 md:mt-12">
+          <TapeContractCard address={tapeAddress} />
+        </div>
+
+        <section className="mt-12 md:mt-16" aria-labelledby="protocol-stats-heading">
+          <h2
+            id="protocol-stats-heading"
+            className="font-serif text-2xl tracking-tight text-[var(--fg)] md:text-3xl"
+          >
+            Protocol stats
+          </h2>
+          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
+            Canonical public-market totals. Indexer trails chain head by roughly one
+            confirmation lag (~10–20s).
+          </p>
+          <div className="mt-6">
+            <ProtocolStatsLive initialStats={initialStats} />
+          </div>
+        </section>
+
+        <section className="mt-14 max-w-2xl border-t border-[var(--divider)] pt-10 md:mt-16">
+          <h2 className="font-serif text-xl tracking-tight text-[var(--fg)] md:text-2xl">
+            Built for market culture
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--muted)] md:text-base">
+            SCOOP markets run on Robinhood Chain with Uniswap v4 liquidity. Protocol
+            trading fees route through the deployed fee distributor — including a
+            protocol allocation reserved for buybacks. Stats above reflect indexed
+            distributions marked to market in USD; they do not invent executed buy
+            volume or uncollected LP fees.
+          </p>
+        </section>
+      </div>
+    </main>
+  );
+}
