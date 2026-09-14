@@ -1,8 +1,4 @@
-import {
-  isMarketLivePhase,
-  type LaunchTxPhase,
-  type LaunchTxState,
-} from '@/lib/launch/tx-state';
+import { isMarketLivePhase, type LaunchTxPhase, type LaunchTxState } from '@/lib/launch/tx-state';
 
 export type CompletionPanelCopy = {
   title: string;
@@ -14,7 +10,7 @@ export type CompletionPanelCopy = {
 
 /**
  * Post-receipt launch success copy.
- * Market is live onchain after receipt; only SCOOP analytics may still be syncing.
+ * Market is live onchain after receipt; supporting market data may appear shortly.
  */
 export function completionPanelCopy(
   tx: Pick<LaunchTxState, 'phase' | 'error'>,
@@ -27,7 +23,7 @@ export function completionPanelCopy(
     return {
       title: 'Launch successful',
       primary: 'Market is live',
-      body: 'Confirmed on-chain — launch details pending decode. Indexing cannot start without the token address.',
+      body: 'Confirmed on-chain. Token details will appear shortly.',
       syncHint: null,
       testId: 'launch-receipt-success',
     };
@@ -37,9 +33,7 @@ export function completionPanelCopy(
     return {
       title: 'Indexed data mismatch',
       primary: null,
-      body:
-        tx.error ??
-        'Canonical indexed launch does not match the receipt. Navigation blocked.',
+      body: tx.error ?? 'Canonical indexed launch does not match the receipt. Navigation blocked.',
       syncHint: null,
       testId: 'launch-index-mismatch',
     };
@@ -49,7 +43,7 @@ export function completionPanelCopy(
     return {
       title: 'Launch successful',
       primary: 'Market is live',
-      body: 'Market is live, but SCOOP market data is taking longer than expected to sync.',
+      body: 'Market data is taking longer than expected to appear.',
       syncHint: null,
       testId: 'launch-indexing-timeout',
     };
@@ -74,11 +68,11 @@ export function completionPanelCopy(
     return {
       title: 'Launch successful',
       primary: 'Market is live',
-      body: 'Your token is live and trading is available. SCOOP is syncing the latest market data — charts, trades and holder data may take a few seconds to appear.',
+      body: 'Your token is live and trading is available. Market data is appearing now.',
       syncHint:
         tx.phase === 'activating_news'
-          ? 'Linking News article…'
-          : 'Syncing market data…',
+          ? 'News article is appearing now.'
+          : 'Market data is appearing now.',
       testId:
         tx.phase === 'activating_news'
           ? 'launch-activating-news'
@@ -91,16 +85,13 @@ export function completionPanelCopy(
   return {
     title: 'Launch successful',
     primary: 'Market is live',
-    body: 'Your token is live and trading is available. SCOOP is syncing the latest market data — charts, trades and holder data may take a few seconds to appear.',
+    body: 'Your token is live and trading is available. Market data is appearing now.',
     syncHint: null,
     testId: 'launch-receipt-success',
   };
 }
 
-export function canShowViewMarket(
-  phase: LaunchTxPhase,
-  marketHref: string | null,
-): boolean {
+export function canShowViewMarket(phase: LaunchTxPhase, marketHref: string | null): boolean {
   if (!marketHref) return false;
   return (
     isMarketLivePhase(phase) ||

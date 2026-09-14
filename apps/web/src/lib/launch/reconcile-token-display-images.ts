@@ -95,11 +95,14 @@ export async function reconcileTokenDisplayImages(
   let orphansApplied = 0;
   for (const orphan of orphans) {
     orphansProcessed += 1;
+    const openIntent = await findOpenIntentImageSource(input.db, orphan.imageUri);
+    const displayImagePath = openIntent?.displayImagePath ?? null;
     const result = await finalize({
       db: input.db,
       chainId: orphan.chainId,
       tokenAddress: orphan.tokenAddress,
-      draftId: orphan.draftId,
+      displayImagePath,
+      draftId: displayImagePath ? null : (openIntent?.draftId ?? orphan.draftId),
       imageUri: orphan.imageUri,
       waitForIndex: false,
       owner: 'server_reconciliation',
@@ -140,6 +143,31 @@ export async function reconcileTokenDisplayImages(
     orphansProcessed,
     orphansApplied,
   };
+}
+
+async function findOpenIntentImageSource(
+  db: Queryable,
+  imageUri: string,
+): Promise<{ displayImagePath: string | null; draftId: string | null } | null> {
+  const result = await db.query<{
+    display_image_path: string | null;
+    draft_id: string | null;
+  }>(
+    `SELECT display_image_path, draft_id
+       FROM token_display_finalize_intents
+      WHERE image_uri = $1
+        AND status IN ('awaiting_token', 'pending')
+      ORDER BY updated_at DESC
+      LIMIT 1`,
+    [imageUri.trim()],
+  );
+  const row = result.rows[0];
+  return row
+    ? {
+        displayImagePath: row.display_image_path,
+        draftId: row.draft_id,
+      }
+    : null;
 }
 
 async function applyIntentResult(

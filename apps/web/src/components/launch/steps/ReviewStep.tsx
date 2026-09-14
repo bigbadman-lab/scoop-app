@@ -1,11 +1,7 @@
 'use client';
 
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
-import {
-  LAUNCH_FEE_ETH,
-  LAUNCH_FEE_WEI,
-  type LaunchFormState,
-} from '@/lib/launch/types';
+import { LAUNCH_FEE_ETH, LAUNCH_FEE_WEI, type LaunchFormState } from '@/lib/launch/types';
 import { hasDevBuy } from '@/lib/launch/validation';
 import {
   creatorRecipientLabel,
@@ -19,10 +15,7 @@ import {
   tokenMarketPath,
   type LaunchTxState,
 } from '@/lib/launch/tx-state';
-import {
-  canShowViewMarket,
-  completionPanelCopy,
-} from '@/lib/launch/completion-panel-copy';
+import { canShowViewMarket, completionPanelCopy } from '@/lib/launch/completion-panel-copy';
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import {
@@ -66,9 +59,7 @@ export function ReviewStep({
   );
   const quoteSymbol = state.quoteSymbol ?? quote?.displaySymbol ?? '—';
   const quoteDecimals =
-    state.quoteDecimals ??
-    quote?.decimals ??
-    (isNativeEthQuote(state.quoteAsset) ? 18 : null);
+    state.quoteDecimals ?? quote?.decimals ?? (isNativeEthQuote(state.quoteAsset) ? 18 : null);
   const buy = hasDevBuy(state);
   const parsedBuy =
     buy && quoteDecimals != null
@@ -80,9 +71,7 @@ export function ReviewStep({
         })
       : null;
   const buyRaw =
-    parsedBuy && parsedBuy.ok && parsedBuy.amount > BigInt(0)
-      ? parsedBuy.amount
-      : BigInt(0);
+    parsedBuy && parsedBuy.ok && parsedBuy.amount > BigInt(0) ? parsedBuy.amount : BigInt(0);
   const buyActive = buyRaw > BigInt(0);
   const nativeQuote = isNativeEthQuote(state.quoteAsset);
   const msgValueWei = nativeQuote ? LAUNCH_FEE_WEI + buyRaw : LAUNCH_FEE_WEI;
@@ -104,18 +93,13 @@ export function ReviewStep({
         ? 'Deployer'
         : 'Creator';
   const canonicalReady = canLaunchCanonicalProduction();
-  const ticker =
-    tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
-  const tokenAddr =
-    tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
+  const ticker = tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
+  const tokenAddr = tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
   const marketHref = tokenAddr ? tokenMarketPath(tokenAddr) : null;
 
   let creatorLines: string[] = ['Unresolved'];
   if (isCreatorResolved(recipient) && recipient.type === 'wallet') {
-    creatorLines = [
-      creatorRecipientLabel(recipient),
-      truncateAddress(recipient.address),
-    ];
+    creatorLines = [creatorRecipientLabel(recipient), truncateAddress(recipient.address)];
   }
 
   const showPostReceipt =
@@ -134,8 +118,8 @@ export function ReviewStep({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Confirm deployer and creator rewards, then submit. Simulation runs before
-          your wallet opens.
+          Confirm deployer and creator rewards, then submit. Simulation runs before your wallet
+          opens.
         </p>
       </div>
 
@@ -144,6 +128,7 @@ export function ReviewStep({
           tx={tx}
           ticker={ticker}
           tokenName={tx.indexedLaunch?.name ?? tx.decoded?.name ?? state.name}
+          previewUrl={state.image.previewUrl}
           quoteSymbol={quoteSymbol}
           marketHref={marketHref}
           onRetryIndex={onRetryIndex}
@@ -192,9 +177,7 @@ export function ReviewStep({
               <p className="text-[17px] font-semibold tracking-tight">{state.name}</p>
               <p className="line-clamp-3 text-sm text-[var(--muted)]">{state.description}</p>
               {state.image.ipfsUri ? (
-                <p className="font-mono text-[10px] text-[var(--muted-2)]">
-                  IPFS ready
-                </p>
+                <p className="font-mono text-[10px] text-[var(--muted-2)]">IPFS ready</p>
               ) : (
                 <p className="font-mono text-[10px] text-[var(--muted-2)]">
                   Will pin to IPFS on launch
@@ -230,10 +213,7 @@ export function ReviewStep({
               label="Additional fee"
               value={`+${formatTradingFeePercent(routing.additionalFeeUnits)}`}
             />
-            <Row
-              label="Total trading fee"
-              value={formatTradingFeePercent(routing.totalFeeUnits)}
-            />
+            <Row label="Total trading fee" value={formatTradingFeePercent(routing.totalFeeUnits)} />
             <Row label="Base 70% allocation" value={baseAllocLabel} />
             {routing.additionalFeeUnits > 0 ? (
               <Row label="Additional destination" value={extraDestLabel} />
@@ -251,10 +231,7 @@ export function ReviewStep({
             ) : null}
             <Row label="Deployer" value={formatTradingFeePercent(routing.deployerUnits)} />
             <Row label="Protocol" value={formatTradingFeePercent(routing.protocolUnits)} />
-            <Row
-              label="Operations"
-              value={formatTradingFeePercent(routing.operationsUnits)}
-            />
+            <Row label="Operations" value={formatTradingFeePercent(routing.operationsUnits)} />
             <Row label="Total" value={formatTradingFeePercent(routing.totalFeeUnits)} />
           </dl>
           {routing.holdersUnits > 0 ? (
@@ -273,8 +250,8 @@ export function ReviewStep({
               className="mt-2 text-sm text-[var(--muted)]"
               data-testid="canonical-launch-unavailable"
             >
-              Canonical Factory is not deployed yet. You can configure fees, but launch
-              broadcast is unavailable.
+              Canonical Factory is not deployed yet. You can configure fees, but launch broadcast is
+              unavailable.
             </p>
           ) : null}
         </TicketBlock>
@@ -286,9 +263,7 @@ export function ReviewStep({
                 Deployed by
               </dt>
               <dd className="mt-1 font-mono text-[14px]" data-testid="review-deployer-wallet">
-                {connectedAddress
-                  ? truncateAddress(connectedAddress)
-                  : 'Connect a wallet'}
+                {connectedAddress ? truncateAddress(connectedAddress) : 'Connect a wallet'}
               </dd>
             </div>
             <div>
@@ -307,16 +282,11 @@ export function ReviewStep({
                 <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
                   Initial buy recipient
                 </dt>
-                <dd
-                  className="mt-1 font-mono text-[14px]"
-                  data-testid="review-buy-recipient"
-                >
-                  {connectedAddress
-                    ? truncateAddress(connectedAddress)
-                    : 'Connect a wallet'}
+                <dd className="mt-1 font-mono text-[14px]" data-testid="review-buy-recipient">
+                  {connectedAddress ? truncateAddress(connectedAddress) : 'Connect a wallet'}
                   <span className="mt-1 block text-[var(--muted)]">
-                    Purchased tokens go to the signing wallet (msg.sender), not
-                    the creator recipient unless they are the same.
+                    Purchased tokens go to the signing wallet (msg.sender), not the creator
+                    recipient unless they are the same.
                   </span>
                 </dd>
               </div>
@@ -327,15 +297,11 @@ export function ReviewStep({
         <TicketBlock title="Dev buy">
           {buyActive && quoteDecimals != null ? (
             <>
-              <p
-                className="font-mono text-[14px] tabular-nums"
-                data-testid="review-dev-buy-amount"
-              >
+              <p className="font-mono text-[14px] tabular-nums" data-testid="review-dev-buy-amount">
                 {formatQuoteRaw(buyRaw, quoteDecimals)} {quoteSymbol}
               </p>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                Submitted atomically with launch via{' '}
-                <span className="font-mono">launchAndBuy</span>
+                Submitted atomically with launch via <span className="font-mono">launchAndBuy</span>
                 {nativeQuote
                   ? '.'
                   : `. ${quoteSymbol} is authorized to the Factory before launch; msg.value is launch fee only.`}
@@ -365,10 +331,7 @@ export function ReviewStep({
               label="Total transaction value"
               value={`${formatEthWei(msgValueWei)} ETH (msg.value)`}
             />
-            <Row
-              label="Function"
-              value={buyActive ? 'launchAndBuy' : 'launch'}
-            />
+            <Row label="Function" value={buyActive ? 'launchAndBuy' : 'launch'} />
             <Row label="Network" value={`${ROBINHOOD_CHAIN_LABEL} · ${ROBINHOOD_CHAIN_ID}`} />
           </dl>
         </TicketBlock>
@@ -381,6 +344,7 @@ function CompletionPanel({
   tx,
   ticker,
   tokenName,
+  previewUrl,
   quoteSymbol,
   marketHref,
   onRetryIndex,
@@ -390,6 +354,7 @@ function CompletionPanel({
   tx: LaunchTxState;
   ticker: string;
   tokenName: string;
+  previewUrl: string | null;
   quoteSymbol: string;
   marketHref: string | null;
   onRetryIndex?: () => void;
@@ -423,42 +388,49 @@ function CompletionPanel({
       <p className="mt-1 text-sm text-[var(--muted)]">{copy.body}</p>
 
       {tx.newsActivation === 'failed' && live ? (
-        <p
-          className="mt-2 text-sm text-[var(--muted)]"
-          data-testid="launch-news-sync-warning"
-        >
+        <p className="mt-2 text-sm text-[var(--muted)]" data-testid="launch-news-sync-warning">
           Market is live. News link is still syncing.
         </p>
       ) : null}
 
-      {(tokenName || ticker) && tx.decoded?.token ? (
+      {tokenName || ticker ? (
         <dl className="mt-3 space-y-2 text-sm">
           <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
             <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
               Token
             </dt>
-            <dd className="text-[var(--fg)]">
-              {tokenName || ticker} (${ticker})
+            <dd className="flex items-center gap-3 text-[var(--fg)]">
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt={`${tokenName || ticker} token`}
+                  className="h-14 w-14 rounded-[var(--radius-md)] object-cover"
+                  data-testid="launch-success-token-image"
+                />
+              ) : null}
+              <span>
+                {tokenName || ticker} (${ticker})
+              </span>
             </dd>
           </div>
-          <div
-            className="flex min-w-0 flex-col gap-1"
-            data-testid="launch-token-contract"
-          >
-            <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-              Token contract
-            </dt>
-            <dd className="min-w-0">
-              <ContractCopy
-                address={tx.decoded.token}
-                display="full"
-                feedback="text"
-                label="Copy token contract address"
-                copiedLabel="Token contract address copied"
-                className="w-full justify-between gap-3 border border-[var(--divider)] bg-[var(--bg)] px-3 py-2 text-[12px] text-[var(--fg)] hover:border-[var(--fg)] hover:text-[var(--fg)] sm:text-[13px]"
-              />
-            </dd>
-          </div>
+          {tx.decoded?.token ? (
+            <div className="flex min-w-0 flex-col gap-1" data-testid="launch-token-contract">
+              <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+                Token contract
+              </dt>
+              <dd className="min-w-0">
+                <ContractCopy
+                  address={tx.decoded.token}
+                  display="full"
+                  feedback="text"
+                  label="Copy token contract address"
+                  copiedLabel="Token contract address copied"
+                  className="w-full justify-between gap-3 border border-[var(--divider)] bg-[var(--bg)] px-3 py-2 text-[12px] text-[var(--fg)] hover:border-[var(--fg)] hover:text-[var(--fg)] sm:text-[13px]"
+                />
+              </dd>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
             <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
               Pair
@@ -471,9 +443,7 @@ function CompletionPanel({
       ) : null}
 
       {tx.txHash ? (
-        <p className="mt-2 font-mono text-[11px] break-all text-[var(--muted-2)]">
-          {tx.txHash}
-        </p>
+        <p className="mt-2 font-mono text-[11px] break-all text-[var(--muted-2)]">{tx.txHash}</p>
       ) : null}
 
       {copy.syncHint || syncing ? (
@@ -511,11 +481,11 @@ function CompletionPanel({
         {showViewMarket && onViewMarket ? (
           <button
             type="button"
-            className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange-contrast)] hover:opacity-90"
             onClick={onViewMarket}
-            data-testid="launch-view-market"
+            data-testid="launch-view-token"
           >
-            View market
+            View token
           </button>
         ) : null}
 

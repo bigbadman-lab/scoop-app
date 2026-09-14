@@ -2,10 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
 import { createInitialLaunchState } from '@/lib/launch/types';
-import {
-  INITIAL_LAUNCH_TX_STATE,
-  type LaunchTxState,
-} from '@/lib/launch/tx-state';
+import { INITIAL_LAUNCH_TX_STATE, type LaunchTxState } from '@/lib/launch/tx-state';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
 const TOKEN = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;
@@ -40,6 +37,7 @@ function baseState() {
   state.quoteAsset = QUOTE;
   state.quoteSymbol = 'ETH';
   state.quoteDecimals = 18;
+  state.image.previewUrl = 'blob:https://scoop.test/launch-preview';
   return state;
 }
 
@@ -89,10 +87,11 @@ describe('ReviewStep launch success contract copy', () => {
     );
 
     expect(screen.getByTestId('launch-waiting-indexer')).toBeTruthy();
-    expect(screen.getByTestId('launch-market-live-status').textContent).toMatch(
-      /Market is live/i,
-    );
+    expect(screen.getByTestId('launch-market-live-status').textContent).toMatch(/Market is live/i);
     expect(screen.getByTestId('launch-token-contract')).toBeTruthy();
+    const image = screen.getByTestId('launch-success-token-image');
+    expect(image.getAttribute('src')).toBe('blob:https://scoop.test/launch-preview');
+    expect(image.getAttribute('alt')).toBe('Muse Mode token');
 
     const copyBtn = screen.getByRole('button', {
       name: /copy token contract address/i,
@@ -102,15 +101,9 @@ describe('ReviewStep launch success contract copy', () => {
     expect(screen.getByTestId('contract-copy-feedback').textContent).toBe('Copy');
 
     // Not showing deployer / factory / tx as the contract row.
-    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(
-      DEPLOYER,
-    );
-    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(
-      FACTORY,
-    );
-    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(
-      TX_HASH,
-    );
+    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(DEPLOYER);
+    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(FACTORY);
+    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(TX_HASH);
 
     fireEvent.click(copyBtn);
     await waitFor(() => {
@@ -118,17 +111,32 @@ describe('ReviewStep launch success contract copy', () => {
     });
     expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(DEPLOYER);
     expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(TX_HASH);
-    expect(screen.getByTestId('contract-copy').getAttribute('data-copied')).toBe(
-      'true',
-    );
-    expect(screen.getByTestId('contract-copy-feedback').textContent).toBe(
-      'Copied',
-    );
+    expect(screen.getByTestId('contract-copy').getAttribute('data-copied')).toBe('true');
+    expect(screen.getByTestId('contract-copy-feedback').textContent).toBe('Copied');
 
-    const view = screen.getByTestId('launch-view-market');
+    const view = screen.getByTestId('launch-view-token');
     expect(view).toBeTruthy();
+    expect(view.textContent).toMatch(/View token/i);
     fireEvent.click(view);
     expect(onViewMarket).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the launch image while receipt details are still appearing', () => {
+    render(
+      <ReviewStep
+        state={baseState()}
+        catalogue={[eth]}
+        connectedAddress={DEPLOYER}
+        tx={{
+          ...receiptTx('receipt_success_details_pending'),
+          decoded: null,
+          detailsPending: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('launch-success-token-image')).toBeTruthy();
+    expect(screen.queryByTestId('launch-token-contract')).toBeNull();
   });
 
   it('keeps contract copy on market_live success', async () => {
@@ -147,13 +155,11 @@ describe('ReviewStep launch success contract copy', () => {
 
     expect(screen.getByTestId('launch-market-live')).toBeTruthy();
     expect(screen.getByTestId('contract-copy-address').textContent).toBe(TOKEN);
-    fireEvent.click(
-      screen.getByRole('button', { name: /copy token contract address/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /copy token contract address/i }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(TOKEN);
     });
-    expect(screen.getByTestId('launch-view-market')).toBeTruthy();
+    expect(screen.getByTestId('launch-view-token')).toBeTruthy();
   });
 
   it('survives clipboard rejection without crashing', async () => {
@@ -173,16 +179,12 @@ describe('ReviewStep launch success contract copy', () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /copy token contract address/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /copy token contract address/i }));
     await waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalled();
     });
-    expect(screen.getByTestId('contract-copy').getAttribute('data-copied')).toBe(
-      'false',
-    );
+    expect(screen.getByTestId('contract-copy').getAttribute('data-copied')).toBe('false');
     expect(screen.getByTestId('contract-copy-feedback').textContent).toBe('Copy');
-    expect(screen.getByTestId('launch-view-market')).toBeTruthy();
+    expect(screen.getByTestId('launch-view-token')).toBeTruthy();
   });
 });

@@ -2,12 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  useAccount,
-  usePublicClient,
-  useSwitchChain,
-  useWalletClient,
-} from 'wagmi';
+import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 import {
   createInitialLaunchState,
@@ -33,9 +28,7 @@ import {
   savePendingLaunchCompletion,
 } from '@/lib/launch/pending-completion';
 import { saveFreshLaunchHandoff } from '@/lib/launch/fresh-launch-handoff';
-import {
-  canShowViewMarket,
-} from '@/lib/launch/completion-panel-copy';
+import { canShowViewMarket } from '@/lib/launch/completion-panel-copy';
 import {
   INITIAL_LAUNCH_TX_STATE,
   isLaunchCompletionActive,
@@ -58,10 +51,7 @@ type Props = {
   catalogue: PublicQuoteCatalogueItem[];
 };
 
-type ArtworkNotice =
-  | { kind: 'ready' }
-  | { kind: 'regenerated' }
-  | { kind: 'failed' };
+type ArtworkNotice = { kind: 'ready' } | { kind: 'regenerated' } | { kind: 'failed' };
 
 function imageFromHandoff(
   handoff: NonNullable<ReturnType<typeof consumeAssistedLaunchHandoff>>,
@@ -103,7 +93,7 @@ function imageFromHandoff(
     byteSize: handoff.image.byteSize,
     persistence: 'local_only',
     ipfsUri: null,
-      displayImagePath: null,
+    displayImagePath: null,
     source: 'ai',
     artworkStatus: 'ready',
     artworkError: null,
@@ -121,9 +111,7 @@ function resolveSourceDraftId(
   return null;
 }
 
-function applyAssistedPrefill(
-  catalogue: readonly PublicQuoteCatalogueItem[],
-): {
+function applyAssistedPrefill(catalogue: readonly PublicQuoteCatalogueItem[]): {
   prefill: Partial<LaunchFormState> | null;
   provenance: LaunchAssistArticle | null;
   quoteWarning: string | null;
@@ -145,8 +133,7 @@ function applyAssistedPrefill(
     quoteSymbol = match.displaySymbol || match.symbol;
     quoteDecimals = match.decimals;
   } else if (address) {
-    quoteWarning =
-      'The recommended quote is no longer enabled. Choose a market pair to continue.';
+    quoteWarning = 'The recommended quote is no longer enabled. Choose a market pair to continue.';
   }
 
   return {
@@ -260,9 +247,7 @@ function LaunchFlowInner({ catalogue }: Props) {
   const regeneratingRef = useRef(false);
   const previousReadyRef = useRef<TokenImageState | null>(null);
 
-  const [state, dispatch] = useReducer(launchReducer, undefined, () =>
-    createInitialLaunchState(),
-  );
+  const [state, dispatch] = useReducer(launchReducer, undefined, () => createInitialLaunchState());
   const [errors, setErrors] = useState<FieldErrors>({});
   const [attempted, setAttempted] = useState(false);
   const [provenance, setProvenance] = useState<LaunchAssistArticle | null>(null);
@@ -287,10 +272,7 @@ function LaunchFlowInner({ catalogue }: Props) {
     if (!base.decoded?.token || !base.txHash) return;
     const key = `${base.txHash}:${base.decoded.token}`.toLowerCase();
     if (completionKeyRef.current === key) return;
-    if (
-      base.phase === 'market_live' ||
-      base.phase === 'index_mismatch'
-    ) {
+    if (base.phase === 'market_live' || base.phase === 'index_mismatch') {
       return;
     }
 
@@ -301,9 +283,7 @@ function LaunchFlowInner({ catalogue }: Props) {
 
     const path =
       displayImagePath ??
-      (typeof state.image.displayImagePath === 'string'
-        ? state.image.displayImagePath
-        : null);
+      (typeof state.image.displayImagePath === 'string' ? state.image.displayImagePath : null);
     const imageUri =
       imageUriArg ??
       (typeof state.image.ipfsUri === 'string' && state.image.ipfsUri.startsWith('ipfs://')
@@ -385,8 +365,7 @@ function LaunchFlowInner({ catalogue }: Props) {
   }
 
   function viewMarket() {
-    const addr =
-      tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
+    const addr = tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
     if (!addr) return;
     if (tx.decoded && tx.txHash) {
       saveFreshLaunchHandoff({
@@ -395,8 +374,7 @@ function LaunchFlowInner({ catalogue }: Props) {
         txHash: tx.txHash,
         name: tx.indexedLaunch?.name ?? tx.decoded.name,
         symbol: tx.indexedLaunch?.symbol ?? tx.decoded.symbol,
-        quoteAsset: (tx.indexedLaunch?.quoteAsset ??
-          tx.decoded.quoteAsset) as `0x${string}`,
+        quoteAsset: (tx.indexedLaunch?.quoteAsset ?? tx.decoded.quoteAsset) as `0x${string}`,
       });
     }
     // Keep pending completion for launch-page resume; handoff covers token-page sync.
@@ -406,8 +384,7 @@ function LaunchFlowInner({ catalogue }: Props) {
   useEffect(() => {
     if (!assist || applied.current) return;
     applied.current = true;
-    const { prefill, provenance: story, quoteWarning: warning } =
-      applyAssistedPrefill(catalogue);
+    const { prefill, provenance: story, quoteWarning: warning } = applyAssistedPrefill(catalogue);
     if (!prefill) return;
     dispatch({ type: 'PATCH', patch: prefill });
     setProvenance(story);
@@ -466,8 +443,7 @@ function LaunchFlowInner({ catalogue }: Props) {
 
     const pollDraftId = draftId;
     let cancelled = false;
-    const startedAt =
-      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     async function poll() {
       try {
@@ -493,8 +469,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             JSON.stringify({
               event: 'launch_assist_artwork_ready',
               ms: Math.round(
-                (typeof performance !== 'undefined' ? performance.now() : Date.now()) -
-                  startedAt,
+                (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt,
               ),
               draftId: pollDraftId,
               regenerated: wasRegen,
@@ -553,7 +528,7 @@ function LaunchFlowInner({ catalogue }: Props) {
               byteSize: null,
               persistence: 'local_only',
               ipfsUri: null,
-      displayImagePath: null,
+              displayImagePath: null,
               source: 'ai_pending',
               artworkStatus: 'failed',
               artworkError: data.artworkError ?? 'Artwork generation failed',
@@ -670,7 +645,7 @@ function LaunchFlowInner({ catalogue }: Props) {
           byteSize: null,
           persistence: 'local_only',
           ipfsUri: null,
-      displayImagePath: null,
+          displayImagePath: null,
           source: 'ai_pending',
           artworkStatus: 'pending',
           artworkError: null,
@@ -705,7 +680,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             byteSize: null,
             persistence: 'local_only',
             ipfsUri: null,
-      displayImagePath: null,
+            displayImagePath: null,
             source: 'ai_pending',
             artworkStatus: 'failed',
             artworkError: 'Could not start artwork.',
@@ -734,11 +709,11 @@ function LaunchFlowInner({ catalogue }: Props) {
               ? 'Launch submission is disabled.'
               : !canLaunchCanonicalProduction()
                 ? 'Canonical Factory not deployed yet'
-              : !connectedAddress
-                ? 'Connect a wallet to launch'
-                : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
-                  ? 'Switch to Robinhood Chain (4663)'
-                  : undefined
+                : !connectedAddress
+                  ? 'Connect a wallet to launch'
+                  : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
+                    ? 'Switch to Robinhood Chain (4663)'
+                    : undefined
       : undefined;
 
   async function submitLaunch() {
@@ -821,12 +796,9 @@ function LaunchFlowInner({ catalogue }: Props) {
   return (
     <div className="mx-auto w-full max-w-[680px]">
       <header className="mb-5 md:mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          Launch something new
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Launch something new</h1>
         <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)] md:text-base">
-          Turn the news into a market, choose what it trades against, and earn from
-          every trade.
+          Turn the news into a market, choose what it trades against, and earn from every trade.
         </p>
       </header>
 
@@ -851,9 +823,7 @@ function LaunchFlowInner({ catalogue }: Props) {
           onClearImage={() => dispatch({ type: 'CLEAR_IMAGE' })}
           onRetryArtwork={() => void startArtworkJob('retry')}
           onGenerateAnother={() => void startArtworkJob('regenerate')}
-          generateAnotherDisabled={
-            artworkJobBusy || state.image.artworkStatus === 'regenerating'
-          }
+          generateAnotherDisabled={artworkJobBusy || state.image.artworkStatus === 'regenerating'}
         />
       ) : null}
 
@@ -901,9 +871,7 @@ function LaunchFlowInner({ catalogue }: Props) {
 
       <LaunchNav
         onBack={
-          state.step > 1 &&
-          !isLaunchTxBusy(tx.phase) &&
-          !isLaunchCompletionActive(tx.phase)
+          state.step > 1 && !isLaunchTxBusy(tx.phase) && !isLaunchCompletionActive(tx.phase)
             ? goBack
             : undefined
         }
@@ -913,9 +881,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             : canShowViewMarket(
                   tx.phase,
                   tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                    ? tokenMarketPath(
-                        tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
-                      )
+                    ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
                     : null,
                 )
               ? viewMarket
@@ -930,12 +896,10 @@ function LaunchFlowInner({ catalogue }: Props) {
               ? canShowViewMarket(
                   tx.phase,
                   tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                    ? tokenMarketPath(
-                        tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
-                      )
+                    ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
                     : null,
                 )
-                ? 'View market →'
+                ? 'View token →'
                 : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
                   ? isLaunchTxBusy(tx.phase)
                     ? launchTxBusyReason(tx.phase)
@@ -946,15 +910,11 @@ function LaunchFlowInner({ catalogue }: Props) {
         continueDisabled={
           state.step === 4 &&
           (Boolean(launchDisabledReason) ||
-            (!(
-              canShowViewMarket(
-                tx.phase,
-                tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                  ? tokenMarketPath(
-                      tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
-                    )
-                  : null,
-              )
+            (!canShowViewMarket(
+              tx.phase,
+              tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
+                : null,
             ) &&
               (isLaunchTxBusy(tx.phase) || isLaunchCompletionActive(tx.phase))))
         }
@@ -978,7 +938,7 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
     case 'confirming':
       return 'Confirming transaction…';
     case 'waiting_for_indexer':
-      return 'Syncing market data…';
+      return 'Market data is appearing now.';
     case 'activating_news':
       return 'Linking News article…';
     default:

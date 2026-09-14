@@ -54,10 +54,7 @@ describe('reconcileTokenDisplayImages (MUSE failure mode)', () => {
       if (sql.includes('AND id <> $3')) {
         return { rows: [] };
       }
-      if (
-        sql.includes('SET chain_id = $2') &&
-        sql.includes("status = 'pending'")
-      ) {
+      if (sql.includes('SET chain_id = $2') && sql.includes("status = 'pending'")) {
         intent.chain_id = 4663;
         intent.token_address = TOKEN;
         intent.status = 'pending';
@@ -125,9 +122,7 @@ describe('reconcileTokenDisplayImages (MUSE failure mode)', () => {
     expect(
       logs.some(
         (l) =>
-          l.event === 'applied_path' &&
-          l.owner === 'server_reconciliation' &&
-          l.source === 'path',
+          l.event === 'applied_path' && l.owner === 'server_reconciliation' && l.source === 'path',
       ),
     ).toBe(true);
     expect(logs.some((l) => l.event === 'reconcile_summary')).toBe(true);
@@ -187,8 +182,7 @@ describe('reconcileTokenDisplayImages (MUSE failure mode)', () => {
           publicUrl: `${ORIGIN}/storage/v1/object/public/token-image/${path}`,
         };
       }),
-      publicUrlForPath: (p: string) =>
-        `${ORIGIN}/storage/v1/object/public/token-image/${p}`,
+      publicUrlForPath: (p: string) => `${ORIGIN}/storage/v1/object/public/token-image/${p}`,
     };
 
     const summary = await reconcileTokenDisplayImages({
@@ -219,5 +213,69 @@ describe('reconcileTokenDisplayImages (MUSE failure mode)', () => {
     expect(summary.orphansApplied).toBe(1);
     expect(mirrored).toBe(true);
     expect(displayUrl).toMatch(/^https:\/\//);
+  });
+
+  it('uses an awaiting intent display path for an orphan token', async () => {
+    const finalizeInputs: Array<{
+      displayImagePath?: string | null;
+      draftId?: string | null;
+    }> = [];
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("SET status = 'expired'")) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (sql.includes("status = 'awaiting_token'") && sql.includes('SELECT *')) {
+        return { rows: [] };
+      }
+      if (sql.includes("status = 'pending'") && sql.includes('attempts <')) {
+        return { rows: [] };
+      }
+      if (sql.includes('LEFT JOIN news_article_markets')) {
+        return {
+          rows: [
+            {
+              chain_id: 4663,
+              token_address: TOKEN,
+              image_uri: IMAGE_URI,
+              draft_id: null,
+            },
+          ],
+        };
+      }
+      if (sql.includes('SELECT display_image_path, draft_id')) {
+        return {
+          rows: [
+            {
+              display_image_path: DISPLAY_PATH,
+              draft_id: DRAFT,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const summary = await reconcileTokenDisplayImages({
+      db: { query } as unknown as Queryable,
+      finalize: (async (input) => {
+        finalizeInputs.push(input);
+        return {
+          ok: true,
+          status: 'applied',
+          source: 'path',
+          uploaded: false,
+          retries: 0,
+          displayPath: DISPLAY_PATH,
+        };
+      }) as typeof finalizeTokenDisplayImage,
+      log: () => undefined,
+    });
+
+    expect(summary.orphansApplied).toBe(1);
+    expect(finalizeInputs).toHaveLength(1);
+    expect(finalizeInputs[0]).toMatchObject({
+      displayImagePath: DISPLAY_PATH,
+      draftId: null,
+    });
   });
 });

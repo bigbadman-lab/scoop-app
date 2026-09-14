@@ -12,6 +12,25 @@ describe('indexer config', () => {
     expect(publicConfigView(config).startBlock).toBe(60525572);
   });
 
+  it('uses the public Supabase origin when SUPABASE_URL is unset', () => {
+    const config = loadConfig({
+      SCOOP_CHAIN_ID: '4663',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://public-project.supabase.co',
+    });
+
+    expect(config.SUPABASE_URL).toBe('https://public-project.supabase.co');
+  });
+
+  it('derives the public Supabase origin from DATABASE_URL when unset', () => {
+    const config = loadConfig({
+      SCOOP_CHAIN_ID: '4663',
+      DATABASE_URL: 'postgresql://postgres:secret@db.hmqfzilijidiqtignamz.supabase.co:5432/postgres',
+    });
+
+    expect(config.SUPABASE_URL).toBe('https://hmqfzilijidiqtignamz.supabase.co');
+    expect(publicConfigView(config).hasSupabaseUrl).toBe(true);
+  });
+
   it('rejects start block below canonical indexingStartBlock', () => {
     expect(() =>
       loadConfig({

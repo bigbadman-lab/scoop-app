@@ -49,6 +49,15 @@ function jsonSafe(value: unknown): Record<string, unknown> {
   ) as Record<string, unknown>;
 }
 
+function ipfsGatewayUrl(imageUri: string | null | undefined): string | null {
+  const trimmed = imageUri?.trim();
+  if (!trimmed || !/^ipfs:\/\//i.test(trimmed)) return null;
+  let path = trimmed.replace(/^ipfs:\/\//i, '').replace(/^ipfs\//i, '');
+  path = path.replace(/^\/+/, '');
+  if (!path || path.includes('..') || path.includes('\\')) return null;
+  return `https://ipfs.io/ipfs/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
 async function wait(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return;
   await new Promise<void>((resolve) => {
@@ -113,7 +122,7 @@ async function observeRange(args: {
       hydrateTokenMetadata(client, tokenAddress),
       hydrateLaunchView(client, tokenAddress),
     ]);
-    const [displayImageUrl, quoteDecimals] = await Promise.all([
+    const [storedDisplayImageUrl, quoteDecimals] = await Promise.all([
       metadata.logo
         ? lookupLiveDisplayImageUrl(db, metadata.logo, config.SUPABASE_URL)
         : Promise.resolve(null),
@@ -121,9 +130,11 @@ async function observeRange(args: {
         (value) => value ?? 18,
       ),
     ]);
+    const displayImageUrl = storedDisplayImageUrl ?? ipfsGatewayUrl(metadata.logo);
     const payload = jsonSafe({
       ...decoded.args,
       totalSupplyRaw: metadata.totalSupply,
+      logo: metadata.logo,
       description: metadata.description,
       twitter: metadata.twitter,
       telegram: metadata.telegram,
@@ -330,11 +341,7 @@ async function observeRange(args: {
  * Best-effort near-tip observer. It owns no canonical state and catches every
  * error so failures can never terminate the fixed-lag indexer.
  */
-export async function startLiveTipOverlay({
-  config,
-  pool,
-  signal,
-}: ObserverArgs): Promise<void> {
+export async function startLiveTipOverlay({ config, pool, signal }: ObserverArgs): Promise<void> {
   if (!config.SCOOP_LIVE_OVERLAY_ENABLED || signal.aborted) return;
   const rpc = createFailoverRpc({
     primaryUrl: config.ROBINHOOD_RPC_URL!,
@@ -346,9 +353,7 @@ export async function startLiveTipOverlay({
   while (!signal.aborted) {
     try {
       if (!watchlist) {
-        watchlist = await withTransaction(pool, (db) =>
-          loadWatchlist(db, config.SCOOP_CHAIN_ID),
-        );
+        watchlist = await withTransaction(pool, (db) => loadWatchlist(db, config.SCOOP_CHAIN_ID));
       }
       const activeWatchlist = watchlist;
       const latest = await rpc.withClient((client) => client.getBlockNumber());
@@ -388,9 +393,7 @@ export async function startLiveTipOverlay({
         });
       }
       if (Date.now() - lastCleanupAt >= 60_000) {
-        await withTransaction(pool, (db) =>
-          expireLiveOverlayRows(db, config.SCOOP_CHAIN_ID),
-        );
+        await withTransaction(pool, (db) => expireLiveOverlayRows(db, config.SCOOP_CHAIN_ID));
         lastCleanupAt = Date.now();
       }
       await wait(config.SCOOP_LIVE_POLL_MS, signal);
@@ -402,9 +405,7 @@ export async function startLiveTipOverlay({
       });
       // Reload after a DB/RPC failure so newly canonical launches are included.
       try {
-        watchlist = await withTransaction(pool, (db) =>
-          loadWatchlist(db, config.SCOOP_CHAIN_ID),
-        );
+        watchlist = await withTransaction(pool, (db) => loadWatchlist(db, config.SCOOP_CHAIN_ID));
       } catch {
         // Keep the previous in-memory watchlist.
       }

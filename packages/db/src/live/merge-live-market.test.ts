@@ -183,6 +183,62 @@ describe('live market merge', () => {
     expect(applyLiveTipToTokenDetail(canonical, tip())).toBe(canonical);
   });
 
+  it('keeps a live display image when canonical displayImageUrl is null', () => {
+    const displayImageUrl =
+      'https://project.supabase.co/storage/v1/object/public/token-image/2hawk.png';
+    const canonical = detail({
+      sourceBlock: 110,
+      displayImageUrl: null,
+      imageUri: 'ipfs://canonical-2hawk',
+    });
+
+    expect(
+      applyLiveTipToTokenDetail(
+        canonical,
+        tip({
+          sourceBlock: 110,
+          displayImageUrl,
+          imageUri: 'ipfs://live-2hawk',
+        }),
+      ),
+    ).toMatchObject({
+      displayImageUrl,
+      imageUri: 'ipfs://canonical-2hawk',
+      priceQuoteX18: canonical.priceQuoteX18,
+    });
+  });
+
+  it('lets a later confirmed HTTPS display image win over live display', () => {
+    const confirmedDisplay = 'https://project.supabase.co/confirmed.png';
+    const liveDisplay = 'https://ipfs.io/ipfs/bafy-live';
+    const merged = mergeLiveDiscoveryItems(
+      [discovery({ displayImageUrl: confirmedDisplay })],
+      [tip({ displayImageUrl: liveDisplay })],
+    );
+
+    expect(merged[0]?.displayImageUrl).toBe(confirmedDisplay);
+  });
+
+  it('preserves the 2HAWK live IPFS image when canonical image fields are empty', () => {
+    const canonical = detail({
+      tokenAddress: '0x8292b1af08e0b2efbc0f383091d11ebed33bac5b',
+      sourceBlock: 120,
+      displayImageUrl: null,
+      imageUri: '',
+    });
+    const live = tip({
+      tokenAddress: canonical.tokenAddress,
+      sourceBlock: 110,
+      displayImageUrl: null,
+      imageUri: 'ipfs://bafy-2hawk',
+    });
+
+    expect(applyLiveTipToTokenDetail(canonical, live)).toMatchObject({
+      displayImageUrl: null,
+      imageUri: 'ipfs://bafy-2hawk',
+    });
+  });
+
   it('overlays one live BUY above the canonical checkpoint', () => {
     const merged = mergeLiveTrades([], [liveTrade()], 109);
     expect(merged).toHaveLength(1);

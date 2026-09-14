@@ -13,10 +13,7 @@ function isFresh(item: { expiresAt: string }, nowMs = Date.now()): boolean {
   return Number.isFinite(expiresAt) && expiresAt > nowMs;
 }
 
-function addNumericStrings(
-  left: string | null,
-  right: string | null,
-): string | null {
+function addNumericStrings(left: string | null, right: string | null): string | null {
   if (right == null) return left;
   try {
     return (BigInt(left ?? '0') + BigInt(right)).toString();
@@ -28,6 +25,35 @@ function addNumericStrings(
 function addNullableNumber(left: number | null, right: number): number | null {
   if (right === 0) return left;
   return (left ?? 0) + right;
+}
+
+function validPublicImageUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return null;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
+function validImageUri(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (/^ipfs:\/\//i.test(trimmed)) return trimmed;
+  return validPublicImageUrl(trimmed);
+}
+
+function bestImageFields(
+  canonical: Pick<TokenDiscoveryItem, 'displayImageUrl' | 'imageUri'>,
+  tip: Pick<LiveTokenTip, 'displayImageUrl' | 'imageUri'>,
+): Pick<TokenDiscoveryItem, 'displayImageUrl' | 'imageUri'> {
+  return {
+    displayImageUrl:
+      validPublicImageUrl(canonical.displayImageUrl) ?? validPublicImageUrl(tip.displayImageUrl),
+    imageUri: validImageUri(canonical.imageUri) ?? validImageUri(tip.imageUri) ?? '',
+  };
 }
 
 function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryItem | null {
@@ -44,14 +70,15 @@ function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryIte
   }
   const volumeQuote = tip.volume24hQuoteRaw;
   const ageSeconds = Math.max(0, nowSec - tip.launchedAt);
+  const images = bestImageFields({ displayImageUrl: null, imageUri: '' }, tip);
   return {
     chainId: tip.chainId,
     tokenAddress: tip.tokenAddress,
     name: tip.name,
     symbol: tip.symbol,
     decimals: tip.decimals,
-    imageUri: tip.imageUri ?? '',
-    displayImageUrl: tip.displayImageUrl,
+    imageUri: images.imageUri,
+    displayImageUrl: images.displayImageUrl,
     poolId: tip.poolId,
     creatorId: tip.creatorId,
     quoteAsset: tip.quoteAsset,
@@ -69,8 +96,7 @@ function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryIte
     fdvUsdX18: tip.fdvUsdX18,
     fdvUsdDisplay: formatX18(tip.fdvUsdX18),
     volume24hQuoteRaw: volumeQuote,
-    volume24hQuoteDisplay:
-      volumeQuote == null ? null : formatRawAmount(volumeQuote, 18),
+    volume24hQuoteDisplay: volumeQuote == null ? null : formatRawAmount(volumeQuote, 18),
     volume24hUsdX18: tip.volume24hUsdX18,
     volume24hUsdDisplay: formatX18(tip.volume24hUsdX18),
     tradeCount24h: tip.tradeCountDelta,
@@ -84,43 +110,27 @@ function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryIte
   };
 }
 
-function overlayDiscovery(
-  canonical: TokenDiscoveryItem,
-  tip: LiveTokenTip,
-): TokenDiscoveryItem {
-  const volumeQuote = addNumericStrings(
-    canonical.volume24hQuoteRaw,
-    tip.volume24hQuoteRaw,
-  );
-  const volumeUsd = addNumericStrings(
-    canonical.volume24hUsdX18,
-    tip.volume24hUsdX18,
-  );
+function overlayDiscovery(canonical: TokenDiscoveryItem, tip: LiveTokenTip): TokenDiscoveryItem {
+  const volumeQuote = addNumericStrings(canonical.volume24hQuoteRaw, tip.volume24hQuoteRaw);
+  const volumeUsd = addNumericStrings(canonical.volume24hUsdX18, tip.volume24hUsdX18);
   return {
     ...canonical,
-    displayImageUrl: canonical.displayImageUrl ?? tip.displayImageUrl,
-    imageUri: canonical.imageUri || tip.imageUri || '',
+    ...bestImageFields(canonical, tip),
     priceQuoteX18: tip.priceQuoteX18 ?? canonical.priceQuoteX18,
     priceQuoteDisplay:
-      tip.priceQuoteX18 == null
-        ? canonical.priceQuoteDisplay
-        : formatX18(tip.priceQuoteX18),
+      tip.priceQuoteX18 == null ? canonical.priceQuoteDisplay : formatX18(tip.priceQuoteX18),
     priceUsdX18: tip.priceUsdX18 ?? canonical.priceUsdX18,
     priceUsdDisplay:
       tip.priceUsdX18 == null ? canonical.priceUsdDisplay : formatX18(tip.priceUsdX18),
     fdvUsdX18: tip.fdvUsdX18 ?? canonical.fdvUsdX18,
-    fdvUsdDisplay:
-      tip.fdvUsdX18 == null ? canonical.fdvUsdDisplay : formatX18(tip.fdvUsdX18),
+    fdvUsdDisplay: tip.fdvUsdX18 == null ? canonical.fdvUsdDisplay : formatX18(tip.fdvUsdX18),
     volume24hQuoteRaw: volumeQuote,
     volume24hQuoteDisplay:
       volumeQuote == null ? null : formatRawAmount(volumeQuote, canonical.decimals),
     volume24hUsdX18: volumeUsd,
     volume24hUsdDisplay: formatX18(volumeUsd),
     tradeCount24h: addNullableNumber(canonical.tradeCount24h, tip.tradeCountDelta),
-    tradeCountAllTime: addNullableNumber(
-      canonical.tradeCountAllTime,
-      tip.tradeCountDelta,
-    ),
+    tradeCountAllTime: addNullableNumber(canonical.tradeCountAllTime, tip.tradeCountDelta),
     buyCount24h: addNullableNumber(canonical.buyCount24h, tip.buyCountDelta),
     sellCount24h: addNullableNumber(canonical.sellCount24h, tip.sellCountDelta),
     lastTradeAt:
@@ -166,7 +176,11 @@ export function applyLiveTipToTokenDetail(
 ): TokenDetail | null {
   if (!tip || !isFresh(tip)) return detail;
   if (detail && detail.sourceBlock != null && tip.sourceBlock <= detail.sourceBlock) {
-    return detail;
+    const images = bestImageFields(detail, tip);
+    if (images.displayImageUrl === detail.displayImageUrl && images.imageUri === detail.imageUri) {
+      return detail;
+    }
+    return { ...detail, ...images };
   }
   const base = detail ?? liveDiscoveryItem(tip, Math.floor(Date.now() / 1000));
   if (!base) return detail;

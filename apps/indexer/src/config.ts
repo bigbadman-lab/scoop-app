@@ -49,29 +49,19 @@ const indexerEnvSchema = z
     NODE_ENV: z.string().optional(),
     SCOOP_CHAIN_ID: z.coerce.number().int().default(SCOOP_CHAIN_ID),
     SCOOP_INDEXING_ENABLED: boolFromEnv,
-    SCOOP_START_BLOCK: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(CANONICAL_INDEXING_START_BLOCK),
+    SCOOP_START_BLOCK: z.coerce.number().int().positive().default(CANONICAL_INDEXING_START_BLOCK),
     /**
      * Live ingest head policy:
      * - safe / finalized / latest — use that RPC head as target
      * - fixed-lag — target = latest - SCOOP_CONFIRM_LAG_BLOCKS (low-latency UX)
      */
-    SCOOP_CONFIRM_MODE: z
-      .enum(['safe', 'latest', 'finalized', 'fixed-lag'])
-      .default('safe'),
+    SCOOP_CONFIRM_MODE: z.enum(['safe', 'latest', 'finalized', 'fixed-lag']).default('safe'),
     /**
      * Tip lag for `fixed-lag` mode (also RPC safe/finalized tag fallback).
      * When mode=fixed-lag and unset, runner uses DEFAULT_FIXED_LAG_BLOCKS (16).
      */
     SCOOP_CONFIRM_LAG_BLOCKS: z.coerce.number().int().nonnegative().optional(),
-    SCOOP_NEW_WINDOW_SECONDS: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(NEW_MARKET_WINDOW_SECONDS),
+    SCOOP_NEW_WINDOW_SECONDS: z.coerce.number().int().positive().default(NEW_MARKET_WINDOW_SECONDS),
     SCOOP_SOON_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10000).default(8000),
     SCOOP_REORG_WINDOW_BLOCKS: z.coerce.number().int().positive().default(128),
     SCOOP_QUOTE_SNAPSHOT_SECONDS: z.coerce.number().int().positive().default(60),
@@ -97,13 +87,24 @@ const indexerEnvSchema = z
     SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS: z.coerce.number().int().positive().default(64),
     SCOOP_LAUNCH_DUST_RAW: z.coerce.bigint().default(1000n),
     SCOOP_INDEX_TO_BLOCK: optionalPositiveInt,
-    ROBINHOOD_RPC_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
-    ROBINHOOD_WS_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
-    ROBINHOOD_FALLBACK_RPC_URL: z
+    ROBINHOOD_RPC_URL: z
       .string()
       .url()
-      .default('https://rpc.mainnet.chain.robinhood.com'),
-    DATABASE_URL: z.string().optional().or(z.literal('')).transform((v) => v || undefined),
+      .optional()
+      .or(z.literal(''))
+      .transform((v) => v || undefined),
+    ROBINHOOD_WS_URL: z
+      .string()
+      .url()
+      .optional()
+      .or(z.literal(''))
+      .transform((v) => v || undefined),
+    ROBINHOOD_FALLBACK_RPC_URL: z.string().url().default('https://rpc.mainnet.chain.robinhood.com'),
+    DATABASE_URL: z
+      .string()
+      .optional()
+      .or(z.literal(''))
+      .transform((v) => v || undefined),
     /**
      * Direct/non-pooled Postgres URL used only for the indexer singleton advisory lock.
      * Required in production when indexing is enabled — never the Supavisor pooler URL.
@@ -120,7 +121,12 @@ const indexerEnvSchema = z
       .optional()
       .or(z.literal(''))
       .transform((v) => v || undefined),
-    SUPABASE_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
+    SUPABASE_URL: z
+      .string()
+      .url()
+      .optional()
+      .or(z.literal(''))
+      .transform((v) => v || undefined),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   })
   .superRefine((env, ctx) => {
@@ -172,8 +178,37 @@ export type IndexerConfig = z.infer<typeof indexerEnvSchema>;
 
 export const MAIN_STREAM_NAME = 'main';
 
+/**
+ * Public Supabase HTTPS origin from a direct DB host `db.<ref>.supabase.co`.
+ * Safe to log as present/absent only — never logs the URL value here.
+ */
+export function deriveSupabasePublicOriginFromDatabaseUrl(
+  databaseUrl: string | null | undefined,
+): string | undefined {
+  const raw = databaseUrl?.trim();
+  if (!raw) return undefined;
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    const match = /^db\.([a-z0-9]+)\.supabase\.co$/.exec(host);
+    if (!match) return undefined;
+    return `https://${match[1]}.supabase.co`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): IndexerConfig {
-  const parsed = indexerEnvSchema.safeParse(env);
+  const parsed = indexerEnvSchema.safeParse({
+    ...env,
+    // The storage origin is public configuration. Prefer explicit env, then the
+    // web public origin, then derive from the Supabase DB hostname.
+    SUPABASE_URL:
+      env.SUPABASE_URL?.trim() ||
+      env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+      deriveSupabasePublicOriginFromDatabaseUrl(env.DATABASE_URL) ||
+      deriveSupabasePublicOriginFromDatabaseUrl(env.INDEXER_LOCK_DATABASE_URL) ||
+      undefined,
+  });
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
@@ -240,6 +275,7 @@ export function publicConfigView(config: IndexerConfig) {
     indexerLockRetryMs: config.INDEXER_LOCK_RETRY_MS,
     indexerLockWaitTimeoutMs: config.INDEXER_LOCK_WAIT_TIMEOUT_MS,
     hasServiceRoleKey: Boolean(config.SUPABASE_SERVICE_ROLE_KEY),
+    hasSupabaseUrl: Boolean(config.SUPABASE_URL),
     logLevel: config.LOG_LEVEL,
   };
 }
