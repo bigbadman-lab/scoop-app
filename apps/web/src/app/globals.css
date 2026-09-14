@@ -130,12 +130,13 @@ w3m-router-container {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.875rem; /* ~14px — compact terminal grouping */
   border-radius: 999px;
   background: #111111;
   color: #ffffff;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.7rem; /* ~11px horizontal */
   white-space: nowrap;
+  width: max-content;
 }
 
 .desk-pill-live {
@@ -148,12 +149,9 @@ w3m-router-container {
 
 .desk-pill-price {
   color: #ffffff;
-  min-width: 4.75rem;
-  text-align: right;
 }
 
 .desk-pill-live .desk-pill-price {
-  min-width: 5.5rem;
   text-align: left;
 }
 
@@ -166,9 +164,7 @@ w3m-router-container {
 .desk-pill-change {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.2rem;
-  min-width: 3.75rem;
+  gap: 0.1rem;
   font-size: 11px;
   font-weight: 600;
 }
