@@ -11,6 +11,14 @@ export {
   type ProtocolFeeCoverage,
 } from './protocol-stats.js';
 export {
+  TAPE_OFFICIAL_CONTRACT_KEY,
+  getProtocolSetting,
+  getTapeOfficialContractAddress,
+  setTapeOfficialContractAddress,
+  type ProtocolSettingKey,
+  type SetTapeOfficialContractResult,
+} from './protocol-settings.js';
+export {
   getDiscoverBoard,
   getDiscoverTrending,
   getDiscoverBonding,

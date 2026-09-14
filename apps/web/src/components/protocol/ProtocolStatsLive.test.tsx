@@ -15,6 +15,7 @@ const baseStats: PublicProtocolStats = {
   feeSemantics: 'distributed_marked_to_market',
   feeCoverage: 'complete',
   tradesMissingUsd: 0,
+  tape: { contractAddress: null },
 };
 
 afterEach(() => {
@@ -33,6 +34,7 @@ describe('ProtocolStatsLive', () => {
           totalTrades: 50,
           totalVolumeUsd: '2000',
           updatedAt: new Date().toISOString(),
+          tape: { contractAddress: null },
         }),
       ),
     );
@@ -45,6 +47,51 @@ describe('ProtocolStatsLive', () => {
     expect(screen.getByTestId('protocol-stat-volume').textContent).toMatch(/\$/);
     expect(screen.getByTestId('protocol-stat-fees').textContent).toMatch(/\$/);
     expect(screen.getByTestId('protocol-stat-buybacks').textContent).toMatch(/\$/);
+  });
+
+  it('shows TBA when tape contract is unset', () => {
+    render(<ProtocolStatsLive initialStats={baseStats} />);
+    expect(screen.getByTestId('tape-contract-tba').textContent).toMatch(/to be announced/i);
+  });
+
+  it('shows configured contract from initial stats', () => {
+    render(
+      <ProtocolStatsLive
+        initialStats={{
+          ...baseStats,
+          tape: {
+            contractAddress: '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+          },
+        }}
+      />,
+    );
+    expect(screen.getByTestId('tape-contract-address').textContent).toBe(
+      '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+    );
+    expect(screen.getByTestId('tape-contract-explorer')).toBeTruthy();
+    expect(screen.getByTestId('tape-contract-copy')).toBeTruthy();
+  });
+
+  it('updates contract address from API poll without rebuild', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          ...baseStats,
+          updatedAt: new Date().toISOString(),
+          tape: {
+            contractAddress: '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+          },
+        }),
+      ),
+    );
+    render(<ProtocolStatsLive initialStats={baseStats} />);
+    expect(screen.getByTestId('tape-contract-tba')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('tape-contract-address').textContent).toBe(
+        '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+      );
+    });
   });
 
   it('refreshes values from the API without blanking cards', async () => {
@@ -78,13 +125,13 @@ describe('TapeContractCard', () => {
     expect(screen.queryByTestId('tape-contract-address')).toBeNull();
   });
 
-  it('shows address, copy and explorer when configured', () => {
-    const address = '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C' as const;
-    render(<TapeContractCard address={address} />);
-    expect(screen.getByTestId('tape-contract-address').textContent).toBe(address);
+  it('renders address, copy, and explorer when configured', () => {
+    const addr = '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C' as const;
+    render(<TapeContractCard address={addr} />);
+    expect(screen.getByTestId('tape-contract-address').textContent).toBe(addr);
     expect(screen.getByTestId('tape-contract-copy')).toBeTruthy();
-    expect(screen.getByTestId('tape-contract-explorer').getAttribute('href')).toContain(
-      '/address/',
+    expect(screen.getByTestId('tape-contract-explorer').getAttribute('href')).toMatch(
+      /0x4B227d5E6199f42ceA4e638875fF8C740757DD3C/i,
     );
   });
 });

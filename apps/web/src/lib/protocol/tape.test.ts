@@ -1,33 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { resolveTapeTokenAddress } from '@/lib/protocol/tape';
+import { checksumTapeAddress } from '@/lib/protocol/tape';
 
-describe('resolveTapeTokenAddress', () => {
+describe('checksumTapeAddress', () => {
   it('returns null when unset', () => {
-    expect(resolveTapeTokenAddress({} as NodeJS.ProcessEnv)).toBeNull();
-    expect(
-      resolveTapeTokenAddress({
-        NEXT_PUBLIC_TAPE_TOKEN_ADDRESS: '',
-      } as NodeJS.ProcessEnv),
-    ).toBeNull();
+    expect(checksumTapeAddress(null)).toBeNull();
+    expect(checksumTapeAddress(undefined)).toBeNull();
+    expect(checksumTapeAddress('')).toBeNull();
   });
 
   it('returns null for invalid addresses', () => {
-    expect(
-      resolveTapeTokenAddress({
-        NEXT_PUBLIC_TAPE_TOKEN_ADDRESS: 'not-an-address',
-      } as NodeJS.ProcessEnv),
-    ).toBeNull();
-    expect(
-      resolveTapeTokenAddress({
-        NEXT_PUBLIC_TAPE_TOKEN_ADDRESS: '0x0',
-      } as NodeJS.ProcessEnv),
-    ).toBeNull();
+    expect(checksumTapeAddress('not-an-address')).toBeNull();
+    expect(checksumTapeAddress('0x0')).toBeNull();
   });
 
-  it('checksums a valid configured address', () => {
-    const addr = resolveTapeTokenAddress({
-      NEXT_PUBLIC_TAPE_TOKEN_ADDRESS: '0x4b227d5e6199f42cea4e638875ff8c740757dd3c',
-    } as NodeJS.ProcessEnv);
-    expect(addr).toBe('0x4B227d5E6199f42ceA4e638875fF8C740757DD3C');
+  it('checksums a valid address', () => {
+    expect(checksumTapeAddress('0x4b227d5e6199f42cea4e638875ff8c740757dd3c')).toBe(
+      '0x4B227d5E6199f42ceA4e638875fF8C740757DD3C',
+    );
   });
 });

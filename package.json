@@ -20,6 +20,8 @@
     "holder-rewards:dev": "pnpm --filter @scoop/holder-rewards-worker dev",
     "format": "prettier --write .",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "tape:set-contract": "node scripts/set-tape-contract.mjs",
+    "test:tape-contract": "vitest run scripts/tape-contract-verify.test.ts",
     "backfill:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/backfill-hello.ts",
     "verify:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/verify-hello.ts",
     "reset:hello": "pnpm --filter @scoop/indexer exec tsx src/commands/reset-hello.ts",

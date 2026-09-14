@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TapeContractCard } from '@/components/protocol/TapeContractCard';
 import type { PublicProtocolStats } from '@/lib/protocol/load-stats';
+import { checksumTapeAddress } from '@/lib/protocol/tape';
 import { displayCompactUsdMarketValue } from '@/lib/format';
 
 const POLL_MS = 20_000;
@@ -55,7 +57,8 @@ type Props = {
 };
 
 /**
- * Protocol stats grid — SSR values on first paint; polls `/api/protocol/stats`.
+ * $TAPE protocol live shell — official contract + stats.
+ * Polls `/api/protocol/stats` (~20s) so runtime contract updates appear without redeploy.
  */
 export function ProtocolStatsLive({ initialStats }: Props) {
   const [stats, setStats] = useState(initialStats);
@@ -75,7 +78,12 @@ export function ProtocolStatsLive({ initialStats }: Props) {
         if (!res.ok) return;
         const data = (await res.json()) as PublicProtocolStats;
         if (!cancelled && data && typeof data.updatedAt === 'string') {
-          setStats(data);
+          setStats({
+            ...data,
+            tape: {
+              contractAddress: checksumTapeAddress(data.tape?.contractAddress ?? null),
+            },
+          });
         }
       } catch {
         // Keep last good snapshot.
@@ -102,53 +110,73 @@ export function ProtocolStatsLive({ initialStats }: Props) {
       ? 'Buyback allocation USD unavailable until quote prices resolve'
       : 'Fees allocated to protocol buybacks (not executed buys)';
 
+  const tapeAddress = checksumTapeAddress(stats.tape?.contractAddress ?? null);
+
   return (
     <div data-testid="protocol-stats-live">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          Near real-time protocol data
-        </p>
-        <p
-          className="font-mono text-[11px] tabular-nums text-[var(--muted-2)]"
-          data-testid="protocol-stats-freshness"
-        >
-          <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--scoop-live)] align-middle" />
-          {formatUpdatedAt(stats.updatedAt, nowMs)}
-        </p>
+      <div className="mt-10 md:mt-12">
+        <TapeContractCard address={tapeAddress} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard
-          label="Markets launched"
-          value={formatInteger(stats.marketsLaunched)}
-          hint="Public SCOOP markets (excludes internal canaries)"
-          testId="protocol-stat-markets"
-        />
-        <StatCard
-          label="Total trades"
-          value={formatInteger(stats.totalTrades)}
-          hint="Indexed protocol swaps"
-          testId="protocol-stat-trades"
-        />
-        <StatCard
-          label="Total volume"
-          value={formatUsdStat(stats.totalVolumeUsd)}
-          hint="USD-equivalent trade volume"
-          testId="protocol-stat-volume"
-        />
-        <StatCard
-          label="Fees generated"
-          value={formatUsdStat(stats.totalFeesUsd)}
-          hint={feeHint}
-          testId="protocol-stat-fees"
-        />
-        <StatCard
-          label="Protocol buybacks"
-          value={formatUsdStat(stats.protocolBuybackFeesUsd)}
-          hint={buybackHint}
-          testId="protocol-stat-buybacks"
-        />
-      </div>
+      <section className="mt-12 md:mt-16" aria-labelledby="protocol-stats-heading">
+        <h2
+          id="protocol-stats-heading"
+          className="font-serif text-2xl tracking-tight text-[var(--fg)] md:text-3xl"
+        >
+          Protocol stats
+        </h2>
+        <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
+          Canonical public-market totals. Indexer trails chain head by roughly one
+          confirmation lag (~10–20s). Official contract updates from runtime settings
+          within ~20s via this page&apos;s live poll.
+        </p>
+
+        <div className="mt-6 mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            Near real-time protocol data
+          </p>
+          <p
+            className="font-mono text-[11px] tabular-nums text-[var(--muted-2)]"
+            data-testid="protocol-stats-freshness"
+          >
+            <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--scoop-live)] align-middle" />
+            {formatUpdatedAt(stats.updatedAt, nowMs)}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard
+            label="Markets launched"
+            value={formatInteger(stats.marketsLaunched)}
+            hint="Public SCOOP markets (excludes internal canaries)"
+            testId="protocol-stat-markets"
+          />
+          <StatCard
+            label="Total trades"
+            value={formatInteger(stats.totalTrades)}
+            hint="Indexed protocol swaps"
+            testId="protocol-stat-trades"
+          />
+          <StatCard
+            label="Total volume"
+            value={formatUsdStat(stats.totalVolumeUsd)}
+            hint="USD-equivalent trade volume"
+            testId="protocol-stat-volume"
+          />
+          <StatCard
+            label="Fees generated"
+            value={formatUsdStat(stats.totalFeesUsd)}
+            hint={feeHint}
+            testId="protocol-stat-fees"
+          />
+          <StatCard
+            label="Protocol buybacks"
+            value={formatUsdStat(stats.protocolBuybackFeesUsd)}
+            hint={buybackHint}
+            testId="protocol-stat-buybacks"
+          />
+        </div>
+      </section>
     </div>
   );
 }

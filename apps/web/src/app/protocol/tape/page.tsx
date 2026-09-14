@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { ProtocolStatsLive } from '@/components/protocol/ProtocolStatsLive';
-import { TapeContractCard } from '@/components/protocol/TapeContractCard';
 import { emptyProtocolStats, loadProtocolStatsSafe } from '@/lib/protocol/load-stats';
-import { resolveTapeTokenAddress } from '@/lib/protocol/tape';
 import { buildPageMetadata } from '@/lib/seo/site';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +20,6 @@ export default async function TapeProtocolPage() {
   } catch {
     initialStats = emptyProtocolStats();
   }
-
-  const tapeAddress = resolveTapeTokenAddress();
 
   return (
     <main className="relative overflow-hidden" data-testid="tape-protocol-page">
@@ -51,25 +47,7 @@ export default async function TapeProtocolPage() {
           updated near real time from indexed Robinhood Chain data.
         </p>
 
-        <div className="mt-10 md:mt-12">
-          <TapeContractCard address={tapeAddress} />
-        </div>
-
-        <section className="mt-12 md:mt-16" aria-labelledby="protocol-stats-heading">
-          <h2
-            id="protocol-stats-heading"
-            className="font-serif text-2xl tracking-tight text-[var(--fg)] md:text-3xl"
-          >
-            Protocol stats
-          </h2>
-          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-            Canonical public-market totals. Indexer trails chain head by roughly one
-            confirmation lag (~10–20s).
-          </p>
-          <div className="mt-6">
-            <ProtocolStatsLive initialStats={initialStats} />
-          </div>
-        </section>
+        <ProtocolStatsLive initialStats={initialStats} />
 
         <section className="mt-14 max-w-2xl border-t border-[var(--divider)] pt-10 md:mt-16">
           <h2 className="font-serif text-xl tracking-tight text-[var(--fg)] md:text-2xl">

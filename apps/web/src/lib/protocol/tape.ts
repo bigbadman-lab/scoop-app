@@ -1,21 +1,21 @@
 import { getAddress, isAddress } from 'viem';
 
+export const TAPE_TOKEN_SYMBOL = 'TAPE' as const;
+export const TAPE_TOKEN_NAME = 'Trade the Tape' as const;
+
 /**
- * Official $TAPE token contract.
- * Unset / invalid → public "To be announced" state (never invent an address).
+ * Checksum a runtime DB address for display.
+ * Invalid / null → null (never invent).
  */
-export function resolveTapeTokenAddress(
-  env: NodeJS.ProcessEnv = process.env,
+export function checksumTapeAddress(
+  raw: string | null | undefined,
 ): `0x${string}` | null {
-  const raw = (env.NEXT_PUBLIC_TAPE_TOKEN_ADDRESS ?? '').trim();
-  if (!raw) return null;
-  if (!isAddress(raw)) return null;
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed || !isAddress(trimmed)) return null;
   try {
-    return getAddress(raw);
+    return getAddress(trimmed);
   } catch {
     return null;
   }
 }
-
-export const TAPE_TOKEN_SYMBOL = 'TAPE' as const;
-export const TAPE_TOKEN_NAME = 'Trade the Tape' as const;
