@@ -72,7 +72,8 @@ const indexerEnvSchema = z
     SCOOP_VOLUME_24H_SWEEP_SECONDS: z.coerce.number().int().positive().default(60),
     /** Max age of quote_price_snapshots before USD/FDV fields are nulled. */
     SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
-    SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+    // Near-tip: keep short so behindTarget stays in the 0–20 band while tip advances.
+    SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
     /**
      * Max blocks processed per live (non-range) iteration when lag ≤ threshold.
      * Keep modest — each block still does getBlock+getLogs.
@@ -92,7 +93,8 @@ const indexerEnvSchema = z
      * Keep this low: per-block processBlock cannot sustain RHC ~10 blk/s.
      * Production evidence: range empty spans >400 blk/s; per-block ~4 blk/s.
      */
-    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(16),
+    // 0 ⇒ range catch-up for any lag > 0 (runner also hard-caps dashboard overrides to 0).
+    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(0),
     /** Max eth_getLogs window size while in range catch-up (auto-shrinks on reject). */
     SCOOP_FAST_CATCHUP_RANGE: z.coerce.number().int().positive().default(512),
     /** Sparse processed_blocks anchor spacing over empty ranges. */

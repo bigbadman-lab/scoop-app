@@ -38,13 +38,13 @@ services:
       - key: SCOOP_QUOTE_USD_MAX_AGE_SECONDS
         value: "300"
       - key: SCOOP_POLL_INTERVAL_MS
-        value: "2000"
-      # Near-tip throughput: range catch-up activates after ~128 blocks behind target;
-      # live batch 64 for smaller lag. Do not lower confirm lag here.
+        value: "500"
+      # Near-tip throughput: range catch-up for any lag > 0 (threshold 0).
+      # Do not lower confirm lag here (fixed-lag 64 stays).
       - key: SCOOP_MAX_BLOCK_BATCH
         value: "32"
       - key: SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS
-        value: "16"
+        value: "0"
       - key: SCOOP_FAST_CATCHUP_RANGE
         value: "512"
       - key: SCOOP_LAUNCH_DUST_RAW

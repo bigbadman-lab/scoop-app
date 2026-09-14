@@ -73,7 +73,7 @@ describe('indexer config', () => {
       DATABASE_URL: 'postgres://localhost/scoop',
     });
     expect(config.SCOOP_INDEXING_ENABLED).toBe(true);
-    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(2000);
+    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(500);
     expect(config.SCOOP_VOLUME_24H_SWEEP_SECONDS).toBe(60);
     expect(publicConfigView(config).volume24hSweepSeconds).toBe(60);
     expect(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS).toBe(512);

@@ -324,6 +324,36 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           targetHead: freshTarget,
           checkpoint: indexed,
         });
+
+        // Tip moved while we thought we were caught up — skip idle maintenance
+        // (quote/volume/overlay) and catch up immediately. Prod tip can advance
+        // ~20–40 blocks during that work + 2s poll, which kept behindTarget ~45.
+        if (behindTarget > 0n) {
+          logCanonicalThroughput({
+            mode: 'normal-batch',
+            latestBlock: freshLatest,
+            targetHead: freshTarget,
+            checkpoint: indexed,
+            behindTargetBlocks: behindTarget,
+            latestLagBlocks:
+              freshLatest > indexed ? freshLatest - indexed : 0n,
+            blocksAttempted: 0,
+            blocksProcessed: 0,
+            interestingBlocks: 0,
+            emptyBlocksOrSpans: 0,
+            rpcMs: 0,
+            decodeMs: 0,
+            writeMs: 0,
+            loopMs: 0,
+            effectiveBlocksPerSecond: 0,
+            rpcRetries: 0,
+            confirmMode,
+            confirmLagBlocks,
+            liveLagBlocks: null,
+          });
+          continue;
+        }
+
         await withTransaction(pool, async (db) => {
           const promoted = await promoteConfirmations(db, {
             chainId: config.SCOOP_CHAIN_ID,
@@ -400,15 +430,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             confirmLagBlocks,
             liveLagBlocks: config.SCOOP_LIVE_OVERLAY_ENABLED ? liveLag : null,
           };
-          // Only say "caught up" when behindTarget is actually 0 after fresh sample.
-          if (behindTarget === 0n) {
-            logCanonicalThroughput(idleSnapshot);
-          } else {
-            logCanonicalThroughput({
-              ...idleSnapshot,
-              mode: 'normal-batch',
-            });
-          }
+          logCanonicalThroughput(idleSnapshot);
           await upsertIndexerHealth(db, {
             chainId: config.SCOOP_CHAIN_ID,
             heartbeatAt: new Date(),
@@ -423,17 +445,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             watchlistSize: watchlistSize(watchlist),
             activeRpc: rpc.activeLabel(),
             wsConnected: Boolean(wsCleanup),
-            notes: formatCanonicalHealthNotes({
-              ...idleSnapshot,
-              mode: behindTarget === 0n ? 'idle' : 'normal-batch',
-            }),
+            notes: formatCanonicalHealthNotes(idleSnapshot),
           });
         });
-
-        // If fresh tip moved past us, skip idle sleep and catch up immediately.
-        if (behindTarget > 0n) {
-          continue;
-        }
 
         if (indexToBlock != null && (checkpoint?.lastBlockNumber ?? 0) >= indexToBlock) {
           stopReason = 'indexToBlock';
@@ -449,7 +463,11 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         }
 
         await Promise.race([
-          new Promise((r) => setTimeout(r, config.SCOOP_POLL_INTERVAL_MS)),
+          // Hard-cap idle poll so a dashboard override of 2000ms cannot let tip
+          // race ~40+ blocks ahead between wakes (RHC often ≥10–20 blk/s).
+          new Promise((r) =>
+            setTimeout(r, Math.min(config.SCOOP_POLL_INTERVAL_MS, 500)),
+          ),
           wakePromise,
         ]);
         armWake();
@@ -457,11 +475,12 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       }
 
       const lagBlocks = targetHead - nextBlock + 1n;
-      // Hard-cap threshold so a high dashboard override cannot strand us in slow
-      // per-block mode (prod previously set 64–5000 while empty per-block ~4 blk/s).
+      // Hard-cap threshold at 0 so any lag uses proven range catch-up.
+      // Dashboard overrides (64/5000) previously stranded moderate lag in slow
+      // per-block mode (~2–4 blk/s) while tip runs ~10–20+ blk/s.
       const rangeThreshold = Math.min(
         config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
-        16,
+        0,
       );
       const useFast = shouldUseFastCatchup(lagBlocks, rangeThreshold);
 
