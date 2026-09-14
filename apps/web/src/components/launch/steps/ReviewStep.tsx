@@ -19,6 +19,10 @@ import {
   tokenMarketPath,
   type LaunchTxState,
 } from '@/lib/launch/tx-state';
+import {
+  canShowViewMarket,
+  completionPanelCopy,
+} from '@/lib/launch/completion-panel-copy';
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import {
@@ -138,6 +142,8 @@ export function ReviewStep({
         <CompletionPanel
           tx={tx}
           ticker={ticker}
+          tokenName={tx.indexedLaunch?.name ?? tx.decoded?.name ?? state.name}
+          quoteSymbol={quoteSymbol}
           marketHref={marketHref}
           onRetryIndex={onRetryIndex}
           onRetryNews={onRetryNews}
@@ -373,6 +379,8 @@ export function ReviewStep({
 function CompletionPanel({
   tx,
   ticker,
+  tokenName,
+  quoteSymbol,
   marketHref,
   onRetryIndex,
   onRetryNews,
@@ -380,64 +388,38 @@ function CompletionPanel({
 }: {
   tx: LaunchTxState;
   ticker: string;
+  tokenName: string;
+  quoteSymbol: string;
   marketHref: string | null;
   onRetryIndex?: () => void;
   onRetryNews?: () => void;
   onViewMarket?: () => void;
 }) {
   const live = isMarketLivePhase(tx.phase);
-  const indexing =
+  const copy = completionPanelCopy(tx, ticker);
+  const showViewMarket = canShowViewMarket(tx.phase, marketHref);
+  const syncing =
     tx.phase === 'receipt_success' ||
     tx.phase === 'waiting_for_indexer' ||
     tx.phase === 'indexed' ||
     tx.phase === 'activating_news';
 
-  let title = 'Launch transaction confirmed';
-  let body = 'Waiting for market indexing… MARKET LIVE is not claimed yet.';
-  let testId = 'launch-receipt-success';
-
-  if (tx.phase === 'waiting_for_indexer' || tx.phase === 'receipt_success') {
-    title = 'Launch confirmed';
-    body = 'Getting your market ready…';
-    testId = 'launch-waiting-indexer';
-  } else if (tx.phase === 'activating_news') {
-    title = 'Market indexed';
-    body = 'Linking News article…';
-    testId = 'launch-activating-news';
-  } else if (tx.phase === 'indexed') {
-    title = 'Market indexed';
-    body = 'Preparing MARKET LIVE…';
-    testId = 'launch-indexed';
-  } else if (live) {
-    title = 'MARKET LIVE';
-    body = `$${ticker} is now live on SCOOP.`;
-    testId = 'launch-market-live';
-  } else if (tx.phase === 'indexing_timeout') {
-    title = 'Your launch is confirmed on-chain.';
-    body =
-      'SCOOP is still indexing the market. You can retry or open the transaction.';
-    testId = 'launch-indexing-timeout';
-  } else if (tx.phase === 'index_mismatch') {
-    title = 'Indexed data mismatch';
-    body =
-      tx.error ??
-      'Canonical indexed launch does not match the receipt. Navigation blocked.';
-    testId = 'launch-index-mismatch';
-  } else if (tx.phase === 'receipt_success_details_pending') {
-    title = 'Launch transaction confirmed';
-    body =
-      'Confirmed on-chain — launch details pending decode. Indexing cannot start without the token address.';
-    testId = 'launch-receipt-success';
-  }
-
   return (
     <div
       className="rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-4 py-3"
       role="status"
-      data-testid={testId}
+      data-testid={copy.testId}
     >
-      <p className="text-[15px] font-semibold tracking-tight">{title}</p>
-      <p className="mt-1 text-sm text-[var(--muted)]">{body}</p>
+      <p className="text-[15px] font-semibold tracking-tight">{copy.title}</p>
+      {copy.primary ? (
+        <p
+          className="mt-1 text-sm font-medium text-[var(--fg)]"
+          data-testid="launch-market-live-status"
+        >
+          {copy.primary}
+        </p>
+      ) : null}
+      <p className="mt-1 text-sm text-[var(--muted)]">{copy.body}</p>
 
       {tx.newsActivation === 'failed' && live ? (
         <p
@@ -448,24 +430,47 @@ function CompletionPanel({
         </p>
       ) : null}
 
+      {(tokenName || ticker) && tx.decoded?.token ? (
+        <dl className="mt-3 space-y-1 text-sm">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+              Token
+            </dt>
+            <dd className="text-[var(--fg)]">
+              {tokenName || ticker} (${ticker})
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+              Address
+            </dt>
+            <dd className="font-mono text-[12px] text-[var(--fg)]">
+              {truncateAddress(tx.decoded.token)}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
+            <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+              Pair
+            </dt>
+            <dd className="text-[var(--fg)]">
+              ${ticker} / {quoteSymbol}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+
       {tx.txHash ? (
         <p className="mt-2 font-mono text-[11px] break-all text-[var(--muted-2)]">
           {tx.txHash}
         </p>
       ) : null}
 
-      {tx.decoded?.token && !live ? (
-        <p className="mt-2 font-mono text-[12px] text-[var(--fg)]">
-          Token {truncateAddress(tx.decoded.token)}
-        </p>
-      ) : null}
-
-      {indexing ? (
+      {copy.syncHint || syncing ? (
         <p
           className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]"
           data-testid="launch-tx-phase"
         >
-          {launchTxStatusLabel(tx.phase)}
+          {copy.syncHint ?? launchTxStatusLabel(tx.phase)}
         </p>
       ) : null}
 
@@ -477,7 +482,7 @@ function CompletionPanel({
             onClick={onRetryIndex}
             data-testid="launch-retry-index"
           >
-            Retry indexing check
+            Retry sync check
           </button>
         ) : null}
 
@@ -492,7 +497,7 @@ function CompletionPanel({
           </button>
         ) : null}
 
-        {(live || tx.phase === 'indexing_timeout') && marketHref ? (
+        {showViewMarket && onViewMarket ? (
           <button
             type="button"
             className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"

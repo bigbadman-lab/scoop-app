@@ -167,19 +167,19 @@ export function launchTxStatusLabel(phase: LaunchTxPhase): string {
     case 'confirming':
       return 'Waiting for confirmation…';
     case 'receipt_success':
-      return 'Launch transaction confirmed';
+      return 'Launch successful';
     case 'receipt_success_details_pending':
       return 'Launch confirmed — details pending';
     case 'waiting_for_indexer':
-      return 'Getting your market ready…';
+      return 'Syncing market data…';
     case 'indexed':
-      return 'Market indexed';
+      return 'Market data ready';
     case 'activating_news':
       return 'Linking News article…';
     case 'market_live':
-      return 'MARKET LIVE';
+      return 'Market data ready';
     case 'indexing_timeout':
-      return 'Indexing delayed';
+      return 'Market data sync delayed';
     case 'news_activation_failed':
       return 'Market live — News sync pending';
     case 'index_mismatch':

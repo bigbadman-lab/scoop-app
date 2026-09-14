@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
+import { TokenFreshLaunchGate } from '@/components/token/TokenFreshLaunchGate';
 import { TokenMarketShell, TokenMarketUnavailable } from '@/components/token/TokenMarketShell';
 import { buildPageMetadata } from '@/lib/seo/site';
 import { loadTokenPage } from '@/lib/token/load-token-page';
@@ -21,11 +22,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { address } = await params;
   const result = await loadTokenPageCached(address);
 
-  if (result.status === 'invalid' || result.status === 'not_found') {
+  if (result.status === 'invalid') {
     return buildPageMetadata({
       title: 'Market not found',
       description: 'No SCOOP market exists for this token address.',
       path: `/token/${address}`,
+      indexable: false,
+    });
+  }
+
+  if (result.status === 'not_found') {
+    return buildPageMetadata({
+      title: 'Market syncing',
+      description: 'SCOOP is syncing the latest market data for this token.',
+      path: `/token/${result.address}`,
       indexable: false,
     });
   }
@@ -63,12 +73,15 @@ export default async function TokenPage({ params }: Props) {
   const { address } = await params;
   const result = await loadTokenPageCached(address);
 
-  if (result.status === 'invalid' || result.status === 'not_found') {
+  if (result.status === 'invalid') {
     notFound();
   }
 
   return (
     <main className="mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-5 lg:px-10">
+      {result.status === 'not_found' ? (
+        <TokenFreshLaunchGate address={result.address} />
+      ) : null}
       {result.status === 'unavailable' ? (
         <TokenMarketUnavailable
           title="Market unavailable"

@@ -39,7 +39,10 @@ describe('loadTokenPage', () => {
     getToken.mockResolvedValue(null);
     await expect(
       loadTokenPage('0x2284ed0e4d446c6d78ac2d49a68bae822fd87373'),
-    ).resolves.toEqual({ status: 'not_found' });
+    ).resolves.toEqual({
+      status: 'not_found',
+      address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+    });
   });
 
   it('returns ok token with catalogue quote symbol and image', async () => {

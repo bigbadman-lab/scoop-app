@@ -17,7 +17,7 @@ export type TokenPageLoadResult =
       quoteImageUrl: string | null;
     }
   | { status: 'invalid' }
-  | { status: 'not_found' }
+  | { status: 'not_found'; address: string }
   | { status: 'unavailable' };
 
 /**
@@ -38,7 +38,7 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
       getToken(serverDb(), SCOOP_CHAIN_ID, address),
       loadEnabledQuoteCatalogue({ chainId: SCOOP_CHAIN_ID }),
     ]);
-    if (!token) return { status: 'not_found' };
+    if (!token) return { status: 'not_found', address };
     return {
       status: 'ok',
       token,

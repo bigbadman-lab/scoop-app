@@ -32,6 +32,10 @@ import {
   loadPendingLaunchCompletion,
   savePendingLaunchCompletion,
 } from '@/lib/launch/pending-completion';
+import { saveFreshLaunchHandoff } from '@/lib/launch/fresh-launch-handoff';
+import {
+  canShowViewMarket,
+} from '@/lib/launch/completion-panel-copy';
 import {
   INITIAL_LAUNCH_TX_STATE,
   isLaunchCompletionActive,
@@ -49,8 +53,6 @@ import { TokenStep } from '@/components/launch/steps/TokenStep';
 import { MarketStep } from '@/components/launch/steps/MarketStep';
 import { EarningsStep } from '@/components/launch/steps/EarningsStep';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
-
-const MARKET_LIVE_NAV_DELAY_MS = 1_500;
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -241,7 +243,6 @@ function LaunchFlowInner({ catalogue }: Props) {
   const launchInFlight = useRef(false);
   const completionAbortRef = useRef<AbortController | null>(null);
   const completionKeyRef = useRef<string | null>(null);
-  const navigatedKeyRef = useRef<string | null>(null);
   const resumeTriedRef = useRef(false);
   const accountRef = useRef<{
     address: `0x${string}` | undefined;
@@ -310,6 +311,14 @@ function LaunchFlowInner({ catalogue }: Props) {
       provenance: base.provenance,
       displayImagePath: path,
     });
+    saveFreshLaunchHandoff({
+      chainId: ROBINHOOD_CHAIN_ID,
+      tokenAddress: base.decoded.token,
+      txHash: base.txHash,
+      name: base.decoded.name,
+      symbol: base.decoded.symbol,
+      quoteAsset: base.decoded.quoteAsset,
+    });
 
     void runLaunchCompletion({
       chainId: ROBINHOOD_CHAIN_ID,
@@ -368,9 +377,18 @@ function LaunchFlowInner({ catalogue }: Props) {
     const addr =
       tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
     if (!addr) return;
-    const key = `${tx.txHash ?? ''}:${addr}`.toLowerCase();
-    navigatedKeyRef.current = key;
-    clearPendingLaunchCompletion();
+    if (tx.decoded && tx.txHash) {
+      saveFreshLaunchHandoff({
+        chainId: ROBINHOOD_CHAIN_ID,
+        tokenAddress: tx.decoded.token,
+        txHash: tx.txHash,
+        name: tx.indexedLaunch?.name ?? tx.decoded.name,
+        symbol: tx.indexedLaunch?.symbol ?? tx.decoded.symbol,
+        quoteAsset: (tx.indexedLaunch?.quoteAsset ??
+          tx.decoded.quoteAsset) as `0x${string}`,
+      });
+    }
+    // Keep pending completion for launch-page resume; handoff covers token-page sync.
     router.replace(tokenMarketPath(addr));
   }
 
@@ -415,29 +433,6 @@ function LaunchFlowInner({ catalogue }: Props) {
     startCompletionFromTx(tx);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by phase+hash+token
   }, [tx.phase, tx.txHash, tx.decoded?.token]);
-
-  /** Auto-navigate shortly after MARKET LIVE. */
-  useEffect(() => {
-    if (!isMarketLivePhase(tx.phase)) return;
-    const addr =
-      tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
-    if (!addr || !tx.txHash) return;
-    const key = `${tx.txHash}:${addr}`.toLowerCase();
-    if (navigatedKeyRef.current === key) return;
-    const id = window.setTimeout(() => {
-      if (navigatedKeyRef.current === key) return;
-      navigatedKeyRef.current = key;
-      clearPendingLaunchCompletion();
-      router.replace(tokenMarketPath(addr));
-    }, MARKET_LIVE_NAV_DELAY_MS);
-    return () => window.clearTimeout(id);
-  }, [
-    tx.phase,
-    tx.txHash,
-    tx.indexedLaunch?.tokenAddress,
-    tx.decoded?.token,
-    router,
-  ]);
 
   useEffect(() => {
     return () => {
@@ -902,7 +897,14 @@ function LaunchFlowInner({ catalogue }: Props) {
         onContinue={
           state.step < 4
             ? goContinue
-            : isMarketLivePhase(tx.phase) || tx.phase === 'indexing_timeout'
+            : canShowViewMarket(
+                  tx.phase,
+                  tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                    ? tokenMarketPath(
+                        tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
+                      )
+                    : null,
+                )
               ? viewMarket
               : () => {
                   void submitLaunch();
@@ -912,24 +914,36 @@ function LaunchFlowInner({ catalogue }: Props) {
           state.step === 3
             ? 'Review →'
             : state.step === 4
-              ? isMarketLivePhase(tx.phase)
+              ? canShowViewMarket(
+                  tx.phase,
+                  tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                    ? tokenMarketPath(
+                        tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
+                      )
+                    : null,
+                )
                 ? 'View market →'
-                : tx.phase === 'indexing_timeout'
-                  ? 'View market →'
-                  : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
-                    ? isLaunchTxBusy(tx.phase)
-                      ? launchTxBusyReason(tx.phase)
-                      : 'Confirmed'
-                    : 'Launch token →'
+                : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
+                  ? isLaunchTxBusy(tx.phase)
+                    ? launchTxBusyReason(tx.phase)
+                    : 'Confirmed'
+                  : 'Launch token →'
               : 'Continue →'
         }
         continueDisabled={
           state.step === 4 &&
           (Boolean(launchDisabledReason) ||
-            isLaunchTxBusy(tx.phase) ||
-            (isLaunchCompletionActive(tx.phase) &&
-              !isMarketLivePhase(tx.phase) &&
-              tx.phase !== 'indexing_timeout'))
+            (!(
+              canShowViewMarket(
+                tx.phase,
+                tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                  ? tokenMarketPath(
+                      tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token,
+                    )
+                  : null,
+              )
+            ) &&
+              (isLaunchTxBusy(tx.phase) || isLaunchCompletionActive(tx.phase))))
         }
         continueDisabledReason={launchDisabledReason}
       />
@@ -951,7 +965,7 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
     case 'confirming':
       return 'Confirming transaction…';
     case 'waiting_for_indexer':
-      return 'Getting your market ready…';
+      return 'Syncing market data…';
     case 'activating_news':
       return 'Linking News article…';
     default:
