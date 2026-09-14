@@ -158,7 +158,11 @@ function emitStep(
   meta?: Record<string, unknown>,
 ): void {
   onStep?.(step, meta);
-  if (typeof window !== 'undefined') {
+  // Dev-only breadcrumb — never spam production consoles with account steps.
+  if (
+    typeof window !== 'undefined' &&
+    process.env.NODE_ENV !== 'production'
+  ) {
     console.info('[scoop-siwe]', step, meta ?? {});
   }
 }

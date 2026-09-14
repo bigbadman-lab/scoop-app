@@ -1,7 +1,10 @@
 'use client';
 
 import { useAppKit, useAppKitAccount, useAppKitState } from '@reown/appkit/react';
-import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
+import {
+  requestScoopConnect,
+  subscribeScoopConnectRequest,
+} from '@/lib/auth/open-scoop-auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,6 +17,7 @@ import {
   joinShellLabel,
   shouldAutoStartSiwe,
   shouldResetJoinAfterModalClose,
+  shouldResetJoinAfterScoopAuthDismiss,
   type ScoopJoinPhase,
 } from '@/lib/auth/join-flow';
 import { resolveScoopAuthState } from '@/lib/auth/reconciliation';
@@ -185,6 +189,8 @@ export function WalletSlotLive({
   const siweInFlightRef = useRef(false);
   /** Address we already auto-attempted SIWE for under the current Join intent. */
   const autoSiweAddressRef = useRef<string | null>(null);
+  const joinPhaseRef = useRef<ScoopJoinPhase>(joinPhase);
+  joinPhaseRef.current = joinPhase;
   /** Canonical userId for the profile currently shown in chrome. */
   const profileUserIdRef = useRef<string | null>(null);
   /** Tracks AppKit modal open→close for Join cancel reset. */
@@ -498,6 +504,34 @@ export function WalletSlotLive({
       modalWasOpenRef.current = false;
     }
   }, [modalOpen, connectingWallet, joinPhase, isConnected, status, address]);
+
+  // SCOOP custom auth sheet dismissed without completing auth → clear Connecting….
+  useEffect(() => {
+    return subscribeScoopConnectRequest((event) => {
+      if (event.type !== 'settled') return;
+      const walletConnecting =
+        status === 'connecting' || status === 'reconnecting';
+      const walletConnected =
+        status === 'connected' && isConnected && Boolean(address);
+      if (
+        !shouldResetJoinAfterScoopAuthDismiss({
+          outcome: event.outcome,
+          walletConnected,
+          walletConnecting,
+          appKitConnectingWallet: Boolean(connectingWallet),
+          siweInFlight: siweInFlightRef.current,
+          scoopAuthed: scoopAuthedRef.current,
+          joinPhase: joinPhaseRef.current,
+        })
+      ) {
+        return;
+      }
+      joinIntentRef.current = false;
+      autoSiweAddressRef.current = null;
+      setJoinPhase('idle');
+      setJoinError(null);
+    });
+  }, [address, connectingWallet, isConnected, status]);
 
   useEffect(() => {
     void refreshChrome();

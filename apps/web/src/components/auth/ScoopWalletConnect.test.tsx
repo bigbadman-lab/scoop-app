@@ -38,6 +38,7 @@ describe('ScoopWalletConnect', () => {
       wcUri: undefined,
       connectingWallet: undefined,
       connect: vi.fn(),
+      getWcUri: vi.fn(),
       fetchWallets: vi.fn(),
       resetWcUri: vi.fn(),
       resetConnectingWallet: vi.fn(),
@@ -59,12 +60,16 @@ describe('ScoopWalletConnect', () => {
     expect(screen.queryByText(/not enabled yet/i)).toBeNull();
   });
 
-  it('renders populated wallets and connect action', async () => {
+  it('renders populated wallets with fallback avatar when image missing', async () => {
     const connect = vi.fn(async () => undefined);
     useAppKitWallets.mockReturnValue({
       wallets: [
-        { id: 'metamask', name: 'MetaMask' },
-        { id: 'trust', name: 'Trust Wallet' },
+        { id: 'metamask', name: 'MetaMask', imageUrl: '' },
+        {
+          id: 'trust',
+          name: 'Trust Wallet',
+          imageUrl: 'https://cdn.example/trust.png',
+        },
       ],
       wcWallets: [],
       isFetchingWallets: false,
@@ -73,6 +78,7 @@ describe('ScoopWalletConnect', () => {
       wcUri: undefined,
       connectingWallet: undefined,
       connect,
+      getWcUri: vi.fn(),
       fetchWallets: vi.fn(),
       resetWcUri: vi.fn(),
       resetConnectingWallet: vi.fn(),
@@ -91,8 +97,48 @@ describe('ScoopWalletConnect', () => {
     );
 
     expect(screen.getByText('MetaMask')).toBeTruthy();
+    expect(screen.getByText('ME')).toBeTruthy();
+    expect(screen.getByAltText('')).toBeTruthy();
     screen.getByText('MetaMask').closest('button')?.click();
     expect(connect).toHaveBeenCalled();
+  });
+
+  it('does not render img for undefined asset imageUrl', () => {
+    useAppKitWallets.mockReturnValue({
+      wallets: [
+        {
+          id: 'x',
+          name: 'X Wallet',
+          imageUrl: 'https://api.web3modal.com/public/getAssetImage/undefined',
+        },
+      ],
+      wcWallets: [],
+      isFetchingWallets: false,
+      isFetchingWcUri: false,
+      isInitialized: true,
+      wcUri: undefined,
+      connectingWallet: undefined,
+      connect: vi.fn(),
+      getWcUri: vi.fn(),
+      fetchWallets: vi.fn(),
+      resetWcUri: vi.fn(),
+      resetConnectingWallet: vi.fn(),
+    });
+
+    const { container } = render(
+      <ScoopWalletConnect
+        connecting={false}
+        error={null}
+        onBack={() => undefined}
+        onConnecting={() => undefined}
+        onConnected={() => undefined}
+        onCancelled={() => undefined}
+        onFailed={() => undefined}
+      />,
+    );
+
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('XW')).toBeTruthy();
   });
 
   it('shows WC QR primary UX with copy URI secondary', () => {
@@ -105,6 +151,7 @@ describe('ScoopWalletConnect', () => {
       wcUri: 'wc:example-uri',
       connectingWallet: { id: 'wc', name: 'WalletConnect' },
       connect: vi.fn(),
+      getWcUri: vi.fn(),
       fetchWallets: vi.fn(),
       resetWcUri: vi.fn(),
       resetConnectingWallet: vi.fn(),
@@ -138,6 +185,7 @@ describe('ScoopWalletConnect', () => {
       wcUri: undefined,
       connectingWallet: undefined,
       connect: vi.fn(),
+      getWcUri: vi.fn(),
       fetchWallets,
       resetWcUri: vi.fn(),
       resetConnectingWallet: vi.fn(),

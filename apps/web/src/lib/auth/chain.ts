@@ -89,4 +89,10 @@ export const robinhoodAppKitChain = defineChain({
       url: 'https://explorer.mainnet.chain.robinhood.com',
     },
   },
+  // Prefer a local imageUrl so AppKit never requests getAssetImage/undefined
+  // for this custom chain (no Reown catalogue imageId).
+  assets: {
+    imageId: undefined,
+    imageUrl: APPKIT_ICON_DATA_URI,
+  },
 });

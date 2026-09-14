@@ -10,7 +10,10 @@ import {
 } from 'react';
 import { ScoopEmailAuth } from '@/components/auth/ScoopEmailAuth';
 import { ScoopWalletConnect } from '@/components/auth/ScoopWalletConnect';
-import { closeScoopAuthSheet } from '@/lib/auth/open-scoop-auth';
+import {
+  closeScoopAuthSheet,
+  type ScoopConnectOutcome,
+} from '@/lib/auth/open-scoop-auth';
 import {
   INITIAL_SCOOP_AUTH_STATE,
   reduceScoopAuth,
@@ -40,12 +43,15 @@ function SheetChrome({
   describedBy?: string;
 }) {
   return (
-    <div className="flex max-h-[min(92vh,640px)] w-full max-w-[420px] flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] text-[var(--fg)] shadow-[0_24px_64px_rgba(0,0,0,0.45)]">
-      <div className="flex items-start justify-between gap-3 border-b border-[var(--divider)] px-5 py-4">
+    <div
+      className="flex w-full max-w-[420px] flex-col overflow-hidden border border-[var(--divider)] bg-[var(--bg-elevated)] text-[var(--fg)] shadow-[0_24px_64px_rgba(0,0,0,0.45)] max-h-[min(92dvh,640px)] rounded-t-[var(--radius-lg)] border-b-0 sm:max-h-[min(92vh,640px)] sm:rounded-[var(--radius-md)] sm:border-b"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--divider)] px-4 py-3.5 sm:px-5 sm:py-4">
         <div className="min-w-0">
           <h2
             id={labelledBy}
-            className="text-lg font-semibold tracking-tight text-[var(--fg)]"
+            className="text-base font-semibold tracking-tight text-[var(--fg)] sm:text-lg"
           >
             {title}
           </h2>
@@ -61,19 +67,22 @@ function SheetChrome({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-md)] font-mono text-[14px] text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--fg)]"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] font-mono text-[16px] text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--fg)] sm:h-9 sm:w-9 sm:text-[14px]"
           aria-label="Close"
         >
           ×
         </button>
       </div>
-      <div className="overflow-y-auto px-5 py-5">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
+        {children}
+      </div>
     </div>
   );
 }
 
 /**
  * SCOOP-native auth surface (email + wallet). No Reown modal chrome.
+ * Mobile: bottom sheet. Desktop: centered card.
  */
 export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
   const titleId = useId();
@@ -89,6 +98,14 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
     }
   }, [open]);
 
+  const close = useCallback(
+    (outcome: ScoopConnectOutcome = 'cancelled') => {
+      closeScoopAuthSheet({ outcome });
+      onClose();
+    },
+    [onClose],
+  );
+
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
@@ -101,8 +118,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
-        closeScoopAuthSheet();
+        close('cancelled');
       }
     }
     window.addEventListener('keydown', onKey);
@@ -110,12 +126,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
       window.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [open, onClose]);
-
-  const close = useCallback(() => {
-    onClose();
-    closeScoopAuthSheet();
-  }, [onClose]);
+  }, [open, close]);
 
   const send = useCallback((event: ScoopAuthEvent) => {
     dispatch(event);
@@ -151,14 +162,14 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[10060] flex items-end justify-center p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[10060] flex items-end justify-center px-0 pt-[max(0.5rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
       role="presentation"
     >
       <button
         type="button"
         className="absolute inset-0 bg-black/55"
         aria-label="Dismiss sign-in"
-        onClick={close}
+        onClick={() => close('cancelled')}
       />
       <div
         ref={panelRef}
@@ -166,12 +177,12 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={subtitle ? descId : undefined}
-        className="relative z-[1] w-full sm:w-auto"
+        className="relative z-[1] w-full max-w-[420px] px-0 sm:w-auto sm:px-0"
       >
         <SheetChrome
           title={title}
           subtitle={subtitle}
-          onClose={close}
+          onClose={() => close('cancelled')}
           labelledBy={titleId}
           describedBy={subtitle ? descId : undefined}
         >
@@ -215,7 +226,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
               onWalletReady={(address) => {
                 onWalletReady?.(address);
                 send({ type: 'AUTHENTICATED' });
-                close();
+                close('completed');
               }}
               onBackEntry={() => send({ type: 'BACK_TO_ENTRY' })}
             />
@@ -232,7 +243,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
                 send({ type: 'WALLET_CONNECT_OK' });
                 onWalletReady?.(address);
                 send({ type: 'AUTHENTICATED' });
-                close();
+                close('completed');
               }}
               onCancelled={() => send({ type: 'WALLET_CONNECT_CANCEL' })}
               onFailed={(message) =>

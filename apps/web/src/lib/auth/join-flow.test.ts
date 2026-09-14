@@ -3,6 +3,7 @@ import {
   joinShellLabel,
   shouldAutoStartSiwe,
   shouldResetJoinAfterModalClose,
+  shouldResetJoinAfterScoopAuthDismiss,
 } from '@/lib/auth/join-flow';
 
 describe('shouldAutoStartSiwe', () => {
@@ -131,6 +132,46 @@ describe('shouldResetJoinAfterModalClose', () => {
         ...base,
         walletConnected: true,
         joinPhase: 'needs_finish',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldResetJoinAfterScoopAuthDismiss', () => {
+  const base = {
+    outcome: 'cancelled' as const,
+    walletConnected: false,
+    walletConnecting: false,
+    appKitConnectingWallet: false,
+    siweInFlight: false,
+    scoopAuthed: false,
+    joinPhase: 'opening_wallet' as const,
+  };
+
+  it('resets Connecting after sheet dismiss without auth', () => {
+    expect(shouldResetJoinAfterScoopAuthDismiss(base)).toBe(true);
+  });
+
+  it('does not reset after completed connect', () => {
+    expect(
+      shouldResetJoinAfterScoopAuthDismiss({
+        ...base,
+        outcome: 'completed',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not reset when wallet already connected or SIWE in flight', () => {
+    expect(
+      shouldResetJoinAfterScoopAuthDismiss({
+        ...base,
+        walletConnected: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetJoinAfterScoopAuthDismiss({
+        ...base,
+        siweInFlight: true,
       }),
     ).toBe(false);
   });

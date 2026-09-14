@@ -125,10 +125,12 @@ export function AuthInterruptLive({
           walletType: walletMeta.walletType,
           provider: walletMeta.provider,
           onStep: (step, meta) => {
-            console.info('[scoop-siwe]', step, {
-              connector: connector.id,
-              ...meta,
-            });
+            if (process.env.NODE_ENV !== 'production') {
+              console.info('[scoop-siwe]', step, {
+                connector: connector.id,
+                ...meta,
+              });
+            }
           },
         },
       );

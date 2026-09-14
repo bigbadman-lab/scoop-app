@@ -4,11 +4,26 @@ import { useAppKitWallets } from '@reown/appkit/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { ScoopWcQr } from '@/components/auth/ScoopWcQr';
+import {
+  isScoopMobileAuthViewport,
+  shouldPreferMobileWcOpenOverQr,
+  shouldPrefetchWcUriBeforeConnect,
+} from '@/lib/auth/mobile-wallet-connect';
+import {
+  resolveScoopWalletImageSrc,
+  scoopWalletMonogram,
+} from '@/lib/auth/resolve-wallet-image';
 
 type WalletLike = {
   id?: string;
   name?: string;
   imageUrl?: string;
+  imageId?: string;
+  isInjected?: boolean;
+  connectors?: { id: string; chain?: string }[];
+  walletInfo?: {
+    deepLink?: string | null;
+  };
 };
 
 type Props = {
@@ -20,6 +35,35 @@ type Props = {
   onCancelled: () => void;
   onFailed: (message: string) => void;
 };
+
+function WalletAvatar({ wallet }: { wallet: WalletLike }) {
+  const src = resolveScoopWalletImageSrc(wallet);
+  const [failed, setFailed] = useState(false);
+  const label = wallet.name?.trim() || 'Wallet';
+
+  if (src && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote Reown explorer URLs
+      <img
+        src={src}
+        alt=""
+        width={28}
+        height={28}
+        className="h-7 w-7 shrink-0 rounded-[7px] object-cover"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border border-[var(--divider)] bg-[var(--bg-elevated)] font-mono text-[10px] font-semibold tracking-tight text-[var(--fg)]"
+      aria-hidden
+    >
+      {scoopWalletMonogram(label)}
+    </span>
+  );
+}
 
 /**
  * External wallet chooser for SCOOP custom auth (Reown headless).
@@ -38,6 +82,11 @@ export function ScoopWalletConnect({
   const { address, isConnected, status } = useAccount();
   const [showMore, setShowMore] = useState(false);
   const [wcCopied, setWcCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(isScoopMobileAuthViewport());
+  }, []);
 
   const wallets = (walletsApi.wallets ?? []) as WalletLike[];
   const wcWallets = (walletsApi.wcWallets ?? []) as WalletLike[];
@@ -55,6 +104,11 @@ export function ScoopWalletConnect({
     !isFetchingWallets &&
     wallets.length === 0 &&
     wcWallets.length === 0;
+
+  const preferMobileOpen = shouldPreferMobileWcOpenOverQr({
+    isMobile,
+    hasWcUri: Boolean(wcUri),
+  });
 
   const curated = useMemo(() => {
     const list = showMore ? [...wallets, ...wcWallets] : wallets;
@@ -83,6 +137,14 @@ export function ScoopWalletConnect({
     }
     onConnecting();
     try {
+      // Reown mobile deeplink requires a WC URI already present (onConnectMobile
+      // no-ops without it). Prefetch on the same user gesture before connect().
+      if (
+        shouldPrefetchWcUriBeforeConnect({ isMobile, wallet }) &&
+        typeof walletsApi.getWcUri === 'function'
+      ) {
+        await walletsApi.getWcUri();
+      }
       await walletsApi.connect(wallet as never);
     } catch (error) {
       const message =
@@ -175,12 +237,13 @@ export function ScoopWalletConnect({
                 type="button"
                 disabled={connecting}
                 onClick={() => void connectWallet(wallet)}
-                className="flex min-h-11 w-full items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-3 text-left transition-colors hover:border-[var(--fg)] disabled:opacity-50"
+                className="flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-3 text-left transition-colors hover:border-[var(--fg)] disabled:opacity-50"
               >
-                <span className="truncate text-sm font-medium text-[var(--fg)]">
+                <WalletAvatar wallet={wallet} />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--fg)]">
                   {label}
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
                   {isActive ? 'Connecting…' : 'Connect'}
                 </span>
               </button>
@@ -209,8 +272,20 @@ export function ScoopWalletConnect({
             WalletConnect
             {isFetchingWcUri ? ' · preparing…' : ''}
           </p>
-          <ScoopWcQr uri={wcUri} />
+          {preferMobileOpen ? (
+            <p className="text-sm text-[var(--muted)]">
+              Open your wallet app to approve the connection.
+            </p>
+          ) : (
+            <ScoopWcQr uri={wcUri} />
+          )}
           <div className="flex flex-wrap gap-2">
+            <a
+              href={wcUri}
+              className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--scoop-orange)] px-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--scoop-orange-contrast)]"
+            >
+              Open wallet
+            </a>
             <button
               type="button"
               onClick={() => void copyWcUri()}
@@ -218,12 +293,16 @@ export function ScoopWalletConnect({
             >
               {wcCopied ? 'Copied' : 'Copy URI'}
             </button>
-            <a
-              href={wcUri}
-              className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--fg)]"
-            >
-              Open wallet
-            </a>
+            {!preferMobileOpen ? null : (
+              <details className="w-full">
+                <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+                  Show QR instead
+                </summary>
+                <div className="mt-2">
+                  <ScoopWcQr uri={wcUri} />
+                </div>
+              </details>
+            )}
             <button
               type="button"
               onClick={() => walletsApi.resetWcUri?.()}

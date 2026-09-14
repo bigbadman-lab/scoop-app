@@ -3,9 +3,12 @@ import { isScoopCustomAuthUiEnabled } from '@/lib/auth/custom-auth-ui';
 import {
   closeScoopAuthSheet,
   isScoopAuthSheetOpen,
+  isScoopConnectRequestPending,
   openScoopAuthSheet,
   requestScoopConnect,
+  settleScoopConnectRequest,
   subscribeScoopAuthSheet,
+  subscribeScoopConnectRequest,
 } from '@/lib/auth/open-scoop-auth';
 import {
   reownConnectAuthExternal,
@@ -64,8 +67,36 @@ describe('requestScoopConnect', () => {
     requestScoopConnect(openAppKit);
     expect(openAppKit).not.toHaveBeenCalled();
     expect(isScoopAuthSheetOpen()).toBe(true);
+    expect(isScoopConnectRequestPending()).toBe(true);
     expect(seen.at(-1)).toBe(true);
     closeScoopAuthSheet();
+    expect(isScoopConnectRequestPending()).toBe(false);
+    unsub();
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+
+  it('settles cancelled on dismiss and completed on success without double-cancel', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = '1';
+    closeScoopAuthSheet({ outcome: 'cancelled' });
+    const outcomes: string[] = [];
+    const unsub = subscribeScoopConnectRequest((event) => {
+      if (event.type === 'settled') outcomes.push(event.outcome);
+      if (event.type === 'pending') outcomes.push('pending');
+    });
+    requestScoopConnect(() => undefined);
+    expect(outcomes).toContain('pending');
+    closeScoopAuthSheet({ outcome: 'cancelled' });
+    expect(outcomes.filter((o) => o === 'cancelled')).toHaveLength(1);
+    expect(isScoopConnectRequestPending()).toBe(false);
+
+    requestScoopConnect(() => undefined);
+    settleScoopConnectRequest('completed');
+    expect(outcomes.at(-1)).toBe('completed');
+    closeScoopAuthSheet({ outcome: 'cancelled' });
+    // Already settled completed — dismiss must not emit another cancel.
+    expect(outcomes.filter((o) => o === 'cancelled')).toHaveLength(1);
     unsub();
     if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
     else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;

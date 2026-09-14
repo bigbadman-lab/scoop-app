@@ -35,6 +35,8 @@ function ensureAppKit() {
     projectId: scoopReownProjectId,
     metadata: buildAppKitMetadata(),
     themeMode: 'light',
+    // Keep AppKit UI alerts off in production; do not silence real errors.
+    debug: process.env.NODE_ENV !== 'production',
     themeVariables: {
       '--w3m-accent': '#FC4C00',
       '--w3m-border-radius-master': '2px',
