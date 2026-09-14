@@ -9,7 +9,7 @@
 | Field | Value |
 | --- | --- |
 | Pre-HEAD | `2f30f5390fc6a7b6a2054f64ddf225edb4a57798` |
-| Final HEAD | `c2eef21dbcdf7e0cc00a916595f44d23392eb3b4` |
+| Final HEAD | `6b0df84` (audit note on `c2eef21` fix) |
 | Branch | `main` |
 | Token | `0x8292b1af08e0b2efbc0f383091d11ebed33bac5b` |
 | Name / symbol | Double Hawk / **2HAWK** |
