@@ -190,8 +190,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       })
     : Promise.resolve();
 
-  // Optional WS wake (best-effort, never source of truth)
+  // Optional WS wake (best-effort). Also track tip so sticky HTTP eth_blockNumber
+  // cannot leave us idling while the chain advances ~40–50 blocks.
   let wsCleanup: (() => void) | undefined;
+  let wsLatestBlock: bigint | null = null;
   if (opts.enableWsWake !== false && config.ROBINHOOD_WS_URL) {
     try {
       const { createPublicClient, webSocket } = await import('viem');
@@ -199,7 +201,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         transport: webSocket(config.ROBINHOOD_WS_URL),
       });
       const unwatch = wsClient.watchBlockNumber({
-        onBlockNumber: () => {
+        onBlockNumber: (blockNumber) => {
+          if (wsLatestBlock == null || blockNumber > wsLatestBlock) {
+            wsLatestBlock = blockNumber;
+          }
           wakeResolve?.();
           armWake();
         },
@@ -222,6 +227,15 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     }
   }
 
+  const fetchHttpLatest = async (): Promise<bigint> =>
+    rpc.withClient((c) => c.getBlockNumber());
+
+  /** Prefer WS tip for lag/idle decisions when HTTP eth_blockNumber is sticky. */
+  const resolveObservedTip = (httpLatest: bigint): bigint => {
+    if (wsLatestBlock != null && wsLatestBlock > httpLatest) return wsLatestBlock;
+    return httpLatest;
+  };
+
   try {
     let watchlist = await withTransaction(pool, (db) =>
       loadWatchlist(db, config.SCOOP_CHAIN_ID),
@@ -234,7 +248,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       }
 
       const client = rpc.getClient();
-      const latest = await rpc.withClient((c) => c.getBlockNumber());
+      // Indexing target must come from HTTP (provider must be able to serve getLogs).
+      // WS tip is applied below only for idle/lag decisions when HTTP tip is sticky.
+      const httpLatest = await fetchHttpLatest();
+      const latest = httpLatest;
       let safe = latest;
       let finalized = latest;
       try {
@@ -309,28 +326,94 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       if (nextBlock > targetHead) {
         const indexed = BigInt(checkpoint?.lastBlockNumber ?? 0);
         // Re-sample tip so idle health cannot claim caught-up against a stale latest.
-        const freshLatest = await rpc.withClient((c) => c.getBlockNumber());
-        const freshHeads: ConfirmationHeads = {
-          latest: freshLatest,
-          safe,
-          finalized,
-        };
-        const freshTarget = resolveTargetHead({
+        // Use max(HTTP, WS) for the idle decision — HTTP eth_blockNumber is often sticky
+        // for a few seconds then jumps ~40–50 blocks.
+        const freshHttpLatest = await fetchHttpLatest();
+        const freshObservedLatest = resolveObservedTip(freshHttpLatest);
+        const freshHttpTarget = resolveTargetHead({
           mode: confirmMode,
-          heads: freshHeads,
+          heads: { latest: freshHttpLatest, safe, finalized },
           confirmLagBlocks,
         });
+        const freshObservedTarget = resolveTargetHead({
+          mode: confirmMode,
+          heads: { latest: freshObservedLatest, safe, finalized },
+          confirmLagBlocks,
+        });
+
+        // HTTP tip advanced — re-enter loop and index (never index beyond HTTP).
+        if (nextBlock <= freshHttpTarget) {
+          continue;
+        }
+
+        // WS/observed tip ahead of sticky HTTP: brief wait for provider tip, do not
+        // claim caught-up or run idle maintenance.
+        if (freshObservedTarget > freshHttpTarget) {
+          const behindObserved = computeBehindTargetBlocks({
+            targetHead: freshObservedTarget,
+            checkpoint: indexed,
+          });
+          const waitingSnapshot = {
+            mode: 'normal-batch' as CanonicalLoopMode,
+            latestBlock: freshObservedLatest,
+            targetHead: freshObservedTarget,
+            checkpoint: indexed,
+            behindTargetBlocks: behindObserved,
+            latestLagBlocks:
+              freshObservedLatest > indexed ? freshObservedLatest - indexed : 0n,
+            blocksAttempted: 0,
+            blocksProcessed: 0,
+            interestingBlocks: 0,
+            emptyBlocksOrSpans: 0,
+            rpcMs: 0,
+            decodeMs: 0,
+            writeMs: 0,
+            loopMs: 0,
+            effectiveBlocksPerSecond: 0,
+            rpcRetries: 0,
+            confirmMode,
+            confirmLagBlocks,
+            liveLagBlocks: null as bigint | null,
+          };
+          logCanonicalThroughput(waitingSnapshot);
+          await withTransaction(pool, async (db) => {
+            await upsertIndexerHealth(db, {
+              chainId: config.SCOOP_CHAIN_ID,
+              heartbeatAt: new Date(),
+              latestIndexedBlock: checkpoint?.lastBlockNumber ?? null,
+              chainLatest: freshObservedLatest,
+              chainSafe: safe,
+              chainFinalized: finalized,
+              lagBlocks: behindObserved,
+              lastRpcOkAt: new Date(),
+              reorgCount,
+              dirtyProjections: false,
+              watchlistSize: watchlistSize(watchlist),
+              activeRpc: rpc.activeLabel(),
+              wsConnected: Boolean(wsCleanup),
+              notes: formatCanonicalHealthNotes(waitingSnapshot),
+            });
+          });
+          await Promise.race([
+            new Promise((r) => setTimeout(r, 100)),
+            wakePromise,
+          ]);
+          armWake();
+          continue;
+        }
+
+        const freshLatest = freshHttpLatest;
+        const freshTarget = freshHttpTarget;
         const behindTarget = computeBehindTargetBlocks({
           targetHead: freshTarget,
           checkpoint: indexed,
         });
 
         // Tip moved while we thought we were caught up — skip idle maintenance
-        // (quote/volume/overlay) and catch up immediately. Prod tip can advance
-        // ~20–40 blocks during that work + 2s poll, which kept behindTarget ~45.
+        // (quote/volume/overlay) and catch up immediately.
         if (behindTarget > 0n) {
-          logCanonicalThroughput({
-            mode: 'normal-batch',
+          const catchingUpSnapshot = {
+            mode: 'normal-batch' as CanonicalLoopMode,
             latestBlock: freshLatest,
             targetHead: freshTarget,
             checkpoint: indexed,
@@ -349,7 +432,26 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             rpcRetries: 0,
             confirmMode,
             confirmLagBlocks,
-            liveLagBlocks: null,
+            liveLagBlocks: null as bigint | null,
+          };
+          logCanonicalThroughput(catchingUpSnapshot);
+          await withTransaction(pool, async (db) => {
+            await upsertIndexerHealth(db, {
+              chainId: config.SCOOP_CHAIN_ID,
+              heartbeatAt: new Date(),
+              latestIndexedBlock: checkpoint?.lastBlockNumber ?? null,
+              chainLatest: freshLatest,
+              chainSafe: safe,
+              chainFinalized: finalized,
+              lagBlocks: behindTarget,
+              lastRpcOkAt: new Date(),
+              reorgCount,
+              dirtyProjections: false,
+              watchlistSize: watchlistSize(watchlist),
+              activeRpc: rpc.activeLabel(),
+              wsConnected: Boolean(wsCleanup),
+              notes: formatCanonicalHealthNotes(catchingUpSnapshot),
+            });
           });
           continue;
         }
@@ -357,7 +459,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         await withTransaction(pool, async (db) => {
           const promoted = await promoteConfirmations(db, {
             chainId: config.SCOOP_CHAIN_ID,
-            heads: freshHeads,
+            heads: { latest: freshLatest, safe, finalized },
           });
           if (promoted.rawUpdated > 0) {
             logJson('info', 'confirmation promotion', {
@@ -579,7 +681,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       const blocksSpanned = Number(batchEnd - nextBlock + 1n);
 
       // Fresh tip sample outside the DB txn so lag cannot look "caught up" after a slow batch.
-      const freshLatest = await rpc.withClient((c) => c.getBlockNumber());
+      // Indexing already used HTTP tip; report observed tip (max HTTP/WS) for honest lag.
+      const freshHttpLatest = await fetchHttpLatest();
+      const freshLatest = resolveObservedTip(freshHttpLatest);
       const freshTarget = resolveTargetHead({
         mode: confirmMode,
         heads: { latest: freshLatest, safe, finalized },
