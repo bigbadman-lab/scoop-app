@@ -14,7 +14,7 @@
 
 ## 4. Final HEAD
 
-`c7a85c3a9e484e19cdb5a06211268a03954139c9`
+`029c2ea86c35defba429a979b2fddf339e32e231`
 
 ## 5. Git status (pre-commit relevant)
 
@@ -221,17 +221,26 @@ Production: `news_article_market_intents` created successfully. Pre-migration `n
 
 ## 34. Deployment SHA / status
 
-Pushed `c7a85c3a9e484e19cdb5a06211268a03954139c9` to `main`. Confirm Vercel production Ready for this SHA after deploy settles.
+## 34. Deployment SHA / status
+
+Pushed `029c2ea86c35defba429a979b2fddf339e32e231` to `main`. Vercel commit status: **success**. Production deployment environment created for `029c2ea`.
 
 ## 35. Production verification
 
-| Token | nam row | lore title | lore URL |
+| Token | nam row | lore on token page | markets API |
 | --- | --- | --- | --- |
-| MUSE | yes | Why is Meta stock gaining in premarket today | invezz Meta premarket |
-| 2HAWK | yes | Forget An AI Slowdown… Double Hawk… | seekingalpha 4946038 |
-| T110 | yes | Netflix… price target to $110 | invezz Netflix $110 |
+| MUSE | yes | Lore + Meta premarket headline | 1 item MUSE |
+| 2HAWK | yes | Lore + Double Hawk headline | 1 item 2HAWK |
+| T110 | yes | Lore + Netflix $110 headline | 1 item T110 |
 
-Post-deploy: confirm news feed counts + token pages Lore + cron route live.
+Also verified:
+
+- non-news token has no Lore (`0x48f91579…`)
+- cron route live (`401` without auth — expected)
+- `getNewsArticleMarketsForArticles` returns marketCount=1 for each of the three articles
+- no duplicate `news_article_markets` rows (`nam_count=3`)
+
+Articles may fall outside the homepage news feed window; market counts remain available via article markets API / durable joins.
 
 ## 36. Remaining risks
 
@@ -261,6 +270,6 @@ Confirmed: only the three verified tokens received `news_article_markets` / inte
 
 > **TOKEN LORE:** LIVE
 
-> **PRODUCTION DEPLOYMENT:** `c7a85c3` pushed to `main` (confirm Vercel Ready)
+> **PRODUCTION DEPLOYMENT:** `029c2ea` on `main` — Vercel success / Production
 
 > **NEXT STEP:** Stop and return this report for review before any further launch-day work.
