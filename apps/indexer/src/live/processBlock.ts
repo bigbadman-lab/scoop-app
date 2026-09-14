@@ -61,6 +61,37 @@ function jsonSafe(value: unknown): unknown {
   );
 }
 
+/** Build txHash → from map from an includeTransactions block payload. */
+export function txFromByHashFromBlock(block: {
+  transactions: readonly (Hex | { hash: Hex; from: Hex })[];
+}): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const tx of block.transactions) {
+    if (typeof tx === 'string') continue;
+    if (!tx?.hash || !tx?.from) continue;
+    map.set(normalizeBytes32(tx.hash), normalizeAddress(tx.from));
+  }
+  return map;
+}
+
+/**
+ * Resolve tx.from for trader attribution. Prefer in-block cache (one getBlock
+ * with transactions) over per-swap getTransaction. Orientation never uses this.
+ */
+export async function resolveTxFrom(args: {
+  client: PublicClient;
+  txHash: string;
+  txFromByHash: Map<string, string>;
+}): Promise<string> {
+  const key = normalizeBytes32(args.txHash);
+  const cached = args.txFromByHash.get(key);
+  if (cached) return cached;
+  const tx = await args.client.getTransaction({ hash: key as Hex });
+  const from = normalizeAddress(tx.from);
+  args.txFromByHash.set(key, from);
+  return from;
+}
+
 export interface ProcessBlockResult {
   blockNumber: bigint;
   launches: number;
@@ -95,10 +126,11 @@ export async function processBlock(
   const positionManager = deployment.positionManager;
   const creatorRewards = deployment.creatorRewards;
 
-  const block = await client.getBlock({ blockNumber, includeTransactions: false });
+  const block = await client.getBlock({ blockNumber, includeTransactions: true });
   const blockHash = normalizeBytes32(block.hash!);
   const parentHash = block.parentHash ? normalizeBytes32(block.parentHash) : null;
   const blockTimestamp = block.timestamp;
+  const txFromByHash = txFromByHashFromBlock(block);
 
   const existing = await getProcessedBlock(db, chainId, blockNumber);
   if (existing && normalizeBytes32(existing.blockHash) === blockHash) {
@@ -173,7 +205,9 @@ export async function processBlock(
   for (const launchLog of launchLogs) {
     const txHash = normalizeBytes32(launchLog.transactionHash!);
     const receipt = await client.getTransactionReceipt({ hash: txHash as Hex });
-    const tx = await client.getTransaction({ hash: txHash as Hex });
+    const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
+    // Preserve prior shape expected by hydrate/normalize (tx.from).
+    const tx = { from: txFrom as Hex, hash: txHash as Hex };
     const decoded = decodeReceiptLogs(receipt);
     const tokenLaunched = decoded.find((e) => e.kind === 'TokenLaunched');
     if (!tokenLaunched || tokenLaunched.kind !== 'TokenLaunched') continue;
@@ -312,7 +346,7 @@ export async function processBlock(
     const txHash = normalizeBytes32(log.transactionHash);
     if (launchTxHashes.has(txHash)) continue; // already in normalizeLaunch
 
-    const tx = await client.getTransaction({ hash: txHash as Hex });
+    const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
     const amount0 = BigInt(String(ev.args.amount0));
     const amount1 = BigInt(String(ev.args.amount1));
     const sqrtAfter = BigInt(String(ev.args.sqrtPriceX96));
@@ -372,8 +406,8 @@ export async function processBlock(
       tokenAddress: entry.tokenAddress,
       quoteAsset: entry.quoteAsset,
       swapSender: normalizeAddress(String(ev.args.sender)),
-      txFrom: tx.from,
-      traderAddress: normalizeAddress(tx.from),
+      txFrom,
+      traderAddress: txFrom,
       traderAttributionType: 'tx_from',
       side,
       amount0Raw: amount0,

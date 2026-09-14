@@ -33,6 +33,13 @@ import {
   type AdvisoryLockHandle,
 } from './guardrails.js';
 import { startLiveTipOverlay } from './tipOverlay/observer.js';
+import {
+  computeBehindTargetBlocks,
+  computeEffectiveBlocksPerSecond,
+  formatCanonicalHealthNotes,
+  logCanonicalThroughput,
+  type CanonicalLoopMode,
+} from './canonicalMetrics.js';
 
 function logJson(level: string, message: string, fields: Record<string, unknown> = {}) {
   console.log(
@@ -301,11 +308,26 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
 
       if (nextBlock > targetHead) {
         const indexed = BigInt(checkpoint?.lastBlockNumber ?? 0);
-        const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
+        // Re-sample tip so idle health cannot claim caught-up against a stale latest.
+        const freshLatest = await rpc.withClient((c) => c.getBlockNumber());
+        const freshHeads: ConfirmationHeads = {
+          latest: freshLatest,
+          safe,
+          finalized,
+        };
+        const freshTarget = resolveTargetHead({
+          mode: confirmMode,
+          heads: freshHeads,
+          confirmLagBlocks,
+        });
+        const behindTarget = computeBehindTargetBlocks({
+          targetHead: freshTarget,
+          checkpoint: indexed,
+        });
         await withTransaction(pool, async (db) => {
           const promoted = await promoteConfirmations(db, {
             chainId: config.SCOOP_CHAIN_ID,
-            heads,
+            heads: freshHeads,
           });
           if (promoted.rawUpdated > 0) {
             logJson('info', 'confirmation promotion', {
@@ -353,39 +375,65 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             ? await getLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID)
             : null;
           const liveLag =
-            liveCheckpoint != null && latest > BigInt(liveCheckpoint)
-              ? latest - BigInt(liveCheckpoint)
+            liveCheckpoint != null && freshLatest > BigInt(liveCheckpoint)
+              ? freshLatest - BigInt(liveCheckpoint)
               : 0n;
+          const idleSnapshot = {
+            mode: 'idle' as CanonicalLoopMode,
+            latestBlock: freshLatest,
+            targetHead: freshTarget,
+            checkpoint: indexed,
+            behindTargetBlocks: behindTarget,
+            latestLagBlocks:
+              freshLatest > indexed ? freshLatest - indexed : 0n,
+            blocksAttempted: 0,
+            blocksProcessed: 0,
+            interestingBlocks: 0,
+            emptyBlocksOrSpans: 0,
+            rpcMs: 0,
+            decodeMs: 0,
+            writeMs: 0,
+            loopMs: 0,
+            effectiveBlocksPerSecond: 0,
+            rpcRetries: 0,
+            confirmMode,
+            confirmLagBlocks,
+            liveLagBlocks: config.SCOOP_LIVE_OVERLAY_ENABLED ? liveLag : null,
+          };
+          // Only say "caught up" when behindTarget is actually 0 after fresh sample.
+          if (behindTarget === 0n) {
+            logCanonicalThroughput(idleSnapshot);
+          } else {
+            logCanonicalThroughput({
+              ...idleSnapshot,
+              mode: 'normal-batch',
+            });
+          }
           await upsertIndexerHealth(db, {
             chainId: config.SCOOP_CHAIN_ID,
             heartbeatAt: new Date(),
             latestIndexedBlock: checkpoint?.lastBlockNumber ?? null,
-            chainLatest: latest,
+            chainLatest: freshLatest,
             chainSafe: safe,
             chainFinalized: finalized,
-            // Primary lag = indexed vs configured target (not latest).
-            lagBlocks: targetLag,
+            lagBlocks: behindTarget,
             lastRpcOkAt: new Date(),
             reorgCount,
             dirtyProjections: false,
             watchlistSize: watchlistSize(watchlist),
             activeRpc: rpc.activeLabel(),
             wsConnected: Boolean(wsCleanup),
-            notes: [
-              'caught up — waiting for new blocks',
-              `confirmMode=${confirmMode}`,
-              confirmLagBlocks != null ? `confirmLagBlocks=${confirmLagBlocks}` : null,
-              `targetHead=${targetHead.toString()}`,
-              `latestLag=${(latest - indexed).toString()}`,
-              `safeLag=${(latest - safe).toString()}`,
-              config.SCOOP_LIVE_OVERLAY_ENABLED
-                ? `liveLagBlocks=${liveLag.toString()}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(' '),
+            notes: formatCanonicalHealthNotes({
+              ...idleSnapshot,
+              mode: behindTarget === 0n ? 'idle' : 'normal-batch',
+            }),
           });
         });
+
+        // If fresh tip moved past us, skip idle sleep and catch up immediately.
+        if (behindTarget > 0n) {
+          continue;
+        }
 
         if (indexToBlock != null && (checkpoint?.lastBlockNumber ?? 0) >= indexToBlock) {
           stopReason = 'indexToBlock';
@@ -424,6 +472,12 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         return end;
       })();
 
+      const loopStarted = Date.now();
+      let interestingBlocks = 0;
+      let emptyBlocksOrSpans = 0;
+      let rpcMs = 0;
+      let writeMs = 0;
+
       // Finish the current batch even after SIGTERM/SIGINT.
       if (useFast) {
         logJson('info', 'fast catchup batch starting', {
@@ -436,6 +490,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           threshold: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
           range: config.SCOOP_FAST_CATCHUP_RANGE,
         });
+        const rpcStarted = Date.now();
         const fastResult = await processFastCatchupRange({
           runInTxn: (fn) => withTransaction(pool, fn),
           client,
@@ -449,7 +504,10 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           anchorBlocks: config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS,
           initialLogRangeSize: config.SCOOP_FAST_CATCHUP_RANGE,
         });
+        rpcMs = Date.now() - rpcStarted;
         lastBlock = fastResult.lastBlock;
+        interestingBlocks = fastResult.stats.interestingBlocks;
+        emptyBlocksOrSpans = fastResult.stats.emptyBlocksAdvanced;
         for (const result of fastResult.blockResults) {
           if (result.launches > 0 || result.swaps > 0 || result.transfers > 0) {
             logJson('info', 'block processed', {
@@ -463,6 +521,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           }
         }
       } else {
+        const writeStarted = Date.now();
         for (let b = nextBlock; b <= batchEnd; b++) {
           const result = await withTransaction(pool, async (db) =>
             processBlock(db, {
@@ -477,6 +536,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           );
           lastBlock = result.blockNumber;
           if (result.launches > 0 || result.swaps > 0 || result.transfers > 0) {
+            interestingBlocks += 1;
             logJson('info', 'block processed', {
               mode: 'live',
               block: result.blockNumber.toString(),
@@ -485,11 +545,30 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
               transfers: result.transfers,
               duplicate: result.skippedDuplicate,
             });
+          } else {
+            emptyBlocksOrSpans += 1;
           }
         }
+        writeMs = Date.now() - writeStarted;
       }
 
       batches += 1;
+      const loopMs = Date.now() - loopStarted;
+      const blocksSpanned = Number(batchEnd - nextBlock + 1n);
+
+      // Fresh tip sample outside the DB txn so lag cannot look "caught up" after a slow batch.
+      const freshLatest = await rpc.withClient((c) => c.getBlockNumber());
+      const freshTarget = resolveTargetHead({
+        mode: confirmMode,
+        heads: { latest: freshLatest, safe, finalized },
+        confirmLagBlocks,
+      });
+      const indexed = lastBlock ?? 0n;
+      const behindTarget = computeBehindTargetBlocks({
+        targetHead: freshTarget,
+        checkpoint: indexed,
+      });
+
       await withTransaction(pool, async (db) => {
         const promoted = await promoteConfirmations(db, {
           chainId: config.SCOOP_CHAIN_ID,
@@ -527,42 +606,57 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             failed: volSweep.failed,
           });
         }
-        const indexed = lastBlock ?? 0n;
-        const targetLag = targetHead >= indexed ? targetHead - indexed : 0n;
+
         const liveCheckpoint = config.SCOOP_LIVE_OVERLAY_ENABLED
           ? await getLiveObserverCheckpoint(db, config.SCOOP_CHAIN_ID)
           : null;
         const liveLag =
-          liveCheckpoint != null && latest > BigInt(liveCheckpoint)
-            ? latest - BigInt(liveCheckpoint)
+          liveCheckpoint != null && freshLatest > BigInt(liveCheckpoint)
+            ? freshLatest - BigInt(liveCheckpoint)
             : 0n;
+        const mode: CanonicalLoopMode = useFast ? 'range-catchup' : 'normal-batch';
+        const throughput = {
+          mode,
+          latestBlock: freshLatest,
+          targetHead: freshTarget,
+          checkpoint: indexed,
+          behindTargetBlocks: behindTarget,
+          latestLagBlocks: freshLatest > indexed ? freshLatest - indexed : 0n,
+          batchStart: nextBlock,
+          batchEnd,
+          blocksAttempted: blocksSpanned,
+          blocksProcessed: blocksSpanned,
+          interestingBlocks,
+          emptyBlocksOrSpans,
+          rpcMs,
+          decodeMs: 0,
+          writeMs,
+          loopMs,
+          effectiveBlocksPerSecond: computeEffectiveBlocksPerSecond({
+            blocksSpanned,
+            loopMs,
+          }),
+          rpcRetries: 0,
+          confirmMode,
+          confirmLagBlocks,
+          liveLagBlocks: config.SCOOP_LIVE_OVERLAY_ENABLED ? liveLag : null,
+        };
+        logCanonicalThroughput(throughput);
         await upsertIndexerHealth(db, {
           chainId: config.SCOOP_CHAIN_ID,
           heartbeatAt: new Date(),
           latestIndexedBlock: lastBlock,
-          chainLatest: latest,
+          chainLatest: freshLatest,
           chainSafe: safe,
           chainFinalized: finalized,
-          lagBlocks: lastBlock != null ? targetLag : null,
+          lagBlocks: behindTarget,
           lastRpcOkAt: new Date(),
           reorgCount,
           dirtyProjections: false,
           watchlistSize: watchlistSize(watchlist),
           activeRpc: rpc.activeLabel(),
           wsConnected: Boolean(wsCleanup),
-          notes: [
-            useFast ? `fast batch ${batches}` : `live batch ${batches}`,
-            `confirmMode=${confirmMode}`,
-            confirmLagBlocks != null ? `confirmLagBlocks=${confirmLagBlocks}` : null,
-            `targetHead=${targetHead.toString()}`,
-            lastBlock != null ? `latestLag=${(latest - lastBlock).toString()}` : null,
-            `safeLag=${(latest - safe).toString()}`,
-            config.SCOOP_LIVE_OVERLAY_ENABLED
-              ? `liveLagBlocks=${liveLag.toString()}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(' '),
+          notes: formatCanonicalHealthNotes(throughput),
         });
       });
 

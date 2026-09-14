@@ -73,7 +73,11 @@ const indexerEnvSchema = z
     /** Max age of quote_price_snapshots before USD/FDV fields are nulled. */
     SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
-    SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(20),
+    /**
+     * Max blocks processed per live (non-range) iteration when lag ≤ threshold.
+     * Sized so a short burst can exceed ~10 RHC blk/s without an oversized RPC stall.
+     */
+    SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(64),
     /** Best-effort presentation-only observer; canonical fixed-lag ingest is unchanged. */
     SCOOP_LIVE_OVERLAY_ENABLED: boolFromEnv.default(true),
     SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(1000),
@@ -83,10 +87,13 @@ const indexerEnvSchema = z
     /** Jump near tip when the presentation checkpoint falls farther behind. */
     SCOOP_LIVE_STALE_LAG_BLOCKS: z.coerce.number().int().positive().default(256),
     SCOOP_LIVE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
-    /** Enter fast historical catch-up when lag (safe - next) exceeds this. */
-    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(5000),
-    /** Max eth_getLogs window size while in fast catch-up (auto-shrinks on reject). */
-    SCOOP_FAST_CATCHUP_RANGE: z.coerce.number().int().positive().default(5000),
+    /**
+     * Enter range eth_getLogs catch-up when lag (target - next) exceeds this.
+     * Moderate lag (hundreds) must not stay on per-block getLogs — RHC ~10 blk/s.
+     */
+    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(128),
+    /** Max eth_getLogs window size while in range catch-up (auto-shrinks on reject). */
+    SCOOP_FAST_CATCHUP_RANGE: z.coerce.number().int().positive().default(512),
     /** Sparse processed_blocks anchor spacing over empty ranges. */
     SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS: z.coerce.number().int().positive().default(64),
     SCOOP_LAUNCH_DUST_RAW: z.coerce.bigint().default(1000n),
