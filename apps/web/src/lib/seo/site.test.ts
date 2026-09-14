@@ -139,10 +139,14 @@ describe('buildPageMetadata', () => {
       path: `/token/${addr}`,
       ogImagePath: tokenOpenGraphImagePath(addr),
       ogImageAlt: 'Hello World (HELLO) market on SCOOP',
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
     });
     const ogImages = meta.openGraph?.images as Array<Record<string, unknown>>;
     expect(String(ogImages[0]!.url)).toContain(`/token/${addr}/opengraph-image`);
     expect(String(ogImages[0]!.url)).not.toContain('/brand/og-home.jpg');
+    expect(ogImages[0]!.width).toBe(1200);
+    expect(ogImages[0]!.height).toBe(630);
     expect(meta.twitter?.images).toEqual([
       expect.stringContaining(`/token/${addr}/opengraph-image`),
     ]);

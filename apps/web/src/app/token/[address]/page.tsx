@@ -5,7 +5,7 @@ import { TokenFreshLaunchGate } from '@/components/token/TokenFreshLaunchGate';
 import { TokenMarketShell, TokenMarketUnavailable } from '@/components/token/TokenMarketShell';
 import { buildPageMetadata } from '@/lib/seo/site';
 import { loadTokenPage } from '@/lib/token/load-token-page';
-import { tokenOpenGraphImagePath } from '@/lib/token/og-card';
+import { TOKEN_OG_SIZE, tokenOpenGraphImagePath } from '@/lib/token/og-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +66,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     path: `/token/${token.tokenAddress}`,
     ogImagePath: tokenOpenGraphImagePath(token.tokenAddress),
     ogImageAlt: `${token.name} (${token.symbol}) market on SCOOP`,
+    ogImageWidth: TOKEN_OG_SIZE.width,
+    ogImageHeight: TOKEN_OG_SIZE.height,
   });
 }
 

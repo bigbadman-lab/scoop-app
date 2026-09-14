@@ -2,10 +2,11 @@
  * Safe logo loading for ImageResponse / Satori.
  * Never pass arbitrary remote URLs into next/og — that would create SSRF risk.
  * Only allowlisted public hosts are fetched, with timeout + size limits, into a data URI.
+ * SVG is never embedded (Satori/crawler compatibility) — returns null for monogram fallback.
  */
 
-const MAX_BYTES = 1_500_000;
-const FETCH_TIMEOUT_MS = 2_500;
+const MAX_BYTES = 2_500_000;
+const FETCH_TIMEOUT_MS = 4_000;
 
 const BLOCKED_HOSTS = new Set([
   'localhost',
@@ -36,6 +37,20 @@ export function isOgSafeLogoUrl(raw: string): boolean {
   return false;
 }
 
+/** True when bytes look like SVG (even if Content-Type lied). */
+export function isSvgImageBytes(buf: Buffer): boolean {
+  if (buf.byteLength < 4) return false;
+  const head = buf
+    .subarray(0, Math.min(buf.byteLength, 256))
+    .toString('utf8')
+    .trimStart()
+    .toLowerCase();
+  if (head.startsWith('<svg') || head.startsWith('<?xml')) {
+    return head.includes('<svg');
+  }
+  return false;
+}
+
 /**
  * Fetch an allowlisted logo into a data URI for ImageResponse.
  * Returns null on any failure — callers must use a deterministic fallback.
@@ -57,9 +72,11 @@ export async function loadOgLogoDataUri(
     });
     if (!res.ok) return null;
     const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (contentType.includes('svg')) return null;
     if (contentType && !contentType.startsWith('image/')) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.byteLength === 0 || buf.byteLength > MAX_BYTES) return null;
+    if (isSvgImageBytes(buf)) return null;
     const mime =
       contentType.startsWith('image/') && !contentType.includes('svg')
         ? contentType.split(';')[0]!.trim()
@@ -74,6 +91,7 @@ export async function loadOgLogoDataUri(
 }
 
 function sniffImageMime(buf: Buffer): string | null {
+  if (isSvgImageBytes(buf)) return null;
   if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
     return 'image/jpeg';
   }

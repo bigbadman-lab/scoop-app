@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   // Relative to apps/web — absolute paths break Vercel NFT tracing under rootDirectory.
   outputFileTracingIncludes: {
     '/docs': ['../../scoop-protocol-docs.md'],
+    // opengraph-image readFile()'s the template — must be traced into the serverless bundle.
+    '/token/[address]/opengraph-image': ['./public/brand/token-template.png'],
   },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.

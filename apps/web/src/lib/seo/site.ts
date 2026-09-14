@@ -80,6 +80,9 @@ export function buildPageMetadata(input: {
   /** Override default `/brand/og-home.jpg` (e.g. token opengraph-image route). */
   ogImagePath?: string;
   ogImageAlt?: string;
+  /** Optional dimensions for custom OG images (token cards are 1200×630). */
+  ogImageWidth?: number;
+  ogImageHeight?: number;
 }): Metadata {
   const url = absoluteSeoUrl(input.path);
   const imagePath = input.ogImagePath ?? SEO_DEFAULT_OG_IMAGE_PATH;
@@ -87,6 +90,12 @@ export function buildPageMetadata(input: {
   const imageAlt = input.ogImageAlt ?? SEO_DEFAULT_OG_IMAGE_ALT;
   const indexable = input.indexable !== false;
   const isDefaultImage = imagePath === SEO_DEFAULT_OG_IMAGE_PATH;
+  const imageWidth = isDefaultImage
+    ? SEO_DEFAULT_OG_IMAGE_SIZE.width
+    : (input.ogImageWidth ?? undefined);
+  const imageHeight = isDefaultImage
+    ? SEO_DEFAULT_OG_IMAGE_SIZE.height
+    : (input.ogImageHeight ?? undefined);
 
   return {
     title: input.absoluteTitle
@@ -104,14 +113,12 @@ export function buildPageMetadata(input: {
       title: input.title,
       description: input.description,
       images: [
-        isDefaultImage
-          ? {
-              url: imageUrl,
-              width: SEO_DEFAULT_OG_IMAGE_SIZE.width,
-              height: SEO_DEFAULT_OG_IMAGE_SIZE.height,
-              alt: imageAlt,
-            }
-          : { url: imageUrl, alt: imageAlt },
+        {
+          url: imageUrl,
+          ...(imageWidth != null ? { width: imageWidth } : {}),
+          ...(imageHeight != null ? { height: imageHeight } : {}),
+          alt: imageAlt,
+        },
       ],
     },
     twitter: {

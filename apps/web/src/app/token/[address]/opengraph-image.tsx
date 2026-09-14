@@ -1,7 +1,4 @@
 import { ImageResponse } from 'next/og';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { notFound } from 'next/navigation';
 import { loadOgLogoDataUri } from '@/lib/media/og-safe-image';
 import {
   TOKEN_OG_SIZE,
@@ -10,6 +7,7 @@ import {
   type TokenOgCardModel,
   type TokenOgUnavailableModel,
 } from '@/lib/token/og-card';
+import { loadTokenOgTemplateDataUri } from '@/lib/token/og-template';
 import { loadTokenPage } from '@/lib/token/load-token-page';
 
 export const runtime = 'nodejs';
@@ -21,69 +19,71 @@ export const contentType = 'image/png';
 
 type Props = { params: Promise<{ address: string }> };
 
-let templateDataUriPromise: Promise<string> | null = null;
-
-function loadTemplateDataUri(): Promise<string> {
-  if (!templateDataUriPromise) {
-    templateDataUriPromise = readFile(
-      join(process.cwd(), 'public/brand/token-template.png'),
-    ).then((buf) => `data:image/png;base64,${buf.toString('base64')}`);
-  }
-  return templateDataUriPromise;
-}
-
+/**
+ * Token market OG image (PNG via ImageResponse).
+ * Must never 500 for crawlers: missing template / logo / token data degrade gracefully.
+ */
 export default async function Image({ params }: Props) {
-  const { address } = await params;
-  const result = await loadTokenPage(address);
+  try {
+    const { address } = await params;
+    const [result, templateSrc] = await Promise.all([
+      loadTokenPage(address),
+      loadTokenOgTemplateDataUri(),
+    ]);
 
-  if (result.status === 'invalid' || result.status === 'not_found') {
-    notFound();
-  }
+    if (result.status !== 'ok') {
+      return new ImageResponse(
+        <UnavailableCard
+          model={buildTokenOgUnavailableModel()}
+          templateSrc={templateSrc}
+        />,
+        { ...size },
+      );
+    }
 
-  const templateSrc = await loadTemplateDataUri();
+    const model = buildTokenOgCardModel({
+      token: result.token,
+      quotePairLabel: result.quotePairLabel,
+    });
+    const logoSrc = await loadOgLogoDataUri(model.logoCandidateUrl);
 
-  if (result.status === 'unavailable') {
     return new ImageResponse(
-      <UnavailableCard
-        model={buildTokenOgUnavailableModel()}
+      <MarketCard
+        model={model}
         templateSrc={templateSrc}
+        logoSrc={logoSrc}
       />,
       { ...size },
     );
+  } catch (error) {
+    console.error(
+      '[token-og] render failed:',
+      error instanceof Error ? error.message : 'error',
+    );
+    try {
+      const templateSrc = await loadTokenOgTemplateDataUri();
+      return new ImageResponse(
+        <UnavailableCard
+          model={buildTokenOgUnavailableModel()}
+          templateSrc={templateSrc}
+        />,
+        { ...size },
+      );
+    } catch {
+      return new ImageResponse(
+        <UnavailableCard
+          model={buildTokenOgUnavailableModel()}
+          templateSrc={null}
+        />,
+        { ...size },
+      );
+    }
   }
-
-  const model = buildTokenOgCardModel({
-    token: result.token,
-    quotePairLabel: result.quotePairLabel,
-  });
-  const logoSrc = await loadOgLogoDataUri(model.logoCandidateUrl);
-
-  return new ImageResponse(
-    <MarketCard model={model} templateSrc={templateSrc} logoSrc={logoSrc} />,
-    { ...size },
-  );
 }
 
-function MarketCard({
-  model,
-  templateSrc,
-  logoSrc,
-}: {
-  model: TokenOgCardModel;
-  templateSrc: string;
-  logoSrc: string | null;
-}) {
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        position: 'relative',
-        color: '#ffffff',
-        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-      }}
-    >
+function TemplateLayer({ templateSrc }: { templateSrc: string | null }) {
+  if (templateSrc) {
+    return (
       <img
         alt=""
         src={templateSrc}
@@ -97,6 +97,44 @@ function MarketCard({
           objectFit: 'cover',
         }}
       />
+    );
+  }
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: 1200,
+        height: 630,
+        backgroundColor: '#0B0B0B',
+        backgroundImage:
+          'linear-gradient(145deg, #1a120e 0%, #0B0B0B 55%, #1a0f08 100%)',
+      }}
+    />
+  );
+}
+
+function MarketCard({
+  model,
+  templateSrc,
+  logoSrc,
+}: {
+  model: TokenOgCardModel;
+  templateSrc: string | null;
+  logoSrc: string | null;
+}) {
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        position: 'relative',
+        color: '#ffffff',
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+      }}
+    >
+      <TemplateLayer templateSrc={templateSrc} />
       <div
         style={{
           position: 'relative',
@@ -248,7 +286,7 @@ function UnavailableCard({
   templateSrc,
 }: {
   model: TokenOgUnavailableModel;
-  templateSrc: string;
+  templateSrc: string | null;
 }) {
   return (
     <div
@@ -261,19 +299,7 @@ function UnavailableCard({
         fontFamily: 'ui-sans-serif, system-ui, sans-serif',
       }}
     >
-      <img
-        alt=""
-        src={templateSrc}
-        width={1200}
-        height={630}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: 1200,
-          height: 630,
-          objectFit: 'cover',
-        }}
-      />
+      <TemplateLayer templateSrc={templateSrc} />
       <div
         style={{
           position: 'relative',
@@ -285,10 +311,24 @@ function UnavailableCard({
           height: '100%',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 22, color: '#FC4C00', letterSpacing: '0.18em' }}>
+        <div
+          style={{
+            display: 'flex',
+            fontSize: 22,
+            color: '#FC4C00',
+            letterSpacing: '0.18em',
+          }}
+        >
           SCOOP
         </div>
-        <div style={{ display: 'flex', marginTop: 18, fontSize: 56, fontWeight: 700 }}>
+        <div
+          style={{
+            display: 'flex',
+            marginTop: 18,
+            fontSize: 56,
+            fontWeight: 700,
+          }}
+        >
           {model.title}
         </div>
         <div
