@@ -70,6 +70,11 @@ export async function deleteFactsFromBlock(
 
 /**
  * Detect reorg in window, rollback facts, rebuild projections, reset checkpoint.
+ *
+ * `fetchCanonicalHashes` must only be asked for blocks we actually processed
+ * (sparse anchors under range catch-up). Fetching every block in the reorg
+ * window (~128 sequential getBlock calls) previously dominated near-tip loops
+ * and let tip race ~40+ blocks ahead between catch-up batches.
  */
 export async function handleReorgIfNeeded(
   db: Queryable,
@@ -77,7 +82,7 @@ export async function handleReorgIfNeeded(
     chainId: number;
     windowBlocks: number;
     latestIndexed: bigint;
-    fetchCanonicalHashes: (from: bigint, to: bigint) => Promise<CanonicalBlockHash[]>;
+    fetchCanonicalHashes: (blockNumbers: bigint[]) => Promise<CanonicalBlockHash[]>;
     streamName?: string;
     quoteUsdMaxAgeSeconds?: number;
   },
@@ -94,7 +99,8 @@ export async function handleReorgIfNeeded(
   );
   if (processed.length === 0) return { replayFrom: null, reorg: false };
 
-  const canonical = await args.fetchCanonicalHashes(windowFrom, args.latestIndexed);
+  const blockNumbers = processed.map((row) => BigInt(row.blockNumber));
+  const canonical = await args.fetchCanonicalHashes(blockNumbers);
   const detection = findReorgFromBlock(processed, canonical);
   if (!detection.mismatch || detection.reorgFromBlock == null) {
     return { replayFrom: null, reorg: false };

@@ -282,9 +282,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
             windowBlocks: config.SCOOP_REORG_WINDOW_BLOCKS,
             latestIndexed: BigInt(checkpoint.lastBlockNumber),
             quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
-            fetchCanonicalHashes: async (from, to) => {
+            fetchCanonicalHashes: async (blockNumbers) => {
               const out = [];
-              for (let b = from; b <= to; b++) {
+              for (const b of blockNumbers) {
                 const blk = await rpc.withClient((c) =>
                   c.getBlock({ blockNumber: b, includeTransactions: false }),
                 );
