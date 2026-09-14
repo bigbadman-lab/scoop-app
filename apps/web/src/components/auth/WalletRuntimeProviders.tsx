@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { cookieToInitialState, type Config, WagmiProvider } from 'wagmi';
 import { EmailDeviceApprovalHelper } from '@/components/auth/EmailDeviceApprovalHelper';
 import { ScoopAuthHost } from '@/components/auth/ScoopAuthHost';
+import { ScoopHeadlessApproveOverlay } from '@/components/auth/ScoopHeadlessApproveOverlay';
 import {
   buildScoopAppKitDefaultAccountTypes,
   buildScoopAppKitFeatures,
@@ -83,6 +84,7 @@ export function WalletRuntimeProviders({
         {children}
         <EmailDeviceApprovalHelper />
         <ScoopAuthHost />
+        <ScoopHeadlessApproveOverlay />
       </QueryClientProvider>
     </WagmiProvider>
   );

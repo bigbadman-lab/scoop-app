@@ -190,13 +190,15 @@ export function ScoopEmailAuth({
     state.phase === 'siwe_signing' ||
     state.phase === 'session_creating'
   ) {
+    const pendingCopy =
+      state.phase === 'device_approving'
+        ? 'Waiting for device approval in the secure prompt…'
+        : state.phase === 'session_creating'
+          ? 'Creating your SCOOP session…'
+          : 'Approve the sign-in message in the secure prompt to finish.';
     return (
       <div className="space-y-3">
-        <p className="text-sm text-[var(--muted)]">
-          {state.phase === 'device_approving'
-            ? 'Waiting for device approval in the secure prompt…'
-            : 'Connecting your SCOOP account…'}
-        </p>
+        <p className="text-sm text-[var(--muted)]">{pendingCopy}</p>
         {errorText ? (
           <p className="text-sm text-[#b42318]" role="alert">
             {errorText}

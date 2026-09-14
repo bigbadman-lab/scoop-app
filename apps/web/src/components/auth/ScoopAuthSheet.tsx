@@ -156,9 +156,11 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
         ? `We sent a code to ${state.email || 'your email'}`
         : state.phase === 'device_approving'
           ? 'Confirm this browser in the secure Reown prompt. We will ask for a code next.'
-          : state.phase === 'wallet_select'
-            ? 'Choose a wallet to continue.'
-            : null;
+          : state.phase === 'siwe_signing' || state.phase === 'session_creating'
+            ? 'Approve the sign-in message to finish.'
+            : state.phase === 'wallet_select'
+              ? 'Choose a wallet to continue.'
+              : null;
 
   return (
     <div
@@ -224,9 +226,10 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
               state={state}
               dispatch={send}
               onWalletReady={(address) => {
+                // Wallet/provider is ready — Join auto-SIWE owns the signature.
+                // Do not mark authenticated or close; wait for scoop:auth-changed signin.
                 onWalletReady?.(address);
-                send({ type: 'AUTHENTICATED' });
-                close('completed');
+                send({ type: 'SIWE_START' });
               }}
               onBackEntry={() => send({ type: 'BACK_TO_ENTRY' })}
             />
@@ -242,7 +245,9 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
               onConnected={(address) => {
                 send({ type: 'WALLET_CONNECT_OK' });
                 onWalletReady?.(address);
-                send({ type: 'AUTHENTICATED' });
+                send({ type: 'SIWE_START' });
+                // External wallets use their own signing UI; sheet can settle
+                // as completed so Join intent is not cancelled on late dismiss.
                 close('completed');
               }}
               onCancelled={() => send({ type: 'WALLET_CONNECT_CANCEL' })}

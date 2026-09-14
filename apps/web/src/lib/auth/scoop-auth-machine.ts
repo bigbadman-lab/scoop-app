@@ -55,6 +55,7 @@ export type ScoopAuthEvent =
   | { type: 'WALLET_CONNECT_FAIL'; message: string }
   | { type: 'WALLET_CONNECT_CANCEL' }
   | { type: 'SIWE_START' }
+  | { type: 'SIWE_FAIL'; message: string }
   | { type: 'SESSION_START' }
   | { type: 'AUTHENTICATED' }
   | { type: 'RETRY' }
@@ -181,7 +182,8 @@ export function reduceScoopAuth(
     case 'PROVIDER_CONNECT_START':
       return { ...state, phase: 'siwe_signing', error: null };
     case 'PROVIDER_CONNECT_OK':
-      return { ...state, phase: 'session_creating', error: null };
+      // AUTH connector attached — awaiting SIWE message approval (not session yet).
+      return { ...state, phase: 'siwe_signing', error: null };
     case 'PROVIDER_CONNECT_FAIL':
       return fail(state, event.message, 'email_enter');
     case 'WALLET_CONNECT_START':
@@ -202,6 +204,8 @@ export function reduceScoopAuth(
       };
     case 'SIWE_START':
       return { ...state, phase: 'siwe_signing', error: null };
+    case 'SIWE_FAIL':
+      return fail(state, event.message, 'siwe_signing');
     case 'SESSION_START':
       return { ...state, phase: 'session_creating', error: null };
     case 'AUTHENTICATED':

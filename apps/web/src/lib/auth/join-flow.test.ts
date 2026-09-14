@@ -161,17 +161,30 @@ describe('shouldResetJoinAfterScoopAuthDismiss', () => {
     ).toBe(false);
   });
 
-  it('does not reset when wallet already connected or SIWE in flight', () => {
+  it('resets Confirming when dismiss cancels mid-SIWE (even if wallet connected)', () => {
     expect(
       shouldResetJoinAfterScoopAuthDismiss({
         ...base,
         walletConnected: true,
+        siweInFlight: true,
+        joinPhase: 'siwe_in_progress',
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldResetJoinAfterScoopAuthDismiss({
         ...base,
-        siweInFlight: true,
+        walletConnected: true,
+        joinPhase: 'wallet_connected_pending_siwe',
+      }),
+    ).toBe(true);
+  });
+
+  it('does not reset recovery chrome after SIWE cancel already settled', () => {
+    expect(
+      shouldResetJoinAfterScoopAuthDismiss({
+        ...base,
+        walletConnected: true,
+        joinPhase: 'needs_finish',
       }),
     ).toBe(false);
   });

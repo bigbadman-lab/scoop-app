@@ -60,7 +60,9 @@ export function shouldResetJoinAfterModalClose(input: {
 
 /**
  * Reset Join intent when the SCOOP custom auth sheet is dismissed without auth.
- * Must NOT fire after a completed connect (wallet attaching / SIWE in flight).
+ * Must NOT fire after a completed connect (outcome === 'completed').
+ * Cancelled dismiss during Connecting/Confirming must clear pending chrome —
+ * including after email OTP attached a wallet but SIWE never finished.
  */
 export function shouldResetJoinAfterScoopAuthDismiss(input: {
   outcome: 'cancelled' | 'completed';
@@ -73,11 +75,11 @@ export function shouldResetJoinAfterScoopAuthDismiss(input: {
 }): boolean {
   if (input.outcome !== 'cancelled') return false;
   if (input.scoopAuthed) return false;
-  if (input.walletConnected) return false;
-  if (input.walletConnecting) return false;
-  if (input.appKitConnectingWallet) return false;
-  if (input.siweInFlight) return false;
-  return input.joinPhase === 'opening_wallet';
+  return (
+    input.joinPhase === 'opening_wallet' ||
+    input.joinPhase === 'wallet_connected_pending_siwe' ||
+    input.joinPhase === 'siwe_in_progress'
+  );
 }
 
 /** Primary mobile shell label for unsigned Join chrome. */

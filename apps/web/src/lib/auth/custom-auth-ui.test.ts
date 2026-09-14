@@ -133,7 +133,7 @@ describe('reduceScoopAuth', () => {
     expect(state.phase).toBe('otp_enter');
   });
 
-  it('OTP -> connected path', () => {
+  it('OTP -> connected path stays on SIWE until authenticated', () => {
     let state = {
       ...INITIAL_SCOOP_AUTH_STATE,
       phase: 'otp_enter' as const,
@@ -144,8 +144,30 @@ describe('reduceScoopAuth', () => {
     state = reduceScoopAuth(state, { type: 'OTP_OK' });
     expect(state.phase).toBe('siwe_signing');
     state = reduceScoopAuth(state, { type: 'PROVIDER_CONNECT_OK' });
+    expect(state.phase).toBe('siwe_signing');
+    state = reduceScoopAuth(state, { type: 'SIWE_START' });
+    expect(state.phase).toBe('siwe_signing');
+    state = reduceScoopAuth(state, { type: 'SESSION_START' });
+    expect(state.phase).toBe('session_creating');
     state = reduceScoopAuth(state, { type: 'AUTHENTICATED' });
     expect(state.phase).toBe('authenticated');
+  });
+
+  it('SIWE reject returns to recoverable error without authenticated', () => {
+    let state = {
+      ...INITIAL_SCOOP_AUTH_STATE,
+      phase: 'siwe_signing' as const,
+      email: 'you@example.com',
+    };
+    state = reduceScoopAuth(state, {
+      type: 'SIWE_FAIL',
+      message: 'Sign-in was cancelled.',
+    });
+    expect(state.phase).toBe('error');
+    expect(state.errorReturnPhase).toBe('siwe_signing');
+    expect(state.phase).not.toBe('authenticated');
+    state = reduceScoopAuth(state, { type: 'RETRY' });
+    expect(state.phase).toBe('siwe_signing');
   });
 
   it('error -> retry returns to prior phase', () => {
