@@ -126,11 +126,22 @@ export async function processBlock(
   const positionManager = deployment.positionManager;
   const creatorRewards = deployment.creatorRewards;
 
-  const block = await client.getBlock({ blockNumber, includeTransactions: true });
+  const block = await client.getBlock({ blockNumber, includeTransactions: false });
   const blockHash = normalizeBytes32(block.hash!);
   const parentHash = block.parentHash ? normalizeBytes32(block.parentHash) : null;
   const blockTimestamp = block.timestamp;
-  const txFromByHash = txFromByHashFromBlock(block);
+  // Lazily filled only when launches/swaps need tx.from — empty blocks stay cheap.
+  const txFromByHash = new Map<string, string>();
+  let txFromBlockLoaded = false;
+
+  async function ensureTxFromCache(): Promise<void> {
+    if (txFromBlockLoaded) return;
+    const full = await client.getBlock({ blockNumber, includeTransactions: true });
+    for (const [k, v] of txFromByHashFromBlock(full)) {
+      txFromByHash.set(k, v);
+    }
+    txFromBlockLoaded = true;
+  }
 
   const existing = await getProcessedBlock(db, chainId, blockNumber);
   if (existing && normalizeBytes32(existing.blockHash) === blockHash) {
@@ -205,6 +216,7 @@ export async function processBlock(
   for (const launchLog of launchLogs) {
     const txHash = normalizeBytes32(launchLog.transactionHash!);
     const receipt = await client.getTransactionReceipt({ hash: txHash as Hex });
+    await ensureTxFromCache();
     const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
     // Preserve prior shape expected by hydrate/normalize (tx.from).
     const tx = { from: txFrom as Hex, hash: txHash as Hex };
@@ -346,7 +358,10 @@ export async function processBlock(
     const txHash = normalizeBytes32(log.transactionHash);
     if (launchTxHashes.has(txHash)) continue; // already in normalizeLaunch
 
-    const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
+    const txFrom = await (async () => {
+      await ensureTxFromCache();
+      return resolveTxFrom({ client, txHash, txFromByHash });
+    })();
     const amount0 = BigInt(String(ev.args.amount0));
     const amount1 = BigInt(String(ev.args.amount1));
     const sqrtAfter = BigInt(String(ev.args.sqrtPriceX96));

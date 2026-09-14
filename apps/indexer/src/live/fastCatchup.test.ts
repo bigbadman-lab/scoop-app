@@ -45,18 +45,18 @@ function fakeLog(blockNumber: bigint, address: Hex = '0xabc'): Log {
 describe('fast catchup helpers', () => {
   it('exposes fast catchup config defaults', () => {
     const config = loadConfig({ SCOOP_CHAIN_ID: '4663' });
-    expect(config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS).toBe(128);
+    expect(config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS).toBe(16);
     expect(config.SCOOP_FAST_CATCHUP_RANGE).toBe(512);
     expect(config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS).toBe(64);
     const view = publicConfigView(config);
-    expect(view.fastCatchupThresholdBlocks).toBe(128);
+    expect(view.fastCatchupThresholdBlocks).toBe(16);
     expect(view.fastCatchupRange).toBe(512);
   });
 
   it('enters fast mode only when lag exceeds threshold', () => {
-    expect(shouldUseFastCatchup(128n, 128)).toBe(false);
-    expect(shouldUseFastCatchup(129n, 128)).toBe(true);
-    expect(shouldUseFastCatchup(100n, 128)).toBe(false);
+    expect(shouldUseFastCatchup(16n, 16)).toBe(false);
+    expect(shouldUseFastCatchup(17n, 16)).toBe(true);
+    expect(shouldUseFastCatchup(100n, 16)).toBe(true);
     expect(shouldUseFastCatchup(5001n, 5000)).toBe(true);
   });
 
@@ -606,10 +606,10 @@ describe('live vs fast mode selection in runner terms', () => {
 
   it('moderate lag uses range catch-up with new defaults', () => {
     const config = loadConfig({ SCOOP_CHAIN_ID: '4663' });
-    expect(config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS).toBe(128);
-    expect(config.SCOOP_MAX_BLOCK_BATCH).toBe(64);
+    expect(config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS).toBe(16);
+    expect(config.SCOOP_MAX_BLOCK_BATCH).toBe(32);
     expect(config.SCOOP_FAST_CATCHUP_RANGE).toBe(512);
-    expect(shouldUseFastCatchup(100n, config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS)).toBe(
+    expect(shouldUseFastCatchup(10n, config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS)).toBe(
       false,
     );
     expect(shouldUseFastCatchup(200n, config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS)).toBe(

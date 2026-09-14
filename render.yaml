@@ -42,9 +42,9 @@ services:
       # Near-tip throughput: range catch-up activates after ~128 blocks behind target;
       # live batch 64 for smaller lag. Do not lower confirm lag here.
       - key: SCOOP_MAX_BLOCK_BATCH
-        value: "64"
+        value: "32"
       - key: SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS
-        value: "128"
+        value: "16"
       - key: SCOOP_FAST_CATCHUP_RANGE
         value: "512"
       - key: SCOOP_LAUNCH_DUST_RAW

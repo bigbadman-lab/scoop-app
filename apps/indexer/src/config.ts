@@ -75,9 +75,9 @@ const indexerEnvSchema = z
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
     /**
      * Max blocks processed per live (non-range) iteration when lag ≤ threshold.
-     * Sized so a short burst can exceed ~10 RHC blk/s without an oversized RPC stall.
+     * Keep modest — each block still does getBlock+getLogs.
      */
-    SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(64),
+    SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(32),
     /** Best-effort presentation-only observer; canonical fixed-lag ingest is unchanged. */
     SCOOP_LIVE_OVERLAY_ENABLED: boolFromEnv.default(true),
     SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(1000),
@@ -89,9 +89,10 @@ const indexerEnvSchema = z
     SCOOP_LIVE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     /**
      * Enter range eth_getLogs catch-up when lag (target - next) exceeds this.
-     * Moderate lag (hundreds) must not stay on per-block getLogs — RHC ~10 blk/s.
+     * Keep this low: per-block processBlock cannot sustain RHC ~10 blk/s.
+     * Production evidence: range empty spans >400 blk/s; per-block ~4 blk/s.
      */
-    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(128),
+    SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(16),
     /** Max eth_getLogs window size while in range catch-up (auto-shrinks on reject). */
     SCOOP_FAST_CATCHUP_RANGE: z.coerce.number().int().positive().default(512),
     /** Sparse processed_blocks anchor spacing over empty ranges. */

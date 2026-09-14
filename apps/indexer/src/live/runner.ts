@@ -457,15 +457,17 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       }
 
       const lagBlocks = targetHead - nextBlock + 1n;
-      const useFast = shouldUseFastCatchup(
-        lagBlocks,
+      // Hard-cap threshold so a high dashboard override cannot strand us in slow
+      // per-block mode (prod previously set 64–5000 while empty per-block ~4 blk/s).
+      const rangeThreshold = Math.min(
         config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
+        16,
       );
+      const useFast = shouldUseFastCatchup(lagBlocks, rangeThreshold);
 
       const batchEnd = (() => {
-        const span = useFast
-          ? config.SCOOP_FAST_CATCHUP_RANGE
-          : config.SCOOP_MAX_BLOCK_BATCH;
+        const liveBatch = Math.min(config.SCOOP_MAX_BLOCK_BATCH, 48);
+        const span = useFast ? config.SCOOP_FAST_CATCHUP_RANGE : liveBatch;
         let end = nextBlock + BigInt(span) - 1n;
         if (end > targetHead) end = targetHead;
         if (indexToBlock != null && end > BigInt(indexToBlock)) end = BigInt(indexToBlock);
@@ -487,7 +489,8 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
           targetHead: targetHead.toString(),
           confirmMode,
           confirmLagBlocks,
-          threshold: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
+          threshold: rangeThreshold,
+          configuredThreshold: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
           range: config.SCOOP_FAST_CATCHUP_RANGE,
         });
         const rpcStarted = Date.now();
