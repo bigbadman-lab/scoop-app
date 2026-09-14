@@ -57,23 +57,24 @@ Same CSS; `white-space: nowrap` + strip `overflow-x: auto` preserved — no wrap
 
 ## 9. Commit
 
-`fix(web): tighten market ticker spacing`
+`5e763fa` — `fix(web): tighten market ticker spacing`
 
 ## 10. Push
 
-`origin main`
+Pushed to `origin/main` (`bf5174d..5e763fa`).
 
 ## 11. Vercel deployment result
 
-Filled after push.
+Production Ready: `dpl_Bwm7uAPaQ3z18JvJJGXDCaYRx3wT`  
+`https://scoop-g2wk154fo-cope2.vercel.app` → `https://scoop.fun`
 
 ## 12. Final HEAD
 
-Filled after push.
+`5e763faaa5bfe3d10fad95305074ee1aec6d33d7`
 
 ## 13. `git status --short`
 
-Filled after push.
+Feature clean; unrelated untracked audit/P10.4 reports remain.
 
 ---
 
