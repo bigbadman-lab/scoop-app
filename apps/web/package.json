@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource/open-sauce-sans": "^5.3.0",
+    "@paulmillr/qr": "0.2.1",
     "@reown/appkit": "^1.8.23",
     "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@reown/appkit-controllers": "1.8.23",

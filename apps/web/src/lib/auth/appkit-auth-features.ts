@@ -12,6 +12,8 @@ export function buildScoopAppKitFeatures() {
     email: true as const,
     socials: false as const,
     emailShowWallets: true as const,
+    /** Requires Reown Dashboard Headless ON + SCOOP custom auth UI. */
+    headless: true as const,
   };
 }
 

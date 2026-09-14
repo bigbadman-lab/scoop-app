@@ -3,6 +3,7 @@
 import { useAppKitWallets } from '@reown/appkit/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
+import { ScoopWcQr } from '@/components/auth/ScoopWcQr';
 
 type WalletLike = {
   id?: string;
@@ -21,9 +22,8 @@ type Props = {
 };
 
 /**
- * External wallet chooser foundation.
- * When Dashboard/SDK headless are off, useAppKitWallets returns an empty stub —
- * show a safe unavailable state (do not crash).
+ * External wallet chooser for SCOOP custom auth (Reown headless).
+ * When headless wallets are not initialized, show a safe unavailable state.
  */
 export function ScoopWalletConnect({
   connecting,
@@ -49,6 +49,12 @@ export function ScoopWalletConnect({
 
   const headlessUnavailable =
     isInitialized === false && wallets.length === 0 && !isFetchingWallets;
+
+  const discoveryEmpty =
+    isInitialized &&
+    !isFetchingWallets &&
+    wallets.length === 0 &&
+    wcWallets.length === 0;
 
   const curated = useMemo(() => {
     const list = showMore ? [...wallets, ...wcWallets] : wallets;
@@ -108,9 +114,8 @@ export function ScoopWalletConnect({
     return (
       <div className="space-y-4">
         <p className="text-sm text-[var(--muted)]">
-          Custom wallet list is not enabled yet. Reown Dashboard Headless and
-          SDK headless mode are still off (Phase A). Use the standard SCOOP
-          connect modal until Phase B cutover, or continue with email.
+          Wallet list is unavailable. Reown headless wallet discovery did not
+          initialize. Try again, or continue with email.
         </p>
         <p className="font-mono text-[11px] text-[var(--muted)]">
           Status: wallets unavailable / not initialized
@@ -137,6 +142,22 @@ export function ScoopWalletConnect({
         <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
           Loading wallets…
         </p>
+      ) : null}
+
+      {discoveryEmpty ? (
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--muted)]">
+            No wallets were discovered. Retry, or continue with email.
+          </p>
+          <button
+            type="button"
+            disabled={connecting}
+            onClick={() => void walletsApi.fetchWallets?.()}
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]"
+          >
+            Retry wallet list
+          </button>
+        </div>
       ) : null}
 
       <ul className="space-y-2">
@@ -183,15 +204,12 @@ export function ScoopWalletConnect({
       ) : null}
 
       {wcUri ? (
-        <div className="space-y-2 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] p-3">
+        <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] p-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
             WalletConnect
             {isFetchingWcUri ? ' · preparing…' : ''}
           </p>
-          {/* Phase A: no new QR dependency — URI + copy/deeplink foundation. */}
-          <p className="break-all font-mono text-[10px] text-[var(--fg)]">
-            {wcUri}
-          </p>
+          <ScoopWcQr uri={wcUri} />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

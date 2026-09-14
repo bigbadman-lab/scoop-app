@@ -23,6 +23,10 @@ describe('buildScoopAppKitFeatures', () => {
     expect(features.analytics).toBe(false);
   });
 
+  it('enables SDK headless for SCOOP custom auth', () => {
+    expect(buildScoopAppKitFeatures().headless).toBe(true);
+  });
+
   it('prefers EOA for embedded email wallets', () => {
     expect(buildScoopAppKitDefaultAccountTypes()).toEqual({ eip155: 'eoa' });
   });

@@ -13,6 +13,12 @@ vi.mock('wagmi', () => ({
   useAccount: () => useAccount(),
 }));
 
+vi.mock('@/components/auth/ScoopWcQr', () => ({
+  ScoopWcQr: ({ uri }: { uri: string }) => (
+    <div data-testid="scoop-wc-qr">{uri}</div>
+  ),
+}));
+
 describe('ScoopWalletConnect', () => {
   beforeEach(() => {
     useAccount.mockReturnValue({
@@ -49,7 +55,8 @@ describe('ScoopWalletConnect', () => {
       />,
     );
 
-    expect(screen.getByText(/not enabled yet/i)).toBeTruthy();
+    expect(screen.getByText(/wallet list is unavailable/i)).toBeTruthy();
+    expect(screen.queryByText(/not enabled yet/i)).toBeNull();
   });
 
   it('renders populated wallets and connect action', async () => {
@@ -88,7 +95,7 @@ describe('ScoopWalletConnect', () => {
     expect(connect).toHaveBeenCalled();
   });
 
-  it('shows WC URI foundation state', () => {
+  it('shows WC QR primary UX with copy URI secondary', () => {
     useAppKitWallets.mockReturnValue({
       wallets: [{ id: 'wc', name: 'WalletConnect' }],
       wcWallets: [],
@@ -115,7 +122,41 @@ describe('ScoopWalletConnect', () => {
       />,
     );
 
-    expect(screen.getByText('wc:example-uri')).toBeTruthy();
+    expect(screen.getByTestId('scoop-wc-qr')).toBeTruthy();
     expect(screen.getByText(/copy uri/i)).toBeTruthy();
+    expect(screen.getByText(/open wallet/i)).toBeTruthy();
+  });
+
+  it('shows retry when initialized but wallet list empty', () => {
+    const fetchWallets = vi.fn();
+    useAppKitWallets.mockReturnValue({
+      wallets: [],
+      wcWallets: [],
+      isFetchingWallets: false,
+      isFetchingWcUri: false,
+      isInitialized: true,
+      wcUri: undefined,
+      connectingWallet: undefined,
+      connect: vi.fn(),
+      fetchWallets,
+      resetWcUri: vi.fn(),
+      resetConnectingWallet: vi.fn(),
+    });
+
+    render(
+      <ScoopWalletConnect
+        connecting={false}
+        error={null}
+        onBack={() => undefined}
+        onConnecting={() => undefined}
+        onConnected={() => undefined}
+        onCancelled={() => undefined}
+        onFailed={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText(/no wallets were discovered/i)).toBeTruthy();
+    screen.getByText(/retry wallet list/i).click();
+    expect(fetchWallets).toHaveBeenCalled();
   });
 });
