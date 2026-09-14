@@ -9,7 +9,7 @@
 | Field | Value |
 | --- | --- |
 | Pre-HEAD | `a281962c543562f1b11d9ac8667d94e58df1e406` |
-| Final HEAD | unchanged (data repair + audit only) |
+| Final HEAD | `e17ebc8` (audit report commit only; data repair was production DB) |
 | Branch | `main` |
 | Git status | unrelated untracked audits/`P10.4-*` only |
 
