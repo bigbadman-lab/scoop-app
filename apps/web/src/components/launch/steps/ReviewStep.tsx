@@ -40,6 +40,7 @@ import {
   formatTradingFeePercent,
 } from '@scoop/shared';
 import { canLaunchCanonicalProduction } from '@/lib/launch/execute';
+import { ContractCopy } from '@/components/ui/ContractCopy';
 
 type Props = {
   state: LaunchFormState;
@@ -431,7 +432,7 @@ function CompletionPanel({
       ) : null}
 
       {(tokenName || ticker) && tx.decoded?.token ? (
-        <dl className="mt-3 space-y-1 text-sm">
+        <dl className="mt-3 space-y-2 text-sm">
           <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
             <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
               Token
@@ -440,12 +441,22 @@ function CompletionPanel({
               {tokenName || ticker} (${ticker})
             </dd>
           </div>
-          <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
+          <div
+            className="flex min-w-0 flex-col gap-1"
+            data-testid="launch-token-contract"
+          >
             <dt className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-              Address
+              Token contract
             </dt>
-            <dd className="font-mono text-[12px] text-[var(--fg)]">
-              {truncateAddress(tx.decoded.token)}
+            <dd className="min-w-0">
+              <ContractCopy
+                address={tx.decoded.token}
+                display="full"
+                feedback="text"
+                label="Copy token contract address"
+                copiedLabel="Token contract address copied"
+                className="w-full justify-between gap-3 border border-[var(--divider)] bg-[var(--bg)] px-3 py-2 text-[12px] text-[var(--fg)] hover:border-[var(--fg)] hover:text-[var(--fg)] sm:text-[13px]"
+              />
             </dd>
           </div>
           <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">

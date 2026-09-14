@@ -27,4 +27,28 @@ describe('ContractCopy', () => {
     expect(screen.getByRole('button', { name: /address copied/i })).toBeTruthy();
     expect(screen.getByTestId('contract-copy').textContent).toMatch(/✓ Copied/);
   });
+
+  it('full display copies complete address and shows Copy/Copied text', async () => {
+    const full = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    render(
+      <ContractCopy
+        address={full}
+        display="full"
+        feedback="text"
+        label="Copy token contract address"
+        copiedLabel="Token contract address copied"
+      />,
+    );
+    expect(screen.getByTestId('contract-copy-address').textContent).toBe(full);
+    expect(screen.getByTestId('contract-copy-feedback').textContent).toBe('Copy');
+    fireEvent.click(
+      screen.getByRole('button', { name: /copy token contract address/i }),
+    );
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(full);
+    });
+    expect(screen.getByTestId('contract-copy-feedback').textContent).toBe(
+      'Copied',
+    );
+  });
 });
