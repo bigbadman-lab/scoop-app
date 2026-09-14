@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  linkNewsArticleMarket,
-  resolveArticleFromDraft,
-} from '@scoop/db';
+import { upsertNewsArticleMarketIntentAndLink } from '@scoop/db';
 import { STOCKNEWS_PROVIDER } from '@scoop/news';
 import { SCOOP_CHAIN_ID } from '@scoop/shared';
 import { serverDb } from '@/lib/server/queries';
@@ -15,11 +12,13 @@ type Body = {
   tokenAddress?: string;
   providerArticleId?: string;
   draftId?: string | null;
+  provider?: string;
 };
 
 /**
- * Activate MARKET LIVE after a launch is indexed.
- * Requires an existing `launches` row — never marks pending/failed txs live.
+ * Durable news↔market bind.
+ * Upserts a server-owned intent and links immediately when the launch is indexed.
+ * Browser abort must not prevent later cron reconciliation.
  */
 export async function POST(request: Request) {
   let body: Body;
@@ -35,45 +34,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'tokenAddress required' }, { status: 400 });
   }
 
-  let provider: string = STOCKNEWS_PROVIDER;
-  let providerArticleId =
+  const provider =
+    typeof body.provider === 'string' && body.provider.trim()
+      ? body.provider.trim()
+      : STOCKNEWS_PROVIDER;
+  const providerArticleId =
     typeof body.providerArticleId === 'string' ? body.providerArticleId.trim() : '';
   const draftId = typeof body.draftId === 'string' ? body.draftId.trim() : '';
 
+  if (!providerArticleId && !draftId) {
+    return NextResponse.json(
+      { ok: false, error: 'providerArticleId required' },
+      { status: 400 },
+    );
+  }
+
   try {
-    if ((!providerArticleId || !provider) && draftId) {
-      const fromDraft = await resolveArticleFromDraft(serverDb(), draftId);
-      if (fromDraft) {
-        provider = fromDraft.provider;
-        providerArticleId = fromDraft.providerArticleId;
-      }
-    }
-
-    if (!providerArticleId) {
-      return NextResponse.json(
-        { ok: false, error: 'providerArticleId required' },
-        { status: 400 },
-      );
-    }
-
-    const result = await linkNewsArticleMarket(serverDb(), {
-      provider,
-      providerArticleId,
+    const result = await upsertNewsArticleMarketIntentAndLink(serverDb(), {
       chainId,
       tokenAddress,
+      provider,
+      providerArticleId: providerArticleId || null,
       draftId: draftId || null,
     });
 
-    if (!result.linked) {
-      const status = result.reason === 'launch_not_indexed' ? 409 : 400;
-      return NextResponse.json(
-        { ok: false, error: result.reason ?? 'link_failed' },
-        { status },
-      );
+    if (!result.ok) {
+      const status =
+        result.reason === 'token_already_linked'
+          ? 409
+          : result.reason === 'article_not_found' ||
+              result.reason === 'invalid_draft' ||
+              result.reason === 'draft_article_mismatch' ||
+              result.reason === 'draft_provider_mismatch'
+            ? 400
+            : 400;
+      return NextResponse.json({ ok: false, error: result.reason }, { status });
     }
 
+    // Intent is durable even when launch is not indexed yet.
     return NextResponse.json(
-      { ok: true, providerArticleId, tokenAddress: tokenAddress.toLowerCase() },
+      {
+        ok: true,
+        linked: result.linked,
+        pending: !result.linked,
+        providerArticleId: result.intent.providerArticleId,
+        tokenAddress: result.intent.tokenAddress,
+        intentStatus: result.intent.status,
+        reason: result.reason ?? null,
+      },
       {
         headers: { 'Cache-Control': 'private, no-store' },
       },

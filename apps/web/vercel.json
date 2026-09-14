@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/reconcile-token-display",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-news-article-markets",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

@@ -1,14 +1,16 @@
 /**
- * After an indexed launch is known, link news provenance → MARKET LIVE.
- * Safe to call repeatedly (idempotent). No-ops without article id.
+ * After receipt, persist durable news↔market intent (and link if indexed).
+ * Safe to call repeatedly. Browser abort must not cancel the request once fired.
  */
 export async function activateNewsArticleMarket(args: {
   chainId: number;
   tokenAddress: string;
   providerArticleId?: string | null;
   draftId?: string | null;
+  /** Ignored for durability — kept for call-site compatibility. */
   signal?: AbortSignal;
-}): Promise<{ ok: boolean; error?: string }> {
+  honorAbort?: boolean;
+}): Promise<{ ok: boolean; linked?: boolean; pending?: boolean; error?: string }> {
   const providerArticleId = args.providerArticleId?.trim() || '';
   const draftId = args.draftId?.trim() || '';
   if (!providerArticleId && !draftId) {
@@ -20,7 +22,8 @@ export async function activateNewsArticleMarket(args: {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
       cache: 'no-store',
-      signal: args.signal,
+      // Durability: do not attach AbortSignal unless explicitly requested.
+      signal: args.honorAbort ? args.signal : undefined,
       body: JSON.stringify({
         chainId: args.chainId,
         tokenAddress: args.tokenAddress,
@@ -28,11 +31,20 @@ export async function activateNewsArticleMarket(args: {
         draftId: draftId || undefined,
       }),
     });
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      linked?: boolean;
+      pending?: boolean;
+      error?: string;
+    } | null;
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
       return { ok: false, error: body?.error ?? `http_${res.status}` };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      linked: Boolean(body?.linked),
+      pending: Boolean(body?.pending),
+    };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return { ok: false, error: 'aborted' };

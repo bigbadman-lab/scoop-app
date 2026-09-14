@@ -158,6 +158,18 @@ export {
   type NewsArticleMarketLink,
 } from './repos/news-article-markets.js';
 export {
+  upsertNewsArticleMarketIntentAndLink,
+  listPendingNewsArticleMarketIntents,
+  markNewsArticleMarketIntentResult,
+  bumpNewsArticleMarketIntentAttempt,
+  expireStaleNewsArticleMarketIntents,
+  getNewsArticleLoreForToken,
+  type NewsArticleMarketIntent,
+  type NewsArticleMarketIntentStatus,
+  type UpsertNewsArticleMarketIntentInput,
+  type UpsertNewsArticleMarketIntentResult,
+} from './repos/news-article-market-intents.js';
+export {
   upsertToken,
   getTokenImageFields,
   setTokenDisplayImageUrl,

@@ -117,8 +117,8 @@ describe('runLaunchCompletion', () => {
       ensureDisplayImage,
       activateNews,
     });
-    // Display bind starts immediately (no wait-for-index); News still after index.
-    expect(order).toEqual(['display', 'indexed', 'news']);
+    // Display + news binds start immediately (no wait-for-index).
+    expect(order).toEqual(['display', 'news', 'indexed']);
     expect(ensureDisplayImage).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceDraftId: 'draft-1',
@@ -126,6 +126,13 @@ describe('runLaunchCompletion', () => {
         imageUri: 'ipfs://bafybeiabc',
         waitForIndex: false,
         honorAbort: false,
+      }),
+    );
+    expect(activateNews).toHaveBeenCalledWith(
+      expect.objectContaining({
+        honorAbort: false,
+        providerArticleId: 'art-1',
+        draftId: 'draft-1',
       }),
     );
   });
@@ -187,11 +194,11 @@ describe('runLaunchCompletion', () => {
     }
   });
 
-  it('activates News only after indexed', async () => {
+  it('starts durable News bind in parallel with indexer wait', async () => {
     const order: string[] = [];
     const activateNews = vi.fn(async () => {
       order.push('activate');
-      return { ok: true };
+      return { ok: true, linked: false, pending: true };
     });
     await runLaunchCompletion({
       chainId: 4663,
@@ -217,9 +224,11 @@ describe('runLaunchCompletion', () => {
       ensureDisplayImage: async () => ({ ok: true as const, status: 'applied' as const }),
       activateNews,
     });
-    expect(order.indexOf('indexed_ready')).toBeLessThan(order.indexOf('activate'));
-    expect(order.indexOf('activating_news')).toBeLessThan(order.indexOf('activate'));
+    expect(order.indexOf('activate')).toBeLessThan(order.indexOf('indexed_ready'));
     expect(activateNews).toHaveBeenCalledTimes(1);
+    expect(activateNews).toHaveBeenCalledWith(
+      expect.objectContaining({ honorAbort: false }),
+    );
   });
 
   it('News activation failure still yields market_live', async () => {

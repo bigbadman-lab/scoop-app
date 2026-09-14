@@ -99,6 +99,7 @@ export async function runLaunchCompletion(
   const draftId = input.provenance?.sourceDraftId?.trim() || '';
   const imageUri = input.imageUri?.trim() || '';
   const shouldFinalizeDisplay = Boolean(displayPath || draftId || imageUri);
+  const hasNews = hasNewsProvenance(input.provenance);
 
   /**
    * Start receipt-driven display bind immediately (no wait-for-index).
@@ -117,6 +118,20 @@ export async function runLaunchCompletion(
         honorAbort: false,
       })
     : Promise.resolve({ ok: true as const, status: 'noop' as const });
+
+  /**
+   * Durable news↔market intent at receipt time (before index wait).
+   * Cron reconciles if launch is not indexed yet.
+   */
+  const newsPromise = hasNews
+    ? activate({
+        chainId: input.chainId,
+        tokenAddress: input.tokenAddress,
+        providerArticleId: input.provenance?.sourceProviderArticleId,
+        draftId: input.provenance?.sourceDraftId,
+        honorAbort: false,
+      })
+    : Promise.resolve({ ok: true as const, linked: false, pending: false });
 
   const waitArgs: WaitForIndexedLaunchInput = {
     chainId: input.chainId,
@@ -172,27 +187,24 @@ export async function runLaunchCompletion(
   }
 
   let news: 'skipped' | 'ok' | 'failed' = 'skipped';
-  if (hasNewsProvenance(input.provenance)) {
+  if (hasNews) {
     input.callbacks.onPhase({ phase: 'activating_news', error: null });
     news = 'failed';
-    for (let i = 0; i < newsAttempts; i++) {
-      if (input.signal?.aborted) {
-        return { status: 'aborted' };
+    let result = await newsPromise;
+    if (!result.ok) {
+      for (let i = 0; i < newsAttempts; i++) {
+        result = await activate({
+          chainId: input.chainId,
+          tokenAddress: input.tokenAddress,
+          providerArticleId: input.provenance?.sourceProviderArticleId,
+          draftId: input.provenance?.sourceDraftId,
+          honorAbort: false,
+        });
+        if (result.ok) break;
       }
-      const result = await activate({
-        chainId: input.chainId,
-        tokenAddress: input.tokenAddress,
-        providerArticleId: input.provenance?.sourceProviderArticleId,
-        draftId: input.provenance?.sourceDraftId,
-        signal: input.signal,
-      });
-      if (result.ok) {
-        news = 'ok';
-        break;
-      }
-      if (result.error === 'aborted') {
-        return { status: 'aborted' };
-      }
+    }
+    if (result.ok) {
+      news = 'ok';
     }
 
     if (news === 'failed') {
