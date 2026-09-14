@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { cookieToInitialState, type Config, WagmiProvider } from 'wagmi';
 import { EmailDeviceApprovalHelper } from '@/components/auth/EmailDeviceApprovalHelper';
+import { ScoopAuthHost } from '@/components/auth/ScoopAuthHost';
 import {
   buildScoopAppKitDefaultAccountTypes,
   buildScoopAppKitFeatures,
@@ -79,6 +80,7 @@ export function WalletRuntimeProviders({
       <QueryClientProvider client={queryClient}>
         {children}
         <EmailDeviceApprovalHelper />
+        <ScoopAuthHost />
       </QueryClientProvider>
     </WagmiProvider>
   );

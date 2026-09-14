@@ -1,6 +1,7 @@
 'use client';
 
 import { useAppKit, useAppKitAccount, useAppKitState } from '@reown/appkit/react';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -369,7 +370,7 @@ export function WalletSlotLive({
 
       setJoinPhase('opening_wallet');
       if (opts?.openConnectIfNeeded !== false) {
-        open({ view: 'Connect' });
+        requestScoopConnect(() => open({ view: 'Connect' }));
       }
     },
     [address, connector, isConnected, open, runSiwe, status],
@@ -406,7 +407,7 @@ export function WalletSlotLive({
     }
 
     setJoinPhase('opening_wallet');
-    open({ view: 'Connect' });
+    requestScoopConnect(() => open({ view: 'Connect' }));
     // Intentionally omit runSiwe from deps — use ref to avoid effect churn missing open().
   }, [initialIntent, open, address, isConnected, status, connector]);
 

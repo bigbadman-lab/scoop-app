@@ -15,6 +15,7 @@ import {
 } from '@/lib/auth/embedded-wallet-export';
 import { isEmbeddedWalletAccount } from '@/lib/auth/wallet-origin';
 import { resolveScoopAuthState } from '@/lib/auth/reconciliation';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop-auth-events';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
@@ -333,7 +334,9 @@ function AccountReady({
           exportBusy={exportBusy}
           onSignOut={() => void signOutScoop()}
           onDisconnect={() => void disconnectWalletOnly()}
-          onConnectWallet={() => open({ view: 'Connect' })}
+          onConnectWallet={() =>
+            requestScoopConnect(() => open({ view: 'Connect' }))
+          }
           onCopyAddress={() => void copyAddress()}
           onExportWallet={() => void exportWallet()}
         />

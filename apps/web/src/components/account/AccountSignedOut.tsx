@@ -6,6 +6,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { ROBINHOOD_CHAIN_ID, SCOOP_MARK_SRC } from '@/lib/brand';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
 
@@ -199,7 +200,7 @@ export function AccountSignedOut({
     <button
       type="button"
       disabled={busy || status === 'connecting' || status === 'reconnecting'}
-      onClick={() => open({ view: 'Connect' })}
+      onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
       className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
     >
       {status === 'connecting' || status === 'reconnecting'

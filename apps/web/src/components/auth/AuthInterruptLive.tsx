@@ -4,6 +4,7 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { sanitizeAssistResumePath } from '@/lib/auth/siwe-client';
 import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
@@ -159,7 +160,7 @@ export function AuthInterruptLive({
           <button
             type="button"
             disabled={busy}
-            onClick={() => open({ view: 'Connect' })}
+            onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
             className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
           >
             Connect wallet

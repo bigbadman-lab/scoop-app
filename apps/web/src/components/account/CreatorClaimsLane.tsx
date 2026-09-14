@@ -9,6 +9,7 @@ import {
 } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import type { Address } from 'viem';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
@@ -133,7 +134,7 @@ export function CreatorClaimsLane({
   async function onClaim(asset: ClaimAsset) {
     const key = claimAssetKey(asset);
     if (!address || !isConnected) {
-      open({ view: 'Connect' });
+      requestScoopConnect(() => open({ view: 'Connect' }));
       return;
     }
     if (sessionOnly || !walletClient || !publicClient) {
@@ -218,7 +219,7 @@ export function CreatorClaimsLane({
         </p>
         <button
           type="button"
-          onClick={() => open({ view: 'Connect' })}
+          onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
           className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-2 hover:underline"
         >
           Connect wallet

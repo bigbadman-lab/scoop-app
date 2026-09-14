@@ -9,6 +9,7 @@ import {
 } from 'wagmi';
 import { useAppKit } from '@reown/appkit/react';
 import { type Address, zeroAddress } from 'viem';
+import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import { formatClaimAmount } from '@/lib/claims/format';
@@ -154,7 +155,7 @@ export function HolderRewardsLane({
   async function onClaim(row: HolderRewardEnrichedRow) {
     const key = holderRewardRowKey(row.entitlement);
     if (!address || !isConnected) {
-      open({ view: 'Connect' });
+      requestScoopConnect(() => open({ view: 'Connect' }));
       return;
     }
     if (sessionOnly || !mayBroadcastOnChain) {
@@ -299,7 +300,7 @@ export function HolderRewardsLane({
           </p>
           <button
             type="button"
-            onClick={() => open({ view: 'Connect' })}
+            onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
             className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-2 hover:underline"
           >
             Connect wallet

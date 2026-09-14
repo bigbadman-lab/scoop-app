@@ -1,0 +1,266 @@
+import { describe, expect, it, vi } from 'vitest';
+import { isScoopCustomAuthUiEnabled } from '@/lib/auth/custom-auth-ui';
+import {
+  closeScoopAuthSheet,
+  isScoopAuthSheetOpen,
+  openScoopAuthSheet,
+  requestScoopConnect,
+  subscribeScoopAuthSheet,
+} from '@/lib/auth/open-scoop-auth';
+import {
+  reownConnectEmail,
+  reownConnectOtp,
+  waitForAuthProvider,
+  type ScoopW3mFrameProvider,
+} from '@/lib/auth/reown-email-headless';
+import {
+  INITIAL_SCOOP_AUTH_STATE,
+  isValidScoopEmail,
+  reduceScoopAuth,
+} from '@/lib/auth/scoop-auth-machine';
+import { resolveOnChainWalletCapability } from '@/lib/account/onchain-policy';
+import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
+
+describe('isScoopCustomAuthUiEnabled', () => {
+  it('is false when unset', () => {
+    expect(isScoopCustomAuthUiEnabled({} as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it('is true only for exact "1"', () => {
+    expect(
+      isScoopCustomAuthUiEnabled({
+        NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI: '1',
+      } as NodeJS.ProcessEnv),
+    ).toBe(true);
+    expect(
+      isScoopCustomAuthUiEnabled({
+        NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI: 'true',
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
+  });
+});
+
+describe('requestScoopConnect', () => {
+  it('opens AppKit when flag off', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    closeScoopAuthSheet();
+    const openAppKit = vi.fn();
+    requestScoopConnect(openAppKit);
+    expect(openAppKit).toHaveBeenCalledTimes(1);
+    expect(isScoopAuthSheetOpen()).toBe(false);
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+
+  it('opens SCOOP sheet when flag on', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = '1';
+    closeScoopAuthSheet();
+    const openAppKit = vi.fn();
+    const seen: boolean[] = [];
+    const unsub = subscribeScoopAuthSheet((open) => seen.push(open));
+    requestScoopConnect(openAppKit);
+    expect(openAppKit).not.toHaveBeenCalled();
+    expect(isScoopAuthSheetOpen()).toBe(true);
+    expect(seen.at(-1)).toBe(true);
+    closeScoopAuthSheet();
+    unsub();
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+});
+
+describe('reduceScoopAuth', () => {
+  it('email -> OTP', () => {
+    let state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
+    state = reduceScoopAuth(state, { type: 'CHOOSE_EMAIL' });
+    state = reduceScoopAuth(state, {
+      type: 'EMAIL_CHANGE',
+      email: 'you@example.com',
+    });
+    state = reduceScoopAuth(state, { type: 'EMAIL_SUBMIT' });
+    expect(state.phase).toBe('email_sending');
+    state = reduceScoopAuth(state, {
+      type: 'EMAIL_RESULT',
+      action: 'VERIFY_OTP',
+    });
+    expect(state.phase).toBe('otp_enter');
+  });
+
+  it('email -> device approval', () => {
+    let state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
+    state = reduceScoopAuth(state, { type: 'CHOOSE_EMAIL' });
+    state = reduceScoopAuth(state, { type: 'EMAIL_SUBMIT' });
+    state = reduceScoopAuth(state, {
+      type: 'EMAIL_RESULT',
+      action: 'VERIFY_DEVICE',
+    });
+    expect(state.phase).toBe('device_approving');
+  });
+
+  it('OTP -> connected path', () => {
+    let state = {
+      ...INITIAL_SCOOP_AUTH_STATE,
+      phase: 'otp_enter' as const,
+      email: 'you@example.com',
+      otp: '123456',
+    };
+    state = reduceScoopAuth(state, { type: 'OTP_SUBMIT' });
+    state = reduceScoopAuth(state, { type: 'OTP_OK' });
+    expect(state.phase).toBe('siwe_signing');
+    state = reduceScoopAuth(state, { type: 'PROVIDER_CONNECT_OK' });
+    state = reduceScoopAuth(state, { type: 'AUTHENTICATED' });
+    expect(state.phase).toBe('authenticated');
+  });
+
+  it('error -> retry returns to prior phase', () => {
+    let state = {
+      ...INITIAL_SCOOP_AUTH_STATE,
+      phase: 'otp_verifying' as const,
+      email: 'you@example.com',
+      otp: '000000',
+    };
+    state = reduceScoopAuth(state, {
+      type: 'OTP_FAIL',
+      message: 'bad code',
+    });
+    expect(state.phase).toBe('error');
+    state = reduceScoopAuth(state, { type: 'RETRY' });
+    expect(state.phase).toBe('otp_enter');
+    expect(state.error).toBeNull();
+  });
+
+  it('validates email shape', () => {
+    expect(isValidScoopEmail('you@example.com')).toBe(true);
+    expect(isValidScoopEmail('bad')).toBe(false);
+  });
+});
+
+describe('reown email adapter', () => {
+  function mockProvider(
+    partial: Partial<ScoopW3mFrameProvider>,
+  ): ScoopW3mFrameProvider {
+    return {
+      connectEmail: vi.fn(),
+      connectOtp: vi.fn(),
+      connectDevice: vi.fn(),
+      connect: vi.fn(),
+      getEmail: vi.fn(() => null),
+      ...partial,
+    };
+  }
+
+  it('reports connector unavailable', async () => {
+    const result = await waitForAuthProvider({
+      resolveConnector: () => undefined,
+      attempts: 2,
+      intervalMs: 1,
+      sleep: async () => undefined,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('AUTH_CONNECTOR_UNAVAILABLE');
+    }
+  });
+
+  it('VERIFY_OTP branch', async () => {
+    const provider = mockProvider({
+      connectEmail: vi.fn(async () => ({ action: 'VERIFY_OTP' as const })),
+    });
+    const result = await reownConnectEmail({
+      email: 'you@example.com',
+      resolveConnector: () => ({ provider }),
+      wait: async () => ({ ok: true, provider }),
+    });
+    expect(result).toEqual({ ok: true, action: 'VERIFY_OTP' });
+  });
+
+  it('VERIFY_DEVICE and CONNECT branches', async () => {
+    for (const action of ['VERIFY_DEVICE', 'CONNECT'] as const) {
+      const provider = mockProvider({
+        connectEmail: vi.fn(async () => ({ action })),
+      });
+      const result = await reownConnectEmail({
+        email: 'you@example.com',
+        wait: async () => ({ ok: true, provider }),
+      });
+      expect(result).toEqual({ ok: true, action });
+    }
+  });
+
+  it('OTP success and failure', async () => {
+    const okProvider = mockProvider({
+      connectOtp: vi.fn(async () => undefined),
+    });
+    await expect(
+      reownConnectOtp({
+        otp: '123456',
+        wait: async () => ({ ok: true, provider: okProvider }),
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const badProvider = mockProvider({
+      connectOtp: vi.fn(async () => {
+        throw new Error('invalid otp');
+      }),
+    });
+    const failed = await reownConnectOtp({
+      otp: '000000',
+      wait: async () => ({ ok: true, provider: badProvider }),
+    });
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.code).toBe('OTP_FAILED');
+  });
+
+  it('resend is another connectEmail call', async () => {
+    const connectEmail = vi.fn(async () => ({ action: 'VERIFY_OTP' as const }));
+    const provider = mockProvider({ connectEmail });
+    const wait = async () =>
+      ({ ok: true as const, provider });
+    await reownConnectEmail({ email: 'you@example.com', wait });
+    await reownConnectEmail({ email: 'you@example.com', wait });
+    expect(connectEmail).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SIWE / embedded gating preserved', () => {
+  it('email AUTH maps to embedded + reown_email', () => {
+    expect(
+      resolveSiweWalletMeta({
+        connectorId: 'AUTH',
+        embeddedWalletInfo: { authProvider: 'email' },
+      }),
+    ).toEqual({ walletType: 'embedded', provider: 'reown_email' });
+  });
+
+  it('embedded remains blocked from launch/trade', () => {
+    const result = resolveOnChainWalletCapability({
+      authenticated: true,
+      walletType: 'embedded',
+    });
+    expect(result.mayBroadcastOnChain).toBe(false);
+    expect(result.reason).toBe('embedded_blocked');
+  });
+
+  it('external remains eligible', () => {
+    expect(
+      resolveOnChainWalletCapability({
+        authenticated: true,
+        walletType: 'external',
+      }).mayBroadcastOnChain,
+    ).toBe(true);
+  });
+});
+
+describe('openScoopAuthSheet pubsub', () => {
+  it('notifies subscribers', () => {
+    closeScoopAuthSheet();
+    const seen: boolean[] = [];
+    const unsub = subscribeScoopAuthSheet((v) => seen.push(v));
+    openScoopAuthSheet();
+    closeScoopAuthSheet();
+    unsub();
+    expect(seen).toEqual([false, true, false]);
+  });
+});
