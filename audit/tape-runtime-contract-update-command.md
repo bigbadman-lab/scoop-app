@@ -134,17 +134,28 @@ Different address without `--override` → abort with existing vs requested.
 - `package.json` (`tape:set-contract`)
 - `.env.example` (env var no longer used for live page)
 
-## 30–31. Commit / push
+## 30. Commit
 
-See git section after commit.
+`3f8e1ef` — `feat(web): add runtime TAPE contract configuration`
+
+## 31. Push
+
+Pushed to `origin/main` (`20983d1..3f8e1ef`).
 
 ## 32. Vercel deployment
 
-Feature deploy of this capability via normal `main` auto-deploy (required once). Subsequent address updates do **not** need deploy.
+Production Ready: `dpl_4kbt7R5GSSsqfejMJMoSrwZ6dwFW`  
+`https://scoop-k0odahdyg-cope2.vercel.app` → `https://scoop.fun`
 
-## 33–34. Final HEAD / status
+Live API includes `"tape":{"contractAddress":null}`; page shows **To be announced**.
 
-Filled after commit/push.
+## 33. Final HEAD
+
+`3f8e1efa036d16ec6b460311adeda1d00e0f686b`
+
+## 34. `git status --short`
+
+Clean for feature files; unrelated untracked audit/P10.4 reports remain.
 
 ## 35. Post-launch operator steps
 
