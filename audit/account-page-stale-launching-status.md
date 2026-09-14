@@ -159,7 +159,7 @@ unit tests + typecheck + web build pass
 
 ## 29. Deployment result
 
-`5d48093` pushed; awaiting Ready
+`5d48093` (fix) + `5486938` (docs) pushed to `main`. Vercel Ready for fix SHA.
 
 ## 30. Production post-fix verification
 
