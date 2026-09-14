@@ -9,7 +9,7 @@
 | Field | Value |
 | --- | --- |
 | Pre-HEAD | `f07db2961df978a1e419bef6e18c069d230a2382` |
-| Final HEAD | `2ccf0af` (`f264d67` web/db + `2ccf0af` indexer) |
+| Final HEAD | `984db91` (code: `f264d67` web/db, `2ccf0af` indexer; docs: `984db91`) |
 | Branch | `main` |
 | Status before | unrelated untracked audits / `P10.4-*` only |
 | Status after | same unrelated untracked files |
