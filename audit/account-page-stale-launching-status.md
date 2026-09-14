@@ -18,7 +18,7 @@
 
 ## 5. Final HEAD
 
-_(filled after commit)_
+`5d48093e43b9d34438101f9cb793dd02ba9d1c55`
 
 ## 6. Git status
 
@@ -155,11 +155,11 @@ Unit tests for Live vs Bonded; asserts `Launching` is not used for incomplete bo
 
 ## 28. Test/build results
 
-_(filled after run)_
+unit tests + typecheck + web build pass
 
 ## 29. Deployment result
 
-_(filled after push)_
+`5d48093` pushed; awaiting Ready
 
 ## 30. Production post-fix verification
 
