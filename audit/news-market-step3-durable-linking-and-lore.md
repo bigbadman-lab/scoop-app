@@ -14,7 +14,7 @@
 
 ## 4. Final HEAD
 
-_(filled after commit)_
+`47c0e149ea79e943a9f0f9aa7635af6a8b794e20`
 
 ## 5. Git status (pre-commit relevant)
 
@@ -221,7 +221,7 @@ Production: `news_article_market_intents` created successfully. Pre-migration `n
 
 ## 34. Deployment SHA / status
 
-_(filled after push / Vercel Ready)_
+Pushed `47c0e149ea79e943a9f0f9aa7635af6a8b794e20` to `main`. Confirm Vercel production Ready for this SHA after deploy settles.
 
 ## 35. Production verification
 
@@ -261,6 +261,6 @@ Confirmed: only the three verified tokens received `news_article_markets` / inte
 
 > **TOKEN LORE:** LIVE
 
-> **PRODUCTION DEPLOYMENT:** pending push
+> **PRODUCTION DEPLOYMENT:** `47c0e14` pushed to `main` (confirm Vercel Ready)
 
 > **NEXT STEP:** Stop and return this report for review before any further launch-day work.
