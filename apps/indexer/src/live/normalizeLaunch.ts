@@ -11,6 +11,7 @@ import {
   upsertTokenMarketState,
   upsertAddressClassification,
   getQuoteAssetDecimals,
+  applyBoundDisplayImageOnTokenInsert,
 } from '@scoop/db';
 import {
   DEAD_ADDRESS,
@@ -240,6 +241,46 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     additionalFeeDestination: input.launch.additionalFeeDestination ?? 0,
     holderRewardsAddress: input.launch.holderRewardsAddress ?? null,
   });
+
+  // Image metadata enrichment only — apply trusted display path from a bound
+  // or awaiting finalize intent. Must not affect price/trade accounting.
+  try {
+    const logo = String(input.tokenMeta.logo ?? '').trim();
+    if (logo) {
+      const applied = await applyBoundDisplayImageOnTokenInsert(db, {
+        chainId,
+        tokenAddress: token,
+        imageUri: logo,
+        supabaseUrl:
+          process.env.SUPABASE_URL?.trim() ||
+          process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+          null,
+      });
+      if (applied.intentFound) {
+        console.info(
+          '[token-display-bind]',
+          JSON.stringify({
+            event: 'canonical_launch_image_enrichment',
+            tokenAddress: token,
+            boundIntentFound: applied.intentFound,
+            displayPathFound: applied.pathFound,
+            displayUrlApplied: applied.applied || applied.skipped,
+            applied: applied.applied,
+            skipped: applied.skipped,
+          }),
+        );
+      }
+    }
+  } catch (error) {
+    console.warn(
+      '[token-display-bind]',
+      JSON.stringify({
+        event: 'canonical_launch_image_enrichment_failed',
+        tokenAddress: token,
+        error: error instanceof Error ? error.message : 'unknown',
+      }),
+    );
+  }
 
   const swapEvent = input.decoded.find((e) => e.kind === 'Swap');
   const fallbackQuoteAbs =
