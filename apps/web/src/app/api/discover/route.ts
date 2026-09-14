@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { SCOOP_CHAIN_ID } from '@scoop/shared';
-import { getDiscoverBoard, serverDb } from '@/lib/server/queries';
+import {
+  getDiscoverBoard,
+  listLiveTips,
+  mergeLiveDiscoveryItems,
+  serverDb,
+} from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -18,11 +23,19 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId') ?? String(SCOOP_CHAIN_ID));
 
-    const board = await getDiscoverBoard(serverDb(), { chainId });
+    const db = serverDb();
+    const [board, liveTips] = await Promise.all([
+      getDiscoverBoard(db, { chainId }),
+      listLiveTips(db, chainId).catch(() => []),
+    ]);
+    const tipsFor = (items: typeof board.new) => {
+      const addresses = new Set(items.map((item) => item.tokenAddress.toLowerCase()));
+      return liveTips.filter((tip) => addresses.has(tip.tokenAddress.toLowerCase()));
+    };
     const body = {
-      new: board.new,
-      bonding: board.bonding,
-      trending: board.trending,
+      new: mergeLiveDiscoveryItems(board.new, liveTips),
+      bonding: mergeLiveDiscoveryItems(board.bonding, tipsFor(board.bonding)),
+      trending: mergeLiveDiscoveryItems(board.trending, tipsFor(board.trending)),
     };
     assertNoSecretLeakage(body);
     return NextResponse.json(body);

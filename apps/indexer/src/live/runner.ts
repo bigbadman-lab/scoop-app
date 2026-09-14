@@ -1,4 +1,11 @@
-import { createPool, withTransaction, getIndexerCheckpoint, upsertIndexerHealth } from '@scoop/db';
+import {
+  createPool,
+  withTransaction,
+  getIndexerCheckpoint,
+  upsertIndexerHealth,
+  expireLiveOverlayRows,
+  deleteConfirmedLiveRows,
+} from '@scoop/db';
 import type { IndexerConfig } from '../config.js';
 import {
   MAIN_STREAM_NAME,
@@ -24,6 +31,7 @@ import {
   assertMigrationCompatibilityFromPool,
   type AdvisoryLockHandle,
 } from './guardrails.js';
+import { startLiveTipOverlay } from './tipOverlay/observer.js';
 
 function logJson(level: string, message: string, fields: Record<string, unknown> = {}) {
   console.log(
@@ -88,6 +96,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   let stopRequested = false;
   let stopReason = 'running';
   let lock: AdvisoryLockHandle | null = null;
+  const overlayAbort = new AbortController();
   try {
     lock = await acquireIndexerAdvisoryLock({
       databaseUrl: lockDatabaseUrl,
@@ -106,6 +115,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         lockSessionLost = true;
         stopRequested = true;
         stopReason = 'lock_session_lost';
+        overlayAbort.abort();
         logJson('error', 'indexer dedicated lock session lost — stopping safely', {
           key: "hashtext('scoop_indexer')",
         });
@@ -142,6 +152,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   const onSignal = (sig: string) => {
     stopRequested = true;
     stopReason = sig;
+    overlayAbort.abort();
     logJson('info', 'shutdown signal received — finishing current batch', { signal: sig });
   };
   process.once('SIGINT', () => onSignal('SIGINT'));
@@ -151,6 +162,7 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
   let lastBlock: bigint | null = null;
   let lastQuoteAtMs = 0;
   let lastVolumeSweepAtMs = 0;
+  let lastLiveCleanupAtMs = 0;
   let reorgCount = 0;
   let wakePromise: Promise<void> | null = null;
   let wakeResolve: (() => void) | null = null;
@@ -161,6 +173,14 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
     });
   };
   armWake();
+
+  const overlayPromise = config.SCOOP_LIVE_OVERLAY_ENABLED
+    ? startLiveTipOverlay({ config, pool, signal: overlayAbort.signal }).catch((error) => {
+        logJson('warn', 'live overlay stopped unexpectedly — canonical continuing', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      })
+    : Promise.resolve();
 
   // Optional WS wake (best-effort, never source of truth)
   let wsCleanup: (() => void) | undefined;
@@ -320,6 +340,14 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
               });
             }
           });
+          if (
+            config.SCOOP_LIVE_OVERLAY_ENABLED &&
+            Date.now() - lastLiveCleanupAtMs >= 60_000
+          ) {
+            await expireLiveOverlayRows(db, config.SCOOP_CHAIN_ID);
+            await deleteConfirmedLiveRows(db, config.SCOOP_CHAIN_ID);
+            lastLiveCleanupAtMs = Date.now();
+          }
           await upsertIndexerHealth(db, {
             chainId: config.SCOOP_CHAIN_ID,
             heartbeatAt: new Date(),
@@ -527,6 +555,8 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
       }
     }
   } finally {
+    overlayAbort.abort();
+    await overlayPromise;
     wsCleanup?.();
     process.removeAllListeners('SIGINT');
     process.removeAllListeners('SIGTERM');

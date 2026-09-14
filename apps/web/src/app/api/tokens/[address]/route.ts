@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getToken, serverDb } from '@/lib/server/queries';
+import {
+  applyLiveTipToTokenDetail,
+  getLiveTokenTip,
+  getToken,
+  serverDb,
+} from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -19,7 +24,12 @@ export async function GET(
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId'));
 
-    const token = await getToken(serverDb(), chainId, address);
+    const db = serverDb();
+    const [canonical, liveTip] = await Promise.all([
+      getToken(db, chainId, address),
+      getLiveTokenTip(db, chainId, address).catch(() => null),
+    ]);
+    const token = applyLiveTipToTokenDetail(canonical, liveTip);
     if (!token) {
       return NextResponse.json({ error: 'Token not found' }, { status: 404 });
     }

@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getTrades, serverDb, type TradeSide } from '@/lib/server/queries';
+import {
+  getIndexerMainCheckpointBlock,
+  getTrades,
+  listLiveTradesByToken,
+  mergeLiveTrades,
+  serverDb,
+  type TradeSide,
+} from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -25,13 +32,32 @@ export async function GET(
     if (sideRaw != null && sideRaw !== '' && sideRaw !== 'buy' && sideRaw !== 'sell') {
       throw new ValidationError('Invalid side');
     }
-    const items = await getTrades(serverDb(), chainId, address, {
-      limit: parseLimit(url.searchParams.get('limit')),
-      offset: parseOffset(url.searchParams.get('offset')),
-      side: sideRaw ? (sideRaw as TradeSide) : undefined,
-      beforeTimestamp: parseOptionalInt(url.searchParams.get('beforeTimestamp'), 'beforeTimestamp'),
-      beforeLogIndex: parseOptionalInt(url.searchParams.get('beforeLogIndex'), 'beforeLogIndex'),
-    });
+    const limit = parseLimit(url.searchParams.get('limit'));
+    const offset = parseOffset(url.searchParams.get('offset'));
+    const db = serverDb();
+    const [canonical, live, checkpoint] = await Promise.all([
+      getTrades(db, chainId, address, {
+        limit,
+        offset,
+        side: sideRaw ? (sideRaw as TradeSide) : undefined,
+        beforeTimestamp: parseOptionalInt(
+          url.searchParams.get('beforeTimestamp'),
+          'beforeTimestamp',
+        ),
+        beforeLogIndex: parseOptionalInt(
+          url.searchParams.get('beforeLogIndex'),
+          'beforeLogIndex',
+        ),
+      }),
+      listLiveTradesByToken(db, chainId, address).catch(() => []),
+      getIndexerMainCheckpointBlock(db, chainId).catch(() => null),
+    ]);
+    const side = sideRaw as TradeSide | null;
+    const items = mergeLiveTrades(
+      canonical,
+      side ? live.filter((trade) => trade.side === side) : live,
+      checkpoint,
+    ).slice(0, limit);
     const body = { items };
     assertNoSecretLeakage(body);
     return NextResponse.json(body);

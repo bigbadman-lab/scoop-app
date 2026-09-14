@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { SCOOP_CHAIN_ID } from '@scoop/shared';
 import { buildMarketsBoardItems } from '@/lib/markets/types';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
-import { getActiveMarkets, serverDb } from '@/lib/server/queries';
+import {
+  getActiveMarkets,
+  listLiveTips,
+  mergeLiveDiscoveryItems,
+  serverDb,
+} from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -21,12 +26,17 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId') ?? String(SCOOP_CHAIN_ID));
 
-    const [tokens, catalogue] = await Promise.all([
-      getActiveMarkets(serverDb(), { chainId }),
+    const db = serverDb();
+    const [tokens, liveTips, catalogue] = await Promise.all([
+      getActiveMarkets(db, { chainId }),
+      listLiveTips(db, chainId).catch(() => []),
       loadEnabledQuoteCatalogue().catch(() => []),
     ]);
 
-    const items = buildMarketsBoardItems(tokens, catalogue);
+    const items = buildMarketsBoardItems(
+      mergeLiveDiscoveryItems(tokens, liveTips),
+      catalogue,
+    );
     const body = { items };
     assertNoSecretLeakage(body);
     return NextResponse.json(body);

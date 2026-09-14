@@ -84,6 +84,11 @@ const indexerEnvSchema = z
     SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
     SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
     SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(20),
+    /** Best-effort presentation-only observer; canonical fixed-lag ingest is unchanged. */
+    SCOOP_LIVE_OVERLAY_ENABLED: boolFromEnv.default(true),
+    SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(1000),
+    SCOOP_LIVE_MAX_CATCHUP_BLOCKS: z.coerce.number().int().positive().default(48),
+    SCOOP_LIVE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
     /** Enter fast historical catch-up when lag (safe - next) exceeds this. */
     SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(5000),
     /** Max eth_getLogs window size while in fast catch-up (auto-shrinks on reject). */
@@ -115,6 +120,7 @@ const indexerEnvSchema = z
       .optional()
       .or(z.literal(''))
       .transform((v) => v || undefined),
+    SUPABASE_URL: z.string().url().optional().or(z.literal('')).transform((v) => v || undefined),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   })
   .superRefine((env, ctx) => {
@@ -217,6 +223,10 @@ export function publicConfigView(config: IndexerConfig) {
     quoteUsdMaxAgeSeconds: config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS,
     pollIntervalMs: config.SCOOP_POLL_INTERVAL_MS,
     maxBlockBatch: config.SCOOP_MAX_BLOCK_BATCH,
+    liveOverlayEnabled: config.SCOOP_LIVE_OVERLAY_ENABLED,
+    livePollMs: config.SCOOP_LIVE_POLL_MS,
+    liveMaxCatchupBlocks: config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS,
+    liveTtlSeconds: config.SCOOP_LIVE_TTL_SECONDS,
     fastCatchupThresholdBlocks: config.SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS,
     fastCatchupRange: config.SCOOP_FAST_CATCHUP_RANGE,
     fastCatchupAnchorBlocks: config.SCOOP_FAST_CATCHUP_ANCHOR_BLOCKS,

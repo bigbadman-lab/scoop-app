@@ -179,6 +179,33 @@ export {
   type UpsertDisplayFinalizeIntentInput,
   type OrphanTokenDisplayCandidate,
 } from './repos/token-display-finalize-intents.js';
+export {
+  buildPublicTokenImageUrl,
+  lookupLiveDisplayImageUrl,
+  upsertLiveChainEvent,
+  upsertLiveTokenTip,
+  listLiveTips,
+  getLiveTokenTip,
+  listLiveEventsByToken,
+  listLiveTradesByToken,
+  expireLiveOverlayRows,
+  getLiveObserverCheckpoint,
+  setLiveObserverCheckpoint,
+  deleteLiveRowsMatchingConfirmed,
+  deleteConfirmedLiveRows,
+  type LiveEventKind,
+  type LiveChainEvent,
+  type LiveTrade,
+  type LiveTokenTip,
+  type UpsertLiveChainEventInput,
+  type UpsertLiveTokenTipInput,
+} from './repos/live-overlay.js';
+export {
+  mergeLiveTrades,
+  applyLiveTipToTokenDetail,
+  mergeLiveDiscoveryItems,
+  type LiveAnnotated,
+} from './live/merge-live-market.js';
 export { upsertCreator, type CreatorRow } from './repos/creators.js';
 export { upsertPool, type PoolRow } from './repos/pools.js';
 export { upsertTrade, type TradeRow } from './repos/trades.js';
