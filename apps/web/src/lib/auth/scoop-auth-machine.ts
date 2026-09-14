@@ -174,7 +174,8 @@ export function reduceScoopAuth(
       return { ...state, phase: 'device_approving', error: null };
     case 'DEVICE_OK':
       if (state.phase !== 'device_approving') return state;
-      return { ...state, phase: 'siwe_signing', error: null };
+      // Reown scaffold: device approval → EmailVerifyOtp (still need OTP).
+      return { ...state, phase: 'otp_enter', otp: '', error: null };
     case 'DEVICE_FAIL':
       return fail(state, event.message, 'email_enter');
     case 'PROVIDER_CONNECT_START':

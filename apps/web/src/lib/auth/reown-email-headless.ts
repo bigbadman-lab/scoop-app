@@ -1,9 +1,16 @@
 /**
  * SCOOP adapter over Reown AUTH connector `W3mFrameProvider`.
  * Keeps provider calls out of React components. No modal-oriented helpers.
+ *
+ * After OTP / CONNECT, mirrors Reown scaffold: ConnectionController.connectExternal
+ * (provider.connect alone does not attach the AUTH connector to wagmi).
  */
 
-import { ConnectorController } from '@reown/appkit-controllers';
+import {
+  ChainController,
+  ConnectionController,
+  ConnectorController,
+} from '@reown/appkit-controllers';
 
 export type ReownEmailAction = 'VERIFY_OTP' | 'VERIFY_DEVICE' | 'CONNECT';
 
@@ -43,10 +50,17 @@ export type ScoopW3mFrameProvider = {
 };
 
 export type ScoopAuthConnectorLike = {
+  id?: string;
+  type?: string;
   provider?: ScoopW3mFrameProvider | null;
 };
 
 export type ResolveAuthConnector = () => ScoopAuthConnectorLike | undefined;
+
+export type ConnectExternalFn = (
+  connector: ScoopAuthConnectorLike,
+  namespace: string,
+) => Promise<{ address?: string } | void>;
 
 function friendlyMessage(code: ScoopReownEmailErrorCode, fallback?: string): string {
   switch (code) {
@@ -77,7 +91,6 @@ function asError(
       : typeof opts?.cause === 'string'
         ? opts.cause
         : undefined;
-  // Never surface stack traces / secrets — keep short.
   const detail =
     raw && raw.length < 160 && !/jwt|secret|key|password|token/i.test(raw)
       ? raw
@@ -96,6 +109,29 @@ export function defaultResolveAuthConnector(): ScoopAuthConnectorLike | undefine
   } catch {
     return undefined;
   }
+}
+
+function defaultConnectExternal(
+  connector: ScoopAuthConnectorLike,
+  namespace: string,
+): Promise<{ address?: string } | void> {
+  return ConnectionController.connectExternal(
+    connector as never,
+    namespace as never,
+  ) as Promise<{ address?: string } | void>;
+}
+
+function activeAuthNamespace(): string {
+  try {
+    return String(ChainController.state.activeChain ?? 'eip155');
+  } catch {
+    return 'eip155';
+  }
+}
+
+function parseAddress(raw: unknown): string | null {
+  const address = String(raw ?? '').trim();
+  return /^0x[a-fA-F0-9]{40}$/.test(address) ? address : null;
 }
 
 export async function waitForAuthProvider(input?: {
@@ -178,35 +214,65 @@ export async function reownConnectDevice(input?: {
   }
 }
 
-export async function reownConnectEmbedded(input?: {
-  chainId?: number;
+/**
+ * Attach AUTH connector to wagmi via AppKit ConnectionController (Reown scaffold path).
+ * Call after OTP success or when connectEmail returns CONNECT.
+ */
+export async function reownConnectAuthExternal(input?: {
   resolveConnector?: ResolveAuthConnector;
-  wait?: typeof waitForAuthProvider;
-}): Promise<
-  ScoopReownEmailResult<{ address: string; email: string | null }>
-> {
-  const wait = input?.wait ?? waitForAuthProvider;
-  const ready = await wait({ resolveConnector: input?.resolveConnector });
-  if (!ready.ok) return ready;
+  connectExternal?: ConnectExternalFn;
+  namespace?: string;
+}): Promise<ScoopReownEmailResult<{ address: string; email: string | null }>> {
+  const resolve = input?.resolveConnector ?? defaultResolveAuthConnector;
+  const connectExternal = input?.connectExternal ?? defaultConnectExternal;
+  const connector = resolve();
+  if (!connector?.provider) {
+    return asError('AUTH_CONNECTOR_UNAVAILABLE', { retryable: true });
+  }
+
   try {
-    const connected = await ready.provider.connect(
-      input?.chainId != null ? { chainId: input.chainId } : undefined,
+    const namespace = input?.namespace ?? activeAuthNamespace();
+    const result = await connectExternal(connector, namespace);
+    let address = parseAddress(
+      result && typeof result === 'object' ? result.address : null,
     );
-    const address = String(connected?.address ?? '').trim();
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+
+    if (!address) {
+      try {
+        const user = await connector.provider.connect();
+        address = parseAddress(user?.address);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!address) {
       return asError('CONNECT_FAILED', {
         message: 'Email wallet connected without a usable address.',
         retryable: true,
       });
     }
-    const email =
-      typeof connected?.email === 'string'
-        ? connected.email
-        : ready.provider.getEmail?.() ?? null;
+
+    const email = connector.provider.getEmail?.() ?? null;
     return { ok: true, address, email };
   } catch (cause) {
     return asError('CONNECT_FAILED', { cause, retryable: true });
   }
+}
+
+/** Alias kept for call-site clarity; prefer reownConnectAuthExternal. */
+export async function reownConnectEmbedded(input?: {
+  chainId?: number;
+  resolveConnector?: ResolveAuthConnector;
+  connectExternal?: ConnectExternalFn;
+  namespace?: string;
+}): Promise<ScoopReownEmailResult<{ address: string; email: string | null }>> {
+  void input?.chainId;
+  return reownConnectAuthExternal({
+    resolveConnector: input?.resolveConnector,
+    connectExternal: input?.connectExternal,
+    namespace: input?.namespace,
+  });
 }
 
 export function reownGetEmail(input?: {

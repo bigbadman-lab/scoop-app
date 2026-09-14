@@ -8,6 +8,7 @@ import {
   subscribeScoopAuthSheet,
 } from '@/lib/auth/open-scoop-auth';
 import {
+  reownConnectAuthExternal,
   reownConnectEmail,
   reownConnectOtp,
   waitForAuthProvider,
@@ -88,7 +89,7 @@ describe('reduceScoopAuth', () => {
     expect(state.phase).toBe('otp_enter');
   });
 
-  it('email -> device approval', () => {
+  it('email -> device approval then OTP', () => {
     let state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
     state = reduceScoopAuth(state, { type: 'CHOOSE_EMAIL' });
     state = reduceScoopAuth(state, { type: 'EMAIL_SUBMIT' });
@@ -97,6 +98,8 @@ describe('reduceScoopAuth', () => {
       action: 'VERIFY_DEVICE',
     });
     expect(state.phase).toBe('device_approving');
+    state = reduceScoopAuth(state, { type: 'DEVICE_OK' });
+    expect(state.phase).toBe('otp_enter');
   });
 
   it('OTP -> connected path', () => {
@@ -221,6 +224,26 @@ describe('reown email adapter', () => {
     await reownConnectEmail({ email: 'you@example.com', wait });
     await reownConnectEmail({ email: 'you@example.com', wait });
     expect(connectEmail).toHaveBeenCalledTimes(2);
+  });
+
+  it('connectExternal attaches AUTH and returns address', async () => {
+    const provider = mockProvider({
+      getEmail: vi.fn(() => 'you@example.com'),
+    });
+    const connectExternal = vi.fn(async () => ({
+      address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    }));
+    const result = await reownConnectAuthExternal({
+      resolveConnector: () => ({ provider, id: 'AUTH', type: 'AUTH' }),
+      connectExternal,
+      namespace: 'eip155',
+    });
+    expect(connectExternal).toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: true,
+      address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      email: 'you@example.com',
+    });
   });
 });
 

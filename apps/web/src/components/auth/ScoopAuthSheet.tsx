@@ -144,7 +144,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
       : state.phase === 'otp_enter' || state.phase === 'otp_verifying'
         ? `We sent a code to ${state.email || 'your email'}`
         : state.phase === 'device_approving'
-          ? 'Confirm this browser in the secure Reown prompt, then continue.'
+          ? 'Confirm this browser in the secure Reown prompt. We will ask for a code next.'
           : state.phase === 'wallet_select'
             ? 'Choose a wallet to continue.'
             : null;

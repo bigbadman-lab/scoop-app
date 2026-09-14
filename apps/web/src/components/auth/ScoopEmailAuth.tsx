@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import {
+  reownConnectAuthExternal,
   reownConnectDevice,
   reownConnectEmail,
-  reownConnectEmbedded,
   reownConnectOtp,
 } from '@/lib/auth/reown-email-headless';
 import {
@@ -21,14 +20,12 @@ type Props = {
   onBackEntry: () => void;
 };
 
-async function finishEmbeddedConnect(
+async function finishAuthExternalConnect(
   dispatch: Props['dispatch'],
   onWalletReady: Props['onWalletReady'],
 ) {
   dispatch({ type: 'PROVIDER_CONNECT_START' });
-  const connected = await reownConnectEmbedded({
-    chainId: ROBINHOOD_CHAIN_ID,
-  });
+  const connected = await reownConnectAuthExternal();
   if (!connected.ok) {
     dispatch({
       type: 'PROVIDER_CONNECT_FAIL',
@@ -74,9 +71,9 @@ export function ScoopEmailAuth({
         return;
       }
       dispatch({ type: 'DEVICE_OK' });
-      await finishEmbeddedConnect(dispatch, onWalletReady);
+      // Reown: device approval then OTP — do not connectExternal yet.
     })();
-  }, [state.phase, dispatch, onWalletReady]);
+  }, [state.phase, dispatch]);
 
   async function submitEmail() {
     setLocalError(null);
@@ -93,7 +90,7 @@ export function ScoopEmailAuth({
     }
     dispatch({ type: 'EMAIL_RESULT', action: result.action });
     if (result.action === 'CONNECT') {
-      await finishEmbeddedConnect(dispatch, onWalletReady);
+      await finishAuthExternalConnect(dispatch, onWalletReady);
     }
   }
 
@@ -110,7 +107,7 @@ export function ScoopEmailAuth({
       return;
     }
     dispatch({ type: 'OTP_OK' });
-    await finishEmbeddedConnect(dispatch, onWalletReady);
+    await finishAuthExternalConnect(dispatch, onWalletReady);
   }
 
   function setOtpDigit(index: number, raw: string) {
@@ -133,7 +130,7 @@ export function ScoopEmailAuth({
             return;
           }
           dispatch({ type: 'OTP_OK' });
-          await finishEmbeddedConnect(dispatch, onWalletReady);
+          await finishAuthExternalConnect(dispatch, onWalletReady);
         })();
       });
     }
@@ -156,7 +153,7 @@ export function ScoopEmailAuth({
             return;
           }
           dispatch({ type: 'OTP_OK' });
-          await finishEmbeddedConnect(dispatch, onWalletReady);
+          await finishAuthExternalConnect(dispatch, onWalletReady);
         })();
       });
     }
