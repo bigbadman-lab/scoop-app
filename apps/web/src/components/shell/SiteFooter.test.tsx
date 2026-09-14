@@ -29,5 +29,9 @@ describe('SiteFooter', () => {
     );
     expect(screen.getByText(/Markets for what’s happening now/i)).toBeTruthy();
     expect(screen.getAllByLabelText('SCOOP on X').length).toBeGreaterThanOrEqual(1);
+    const github = screen.getByRole('link', { name: 'SCOOP Protocol on GitHub' });
+    expect(github.getAttribute('href')).toBe(
+      'https://github.com/bigbadman-lab/scoop-protocol',
+    );
   });
 });

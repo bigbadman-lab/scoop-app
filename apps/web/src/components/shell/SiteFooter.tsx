@@ -2,8 +2,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   SCOOP_MARK_SRC,
+  SCOOP_PROTOCOL_GITHUB_URL,
   SCOOP_X_URL,
 } from '@/lib/brand';
+import { GitHubIcon } from '@/components/ui/GitHubIcon';
 import { XIcon } from '@/components/ui/XIcon';
 
 type FooterLink = { label: string; href: string; available: boolean };
@@ -79,15 +81,26 @@ export function SiteFooter() {
             <p className="mt-6 max-w-xs font-serif text-2xl leading-snug tracking-tight">
               Markets for what’s happening now.
             </p>
-            <a
-              href={SCOOP_X_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="SCOOP on X"
-              className="mt-5 inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
-            >
-              <XIcon className="h-4 w-4" />
-            </a>
+            <div className="mt-5 flex items-center gap-2">
+              <a
+                href={SCOOP_X_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="SCOOP on X"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+              >
+                <XIcon className="h-4 w-4" />
+              </a>
+              <a
+                href={SCOOP_PROTOCOL_GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="SCOOP Protocol on GitHub"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+              >
+                <GitHubIcon className="h-4 w-4" />
+              </a>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-10 sm:grid-cols-4 md:col-span-8">
