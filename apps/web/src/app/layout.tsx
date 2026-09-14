@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
+import Script from 'next/script';
 import { GeistMono } from 'geist/font/mono';
 import '@fontsource/open-sauce-sans/latin-400.css';
 import '@fontsource/open-sauce-sans/latin-500.css';
@@ -77,6 +78,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <WalletShellProvider cookies={cookieHeader}>
           <AppShell>{children}</AppShell>
         </WalletShellProvider>
+        <Script
+          src="https://datafa.st/js/script.js"
+          data-website-id="dfid_NLV4vTXIkqXQ5FoFyAxg0"
+          data-domain="scoop.fun"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
