@@ -19,7 +19,8 @@ Working tree already had WIP OG changes (template tracing, SVG reject, graceful 
 
 ## 3. Final HEAD
 
-See commit after push (`fix(web): repair token OG image generation`).
+`99fda4ebc83e4284f1baf950e09d3b9589579d88`  
+(`fix(web): repair token OG image generation`)
 
 ---
 
@@ -178,29 +179,34 @@ Token `generateMetadata` now passes `ogImageWidth` / `ogImageHeight` (1200×630)
 
 | Item | Value |
 |------|--------|
-| Commit message | `fix(web): repair token OG image generation` |
+| Commit | `99fda4ebc83e4284f1baf950e09d3b9589579d88` |
+| Message | `fix(web): repair token OG image generation` |
 | Push | `origin/main` |
-| Vercel | `scoop-web` Ready (recorded after deploy) |
+| Vercel project | `cope2/scoop-web` |
+| Deployment | `6Jqhh2PTPGiFTbKXpinUtByxTBfq` (**Ready**) |
+| Dashboard | https://vercel.com/cope2/scoop-web/6Jqhh2PTPGiFTbKXpinUtByxTBfq |
+| Production HTML dpl | `dpl_6Jqhh2PTPGiFTbKXpinUtByxTBfq` |
 
 ---
 
 ## 23–26. Live MUSE verification (post-deploy)
 
-Filled after production Ready:
-
 | Check | Result |
 |-------|--------|
-| Page 200 | *(post)* |
-| `og:image` URL | same opengraph-image path |
-| OG endpoint status | *(post)* |
-| Content-Type | *(post)* |
-| Card contains MUSE art | *(post)* |
+| Page 200 | **PASS** |
+| `og:image` URL | `https://scoop.fun/token/0x7c6b5347…cbc5/opengraph-image` |
+| `og:image:width` / `height` | **1200 / 630** |
+| OG endpoint status | **200** (3 consecutive crawler-UA fetches) |
+| Content-Type | **`image/png`** |
+| Bytes | PNG 1200×630 RGBA, ~257KB |
+| Card contains MUSE art | **YES** — MUSE MODE display artwork rendered in logo badge with `$MUSE` / Muse Mode / META / contract / SCOOP |
+| Cache headers | `public, immutable, … max-age=31536000` |
 
 ---
 
 ## 27. External checker
 
-Optional post-deploy; primary proof is direct crawler UA fetch of the PNG endpoint.
+Direct crawler UA proof used as primary (facebookexternalhit). No separate third-party checker run required after three consecutive production PNG 200s.
 
 ---
 
