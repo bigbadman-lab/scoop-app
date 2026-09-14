@@ -3,6 +3,8 @@ import {
   SEO_DEFAULT_OG_IMAGE_ALT,
   SEO_DEFAULT_OG_IMAGE_PATH,
   SEO_DEFAULT_OG_IMAGE_SIZE,
+  SEO_HOME_DESCRIPTION,
+  SEO_HOME_TITLE,
   absoluteSeoUrl,
   buildDefaultOgImage,
   buildPageMetadata,
@@ -92,6 +94,23 @@ describe('buildPageMetadata', () => {
     expect(meta.twitter?.card).toBe('summary_large_image');
   });
 
+  it('uses approved homepage social title and description', () => {
+    const meta = buildPageMetadata({
+      title: SEO_HOME_TITLE,
+      description: SEO_HOME_DESCRIPTION,
+      path: '/',
+      absoluteTitle: true,
+    });
+    expect(meta.title).toEqual({ absolute: SEO_HOME_TITLE });
+    expect(meta.description).toBe(SEO_HOME_DESCRIPTION);
+    expect(meta.openGraph?.title).toBe(SEO_HOME_TITLE);
+    expect(meta.openGraph?.description).toBe(SEO_HOME_DESCRIPTION);
+    expect(meta.twitter?.title).toBe(SEO_HOME_TITLE);
+    expect(meta.twitter?.description).toBe(SEO_HOME_DESCRIPTION);
+    const ogImages = meta.openGraph?.images as Array<Record<string, unknown>>;
+    expect(String(ogImages[0]!.url)).toMatch(/\/brand\/og-home\.jpg$/);
+  });
+
   it('uses og-home.jpg as the default social image with dimensions', () => {
     const meta = buildPageMetadata({
       title: 'SCOOP',
@@ -156,7 +175,7 @@ describe('buildDefaultOgImage', () => {
       url: 'https://scoop.fun/brand/og-home.jpg',
       width: 1200,
       height: 630,
-      alt: SEO_DEFAULT_OG_IMAGE_ALT,
+      alt: SEO_HOME_TITLE,
     });
   });
 });

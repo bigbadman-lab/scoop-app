@@ -12,6 +12,7 @@ import {
   SEO_DEFAULT_OG_IMAGE_ALT,
   SEO_DEFAULT_OG_IMAGE_PATH,
   SEO_DEFAULT_OG_IMAGE_SIZE,
+  SEO_HOME_TITLE,
   SEO_SITE_NAME,
   absoluteSeoUrl,
   resolveSeoOrigin,
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
     siteName: SEO_SITE_NAME,
     locale: 'en_US',
     url: absoluteSeoUrl('/'),
-    title: SEO_SITE_NAME,
+    title: SEO_HOME_TITLE,
     description: SEO_DEFAULT_DESCRIPTION,
     images: [
       {
@@ -50,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: SEO_SITE_NAME,
+    title: SEO_HOME_TITLE,
     description: SEO_DEFAULT_DESCRIPTION,
     images: [SEO_DEFAULT_OG_IMAGE_PATH],
   },

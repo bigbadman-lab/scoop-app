@@ -4,14 +4,19 @@ import { SCOOP_CANONICAL_ORIGIN } from '@/lib/auth/chain';
 /** Production SEO domain — always used for sitemap/canonicals/OG in production. */
 export const SEO_SITE_NAME = 'SCOOP';
 
-export const SEO_DEFAULT_DESCRIPTION =
-  'Live stock news and token markets on Robinhood Chain. Turn news into markets.';
+/** Approved homepage / social launch title. */
+export const SEO_HOME_TITLE = 'SCOOP — Trade the News. Launch the Market.';
+
+/** Approved homepage / social launch description. */
+export const SEO_HOME_DESCRIPTION =
+  'Market-moving news, turned into tradable onchain markets. Launch tokens with stock pairing, creator earnings and holder rewards — built on Uniswap v4.';
+
+export const SEO_DEFAULT_DESCRIPTION = SEO_HOME_DESCRIPTION;
 
 /** Default branded social preview — `public/brand/og-home.jpg` (1200×630). */
 export const SEO_DEFAULT_OG_IMAGE_PATH = '/brand/og-home.jpg';
 
-export const SEO_DEFAULT_OG_IMAGE_ALT =
-  'SCOOP — make a market out of it. Live stock news and token markets on Robinhood Chain.';
+export const SEO_DEFAULT_OG_IMAGE_ALT = SEO_HOME_TITLE;
 
 export const SEO_DEFAULT_OG_IMAGE_SIZE = {
   width: 1200,

@@ -6,13 +6,13 @@ import { loadDiscoverSnapshot } from '@/lib/discovery/load-home';
 import { loadLeadNews } from '@/lib/news/load-home';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
 import { buildHomeJsonLd, JsonLdScript } from '@/lib/seo/json-ld';
-import { buildPageMetadata, SEO_DEFAULT_DESCRIPTION } from '@/lib/seo/site';
+import { buildPageMetadata, SEO_HOME_DESCRIPTION, SEO_HOME_TITLE } from '@/lib/seo/site';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'SCOOP',
-  description: SEO_DEFAULT_DESCRIPTION,
+  title: SEO_HOME_TITLE,
+  description: SEO_HOME_DESCRIPTION,
   path: '/',
   absoluteTitle: true,
 });
