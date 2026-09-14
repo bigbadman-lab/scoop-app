@@ -168,7 +168,7 @@ Confirm after deploy: Join / Sign in still opens Reown AppKit Connect (not SCOOP
 
 ## 29. Final HEAD
 
-Filled after commit.
+`99a0a5e6b9c0aaa4ca127cdfddb5fccbe092b9a6`
 
 ## 30. `git status --short`
 
