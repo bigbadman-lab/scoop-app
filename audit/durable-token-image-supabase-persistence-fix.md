@@ -117,9 +117,31 @@ Relevant unit suites: **pass**
 
 None.
 
-## 26–31. Commit / push / deploy / HEAD / status
+## 26. Commit
 
-Filled after git + Vercel verification.
+`f7b94d4` — `fix(web): make token display image persistence durable`
+
+## 27. Push
+
+Pushed to `origin/main` (`f80bd05..f7b94d4`).
+
+## 28. Vercel deployment result
+
+Production Ready: `dpl_J5E228VJYWm1Mt3e3gp6MvuFusCf`  
+`https://scoop-dbudc5zyy-cope2.vercel.app` → `https://scoop.fun`  
+Smoke: `/` 200, `/markets` 200, unauthenticated `POST /api/launch/display-image` → `AUTH_REQUIRED`.
+
+## 29. Render deployment result
+
+Not applicable (indexer unchanged).
+
+## 30. Final HEAD
+
+`f7b94d40241b65c495cab7633fd810a6f8221993`
+
+## 31. `git status --short`
+
+Feature tree clean; unrelated untracked audit/P10.4 reports remain.
 
 ## 32. Manual canary steps (Alex, via scoop.fun)
 
