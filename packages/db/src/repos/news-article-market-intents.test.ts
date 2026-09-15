@@ -298,3 +298,241 @@ describe('getNewsArticleLoreForToken', () => {
     expect(lore).toBeNull();
   });
 });
+
+describe('ensureNewsArticleMarketFromTrustedDraft', () => {
+  it('no-ops without draftId', async () => {
+    const db = mockDb(() => ({ rows: [] }));
+    const { ensureNewsArticleMarketFromTrustedDraft } = await import(
+      './news-article-market-intents.js'
+    );
+    const result = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: null,
+    });
+    expect(result).toEqual({ ok: true, skipped: true, reason: 'no_draft' });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('no-ops for non-news draft', async () => {
+    const { ensureNewsArticleMarketFromTrustedDraft } = await import(
+      './news-article-market-intents.js'
+    );
+    const db = mockDb((sql) => {
+      if (sql.includes('FROM launch_drafts')) {
+        return {
+          rows: [
+            {
+              source_type: 'standard',
+              provider: null,
+              provider_article_id: null,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const result = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: DRAFT,
+    });
+    expect(result).toEqual({
+      ok: true,
+      skipped: true,
+      reason: 'not_news_draft',
+    });
+  });
+
+  it('C1/C5/C6: news draft + launched token creates intent/link and lore', async () => {
+    const { ensureNewsArticleMarketFromTrustedDraft, getNewsArticleLoreForToken } =
+      await import('./news-article-market-intents.js');
+    const intentRow = {
+      id: 'intent-zhang',
+      chain_id: 4663,
+      token_address: TOKEN_NORM,
+      provider: PROVIDER,
+      provider_article_id: ARTICLE,
+      draft_id: DRAFT,
+      status: 'pending' as const,
+      attempts: 0,
+      last_error: null,
+      created_at: new Date('2026-09-15T00:00:00Z'),
+      updated_at: new Date('2026-09-15T00:00:00Z'),
+    };
+    let namInserted = false;
+    let intentStatus = 'pending';
+    const db = mockDb((sql) => {
+      if (sql.includes('FROM launch_drafts')) {
+        return {
+          rows: [
+            {
+              source_type: 'news',
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM provider_news_articles') && sql.includes('SELECT 1')) {
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('FROM news_article_markets') && sql.includes('SELECT provider')) {
+        return namInserted
+          ? {
+              rows: [
+                { provider: PROVIDER, provider_article_id: ARTICLE },
+              ],
+            }
+          : { rows: [] };
+      }
+      if (sql.includes('FROM launches')) {
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('INSERT INTO news_article_market_intents')) {
+        return { rows: [{ ...intentRow, status: intentStatus }] };
+      }
+      if (sql.includes('INSERT INTO news_article_markets')) {
+        namInserted = true;
+        return { rows: [] };
+      }
+      if (sql.includes('UPDATE news_article_market_intents') && sql.includes('status')) {
+        intentStatus = 'done';
+        return { rows: [{ ...intentRow, status: 'done' }] };
+      }
+      if (sql.includes('FROM news_article_markets nam')) {
+        return {
+          rows: [
+            {
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+              title: 'Legend Biotech taps Novartis veteran Zhang as CEO',
+              url: 'https://www.reuters.com/example',
+              canonical_url: null,
+              source_domain: 'reuters.com',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const ensured = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: DRAFT,
+    });
+    expect(ensured.ok).toBe(true);
+    if (!ensured.ok || ensured.skipped) throw new Error('expected news ensure');
+    expect(ensured.linked).toBe(true);
+    expect(ensured.intent.status).toBe('done');
+
+    const lore = await getNewsArticleLoreForToken(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+    });
+    expect(lore).toMatchObject({
+      title: 'Legend Biotech taps Novartis veteran Zhang as CEO',
+      sourceDomain: 'reuters.com',
+    });
+  });
+
+  it('C3: repeated ensure is idempotent for already-linked token', async () => {
+    const { ensureNewsArticleMarketFromTrustedDraft } = await import(
+      './news-article-market-intents.js'
+    );
+    const intentRow = {
+      id: 'intent-1',
+      chain_id: 4663,
+      token_address: TOKEN_NORM,
+      provider: PROVIDER,
+      provider_article_id: ARTICLE,
+      draft_id: DRAFT,
+      status: 'done' as const,
+      attempts: 0,
+      last_error: null,
+      created_at: new Date('2026-09-15T00:00:00Z'),
+      updated_at: new Date('2026-09-15T00:00:00Z'),
+    };
+    let insertCount = 0;
+    const db = mockDb((sql) => {
+      if (sql.includes('FROM launch_drafts')) {
+        return {
+          rows: [
+            {
+              source_type: 'news',
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM provider_news_articles')) {
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('FROM news_article_markets') && sql.includes('SELECT provider')) {
+        return {
+          rows: [{ provider: PROVIDER, provider_article_id: ARTICLE }],
+        };
+      }
+      if (sql.includes('INSERT INTO news_article_market_intents')) {
+        insertCount += 1;
+        return { rows: [intentRow] };
+      }
+      return { rows: [] };
+    });
+
+    const first = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: DRAFT,
+    });
+    const second = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: DRAFT,
+    });
+    expect(first.ok && !first.skipped && first.linked).toBe(true);
+    expect(second.ok && !second.skipped && second.linked).toBe(true);
+    expect(insertCount).toBe(2); // upsert ON CONFLICT; no duplicate market rows
+  });
+
+  it('C4: conflicting existing link fails safely', async () => {
+    const { ensureNewsArticleMarketFromTrustedDraft } = await import(
+      './news-article-market-intents.js'
+    );
+    const db = mockDb((sql) => {
+      if (sql.includes('FROM launch_drafts')) {
+        return {
+          rows: [
+            {
+              source_type: 'news',
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM provider_news_articles')) {
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('FROM news_article_markets') && sql.includes('SELECT provider')) {
+        return {
+          rows: [
+            {
+              provider: PROVIDER,
+              provider_article_id: 'other_article',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const result = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: 4663,
+      tokenAddress: TOKEN,
+      draftId: DRAFT,
+    });
+    expect(result).toEqual({ ok: false, reason: 'token_already_linked' });
+  });
+});

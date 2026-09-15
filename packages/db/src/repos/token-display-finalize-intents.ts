@@ -1,6 +1,7 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress } from '../hex.js';
 import { buildPublicTokenImageUrl } from './live-overlay.js';
+import { ensureNewsArticleMarketFromTrustedDraft } from './news-article-market-intents.js';
 import { setTokenDisplayImageUrl } from './tokens.js';
 
 export type TokenDisplayFinalizeIntentStatus =
@@ -289,7 +290,8 @@ export type ApplyBoundDisplayImageResult = {
 /**
  * Canonical insert enrichment: if a bound/awaiting intent already has a trusted
  * display path for this token's image_uri, set tokens.display_image_url and
- * mark the intent done. Image metadata only — never touches price/trade state.
+ * mark the intent done. When the intent carries a news `draft_id`, also persist
+ * the canonical news↔market relationship (ZHANG durability invariant).
  */
 export async function applyBoundDisplayImageOnTokenInsert(
   db: Queryable,
@@ -364,6 +366,13 @@ export async function applyBoundDisplayImageOnTokenInsert(
        AND status IN ('awaiting_token', 'pending', 'done')`,
     [intent.id, input.chainId, tokenAddress],
   );
+
+  // News lore durability: indexer display success must not leave ZHANG-class gap.
+  await ensureNewsArticleMarketFromTrustedDraft(db, {
+    chainId: input.chainId,
+    tokenAddress,
+    draftId: intent.draftId,
+  });
 
   return {
     applied: write === 'applied',

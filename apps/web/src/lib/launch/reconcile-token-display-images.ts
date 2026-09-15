@@ -1,7 +1,9 @@
 import {
   bindAwaitingDisplayFinalizeIntents,
   bumpDisplayFinalizeIntentAttempt,
+  ensureNewsArticleMarketFromTrustedDraft,
   expireStaleAwaitingDisplayFinalizeIntents,
+  listDoneDisplayIntentsMissingNewsLink,
   listOrphanTokenDisplayCandidates,
   listPendingDisplayFinalizeIntents,
   markDisplayFinalizeIntentResult,
@@ -20,6 +22,7 @@ export type ReconcileTokenDisplayImagesResult = {
   intentsApplied: number;
   orphansProcessed: number;
   orphansApplied: number;
+  newsLoreHealed: number;
 };
 
 export type ReconcileTokenDisplayImagesInput = {
@@ -86,6 +89,14 @@ export async function reconcileTokenDisplayImages(
     await applyIntentResult(input.db, intent.id, result, log);
     if (result.ok && (result.status === 'applied' || result.status === 'skipped')) {
       intentsApplied += 1;
+      // Always use pin-time draft_id (cron may null draftId when path present).
+      await ensureNewsFromDisplayIntent({
+        db: input.db,
+        chainId: intent.chainId,
+        tokenAddress: intent.tokenAddress,
+        draftId: intent.draftId,
+        log,
+      });
     }
   }
 
@@ -113,6 +124,13 @@ export async function reconcileTokenDisplayImages(
     });
     if (result.ok && (result.status === 'applied' || result.status === 'skipped')) {
       orphansApplied += 1;
+      await ensureNewsFromDisplayIntent({
+        db: input.db,
+        chainId: orphan.chainId,
+        tokenAddress: orphan.tokenAddress,
+        draftId: openIntent?.draftId ?? orphan.draftId,
+        log,
+      });
     } else if (!result.ok) {
       log({
         event: 'orphan_finalize_failed',
@@ -125,6 +143,22 @@ export async function reconcileTokenDisplayImages(
     }
   }
 
+  let newsLoreHealed = 0;
+  const missingNews = await listDoneDisplayIntentsMissingNewsLink(input.db, {
+    lookbackSeconds,
+    limit: intentLimit,
+  });
+  for (const row of missingNews) {
+    const healed = await ensureNewsFromDisplayIntent({
+      db: input.db,
+      chainId: row.chainId,
+      tokenAddress: row.tokenAddress,
+      draftId: row.draftId,
+      log,
+    });
+    if (healed) newsLoreHealed += 1;
+  }
+
   log({
     event: 'reconcile_summary',
     owner: 'server_reconciliation',
@@ -135,6 +169,7 @@ export async function reconcileTokenDisplayImages(
     intentsApplied,
     orphansProcessed,
     orphansApplied,
+    newsLoreHealed,
   });
 
   return {
@@ -145,7 +180,47 @@ export async function reconcileTokenDisplayImages(
     intentsApplied,
     orphansProcessed,
     orphansApplied,
+    newsLoreHealed,
   };
+}
+
+async function ensureNewsFromDisplayIntent(args: {
+  db: Queryable;
+  chainId: number;
+  tokenAddress: string;
+  draftId?: string | null;
+  log: (fields: Record<string, unknown>) => void;
+}): Promise<boolean> {
+  try {
+    const news = await ensureNewsArticleMarketFromTrustedDraft(args.db, {
+      chainId: args.chainId,
+      tokenAddress: args.tokenAddress,
+      draftId: args.draftId,
+    });
+    if (!news.ok) {
+      args.log({
+        event: 'news_lore_ensure_failed',
+        tokenAddress: args.tokenAddress,
+        reason: news.reason,
+      });
+      return false;
+    }
+    if (news.skipped) return false;
+    args.log({
+      event: 'news_lore_ensured',
+      tokenAddress: args.tokenAddress,
+      linked: news.linked,
+      intentStatus: news.intent.status,
+    });
+    return true;
+  } catch (error) {
+    args.log({
+      event: 'news_lore_ensure_error',
+      tokenAddress: args.tokenAddress,
+      error: error instanceof Error ? error.message : 'error',
+    });
+    return false;
+  }
 }
 
 async function findOpenIntentImageSource(

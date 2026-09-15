@@ -260,6 +260,109 @@ export async function expireStaleNewsArticleMarketIntents(
   return result.rowCount ?? 0;
 }
 
+export type EnsureNewsFromTrustedDraftResult =
+  | { ok: true; skipped: true; reason: 'no_draft' | 'not_news_draft' }
+  | {
+      ok: true;
+      skipped: false;
+      linked: boolean;
+      intent: NewsArticleMarketIntent;
+      reason?: string;
+    }
+  | { ok: false; reason: string };
+
+/**
+ * Trusted display-finalization companion: if `draftId` resolves to a news
+ * launch draft, persist canonical news↔market intent/link. Non-news / missing
+ * drafts are no-ops. Never trusts client headline/URL as identity.
+ */
+export async function ensureNewsArticleMarketFromTrustedDraft(
+  db: Queryable,
+  input: {
+    chainId: number;
+    tokenAddress: string;
+    draftId?: string | null;
+  },
+): Promise<EnsureNewsFromTrustedDraftResult> {
+  const draftId = input.draftId?.trim() || '';
+  if (!draftId) {
+    return { ok: true, skipped: true, reason: 'no_draft' };
+  }
+
+  const resolved = await resolveArticleFromDraft(db, draftId);
+  if (!resolved) {
+    return { ok: true, skipped: true, reason: 'not_news_draft' };
+  }
+
+  const result = await upsertNewsArticleMarketIntentAndLink(db, {
+    chainId: input.chainId,
+    tokenAddress: input.tokenAddress,
+    draftId,
+  });
+
+  if (!result.ok) {
+    return { ok: false, reason: result.reason };
+  }
+
+  return {
+    ok: true,
+    skipped: false,
+    linked: result.linked,
+    intent: result.intent,
+    reason: result.reason,
+  };
+}
+
+/**
+ * Recovery scan: display intents already `done` with a news draft but no
+ * news_article_market_intents row (ZHANG-class gap).
+ */
+export async function listDoneDisplayIntentsMissingNewsLink(
+  db: Queryable,
+  input: { lookbackSeconds?: number; limit?: number } = {},
+): Promise<
+  Array<{
+    chainId: number;
+    tokenAddress: string;
+    draftId: string;
+    displayIntentId: string;
+  }>
+> {
+  const lookbackSeconds = input.lookbackSeconds ?? 604_800;
+  const limit = input.limit ?? 20;
+  const result = await db.query<{
+    id: string;
+    chain_id: string | number;
+    token_address: string;
+    draft_id: string;
+  }>(
+    `SELECT f.id, f.chain_id, f.token_address, f.draft_id
+     FROM token_display_finalize_intents f
+     INNER JOIN launch_drafts d
+       ON d.id = f.draft_id AND d.source_type = 'news'
+     WHERE f.status = 'done'
+       AND f.draft_id IS NOT NULL
+       AND f.token_address IS NOT NULL
+       AND f.chain_id IS NOT NULL
+       AND f.updated_at >= NOW() - ($1::text || ' seconds')::interval
+       AND NOT EXISTS (
+         SELECT 1 FROM news_article_market_intents i
+         WHERE i.chain_id = f.chain_id
+           AND lower(i.token_address) = lower(f.token_address)
+       )
+     ORDER BY f.updated_at ASC
+     LIMIT $2`,
+    [String(lookbackSeconds), limit],
+  );
+
+  return result.rows.map((row) => ({
+    displayIntentId: row.id,
+    chainId: Number(row.chain_id),
+    tokenAddress: normalizeAddress(row.token_address),
+    draftId: row.draft_id,
+  }));
+}
+
 /** Originating article for token Lore (durable link only). */
 export async function getNewsArticleLoreForToken(
   db: Queryable,

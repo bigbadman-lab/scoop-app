@@ -160,6 +160,8 @@ export {
 } from './repos/news-article-markets.js';
 export {
   upsertNewsArticleMarketIntentAndLink,
+  ensureNewsArticleMarketFromTrustedDraft,
+  listDoneDisplayIntentsMissingNewsLink,
   listPendingNewsArticleMarketIntents,
   markNewsArticleMarketIntentResult,
   bumpNewsArticleMarketIntentAttempt,
@@ -169,6 +171,7 @@ export {
   type NewsArticleMarketIntentStatus,
   type UpsertNewsArticleMarketIntentInput,
   type UpsertNewsArticleMarketIntentResult,
+  type EnsureNewsFromTrustedDraftResult,
 } from './repos/news-article-market-intents.js';
 export {
   upsertToken,

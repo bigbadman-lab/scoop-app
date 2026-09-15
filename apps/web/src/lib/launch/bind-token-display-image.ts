@@ -1,11 +1,41 @@
 import {
   bindDisplayFinalizeIntentToToken,
+  ensureNewsArticleMarketFromTrustedDraft,
   getDraftSelectedDisplayImagePath,
   getTokenImageFields,
   markDisplayFinalizeIntentResult,
   setTokenDisplayImageUrl,
   type Queryable,
 } from '@scoop/db';
+
+async function ensureNewsFromBoundDraft(args: {
+  db: Queryable;
+  chainId: number;
+  tokenAddress: string;
+  draftId: string | null;
+  log: (fields: Record<string, unknown>) => void;
+}): Promise<void> {
+  try {
+    const news = await ensureNewsArticleMarketFromTrustedDraft(args.db, {
+      chainId: args.chainId,
+      tokenAddress: args.tokenAddress,
+      draftId: args.draftId,
+    });
+    if (!news.ok) {
+      args.log({
+        event: 'news_ensure_skipped',
+        tokenAddress: args.tokenAddress,
+        reason: news.reason,
+      });
+    }
+  } catch (error) {
+    args.log({
+      event: 'news_ensure_failed',
+      tokenAddress: args.tokenAddress,
+      error: error instanceof Error ? error.message : 'error',
+    });
+  }
+}
 import {
   deriveTokenImagePublicUrl,
   isAllowedTokenDisplayImagePath,
@@ -155,6 +185,13 @@ export async function bindAndFinalizeTokenDisplayImage(
         status: 'done',
       });
     }
+    await ensureNewsFromBoundDraft({
+      db: input.db,
+      chainId: input.chainId,
+      tokenAddress,
+      draftId: resolvedDraftId,
+      log,
+    });
     log({
       event: 'already_finalized',
       tokenAddress,
@@ -225,6 +262,14 @@ export async function bindAndFinalizeTokenDisplayImage(
   const source: 'path' | 'draft' = path.startsWith('drafts/') ? 'draft' : 'path';
 
   if (!tokenRowPresent) {
+    // Persist news intent even before index so browser drop cannot erase provenance.
+    await ensureNewsFromBoundDraft({
+      db: input.db,
+      chainId: input.chainId,
+      tokenAddress,
+      draftId: resolvedDraftId,
+      log,
+    });
     log({
       event: 'bound_awaiting_canonical',
       tokenAddress,
@@ -260,6 +305,14 @@ export async function bindAndFinalizeTokenDisplayImage(
     await markDisplayFinalizeIntentResult(input.db, {
       id: intent.id,
       status: 'done',
+    });
+
+    await ensureNewsFromBoundDraft({
+      db: input.db,
+      chainId: input.chainId,
+      tokenAddress,
+      draftId: resolvedDraftId,
+      log,
     });
 
     log({
@@ -299,6 +352,13 @@ export async function bindAndFinalizeTokenDisplayImage(
       finalized: false,
     });
     // Intent is bound; caller still gets the public URL for immediate UX.
+    await ensureNewsFromBoundDraft({
+      db: input.db,
+      chainId: input.chainId,
+      tokenAddress,
+      draftId: resolvedDraftId,
+      log,
+    });
     return {
       ok: true,
       displayImageUrl,
