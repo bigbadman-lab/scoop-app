@@ -54,22 +54,9 @@ export async function publishRoundSafe(
     return { ok: false, error: 'merkleRoot must be non-zero' };
   }
 
-  let sumCheckUncommitted: bigint;
-  try {
-    sumCheckUncommitted = await readUncommitted(publicClient, vault, asset);
-  } catch (error) {
-    return {
-      ok: false,
-      error: `uncommitted read failed: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-  if (totalCommitted > sumCheckUncommitted) {
-    return {
-      ok: false,
-      error: `insufficient uncommitted: need ${totalCommitted} have ${sumCheckUncommitted}`,
-    };
-  }
-
+  // Crash recovery: if this exact round is already published on-chain, treat
+  // publication as authoritative. Do NOT require funds to still be uncommitted
+  // (publishRound already moved them into the committed round).
   const existing = await readRound(publicClient, vault, roundId, asset);
   if (existing.published) {
     if (
@@ -95,6 +82,23 @@ export async function publishRoundSafe(
       ok: false,
       fatal: true,
       error: `FATAL: on-chain round already published with different root/amount`,
+    };
+  }
+
+  // Fresh unpublished round only: require sufficient uncommitted funding.
+  let sumCheckUncommitted: bigint;
+  try {
+    sumCheckUncommitted = await readUncommitted(publicClient, vault, asset);
+  } catch (error) {
+    return {
+      ok: false,
+      error: `uncommitted read failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (totalCommitted > sumCheckUncommitted) {
+    return {
+      ok: false,
+      error: `insufficient uncommitted: need ${totalCommitted} have ${sumCheckUncommitted}`,
     };
   }
 
