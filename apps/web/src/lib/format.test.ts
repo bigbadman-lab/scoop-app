@@ -11,6 +11,8 @@ import {
   displayVolume24h,
   formatCompactAge,
   formatCompactUsdMarketValue,
+  formatFeeAssetAmount,
+  formatFeeAssetDistributionLines,
   formatFeeSplitPercent,
   formatLaunchAge,
   formatNewsAge,
@@ -166,5 +168,57 @@ describe('format helpers', () => {
     expect(displayLifetimeEthFee(null)).toBeNull();
     expect(displayLifetimeEthFee('0')).toBe('0 ETH');
     expect(displayLifetimeEthFee('0.25')).toBe('0.25 ETH');
+  });
+
+  it('formats fee asset amounts with symbol, compact large values, and explicit zero', () => {
+    expect(
+      formatFeeAssetAmount({
+        amountRaw: '0',
+        decimals: 18,
+        symbol: 'ETH',
+        amountDisplay: '0',
+      }),
+    ).toBe('0 ETH');
+    expect(
+      formatFeeAssetAmount({
+        amountRaw: '6359000000000000',
+        decimals: 18,
+        symbol: 'META',
+        amountDisplay: '0.006359',
+      }),
+    ).toBe('0.006359 META');
+    expect(
+      formatFeeAssetAmount({
+        amountRaw: '151810000000000000000000',
+        decimals: 18,
+        symbol: 'MUSE',
+        amountDisplay: '151810',
+      }),
+    ).toBe('151.81K MUSE');
+    expect(
+      formatFeeAssetAmount({
+        amountRaw: '1',
+        decimals: 18,
+        symbol: '',
+        amountDisplay: '0.000000000000000001',
+      }),
+    ).toBe('0.000000000000000001 ???');
+    expect(formatFeeAssetDistributionLines([])).toBeNull();
+    expect(
+      formatFeeAssetDistributionLines([
+        {
+          amountRaw: '6359000000000000',
+          decimals: 18,
+          symbol: 'META',
+          amountDisplay: '0.006359',
+        },
+        {
+          amountRaw: '151810000000000000000000',
+          decimals: 18,
+          symbol: 'MUSE',
+          amountDisplay: '151810',
+        },
+      ]),
+    ).toEqual(['0.006359 META', '151.81K MUSE']);
   });
 });

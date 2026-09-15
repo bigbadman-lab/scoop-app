@@ -36,6 +36,8 @@ describe('live-market helpers', () => {
       lastTradeAt: 99,
       creatorFeesLifetimeEthRaw: null,
       buybackFeesLifetimeEthRaw: null,
+      creatorFeeDistributions: [],
+      buybackFeeDistributions: [],
       priceUsdDisplay: '0.1',
       priceQuoteDisplay: '0.2',
       fdvUsdDisplay: '3',
@@ -56,6 +58,47 @@ describe('live-market helpers', () => {
     expect(merged.changed).toBe(true);
     expect(merged.token.priceUsdX18).toBe('9');
     expect(merged.token.fdvUsdX18).toBe('27');
+
+    const withFees = {
+      ...a,
+      creatorFeeDistributions: [
+        {
+          assetAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          assetKind: 'token' as const,
+          symbol: 'META',
+          decimals: 18,
+          amountRaw: '100',
+          amountDisplay: '0.0000000000000001',
+        },
+      ],
+    };
+    expect(liveTokenFingerprint(withFees)).not.toBe(liveTokenFingerprint(a));
+    const reordered = {
+      ...a,
+      creatorFeeDistributions: [
+        {
+          assetAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          assetKind: 'token' as const,
+          symbol: 'MUSE',
+          decimals: 18,
+          amountRaw: '200',
+          amountDisplay: '0.0000000000000002',
+        },
+        {
+          assetAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          assetKind: 'token' as const,
+          symbol: 'META',
+          decimals: 18,
+          amountRaw: '100',
+          amountDisplay: '0.0000000000000001',
+        },
+      ],
+    };
+    const sortedSame = {
+      ...a,
+      creatorFeeDistributions: [...reordered.creatorFeeDistributions].reverse(),
+    };
+    expect(liveTokenFingerprint(reordered)).toBe(liveTokenFingerprint(sortedSame));
   });
 
   it('dedupes and appends multiple unseen trades in chronological order', () => {

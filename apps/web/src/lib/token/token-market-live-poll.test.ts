@@ -74,6 +74,8 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     creatorFeesLifetimeEthDisplay: null,
     buybackFeesLifetimeEthRaw: null,
     buybackFeesLifetimeEthDisplay: null,
+    creatorFeeDistributions: [],
+    buybackFeeDistributions: [],
     ...overrides,
   };
 }

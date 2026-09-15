@@ -280,3 +280,88 @@ export function displayLifetimeEthFee(
   if (!trimmed) return null;
   return `${trimmed} ${symbol}`;
 }
+
+/**
+ * Compact per-asset fee amount for MARKET (bigint-safe; no USD).
+ * Explicit zero remains `"0 SYMBOL"` for generic use; MARKET omits zero legs upstream.
+ */
+export function formatFeeAssetAmount(args: {
+  amountRaw: string;
+  decimals: number;
+  symbol: string;
+  amountDisplay?: string;
+}): string {
+  const symbol = args.symbol.trim() || '???';
+  let raw: bigint;
+  try {
+    raw = BigInt(args.amountRaw);
+  } catch {
+    const fallback = (args.amountDisplay ?? '').trim() || '0';
+    return `${fallback} ${symbol}`;
+  }
+  if (raw < BigInt(0)) raw = -raw;
+
+  const decimals =
+    Number.isFinite(args.decimals) && args.decimals >= 0
+      ? Math.floor(args.decimals)
+      : 18;
+  const unit = BigInt(10) ** BigInt(decimals);
+  const whole = raw / unit;
+  const thousand = BigInt(1000);
+  const million = BigInt(1_000_000);
+  const billion = BigInt(1_000_000_000);
+  const trillion = BigInt(1_000_000_000_000);
+
+  if (whole >= trillion) {
+    return `${formatCompactWhole(raw, unit, trillion)}T ${symbol}`;
+  }
+  if (whole >= billion) {
+    return `${formatCompactWhole(raw, unit, billion)}B ${symbol}`;
+  }
+  if (whole >= million) {
+    return `${formatCompactWhole(raw, unit, million)}M ${symbol}`;
+  }
+  if (whole >= thousand) {
+    return `${formatCompactWhole(raw, unit, thousand)}K ${symbol}`;
+  }
+
+  const display =
+    (args.amountDisplay ?? '').trim() ||
+    formatFeeAssetDisplayFromRaw(raw, decimals);
+  return `${display} ${symbol}`;
+}
+
+/** Stacked MARKET lines; empty/missing → null (caller renders —). */
+export function formatFeeAssetDistributionLines(
+  distributions:
+    | ReadonlyArray<{
+        amountRaw: string;
+        decimals: number;
+        symbol: string;
+        amountDisplay?: string;
+      }>
+    | null
+    | undefined,
+): string[] | null {
+  if (distributions == null || distributions.length === 0) return null;
+  return distributions.map((d) => formatFeeAssetAmount(d));
+}
+
+function formatCompactWhole(raw: bigint, unit: bigint, divisorUnits: bigint): string {
+  const scaledDenom = unit * divisorUnits;
+  const scaled100 = (raw * BigInt(100) + scaledDenom / BigInt(2)) / scaledDenom;
+  const intPart = scaled100 / BigInt(100);
+  const frac = scaled100 % BigInt(100);
+  return `${intPart}.${frac.toString().padStart(2, '0')}`;
+}
+
+function formatFeeAssetDisplayFromRaw(raw: bigint, decimals: number): string {
+  const neg = raw < BigInt(0);
+  const abs = neg ? -raw : raw;
+  const unit = BigInt(10) ** BigInt(decimals);
+  const whole = abs / unit;
+  const frac = abs % unit;
+  if (frac === BigInt(0)) return `${neg ? '-' : ''}${whole}`;
+  const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
+  return `${neg ? '-' : ''}${whole}.${fracStr}`;
+}

@@ -1,7 +1,13 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress } from '../hex.js';
 import { clampLimit, clampOffset, formatRawAmount } from '../decimal.js';
-import type { DiscoveryFilter, DiscoverySort, TokenDetail, TokenDiscoveryItem } from '../dto.js';
+import type {
+  DiscoveryFilter,
+  DiscoverySort,
+  TokenDetail,
+  TokenDiscoveryItem,
+  TokenFeeAssetDistribution,
+} from '../dto.js';
 import {
   DEFAULT_NEW_WINDOW_SECONDS,
   DEFAULT_QUOTE_DECIMALS,
@@ -11,6 +17,8 @@ import {
   type DiscoverySqlRow,
 } from './_discoverySql.js';
 import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
+
+const NATIVE_ETH_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export interface GetTokensOptions {
   chainId: number;
@@ -41,6 +49,128 @@ function filterClause(filter: DiscoveryFilter): string {
       return '';
   }
 }
+
+function truncatedAssetSymbol(address: string): string {
+  const a = normalizeAddress(address);
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function isNativeEth(assetKind: string, assetAddress: string): boolean {
+  return assetKind === 'eth' || assetAddress === NATIVE_ETH_ADDRESS;
+}
+
+function feeAssetRank(
+  asset: TokenFeeAssetDistribution,
+  quoteAsset: string,
+  launchToken: string,
+): number {
+  if (isNativeEth(asset.assetKind, asset.assetAddress)) return 0;
+  if (asset.assetAddress === quoteAsset) return 1;
+  if (asset.assetAddress === launchToken) return 2;
+  return 3;
+}
+
+/** Deterministic MARKET ordering: ETH → quote → launch token → other. */
+export function orderTokenFeeDistributions(
+  assets: TokenFeeAssetDistribution[],
+  quoteAsset: string,
+  launchToken: string,
+): TokenFeeAssetDistribution[] {
+  const quote = normalizeAddress(quoteAsset);
+  const token = normalizeAddress(launchToken);
+  return [...assets].sort((a, b) => {
+    const ra = feeAssetRank(a, quote, token);
+    const rb = feeAssetRank(b, quote, token);
+    if (ra !== rb) return ra - rb;
+    return a.assetAddress.localeCompare(b.assetAddress);
+  });
+}
+
+type FeeAssetAggRow = {
+  asset_kind: string;
+  asset_address: string;
+  creator_raw: string;
+  buyback_raw: string;
+  symbol: string | null;
+  decimals: number | string | null;
+};
+
+function buildFeeDistributionEntry(
+  row: FeeAssetAggRow,
+  amountRaw: string,
+): TokenFeeAssetDistribution {
+  const assetAddress = normalizeAddress(row.asset_address);
+  const assetKind: 'eth' | 'token' = isNativeEth(row.asset_kind, assetAddress)
+    ? 'eth'
+    : 'token';
+  const decimalsRaw =
+    row.decimals == null || row.decimals === ''
+      ? null
+      : Number(row.decimals);
+  const decimals =
+    assetKind === 'eth'
+      ? 18
+      : decimalsRaw != null && Number.isFinite(decimalsRaw) && decimalsRaw >= 0
+        ? decimalsRaw
+        : DEFAULT_QUOTE_DECIMALS;
+  const symbol =
+    assetKind === 'eth'
+      ? 'ETH'
+      : (row.symbol ?? '').trim() || truncatedAssetSymbol(assetAddress);
+  return {
+    assetAddress,
+    assetKind,
+    symbol,
+    decimals,
+    amountRaw,
+    amountDisplay: formatRawAmount(amountRaw, decimals),
+  };
+}
+
+function mapFeeDistributionArrays(
+  rows: FeeAssetAggRow[],
+  quoteAsset: string,
+  launchToken: string,
+): {
+  creatorFeeDistributions: TokenFeeAssetDistribution[];
+  buybackFeeDistributions: TokenFeeAssetDistribution[];
+} {
+  const creators: TokenFeeAssetDistribution[] = [];
+  const buybacks: TokenFeeAssetDistribution[] = [];
+  for (const row of rows) {
+    const creatorRaw = String(row.creator_raw ?? '0');
+    const buybackRaw = String(row.buyback_raw ?? '0');
+    if (BigInt(creatorRaw) > 0n) {
+      creators.push(buildFeeDistributionEntry(row, creatorRaw));
+    }
+    if (BigInt(buybackRaw) > 0n) {
+      buybacks.push(buildFeeDistributionEntry(row, buybackRaw));
+    }
+  }
+  return {
+    creatorFeeDistributions: orderTokenFeeDistributions(
+      creators,
+      quoteAsset,
+      launchToken,
+    ),
+    buybackFeeDistributions: orderTokenFeeDistributions(
+      buybacks,
+      quoteAsset,
+      launchToken,
+    ),
+  };
+}
+
+function ethLegFromDistributions(
+  distributions: TokenFeeAssetDistribution[],
+): { raw: string; display: string } | null {
+  const eth = distributions.find(
+    (d) => d.assetKind === 'eth' || d.assetAddress === NATIVE_ETH_ADDRESS,
+  );
+  if (!eth) return null;
+  return { raw: eth.amountRaw, display: eth.amountDisplay };
+}
+
 
 function orderClause(sort: DiscoverySort): string {
   switch (sort) {
@@ -186,9 +316,7 @@ export async function getToken(
       p.currency0,
       p.currency1,
       p.tick_spacing,
-      p.hooks,
-      fd.creator_eth_raw,
-      fd.buyback_eth_raw
+      p.hooks
     FROM launches l
     INNER JOIN tokens t
       ON t.chain_id = l.chain_id AND t.token_address = l.token_address
@@ -196,16 +324,6 @@ export async function getToken(
       ON m.chain_id = l.chain_id AND m.token_address = l.token_address
     LEFT JOIN pools p
       ON p.chain_id = l.chain_id AND p.pool_id = l.pool_id
-    LEFT JOIN (
-      SELECT
-        chain_id,
-        scooptoken_address,
-        SUM(creator_raw) FILTER (WHERE asset_kind = 'eth')::text AS creator_eth_raw,
-        SUM(buyback_raw) FILTER (WHERE asset_kind = 'eth')::text AS buyback_eth_raw
-      FROM fee_distributions
-      GROUP BY chain_id, scooptoken_address
-    ) fd
-      ON fd.chain_id = l.chain_id AND fd.scooptoken_address = l.token_address
     WHERE l.chain_id = $1 AND l.token_address = $2
     LIMIT 1
     `,
@@ -243,23 +361,62 @@ export async function getToken(
         currency1: string | null;
         tick_spacing: number | string | null;
         hooks: string | null;
-        creator_eth_raw: string | null;
-        buyback_eth_raw: string | null;
       })
     | undefined;
 
   if (!row) return null;
 
+  const feeResult = await db.query(
+    `
+    SELECT
+      g.asset_kind,
+      g.asset_address,
+      g.creator_raw,
+      g.buyback_raw,
+      CASE
+        WHEN g.asset_kind = 'eth'
+          OR g.asset_address = '${NATIVE_ETH_ADDRESS}'
+        THEN 'ETH'
+        ELSE COALESCE(
+          NULLIF(qa.display_symbol, ''),
+          NULLIF(qa.symbol, ''),
+          NULLIF(tok.symbol, '')
+        )
+      END AS symbol,
+      CASE
+        WHEN g.asset_kind = 'eth'
+          OR g.asset_address = '${NATIVE_ETH_ADDRESS}'
+        THEN 18
+        ELSE COALESCE(qa.decimals, tok.decimals)
+      END AS decimals
+    FROM (
+      SELECT
+        asset_kind,
+        asset_address,
+        SUM(creator_raw)::text AS creator_raw,
+        SUM(buyback_raw)::text AS buyback_raw
+      FROM fee_distributions
+      WHERE chain_id = $1 AND scooptoken_address = $2
+      GROUP BY asset_kind, asset_address
+    ) g
+    LEFT JOIN quote_assets qa
+      ON qa.chain_id = $1 AND qa.quote_asset = g.asset_address
+    LEFT JOIN tokens tok
+      ON tok.chain_id = $1 AND tok.token_address = g.asset_address
+    `,
+    [chainId, tokenAddress],
+  );
+
   const base = mapDiscoveryItem(row);
+  const { creatorFeeDistributions, buybackFeeDistributions } =
+    mapFeeDistributionArrays(
+      feeResult.rows as FeeAssetAggRow[],
+      base.quoteAsset,
+      tokenAddress,
+    );
+  const creatorEth = ethLegFromDistributions(creatorFeeDistributions);
+  const buybackEth = ethLegFromDistributions(buybackFeeDistributions);
   const totalSupplyRaw = String(row.total_supply_raw);
-  const creatorEthRaw =
-    row.creator_eth_raw == null || row.creator_eth_raw === ''
-      ? null
-      : String(row.creator_eth_raw);
-  const buybackEthRaw =
-    row.buyback_eth_raw == null || row.buyback_eth_raw === ''
-      ? null
-      : String(row.buyback_eth_raw);
   const poolFee =
     row.pool_fee == null || row.pool_fee === ''
       ? null
@@ -305,11 +462,11 @@ export async function getToken(
     tickSpacing:
       tickSpacing != null && Number.isFinite(tickSpacing) ? tickSpacing : null,
     hooks: row.hooks == null ? null : String(row.hooks).toLowerCase(),
-    creatorFeesLifetimeEthRaw: creatorEthRaw,
-    creatorFeesLifetimeEthDisplay:
-      creatorEthRaw == null ? null : formatRawAmount(creatorEthRaw, DEFAULT_QUOTE_DECIMALS),
-    buybackFeesLifetimeEthRaw: buybackEthRaw,
-    buybackFeesLifetimeEthDisplay:
-      buybackEthRaw == null ? null : formatRawAmount(buybackEthRaw, DEFAULT_QUOTE_DECIMALS),
+    creatorFeesLifetimeEthRaw: creatorEth?.raw ?? null,
+    creatorFeesLifetimeEthDisplay: creatorEth?.display ?? null,
+    buybackFeesLifetimeEthRaw: buybackEth?.raw ?? null,
+    buybackFeesLifetimeEthDisplay: buybackEth?.display ?? null,
+    creatorFeeDistributions,
+    buybackFeeDistributions,
   };
 }

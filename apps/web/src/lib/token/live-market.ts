@@ -36,7 +36,20 @@ export function liveTokenFingerprint(token: TokenDetail): string {
     token.lastTradeAt ?? '',
     token.creatorFeesLifetimeEthRaw ?? '',
     token.buybackFeesLifetimeEthRaw ?? '',
+    feeDistributionsFingerprint('c', token.creatorFeeDistributions),
+    feeDistributionsFingerprint('b', token.buybackFeeDistributions),
   ].join('|');
+}
+
+function feeDistributionsFingerprint(
+  prefix: string,
+  distributions: TokenDetail['creatorFeeDistributions'] | null | undefined,
+): string {
+  if (distributions == null || distributions.length === 0) return `${prefix}:`;
+  const parts = [...distributions]
+    .map((d) => `${d.assetAddress}:${d.amountRaw}`)
+    .sort((a, b) => a.localeCompare(b));
+  return `${prefix}:${parts.join(',')}`;
 }
 
 export function tradesFingerprint(trades: readonly TradeItem[]): string {

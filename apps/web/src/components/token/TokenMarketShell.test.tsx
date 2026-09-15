@@ -128,6 +128,8 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     creatorFeesLifetimeEthDisplay: null,
     buybackFeesLifetimeEthRaw: null,
     buybackFeesLifetimeEthDisplay: null,
+    creatorFeeDistributions: [],
+    buybackFeeDistributions: [],
     ...overrides,
   };
 }
@@ -267,23 +269,99 @@ describe('TokenMarketShell', () => {
     ).toBeTruthy();
   });
 
-  it('shows lifetime creator earnings and genuine zero buyback without faking null as $0', () => {
+  it('shows lifetime creator earnings from fee arrays and — when buyback legs are empty', () => {
     render(
       <TokenMarketShell
         token={baseToken({
           creatorFeesLifetimeEthRaw: '250000000000000000',
           creatorFeesLifetimeEthDisplay: '0.25',
-          buybackFeesLifetimeEthRaw: '0',
-          buybackFeesLifetimeEthDisplay: '0',
+          buybackFeesLifetimeEthRaw: null,
+          buybackFeesLifetimeEthDisplay: null,
+          creatorFeeDistributions: [
+            {
+              assetAddress: '0x0000000000000000000000000000000000000000',
+              assetKind: 'eth',
+              symbol: 'ETH',
+              decimals: 18,
+              amountRaw: '250000000000000000',
+              amountDisplay: '0.25',
+            },
+          ],
+          buybackFeeDistributions: [],
           poolFee: null,
         })}
         quoteSymbol="ETH"
       />,
     );
     expect(screen.getByTestId('token-detail-creator-earnings').textContent).toBe('0.25 ETH');
-    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toBe('0 ETH');
+    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toBe('—');
+    expect(screen.getByText('Buyback allocation')).toBeTruthy();
+    expect(screen.queryByText('Protocol buyback')).toBeNull();
     expect(screen.getByTestId('token-detail-trading-fee').textContent).toMatch(/—/);
     expect(screen.queryByText(/^\$0$/)).toBeNull();
+  });
+
+  it('renders multi-asset creator and buyback lines without cross-summing', () => {
+    const meta = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const muse = '0x7c6b5347fa848121a8308dd12daca05171f5cbc5';
+    render(
+      <TokenMarketShell
+        token={baseToken({
+          tokenAddress: muse,
+          symbol: 'MUSE',
+          quoteAsset: meta,
+          creatorFeeDistributions: [
+            {
+              assetAddress: meta,
+              assetKind: 'token',
+              symbol: 'META',
+              decimals: 18,
+              amountRaw: '6359000000000000',
+              amountDisplay: '0.006359',
+            },
+            {
+              assetAddress: muse,
+              assetKind: 'token',
+              symbol: 'MUSE',
+              decimals: 18,
+              amountRaw: '151810000000000000000000',
+              amountDisplay: '151810',
+            },
+          ],
+          buybackFeeDistributions: [
+            {
+              assetAddress: meta,
+              assetKind: 'token',
+              symbol: 'META',
+              decimals: 18,
+              amountRaw: '1817000000000000',
+              amountDisplay: '0.001817',
+            },
+            {
+              assetAddress: muse,
+              assetKind: 'token',
+              symbol: 'MUSE',
+              decimals: 18,
+              amountRaw: '43370000000000000000000',
+              amountDisplay: '43370',
+            },
+          ],
+        })}
+        quoteSymbol="META"
+      />,
+    );
+    expect(screen.getByTestId('token-detail-creator-earnings').textContent).toContain(
+      '0.006359 META',
+    );
+    expect(screen.getByTestId('token-detail-creator-earnings').textContent).toContain(
+      '151.81K MUSE',
+    );
+    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toContain(
+      '0.001817 META',
+    );
+    expect(screen.getByTestId('token-detail-protocol-buyback').textContent).toContain(
+      '43.37K MUSE',
+    );
   });
 
   it('keeps tiny quote price visible and never collapses to $0', () => {

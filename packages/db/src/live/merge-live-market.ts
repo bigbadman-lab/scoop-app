@@ -221,6 +221,8 @@ export function applyLiveTipToTokenDetail(
     creatorFeesLifetimeEthDisplay: null,
     buybackFeesLifetimeEthRaw: null,
     buybackFeesLifetimeEthDisplay: null,
+    creatorFeeDistributions: [],
+    buybackFeeDistributions: [],
   };
 }
 

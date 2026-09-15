@@ -23,6 +23,7 @@ export type {
   ConfirmationStatus,
   TokenDiscoveryItem,
   TokenDetail,
+  TokenFeeAssetDistribution,
   TradeItem,
   HolderItem,
   CandleItem,

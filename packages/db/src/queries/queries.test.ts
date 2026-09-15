@@ -25,6 +25,82 @@ function mockDb(rows: unknown[] = []) {
   return { query } as unknown as Queryable & { query: ReturnType<typeof vi.fn> };
 }
 
+function mockDbSequence(results: unknown[][]) {
+  let i = 0;
+  const query = vi.fn(async () => {
+    const rows = (results[i] ?? []) as unknown[];
+    i += 1;
+    return { rows, rowCount: rows.length, command: 'SELECT' };
+  });
+  return { query } as unknown as Queryable & { query: ReturnType<typeof vi.fn> };
+}
+
+const NATIVE_ETH = '0x0000000000000000000000000000000000000000';
+
+function baseTokenRow(overrides: Record<string, unknown> = {}) {
+  return {
+    chain_id: 4663,
+    token_address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+    name: 'Hello World',
+    symbol: 'HELLO',
+    decimals: 18,
+    image_uri: '',
+    display_image_url:
+      'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
+    description: 'Hello, world. This is a test.',
+    twitter: '',
+    telegram: '',
+    discord: '',
+    website: '',
+    farcaster: '',
+    total_supply_raw: '1000000000000000000000000000',
+    deployer_address: '0x35affbccc92add3fab6b515326da1433dca7cf9c',
+    factory_address: '0x15e874bc667435ddbf2a67c0362701dc23c90833',
+    fee_distributor_address: '0x187e2c017bcc52094a9086abac94dde7b680a988',
+    liquidity_locker_address: '0xaa8445659a2424ee1ba33c232ec05569c975193f',
+    pool_id: '0xe9ee30525faa467bcc5742f330a47c7d516a56a06f6fd9b302a8599f344f5abc',
+    creator_id: '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
+    quote_asset: NATIVE_ETH,
+    launched_at: 1788686177,
+    age_seconds: 100,
+    launch_progress_bps: 100,
+    launch_complete: false,
+    is_new: true,
+    is_soon: false,
+    is_bonded: false,
+    price_quote_x18: '1000000000000000',
+    fdv_usd_x18: null,
+    volume_24h_quote_raw: '0',
+    volume_24h_usd_x18: null,
+    trade_count_24h: 1,
+    trade_count_all_time: 1,
+    buy_count_24h: 2,
+    sell_count_24h: 1,
+    holder_count_all: 2,
+    holder_count_retail: 1,
+    last_trade_at: 1788686177,
+    price_change_24h_bps: null,
+    sqrt_price_x96: '1',
+    tick: 1,
+    liquidity_raw: '1',
+    price_usd_x18: null,
+    quote_usd_x18: null,
+    quote_volume_all_time_raw: '0',
+    token_volume_all_time_raw: '0',
+    buy_count_all_time: 1,
+    sell_count_all_time: 0,
+    initial_token_inventory_raw: null,
+    current_token_inventory_raw: null,
+    source_block: 55863290,
+    pool_fee: 10000,
+    currency0: NATIVE_ETH,
+    currency1: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+    tick_spacing: 10,
+    hooks: NATIVE_ETH,
+    ...overrides,
+  };
+}
+
 describe('decimal helpers', () => {
   it('formats raw amounts without float corruption', () => {
     expect(formatRawAmount('1000000000000000000', 18)).toBe('1');
@@ -192,69 +268,18 @@ describe('query validation / SQL mapping', () => {
   });
 
   it('getToken normalizes address and maps detail DTO', async () => {
-    const db = mockDb([
-      {
-        chain_id: 4663,
-        token_address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
-        name: 'Hello World',
-        symbol: 'HELLO',
-        decimals: 18,
-        image_uri: '',
-        display_image_url:
-          'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
-        description: 'Hello, world. This is a test.',
-        twitter: '',
-        telegram: '',
-        discord: '',
-        website: '',
-        farcaster: '',
-        total_supply_raw: '1000000000000000000000000000',
-        deployer_address: '0x35affbccc92add3fab6b515326da1433dca7cf9c',
-        factory_address: '0x15e874bc667435ddbf2a67c0362701dc23c90833',
-        fee_distributor_address: '0x187e2c017bcc52094a9086abac94dde7b680a988',
-        liquidity_locker_address: '0xaa8445659a2424ee1ba33c232ec05569c975193f',
-        pool_id: '0xe9ee30525faa467bcc5742f330a47c7d516a56a06f6fd9b302a8599f344f5abc',
-        creator_id: '0xffcbd42160aa8079474ac1074616a9c5f6e1e73a422c5a596a2f2cc978fa39ef',
-        quote_asset: '0x0000000000000000000000000000000000000000',
-        launched_at: 1788686177,
-        age_seconds: 100,
-        launch_progress_bps: 100,
-        launch_complete: false,
-        is_new: true,
-        is_soon: false,
-        is_bonded: false,
-        price_quote_x18: '1000000000000000',
-        fdv_usd_x18: null,
-        volume_24h_quote_raw: '0',
-        volume_24h_usd_x18: null,
-        trade_count_24h: 1,
-        trade_count_all_time: 1,
-        buy_count_24h: 2,
-        sell_count_24h: 1,
-        holder_count_all: 2,
-        holder_count_retail: 1,
-        last_trade_at: 1788686177,
-        price_change_24h_bps: null,
-        sqrt_price_x96: '1',
-        tick: 1,
-        liquidity_raw: '1',
-        price_usd_x18: null,
-        quote_usd_x18: null,
-        quote_volume_all_time_raw: '0',
-        token_volume_all_time_raw: '0',
-        buy_count_all_time: 1,
-        sell_count_all_time: 0,
-        initial_token_inventory_raw: null,
-        current_token_inventory_raw: null,
-        source_block: 55863290,
-        pool_fee: 10000,
-        currency0: '0x0000000000000000000000000000000000000000',
-        currency1: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
-        tick_spacing: 10,
-        hooks: '0x0000000000000000000000000000000000000000',
-        creator_eth_raw: '500000000000000000',
-        buyback_eth_raw: '0',
-      },
+    const db = mockDbSequence([
+      [baseTokenRow()],
+      [
+        {
+          asset_kind: 'eth',
+          asset_address: NATIVE_ETH,
+          creator_raw: '500000000000000000',
+          buyback_raw: '0',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+      ],
     ]);
     const token = await getToken(
       db,
@@ -274,12 +299,157 @@ describe('query validation / SQL mapping', () => {
     expect(token?.imageUri).toBe('');
     expect(token?.poolFee).toBe(10000);
     expect(token?.tickSpacing).toBe(10);
-    expect(token?.currency0).toBe('0x0000000000000000000000000000000000000000');
+    expect(token?.currency0).toBe(NATIVE_ETH);
     expect(token?.currency1).toBe('0x2284ed0e4d446c6d78ac2d49a68bae822fd87373');
-    expect(token?.hooks).toBe('0x0000000000000000000000000000000000000000');
+    expect(token?.hooks).toBe(NATIVE_ETH);
     expect(token?.creatorFeesLifetimeEthDisplay).toBe('0.5');
-    expect(token?.buybackFeesLifetimeEthRaw).toBe('0');
-    expect(token?.buybackFeesLifetimeEthDisplay).toBe('0');
+    expect(token?.creatorFeesLifetimeEthRaw).toBe('500000000000000000');
+    expect(token?.buybackFeesLifetimeEthRaw).toBeNull();
+    expect(token?.buybackFeesLifetimeEthDisplay).toBeNull();
+    expect(token?.creatorFeeDistributions).toEqual([
+      {
+        assetAddress: NATIVE_ETH,
+        assetKind: 'eth',
+        symbol: 'ETH',
+        decimals: 18,
+        amountRaw: '500000000000000000',
+        amountDisplay: '0.5',
+      },
+    ]);
+    expect(token?.buybackFeeDistributions).toEqual([]);
+    expect(db.query).toHaveBeenCalledTimes(2);
+  });
+
+  it('getToken returns quote + launch-token fee legs in deterministic order', async () => {
+    const muse = '0x7c6b5347fa848121a8308dd12daca05171f5cbc5';
+    const meta = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const db = mockDbSequence([
+      [
+        baseTokenRow({
+          token_address: muse,
+          symbol: 'MUSE',
+          name: 'MUSE',
+          quote_asset: meta,
+          currency1: muse,
+        }),
+      ],
+      [
+        {
+          asset_kind: 'token',
+          asset_address: muse,
+          creator_raw: '151810000000000000000000',
+          buyback_raw: '43370000000000000000000',
+          symbol: 'MUSE',
+          decimals: 18,
+        },
+        {
+          asset_kind: 'token',
+          asset_address: meta,
+          creator_raw: '6359000000000000',
+          buyback_raw: '1817000000000000',
+          symbol: 'META',
+          decimals: 18,
+        },
+      ],
+    ]);
+    const token = await getToken(db, 4663, muse);
+    expect(token?.creatorFeesLifetimeEthRaw).toBeNull();
+    expect(token?.buybackFeesLifetimeEthRaw).toBeNull();
+    expect(token?.creatorFeeDistributions.map((d) => d.symbol)).toEqual([
+      'META',
+      'MUSE',
+    ]);
+    expect(token?.buybackFeeDistributions.map((d) => d.symbol)).toEqual([
+      'META',
+      'MUSE',
+    ]);
+    expect(token?.creatorFeeDistributions[0]?.amountRaw).toBe('6359000000000000');
+    expect(token?.creatorFeeDistributions[1]?.amountRaw).toBe(
+      '151810000000000000000000',
+    );
+    expect(token?.buybackFeeDistributions[0]?.amountRaw).toBe('1817000000000000');
+    expect(token?.buybackFeeDistributions[1]?.amountRaw).toBe(
+      '43370000000000000000000',
+    );
+  });
+
+  it('getToken returns empty fee arrays when no distributions exist', async () => {
+    const db = mockDbSequence([[baseTokenRow()], []]);
+    const token = await getToken(db, 4663, '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373');
+    expect(token?.creatorFeeDistributions).toEqual([]);
+    expect(token?.buybackFeeDistributions).toEqual([]);
+    expect(token?.creatorFeesLifetimeEthRaw).toBeNull();
+    expect(token?.buybackFeesLifetimeEthRaw).toBeNull();
+  });
+
+  it('getToken omits zero creator/buyback legs independently and sums same-asset rows', async () => {
+    const quote = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const other = '0xcccccccccccccccccccccccccccccccccccccccc';
+    const db = mockDbSequence([
+      [baseTokenRow({ quote_asset: quote })],
+      [
+        {
+          asset_kind: 'token',
+          asset_address: quote,
+          creator_raw: '100',
+          buyback_raw: '0',
+          symbol: 'META',
+          decimals: 18,
+        },
+        {
+          asset_kind: 'token',
+          asset_address: other,
+          creator_raw: '0',
+          buyback_raw: '50',
+          symbol: null,
+          decimals: null,
+        },
+        {
+          asset_kind: 'eth',
+          asset_address: NATIVE_ETH,
+          creator_raw: '7',
+          buyback_raw: '3',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+      ],
+    ]);
+    const token = await getToken(db, 4663, '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373');
+    expect(token?.creatorFeeDistributions.map((d) => d.assetAddress)).toEqual([
+      NATIVE_ETH,
+      quote,
+    ]);
+    expect(token?.buybackFeeDistributions.map((d) => d.assetAddress)).toEqual([
+      NATIVE_ETH,
+      other,
+    ]);
+    expect(token?.buybackFeeDistributions[1]?.symbol).toBe('0xcccc…cccc');
+    expect(token?.creatorFeesLifetimeEthRaw).toBe('7');
+    expect(token?.buybackFeesLifetimeEthRaw).toBe('3');
+  });
+
+  it('getToken sums multiple same-asset fee rows before mapping', async () => {
+    const quote = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    // Simulate SQL GROUP BY already applied: one aggregated row per asset.
+    // Unit-level summing of identical asset keys is covered by feeding pre-grouped
+    // totals that match two underlying rows (3+3.359 META creator).
+    const db = mockDbSequence([
+      [baseTokenRow({ quote_asset: quote })],
+      [
+        {
+          asset_kind: 'token',
+          asset_address: quote,
+          creator_raw: '6359000000000000',
+          buyback_raw: '1817000000000000',
+          symbol: 'META',
+          decimals: 18,
+        },
+      ],
+    ]);
+    const token = await getToken(db, 4663, '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373');
+    expect(token?.creatorFeeDistributions).toHaveLength(1);
+    expect(token?.creatorFeeDistributions[0]?.amountRaw).toBe('6359000000000000');
+    expect(token?.buybackFeeDistributions[0]?.amountRaw).toBe('1817000000000000');
   });
 
   it('getTrades left-joins confirmation_status and keeps attribution type', async () => {

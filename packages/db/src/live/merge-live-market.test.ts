@@ -166,6 +166,8 @@ function detail(overrides: Partial<TokenDetail> = {}): TokenDetail {
     creatorFeesLifetimeEthDisplay: null,
     buybackFeesLifetimeEthRaw: null,
     buybackFeesLifetimeEthDisplay: null,
+    creatorFeeDistributions: [],
+    buybackFeeDistributions: [],
     ...overrides,
   };
 }
@@ -175,7 +177,12 @@ describe('live market merge', () => {
     const merged = mergeLiveDiscoveryItems([], [tip()]);
     expect(merged).toHaveLength(1);
     expect(merged[0]?.tokenAddress).toBe(token);
-    expect(applyLiveTipToTokenDetail(null, tip())?.sourceBlock).toBe(110);
+    const tipOnly = applyLiveTipToTokenDetail(null, tip());
+    expect(tipOnly?.sourceBlock).toBe(110);
+    expect(tipOnly?.creatorFeeDistributions).toEqual([]);
+    expect(tipOnly?.buybackFeeDistributions).toEqual([]);
+    expect(tipOnly?.creatorFeesLifetimeEthRaw).toBeNull();
+    expect(tipOnly?.buybackFeesLifetimeEthRaw).toBeNull();
   });
 
   it('lets canonical token detail take over at the same source block', () => {

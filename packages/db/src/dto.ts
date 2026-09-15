@@ -70,6 +70,16 @@ export interface TokenDiscoveryItem {
   priceChange24hBps: number | null;
 }
 
+/** Per-asset lifetime fee leg for token MARKET display (never cross-sum assets). */
+export type TokenFeeAssetDistribution = {
+  assetAddress: string;
+  assetKind: 'eth' | 'token';
+  symbol: string;
+  decimals: number;
+  amountRaw: string;
+  amountDisplay: string;
+};
+
 export interface TokenDetail extends TokenDiscoveryItem {
   description: string;
   twitter: string;
@@ -109,16 +119,26 @@ export interface TokenDetail extends TokenDiscoveryItem {
   hooks: string | null;
   /**
    * Lifetime creator share from fee_distributions for this token (ETH asset_kind).
-   * Null = no indexed distributions yet (not the same as genuine zero).
+   * Derived from creatorFeeDistributions eth entry. Null = no ETH creator leg.
    */
   creatorFeesLifetimeEthRaw: string | null;
   creatorFeesLifetimeEthDisplay: string | null;
   /**
    * Lifetime protocol buyback share from fee_distributions (ETH).
-   * Null = no indexed distributions yet.
+   * Derived from buybackFeeDistributions eth entry. Null = no ETH buyback leg.
    */
   buybackFeesLifetimeEthRaw: string | null;
   buybackFeesLifetimeEthDisplay: string | null;
+  /**
+   * Lifetime creator legs grouped by fee asset (non-zero only).
+   * Empty = no indexed non-zero creator distributions.
+   */
+  creatorFeeDistributions: TokenFeeAssetDistribution[];
+  /**
+   * Lifetime buyback-allocation legs grouped by fee asset (non-zero only).
+   * Empty = no indexed non-zero buyback distributions.
+   */
+  buybackFeeDistributions: TokenFeeAssetDistribution[];
 }
 
 export interface TradeItem {

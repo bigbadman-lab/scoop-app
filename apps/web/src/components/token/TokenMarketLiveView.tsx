@@ -5,11 +5,11 @@ import type { TokenDetail } from '@/lib/server/queries';
 import {
   displayCompactUsdMarketValue,
   displayHolderCount,
-  displayLifetimeEthFee,
   displayPriceChangeBps,
   displayUsd,
   displayVolume24hMetric,
   formatCompactAge,
+  formatFeeAssetDistributionLines,
   formatFeeSplitPercent,
   formatPoolTradingFeePercent,
   formatProgressPercent,
@@ -126,8 +126,12 @@ function TokenMarketLiveBody({
 
   const tradingFee = formatPoolTradingFeePercent(token.poolFee);
   const creatorShare = formatFeeSplitPercent(PROTOCOL_FEE_SPLIT.creatorRewardsBps);
-  const creatorEarnings = displayLifetimeEthFee(token.creatorFeesLifetimeEthDisplay);
-  const protocolBuyback = displayLifetimeEthFee(token.buybackFeesLifetimeEthDisplay);
+  const creatorEarningsLines = formatFeeAssetDistributionLines(
+    token.creatorFeeDistributions,
+  );
+  const buybackAllocationLines = formatFeeAssetDistributionLines(
+    token.buybackFeeDistributions,
+  );
 
   return (
     <div
@@ -435,12 +439,28 @@ function TokenMarketLiveBody({
                 </DetailRow>
                 <DetailRow label="Creator earnings">
                   <span data-testid="token-detail-creator-earnings">
-                    {creatorEarnings ?? '—'}
+                    {creatorEarningsLines ? (
+                      <span className="flex flex-col items-end gap-0.5 font-mono tabular-nums">
+                        {creatorEarningsLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </span>
                 </DetailRow>
-                <DetailRow label="Protocol buyback">
+                <DetailRow label="Buyback allocation">
                   <span data-testid="token-detail-protocol-buyback">
-                    {protocolBuyback ?? '—'}
+                    {buybackAllocationLines ? (
+                      <span className="flex flex-col items-end gap-0.5 font-mono tabular-nums">
+                        {buybackAllocationLines.map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </span>
                 </DetailRow>
               </MarketGroup>
