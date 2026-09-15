@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,6 +13,31 @@ import {
 } from '@/lib/launch/wait-for-indexed-launch';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { truncateAddress } from '@/lib/format';
+
+export function freshLaunchSyncCopy(timedOut: boolean): {
+  title: string;
+  body: string;
+} {
+  if (timedOut) {
+    return {
+      title: 'Market data is taking longer than expected to load.',
+      body: 'Your market has launched. Try checking again shortly.',
+    };
+  }
+  return {
+    title: 'Market loading…',
+    body: 'Your market has launched. Market data will appear shortly.',
+  };
+}
+
+/** Genuine no-market copy — only when fresh-launch handoff is absent. */
+export const FRESH_LAUNCH_UNKNOWN_COPY = {
+  title: 'Market not found',
+  body: 'No SCOOP market exists for this token address.',
+} as const;
+
+export const FRESH_LAUNCH_RETRY_LABEL = 'Retry sync check';
+export const FRESH_LAUNCH_SYNCING_STATUS = 'Syncing market data…';
 
 type Mode =
   | { kind: 'checking' }
@@ -100,10 +123,10 @@ export function TokenFreshLaunchGate({ address }: Props) {
           404
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          Market not found
+          {FRESH_LAUNCH_UNKNOWN_COPY.title}
         </h1>
         <p className="mt-4 text-[var(--muted)]">
-          No SCOOP market exists for this token address.
+          {FRESH_LAUNCH_UNKNOWN_COPY.body}
         </p>
         <p className="mt-6">
           <Link
@@ -118,18 +141,15 @@ export function TokenFreshLaunchGate({ address }: Props) {
   }
 
   const { handoff, timedOut } = mode;
+  const copy = freshLaunchSyncCopy(timedOut);
 
   return (
     <div
       className="rounded-[var(--radius-xl)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-6 py-10"
       data-testid="token-fresh-launch-syncing"
     >
-      <h1 className="text-2xl font-semibold tracking-tight">Market is live</h1>
-      <p className="mt-3 text-[15px] text-[var(--muted)]">
-        {timedOut
-          ? 'Market is live, but SCOOP market data is taking longer than expected to sync.'
-          : 'SCOOP is syncing the latest market data. Charts, trades and holder data should appear shortly.'}
-      </p>
+      <h1 className="text-2xl font-semibold tracking-tight">{copy.title}</h1>
+      <p className="mt-3 text-[15px] text-[var(--muted)]">{copy.body}</p>
 
       <dl className="mt-6 space-y-2 text-sm">
         <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-6">
@@ -150,12 +170,14 @@ export function TokenFreshLaunchGate({ address }: Props) {
         </div>
       </dl>
 
-      <p
-        className="mt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]"
-        data-testid="token-syncing-market-data"
-      >
-        Syncing market data…
-      </p>
+      {!timedOut ? (
+        <p
+          className="mt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]"
+          data-testid="token-syncing-market-data"
+        >
+          {FRESH_LAUNCH_SYNCING_STATUS}
+        </p>
+      ) : null}
 
       {timedOut ? (
         <button
@@ -164,7 +186,7 @@ export function TokenFreshLaunchGate({ address }: Props) {
           data-testid="token-sync-retry"
           onClick={() => setAttempt((n) => n + 1)}
         >
-          Retry sync check
+          {FRESH_LAUNCH_RETRY_LABEL}
         </button>
       ) : null}
     </div>

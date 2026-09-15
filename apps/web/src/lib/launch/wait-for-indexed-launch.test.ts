@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LaunchMarketReady } from '@scoop/db';
-import { waitForIndexedLaunch } from '@/lib/launch/wait-for-indexed-launch';
+import {
+  INDEXED_LAUNCH_POLL_MS,
+  INDEXED_LAUNCH_TIMEOUT_MS,
+  waitForIndexedLaunch,
+} from '@/lib/launch/wait-for-indexed-launch';
+import { TOKEN_MARKET_LIVE_POLL_MS } from '@/lib/token/live-market';
 
 const readyLaunch: LaunchMarketReady = {
   chainId: 4663,
@@ -30,6 +35,38 @@ afterEach(() => {
 });
 
 describe('waitForIndexedLaunch', () => {
+  it('defaults to 1000ms readiness poll and 90000ms timeout', () => {
+    expect(INDEXED_LAUNCH_POLL_MS).toBe(1_000);
+    expect(INDEXED_LAUNCH_TIMEOUT_MS).toBe(90_000);
+    // Live market poll is a separate surface and must stay 2s.
+    expect(TOKEN_MARKET_LIVE_POLL_MS).toBe(2_000);
+  });
+
+  it('uses INDEXED_LAUNCH_POLL_MS when intervalMs is omitted', async () => {
+    const sleeps: number[] = [];
+    let calls = 0;
+    const fetchReady = vi.fn(async () => {
+      calls += 1;
+      if (calls >= 2) {
+        return { kind: 'ready' as const, launch: readyLaunch };
+      }
+      return { kind: 'pending' as const };
+    });
+    const result = await waitForIndexedLaunch({
+      chainId: 4663,
+      tokenAddress: readyLaunch.tokenAddress,
+      txHash: readyLaunch.launchTxHash,
+      expectation,
+      fetchReady,
+      timeoutMs: 5_000,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+    });
+    expect(result.status).toBe('ready');
+    expect(sleeps[0]).toBe(INDEXED_LAUNCH_POLL_MS);
+  });
+
   it('checks immediately on first tick', async () => {
     const fetchReady = vi.fn(async () => ({
       kind: 'ready' as const,

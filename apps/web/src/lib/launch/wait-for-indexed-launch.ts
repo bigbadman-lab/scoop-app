@@ -4,8 +4,8 @@ import {
   type IndexedLaunchExpectation,
 } from '@/lib/launch/verify-indexed-launch';
 
-/** ~2.5s — suitable for fixed-lag (~4 blocks) indexer latency. */
-export const INDEXED_LAUNCH_POLL_MS = 2_500;
+/** ~1s — faster readiness feedback during the post-launch indexing gap. */
+export const INDEXED_LAUNCH_POLL_MS = 1_000;
 
 /** Do not wait forever; on-chain success remains truthful on timeout. */
 export const INDEXED_LAUNCH_TIMEOUT_MS = 90_000;
