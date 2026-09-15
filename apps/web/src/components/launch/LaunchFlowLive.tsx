@@ -13,6 +13,7 @@ import {
 } from '@/lib/launch/types';
 import { launchReducer } from '@/lib/launch/state';
 import {
+  compatibleAssistWebsite,
   isArtworkBlockingLaunch,
   validateEarningsStep,
   validateMarketStep,
@@ -143,6 +144,7 @@ function applyAssistedPrefill(catalogue: readonly PublicQuoteCatalogueItem[]): {
       name: handoff.concept.name,
       ticker: handoff.concept.ticker.trim().toUpperCase().replace(/^\$/, ''),
       description: handoff.concept.description,
+      website: compatibleAssistWebsite(handoff.article.url),
       quoteAsset,
       quoteSymbol,
       quoteDecimals,

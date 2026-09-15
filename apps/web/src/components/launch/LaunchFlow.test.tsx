@@ -88,7 +88,10 @@ const nvda: PublicQuoteCatalogueItem = {
   isEnabled: true,
 };
 
-function seedAssistHandoff(quoteAsset = nvda.quoteAsset) {
+function seedAssistHandoff(
+  quoteAsset = nvda.quoteAsset,
+  articleUrl = 'https://reuters.com/a',
+) {
   sessionStorage.setItem(
     ASSISTED_LAUNCH_HANDOFF_KEY,
     JSON.stringify({
@@ -99,7 +102,7 @@ function seedAssistHandoff(quoteAsset = nvda.quoteAsset) {
         headline: 'Markets react to rate decision',
         sourceDomain: 'reuters.com',
         publishedAt: '2026-09-07T12:00:00.000Z',
-        url: 'https://reuters.com/a',
+        url: articleUrl,
       },
       concept: {
         id: 'concept_1',
@@ -156,6 +159,7 @@ describe('LaunchFlowLive', () => {
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
     });
+    expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe('');
     expect(sessionStorage.getItem(ASSISTED_LAUNCH_HANDOFF_KEY)).toBeTruthy();
   });
 
@@ -170,6 +174,9 @@ describe('LaunchFlowLive', () => {
     expect((screen.getByLabelText('Description') as HTMLTextAreaElement).value).toContain(
       'rate moves',
     );
+    expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe(
+      'https://reuters.com/a',
+    );
     expect(screen.getByText(/from the news/i)).toBeTruthy();
     expect(screen.getByText(/markets react to rate decision/i)).toBeTruthy();
     const provenance = screen.getByTestId('launch-news-provenance');
@@ -179,6 +186,19 @@ describe('LaunchFlowLive', () => {
       'https://signed.example/1.png',
     );
     expect(sessionStorage.getItem(ASSISTED_LAUNCH_HANDOFF_KEY)).toBeNull();
+  });
+
+  it('leaves Website blank when Assist article URL is incompatible', async () => {
+    searchParams.set('assist', '1');
+    seedAssistHandoff(nvda.quoteAsset, 'http://reuters.com/a');
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
+    });
+    expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe('');
+    const provenance = screen.getByTestId('launch-news-provenance');
+    expect(provenance.getAttribute('data-source-article-id')).toBe('77');
+    expect(provenance.getAttribute('data-source-draft-id')).toBe('draft-1');
   });
 
   it('does not silently substitute an invalid recommended quote', async () => {
@@ -267,6 +287,9 @@ describe('LaunchFlowLive', () => {
     fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Panic Market' },
     });
+    fireEvent.change(screen.getByLabelText('Website (optional)'), {
+      target: { value: 'https://user-edited.example/story' },
+    });
 
     ready = true;
     await waitFor(
@@ -278,11 +301,19 @@ describe('LaunchFlowLive', () => {
       { timeout: 5000 },
     );
     expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Panic Market');
+    expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe(
+      'https://user-edited.example/story',
+    );
     expect((screen.getByLabelText('Description') as HTMLTextAreaElement).value).toBe(
       'Original description',
     );
     expect(screen.queryByRole('button', { name: /accept/i })).toBeNull();
     expect(screen.getByRole('button', { name: /generate another/i })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Website (optional)'), {
+      target: { value: '' },
+    });
+    expect((screen.getByLabelText('Website (optional)') as HTMLInputElement).value).toBe('');
   });
 
   it('lets user continue to later steps while artwork generates and notifies when ready', async () => {

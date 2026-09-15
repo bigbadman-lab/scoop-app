@@ -52,6 +52,19 @@ export function isArtworkBlockingLaunch(state: LaunchFormState): boolean {
   return false;
 }
 
+/**
+ * Launch Assist → Website prefill filter.
+ * Returns the trimmed URL only when it already satisfies Website form rules;
+ * otherwise '' (do not weaken validation / do not auto-prepend https).
+ */
+export function compatibleAssistWebsite(raw: string | null | undefined): string {
+  const site = (raw ?? '').trim();
+  if (!site) return '';
+  if (site.length > META_LIMITS.socialMax) return '';
+  if (!/^https:\/\//i.test(site)) return '';
+  return site;
+}
+
 export function validateTokenStep(state: LaunchFormState): FieldErrors {
   const errors: FieldErrors = {};
   const name = state.name.trim();

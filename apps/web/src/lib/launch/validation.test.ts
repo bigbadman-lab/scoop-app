@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAdvanceFromStep,
+  compatibleAssistWebsite,
   hasDevBuy,
   isArtworkBlockingLaunch,
   isArtworkInFlight,
@@ -173,6 +174,19 @@ describe('launch token validation', () => {
         }),
       ).website,
     ).toMatch(/256/i);
+  });
+
+  it('compatibleAssistWebsite only accepts Website-compatible article URLs', () => {
+    expect(compatibleAssistWebsite('https://scoop.fun/story')).toBe('https://scoop.fun/story');
+    expect(compatibleAssistWebsite(' https://example.com/x ')).toBe('https://example.com/x');
+    expect(compatibleAssistWebsite('')).toBe('');
+    expect(compatibleAssistWebsite(null)).toBe('');
+    expect(compatibleAssistWebsite(undefined)).toBe('');
+    expect(compatibleAssistWebsite('http://example.com')).toBe('');
+    expect(compatibleAssistWebsite('example.com')).toBe('');
+    expect(compatibleAssistWebsite('javascript:alert(1)')).toBe('');
+    expect(compatibleAssistWebsite('data:text/html,hi')).toBe('');
+    expect(compatibleAssistWebsite(`https://${'a'.repeat(300)}.com`)).toBe('');
   });
 
   it('validates image mime/size', () => {
