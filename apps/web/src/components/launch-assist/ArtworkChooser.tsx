@@ -4,7 +4,7 @@ import { useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CtaLink } from '@/components/ui/CtaLink';
 import { NewsAge } from '@/components/news/NewsAge';
-import { validateImageFile } from '@/lib/launch/validation';
+import { validateImageFileAsync } from '@/lib/launch/validation';
 import type {
   LaunchAssistArticle,
   PublicArtworkOption,
@@ -40,23 +40,25 @@ export function ArtworkChooser({
 
   function applyUpload(file: File | null | undefined) {
     if (!file) return;
-    const validation = validateImageFile(file);
-    if (validation) {
-      setUploadError(validation);
-      return;
-    }
-    setUploadError(null);
-    const previewUrl = URL.createObjectURL(file);
-    setSelection({
-      kind: 'upload',
-      file: {
-        source: 'upload',
-        previewUrl,
-        fileName: file.name,
-        mimeType: file.type,
-        byteSize: file.size,
-      },
-    });
+    void (async () => {
+      const validation = await validateImageFileAsync(file);
+      if (validation) {
+        setUploadError(validation);
+        return;
+      }
+      setUploadError(null);
+      const previewUrl = URL.createObjectURL(file);
+      setSelection({
+        kind: 'upload',
+        file: {
+          source: 'upload',
+          previewUrl,
+          fileName: file.name,
+          mimeType: file.type,
+          byteSize: file.size,
+        },
+      });
+    })();
   }
 
   function resolveSelected(): SelectedTokenImage | null {

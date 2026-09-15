@@ -1,11 +1,27 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ArtworkChooser } from '@/components/launch-assist/ArtworkChooser';
+
+const SQUARE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWM4oaGBFTEMLQkAgl1GAXRgBQ4AAAAASUVORK5CYII=',
+  'base64',
+);
 
 beforeAll(() => {
   if (typeof URL.createObjectURL !== 'function') {
     URL.createObjectURL = vi.fn(() => 'blob:upload');
   }
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async (blob: Blob) => {
+      const { readRasterImageDimensions } = await import(
+        '@/lib/launch/image-dimensions'
+      );
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const dims = readRasterImageDimensions(buf);
+      return { width: dims.width, height: dims.height, close: vi.fn() };
+    }),
+  );
 });
 
 const article = {
@@ -101,7 +117,7 @@ describe('ArtworkChooser', () => {
     );
   });
 
-  it('allows custom upload to override generated selection', () => {
+  it('allows custom upload to override generated selection', async () => {
     const onContinue = vi.fn();
     const { container } = render(
       <ArtworkChooser
@@ -114,11 +130,11 @@ describe('ArtworkChooser', () => {
     );
     fireEvent.click(screen.getByLabelText(/select artwork 01/i));
     const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File([new Uint8Array([1, 2, 3])], 'custom.png', {
+    const file = new File([SQUARE_PNG], 'custom.png', {
       type: 'image/png',
     });
     fireEvent.change(input, { target: { files: [file] } });
-    expect(screen.getByText(/selected upload/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/selected upload/i)).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     expect(onContinue).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'upload', fileName: 'custom.png' }),

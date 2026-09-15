@@ -38,7 +38,23 @@ beforeAll(() => {
   if (typeof URL.revokeObjectURL !== 'function') {
     URL.revokeObjectURL = vi.fn();
   }
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async (blob: Blob) => {
+      const { readRasterImageDimensions } = await import(
+        '@/lib/launch/image-dimensions'
+      );
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const dims = readRasterImageDimensions(buf);
+      return { width: dims.width, height: dims.height, close: vi.fn() };
+    }),
+  );
 });
+
+const SQUARE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWM4oaGBFTEMLQkAgl1GAXRgBQ4AAAAASUVORK5CYII=',
+  'base64',
+);
 
 const eth: PublicQuoteCatalogueItem = {
   chainId: 4663,
@@ -466,7 +482,7 @@ describe('LaunchFlowLive', () => {
     render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => screen.getByText(/generating your token image/i));
 
-    const file = new File([new Uint8Array([1, 2, 3])], 'mine.png', {
+    const file = new File([SQUARE_PNG], 'mine.png', {
       type: 'image/png',
     });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;

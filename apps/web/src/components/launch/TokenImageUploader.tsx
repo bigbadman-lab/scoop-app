@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from 'react';
 import type { TokenImageState } from '@/lib/launch/types';
-import { validateImageFile } from '@/lib/launch/validation';
+import { validateImageFileAsync } from '@/lib/launch/validation';
 
 type Props = {
   image: TokenImageState;
@@ -40,26 +40,28 @@ export function TokenImageUploader({
   const applyFile = useCallback(
     (file: File | null | undefined) => {
       if (!file) return;
-      const validation = validateImageFile(file);
-      if (validation) {
-        setLocalError(validation);
-        return;
-      }
-      setLocalError(null);
-      const previewUrl = URL.createObjectURL(file);
-      onChange({
-        previewUrl,
-        fileName: file.name,
-        mimeType: file.type,
-        byteSize: file.size,
-        persistence: 'local_only',
-        ipfsUri: null,
-        displayImagePath: null,
-        source: 'user',
-        artworkStatus: 'ready',
-        artworkError: null,
-        artworkAssetId: null,
-      });
+      void (async () => {
+        const validation = await validateImageFileAsync(file);
+        if (validation) {
+          setLocalError(validation);
+          return;
+        }
+        setLocalError(null);
+        const previewUrl = URL.createObjectURL(file);
+        onChange({
+          previewUrl,
+          fileName: file.name,
+          mimeType: file.type,
+          byteSize: file.size,
+          persistence: 'local_only',
+          ipfsUri: null,
+          displayImagePath: null,
+          source: 'user',
+          artworkStatus: 'ready',
+          artworkError: null,
+          artworkAssetId: null,
+        });
+      })();
     },
     [onChange],
   );
@@ -220,7 +222,7 @@ export function TokenImageUploader({
               Token image · drop or browse
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
-              PNG · JPEG · WebP · max 5MB
+              PNG · JPEG · WebP · square (1:1) · max 5MB
             </span>
           </button>
         )}

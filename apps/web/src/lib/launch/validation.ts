@@ -5,10 +5,18 @@ import {
 } from '@/lib/launch/creator-recipient';
 import { isNativeEthQuote, parseDevBuyAmount } from '@/lib/launch/dev-buy';
 import {
+  readImageFileDimensions,
+  squareDimensionError,
+  TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR,
+  TOKEN_IMAGE_SQUARE_ERROR,
+} from '@/lib/launch/image-dimensions';
+import {
   AdditionalFeeDestination,
   CreatorAllocationDestination,
   validateAdditionalFeeUnits,
 } from '@scoop/shared';
+
+export { TOKEN_IMAGE_SQUARE_ERROR, TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR };
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -193,6 +201,7 @@ export function hasDevBuy(state: LaunchFormState): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
+/** Sync MIME + size checks only (no decode). Prefer {@link validateImageFileAsync}. */
 export function validateImageFile(file: File): string | null {
   if (!(META_LIMITS.imageMime as readonly string[]).includes(file.type)) {
     return 'Use PNG, JPEG, or WebP.';
@@ -201,4 +210,19 @@ export function validateImageFile(file: File): string | null {
     return 'Image must be 5MB or smaller.';
   }
   return null;
+}
+
+/**
+ * Full client upload gate: MIME + 5 MiB + decoded 1:1 dimensions.
+ * Does not crop or transform; rejects non-square sources.
+ */
+export async function validateImageFileAsync(file: File): Promise<string | null> {
+  const basic = validateImageFile(file);
+  if (basic) return basic;
+  try {
+    const { width, height } = await readImageFileDimensions(file);
+    return squareDimensionError(width, height);
+  } catch {
+    return TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR;
+  }
 }

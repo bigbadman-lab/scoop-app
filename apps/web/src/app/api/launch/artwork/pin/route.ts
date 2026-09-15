@@ -12,6 +12,11 @@ import {
 import { IpfsPinNotConfiguredError } from '@/lib/launch/ipfs';
 import { isProtocolIpfsImageUri } from '@/lib/launch/protocol-metadata';
 import { META_LIMITS } from '@/lib/launch/types';
+import {
+  assertSquareRasterImageBytes,
+  TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR,
+  TOKEN_IMAGE_SQUARE_ERROR,
+} from '@/lib/launch/image-dimensions';
 import { assertNoSecretLeakage } from '@/lib/server/validate';
 import { clientIp, rateLimitInternal } from '@/lib/server/internal-auth';
 import { recordDisplayFinalizeIntent } from '@/lib/launch/record-display-finalize-intent';
@@ -102,6 +107,21 @@ export async function POST(request: Request) {
     if (bytes.byteLength === 0 || bytes.byteLength > META_LIMITS.imageFileMaxBytes) {
       return NextResponse.json(
         { ok: false, error: 'Artwork size is invalid', code: 'VALIDATION' },
+        { status: 400 },
+      );
+    }
+
+    // Server-authoritative 1:1 — decode headers from bytes; ignore any client dims.
+    try {
+      assertSquareRasterImageBytes(bytes);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      const error =
+        message === TOKEN_IMAGE_SQUARE_ERROR
+          ? TOKEN_IMAGE_SQUARE_ERROR
+          : TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR;
+      return NextResponse.json(
+        { ok: false, error, code: 'VALIDATION' },
         { status: 400 },
       );
     }
