@@ -7,66 +7,26 @@
  *
  * Never prints DATABASE_URL / RPC URL / secrets.
  */
-import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { loadEnvFile } from './lib/env-local.mjs';
 import {
   ROBINHOOD_CHAIN_ID,
   normalizeTapeAddress,
   parseTapeSetContractArgs,
   verifyTapeContractOnChain,
 } from './lib/tape-contract-verify.mjs';
+import {
+  TAPE_OFFICIAL_CONTRACT_KEY,
+  ensureOfficialTapeRegistered,
+  readOfficialTapeContract,
+} from './lib/tge-official-tape-db.mjs';
 
-const TAPE_OFFICIAL_CONTRACT_KEY = 'tape_official_contract';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-function loadEnvFile(path) {
-  if (!existsSync(path)) return {};
-  const out = {};
-  for (const raw of readFileSync(path, 'utf8').split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#') || !line.includes('=')) continue;
-    const i = line.indexOf('=');
-    const k = line.slice(0, i).trim();
-    let v = line.slice(i + 1).trim();
-    if (
-      (v.startsWith('"') && v.endsWith('"')) ||
-      (v.startsWith("'") && v.endsWith("'"))
-    ) {
-      v = v.slice(1, -1);
-    }
-    out[k] = v;
-  }
-  return out;
-}
 
 function redactSecrets(message) {
   return String(message).replace(/postgres(?:ql)?:\/\/[^\s]+/gi, 'postgresql://***');
-}
-
-function normalizeStoredAddress(raw) {
-  if (raw == null) return null;
-  return normalizeTapeAddress(String(raw));
-}
-
-async function getExisting(client) {
-  const result = await client.query(
-    `SELECT value FROM protocol_settings WHERE key = $1 LIMIT 1`,
-    [TAPE_OFFICIAL_CONTRACT_KEY],
-  );
-  return normalizeStoredAddress(result.rows[0]?.value);
-}
-
-async function upsert(client, address) {
-  await client.query(
-    `INSERT INTO protocol_settings (key, value, updated_at)
-     VALUES ($1, $2, NOW())
-     ON CONFLICT (key) DO UPDATE
-       SET value = EXCLUDED.value,
-           updated_at = NOW()`,
-    [TAPE_OFFICIAL_CONTRACT_KEY, address.toLowerCase()],
-  );
 }
 
 function printHelp() {
@@ -145,7 +105,6 @@ async function main() {
   try {
     await client.connect();
 
-    // Ensure table exists (migration may not have been applied yet).
     const table = await client.query(
       `SELECT 1 FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name = 'protocol_settings'
@@ -159,40 +118,52 @@ async function main() {
       return;
     }
 
-    const existing = await getExisting(client);
+    const existing = await readOfficialTapeContract(client);
+    if (
+      existing &&
+      existing.toLowerCase() !== address.toLowerCase() &&
+      !parsed.override
+    ) {
+      console.error(
+        `A different TAPE contract is already configured:\n` +
+          `  Existing: ${existing}\n` +
+          `  Requested: ${address}\n` +
+          `Re-run with --override to replace intentionally:\n` +
+          `  pnpm tape:set-contract ${address} --confirm --override`,
+      );
+      process.exitCode = 1;
+      return;
+    }
 
-    if (existing && existing.toLowerCase() === address.toLowerCase()) {
-      console.log(`TAPE official contract is already set to ${existing}`);
+    if (
+      existing &&
+      existing.toLowerCase() !== address.toLowerCase() &&
+      parsed.override
+    ) {
+      console.log(`Override: replacing ${existing} → ${address}`);
+    }
+
+    const result = await ensureOfficialTapeRegistered({
+      client,
+      candidate: address,
+      allowOverride: Boolean(parsed.override),
+    });
+
+    if (result.status === 'ALREADY_COMPLETE') {
+      console.log(`TAPE official contract is already set to ${result.canonical}`);
       console.log('No change required.');
       return;
     }
 
-    if (existing && existing.toLowerCase() !== address.toLowerCase()) {
-      if (!parsed.override) {
-        console.error(
-          `A different TAPE contract is already configured:\n` +
-            `  Existing: ${existing}\n` +
-            `  Requested: ${address}\n` +
-            `Re-run with --override to replace intentionally:\n` +
-            `  pnpm tape:set-contract ${address} --confirm --override`,
-        );
-        process.exitCode = 1;
-        return;
-      }
-      console.log(`Override: replacing ${existing} → ${address}`);
-    }
-
-    await upsert(client, address);
-    const readBack = await getExisting(client);
-    if (!readBack || readBack.toLowerCase() !== address.toLowerCase()) {
-      console.error('Write succeeded but read-back mismatch.');
+    if (result.status !== 'COMPLETE') {
+      console.error(result.reason ?? 'Official TAPE registration failed.');
       process.exitCode = 1;
       return;
     }
 
     console.log('TAPE official contract updated');
     console.log(`Chain: ${ROBINHOOD_CHAIN_ID}`);
-    console.log(`Address: ${readBack}`);
+    console.log(`Address: ${result.canonical}`);
     console.log(`Source: protocol_settings.${TAPE_OFFICIAL_CONTRACT_KEY}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
