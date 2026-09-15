@@ -163,6 +163,18 @@ describe('safeHttpsUrl', () => {
     expect(safeHttpsUrl('javascript:alert(1)')).toBeNull();
     expect(safeHttpsUrl('')).toBeNull();
   });
+
+  it('keeps non-empty token.website displayable as an About Website href', () => {
+    const href = safeHttpsUrl(baseToken().website);
+    expect(href).toBe('https://scoop.fun/');
+    const aboutLinks = [
+      { label: 'Website', href },
+      { label: 'X', href: safeHttpsUrl(baseToken().twitter) },
+    ].filter((l): l is { label: string; href: string } => Boolean(l.href));
+    expect(aboutLinks.some((l) => l.label === 'Website' && l.href === 'https://scoop.fun/')).toBe(
+      true,
+    );
+  });
 });
 
 describe('displayVolume24hMetric', () => {

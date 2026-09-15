@@ -90,6 +90,17 @@ export function validateTokenStep(state: LaunchFormState): FieldErrors {
     }
   }
 
+  if (state.website.trim()) {
+    const site = state.website.trim();
+    if (site.length > META_LIMITS.socialMax) {
+      errors.website = `Website link must be ${META_LIMITS.socialMax} characters or fewer.`;
+    } else if (!/^https:\/\//i.test(site)) {
+      // Align with protocol optionalHttps('website') — require https://; reject bare
+      // domains, http://, and unsafe schemes (javascript:/data:/…).
+      errors.website = 'Website link must start with https://';
+    }
+  }
+
   // Allow Continue while AI artwork generates; image still required at final Launch.
   if (!state.image.previewUrl && !isArtworkInFlight(state.image)) {
     errors.image = 'Token image is required.';

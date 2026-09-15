@@ -115,6 +115,66 @@ describe('launch token validation', () => {
     expect(errors.twitter).toMatch(/x\.com/i);
   });
 
+  it('defaults website to empty and accepts valid https website', () => {
+    expect(createInitialLaunchState().website).toBe('');
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: 'https://scoop.fun',
+        }),
+      ).website,
+    ).toBeUndefined();
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: 'https://example.com/x',
+        }),
+      ).website,
+    ).toBeUndefined();
+  });
+
+  it('rejects bare, http, unsafe, and overlong website values', () => {
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({ ...validTokenState(), website: 'example.com' }),
+      ).website,
+    ).toMatch(/https:\/\//i);
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: 'http://example.com',
+        }),
+      ).website,
+    ).toMatch(/https:\/\//i);
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: 'javascript:alert(1)',
+        }),
+      ).website,
+    ).toMatch(/https:\/\//i);
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: 'data:text/html,hi',
+        }),
+      ).website,
+    ).toMatch(/https:\/\//i);
+    expect(
+      validateTokenStep(
+        createInitialLaunchState({
+          ...validTokenState(),
+          website: `https://${'a'.repeat(300)}.com`,
+        }),
+      ).website,
+    ).toMatch(/256/i);
+  });
+
   it('validates image mime/size', () => {
     const file = new File(['x'], 'a.gif', { type: 'image/gif' });
     expect(validateImageFile(file)).toMatch(/png/i);

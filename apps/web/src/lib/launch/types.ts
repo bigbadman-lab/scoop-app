@@ -77,6 +77,7 @@ export type LaunchFormState = {
   description: string;
   twitter: string;
   telegram: string;
+  website: string;
   image: TokenImageState;
   // Step 2 — Market — canonical quote token address (ETH = zero address)
   quoteAsset: string | null;
@@ -149,6 +150,7 @@ export function createInitialLaunchState(
     description: '',
     twitter: '',
     telegram: '',
+    website: '',
     image: { ...INITIAL_IMAGE },
     quoteAsset: null,
     quoteSymbol: null,

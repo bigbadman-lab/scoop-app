@@ -177,7 +177,7 @@ export function buildLaunchParams(
     twitter: input.state.twitter.trim(),
     telegram: input.state.telegram.trim(),
     discord: '',
-    website: '',
+    website: input.state.website.trim(),
     farcaster: '',
   };
   const metaErrors = validateProtocolMetadata(metadataInput);
@@ -199,7 +199,7 @@ export function buildLaunchParams(
       twitter: metadataInput.twitter ?? '',
       telegram: metadataInput.telegram ?? '',
       discord: '',
-      website: '',
+      website: metadataInput.website ?? '',
       farcaster: '',
     },
     salt: input.state.salt,

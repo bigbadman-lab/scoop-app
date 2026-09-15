@@ -163,6 +163,17 @@ export function TokenStep({
         />
       </Field>
 
+      <Field error={errors.website}>
+        <input
+          id="launch-website"
+          className={inputClass}
+          value={state.website}
+          placeholder="Website (optional) · https://example.com"
+          aria-label="Website (optional)"
+          onChange={(e) => onPatch({ website: e.target.value })}
+        />
+      </Field>
+
       <TokenImageUploader
         image={state.image}
         error={errors.image}

@@ -58,6 +58,8 @@ describe('buildLaunchParams', () => {
     expect(result.params.metadata.imageUri).toBe(IPFS);
     expect(result.params.metadata.description).toBe('Hello, world. This is a test.');
     expect(result.params.metadata.twitter).toBe('https://x.com/scoopterminal');
+    expect(result.params.metadata.telegram).toBe('');
+    expect(result.params.metadata.website).toBe('');
     expect(result.params.salt).toBe(state.salt);
     expect(result.provenance.sourceProviderArticleId).toBe('art_99');
     expect(result.provenance.sourceDraftId).toBe(
@@ -128,6 +130,26 @@ describe('buildLaunchParams', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.params.quoteAsset).toBe(zeroAddress);
+  });
+
+  it('trims website into Factory metadata and preserves empty', () => {
+    const withSite = buildLaunchParams({
+      state: readyState({ website: ' https://example.com ' }),
+      liveConnectedAddress: null,
+    });
+    expect(withSite.ok).toBe(true);
+    if (!withSite.ok) return;
+    expect(withSite.params.metadata.website).toBe('https://example.com');
+    expect(withSite.params.metadata.twitter).toBe('https://x.com/scoopterminal');
+    expect(withSite.params.metadata.telegram).toBe('');
+
+    const empty = buildLaunchParams({
+      state: readyState({ website: '' }),
+      liveConnectedAddress: null,
+    });
+    expect(empty.ok).toBe(true);
+    if (!empty.ok) return;
+    expect(empty.params.metadata.website).toBe('');
   });
 });
 
