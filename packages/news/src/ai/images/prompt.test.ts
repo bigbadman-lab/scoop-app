@@ -13,7 +13,9 @@ function concept(partial: Partial<LaunchConcept> & Pick<LaunchConcept, 'name' | 
     recommendedPairAddress: '0x0000000000000000000000000000000000000000',
     recommendedPairSymbol: partial.recommendedPairSymbol ?? 'ETH',
     pairRationale: 'Enabled quote.',
-    imageDirection: partial.imageDirection ?? 'Market board treatment of the story.',
+    imageDirection:
+      partial.imageDirection ??
+      'One bold mascot with a single focal metaphor for the token.',
     ...partial,
   };
 }
@@ -34,10 +36,14 @@ function article(
 }
 
 describe('buildTokenArtworkPrompt', () => {
-  it('inserts token name and ticker', () => {
+  it('inserts token name and ticker as context fields', () => {
     const prompt = buildTokenArtworkPrompt({
       article: article({ headline: 'Chip demand rises' }),
-      concept: concept({ name: 'Green Chip', ticker: 'gchip', imageDirection: 'Board graphic' }),
+      concept: concept({
+        name: 'Green Chip',
+        ticker: 'gchip',
+        imageDirection: 'A single green chip character as the avatar.',
+      }),
       style: 'iconic',
     });
     expect(prompt).toContain('tokenName: Green Chip');
@@ -57,7 +63,7 @@ describe('buildTokenArtworkPrompt', () => {
         name: 'Chip Rally',
         ticker: 'CHIP',
         recommendedPairSymbol: 'NVDA',
-        imageDirection: 'Let NVDA dominate like a market-board headline; chips secondary.',
+        imageDirection: 'One glowing GPU crystal as a simple token mascot.',
       }),
       style: 'editorial_abstract',
     });
@@ -65,7 +71,8 @@ describe('buildTokenArtworkPrompt', () => {
     expect(prompt).toContain('quotePairSymbol: NVDA');
     expect(prompt).toContain('themeTags: ai, semiconductors');
     expect(prompt).toContain('Nvidia lifts guidance');
-    expect(prompt).toMatch(/stock-exchange ticker board|market terminal/i);
+    expect(prompt).toMatch(/token avatar|TOKEN AVATAR/i);
+    expect(prompt).toMatch(/background context/i);
     expect(prompt).not.toMatch(/\+4\.8%/);
     expect(prompt).not.toMatch(/\$\d+\.\d{2}/);
   });
@@ -88,11 +95,21 @@ describe('buildTokenArtworkPrompt', () => {
     expect(prompt).not.toContain('null');
   });
 
-  it('requests square/thumbnail-friendly market editorial art and suppresses AI clichés', () => {
+  it('requests token-avatar art and suppresses AI clichés + information design', () => {
     expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/Square 1:1/i);
-    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/thumbnail/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/thumbnail|64×64|64x64/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/TOKEN AVATAR|token avatar/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/One concept\. One focal point/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/NO INFORMATION DESIGN|ticker boards|market terminals/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/Do NOT render the token name/i);
     expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/glowing AI|floating crypto|cyberpunk neon/i);
     expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/Do NOT invent factual prices/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).not.toMatch(
+      /PRIORITY 2 — VISUAL LANGUAGE: Stock-exchange ticker board/i,
+    );
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(
+      /Do NOT create stock-exchange ticker boards/i,
+    );
     const prompt = buildTokenArtworkPrompt({
       article: article({ headline: 'Crude inventory surprise' }),
       concept: concept({ name: 'Barrel Tape', ticker: 'OILT' }),
@@ -116,7 +133,7 @@ describe('buildTokenArtworkPrompt', () => {
     expect(prompt).not.toMatch(/\bNvidia\b/i);
   });
 
-  it('A — company/AI stock story prioritizes market/ticker language', () => {
+  it('A — company/AI stock story stays avatar metaphor, not terminal board', () => {
     const prompt = buildTokenArtworkPrompt({
       article: article({
         headline: 'NVDA breaks out on AI capex',
@@ -127,20 +144,22 @@ describe('buildTokenArtworkPrompt', () => {
         name: 'Silicon Tape',
         ticker: 'SILI',
         recommendedPairSymbol: 'NVDA',
-        imageDirection: 'Exchange board with NVDA as hero typography; chip motif secondary only.',
+        imageDirection: 'One crystalline chip creature as the sole focal subject.',
       }),
       style: 'iconic',
     });
-    expect(prompt).toMatch(/ticker board|market terminal|ticker tape/i);
+    expect(prompt).toMatch(/token avatar|TOKEN AVATAR/i);
     expect(prompt).toContain('relatedStockTickers: NVDA');
-    expect(prompt).toContain('Exchange board with NVDA as hero typography');
-    // Market language is in the system block which leads the prompt.
-    expect(prompt.indexOf('PRIORITY 2 — VISUAL LANGUAGE')).toBeLessThan(
+    expect(prompt).toContain('One crystalline chip creature');
+    expect(prompt).toMatch(/Do NOT render the token name|do not render the token name/i);
+    expect(prompt).toMatch(/ticker boards|market terminals|dashboards/i);
+    expect(prompt).not.toMatch(/Oversized ticker|market-board mark as the hero/i);
+    expect(prompt.indexOf('PRIORITY 1 — TOKEN AVATAR')).toBeLessThan(
       prompt.indexOf('creativeDirection:'),
     );
   });
 
-  it('B — macro story stays board/editorial, not civic monument', () => {
+  it('B — macro story stays metaphor avatar, not scoreboard', () => {
     const prompt = buildTokenArtworkPrompt({
       article: article({
         headline: 'Fed holds rates; markets reprice cuts',
@@ -150,15 +169,20 @@ describe('buildTokenArtworkPrompt', () => {
       concept: concept({
         name: 'Cut Watch',
         ticker: 'CUTS',
-        imageDirection: 'Rate-decision market scoreboard; avoid marble government buildings.',
+        imageDirection: 'A single hawk and dove silhouette as one simple metaphor.',
       }),
       style: 'editorial_abstract',
     });
-    expect(prompt).toMatch(/financial-newspaper|terminal|scoreboard|ticker/i);
+    expect(prompt).toMatch(/token avatar|TOKEN AVATAR|visual metaphor/i);
     expect(prompt).toContain('themeTags: rates, fed');
+    expect(prompt).toMatch(/STYLE=EDITORIAL_ABSTRACT/);
+    expect(prompt).not.toMatch(
+      /Financial-newspaper \/ terminal-hybrid poster mood|story theme treated as market-data graphic/i,
+    );
+    expect(prompt).toMatch(/Not an editorial poster|simple avatar/i);
   });
 
-  it('C — commodity/energy combines subject with exchange treatment', () => {
+  it('C — commodity/energy uses object metaphor without board treatment', () => {
     const prompt = buildTokenArtworkPrompt({
       article: article({
         headline: 'Energy majors beat on refining margins',
@@ -169,16 +193,18 @@ describe('buildTokenArtworkPrompt', () => {
         name: 'Margin Barrel',
         ticker: 'BRRL',
         recommendedPairSymbol: 'XOM',
-        imageDirection: 'Oil/energy subject as market graphic with XOM board treatment.',
+        imageDirection: 'One oversized oil barrel character as the token avatar.',
       }),
       style: 'memetic',
     });
     expect(prompt).toContain('relatedStockTickers: XOM');
     expect(prompt).toContain('quotePairSymbol: XOM');
-    expect(prompt).toMatch(/exchange|ticker|terminal|market/i);
+    expect(prompt).toMatch(/STYLE=MEMETIC/);
+    expect(prompt).toMatch(/No meme collage|token-avatar/i);
+    expect(prompt).not.toMatch(/scoreboard swagger|ticker\/terminal\/editorial graphic/i);
   });
 
-  it('D — meme-ish concept stays market culture', () => {
+  it('D — meme-ish concept stays single characterful avatar', () => {
     const prompt = buildTokenArtworkPrompt({
       article: article({
         headline: 'Meme stock chatter returns to tape',
@@ -188,12 +214,26 @@ describe('buildTokenArtworkPrompt', () => {
       concept: concept({
         name: 'Tape Rocket',
         ticker: 'YEET',
-        imageDirection: 'Playful trading-floor scoreboard swagger; still ticker culture.',
+        imageDirection: 'One cartoon rocket mascot blasting upward; no text.',
       }),
       style: 'memetic',
     });
     expect(prompt).toContain('STYLE=MEMETIC');
-    expect(prompt).toMatch(/market-culture|trading-floor|scoreboard|ticker/i);
     expect(prompt).toContain('tokenTicker: YEET');
+    expect(prompt).toMatch(/do not render the token ticker|Do NOT render the token name/i);
+    expect(prompt).not.toMatch(/trading-floor scoreboard|ticker culture/i);
+  });
+
+  it('iconic style no longer asks for oversized ticker/market-board typography', () => {
+    const prompt = buildTokenArtworkPrompt({
+      article: article({ headline: 'Any story' }),
+      concept: concept({ name: 'Test', ticker: 'TEST' }),
+      style: 'iconic',
+    });
+    expect(prompt).toContain('STYLE=ICONIC:');
+    expect(prompt).toMatch(/One bold visual metaphor/i);
+    expect(prompt).toMatch(/No typography or information-design/i);
+    expect(prompt).not.toMatch(/Oversized ticker|market-board mark|exchange-display composition/i);
+    expect(prompt).not.toMatch(/Compose a financial-market \/ ticker-board/i);
   });
 });

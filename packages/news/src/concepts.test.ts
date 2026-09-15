@@ -129,6 +129,16 @@ describe('prompt injection defense', () => {
     expect(CONCEPT_SYSTEM_PROMPT).toMatch(/source material only/i);
   });
 
+  it('steers imageDirection toward token-avatar metaphor, not terminal graphics', () => {
+    expect(CONCEPT_SYSTEM_PROMPT).toMatch(/visual metaphor for the token avatar/i);
+    expect(CONCEPT_SYSTEM_PROMPT).toMatch(
+      /Do not request ticker boards, terminal screens, charts, dashboards/i,
+    );
+    expect(CONCEPT_SYSTEM_PROMPT).not.toMatch(
+      /financial-market \/ ticker-board \/ trading-terminal editorial graphic/i,
+    );
+  });
+
   it('delimits malicious article text as DATA and still validates pairs', async () => {
     const article: ConceptArticleContext = {
       providerArticleId: 'evil-1',

@@ -89,9 +89,16 @@ describe('quote revalidation', () => {
 });
 
 describe('image prompts', () => {
-  it('requires market/ticker editorial language and publisher-logo safeguards', () => {
-    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/ticker board|market terminal/i);
+  it('requires token-avatar language and publisher-logo safeguards', () => {
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/TOKEN AVATAR|token avatar/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/NO INFORMATION DESIGN|ticker boards|market terminals/i);
     expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(/No publisher logos/i);
+    expect(IMAGE_SYSTEM_CONSTRAINTS).not.toMatch(
+      /PRIORITY 2 — VISUAL LANGUAGE: Stock-exchange ticker board/i,
+    );
+    expect(IMAGE_SYSTEM_CONSTRAINTS).toMatch(
+      /Do NOT create stock-exchange ticker boards/i,
+    );
     const prompt = buildTokenArtworkPrompt({
       article: {
         ...article,
@@ -102,7 +109,9 @@ describe('image prompts', () => {
       style: 'iconic',
     });
     expect(prompt).toContain('untrusted');
+    expect(prompt).toContain('background context');
     expect(prompt).toContain('tokenTicker: FLOOD');
+    expect(prompt).toMatch(/Do NOT render the token name|do not render the token name/i);
     assertSafeImagePrompt(prompt);
   });
 });
