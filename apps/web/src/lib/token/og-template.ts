@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { absoluteSeoUrl } from '@/lib/seo/site';
 
-export const TOKEN_OG_TEMPLATE_PUBLIC_PATH = '/brand/token-template.png';
+export const TOKEN_OG_TEMPLATE_PUBLIC_PATH = '/brand/token-template2.png';
 
 const FETCH_TIMEOUT_MS = 3_000;
 
@@ -16,9 +16,9 @@ let cached: Promise<string | null> | null = null;
 function candidateFsPaths(): string[] {
   const cwd = process.cwd();
   return [
-    join(cwd, 'public/brand/token-template.png'),
+    join(cwd, 'public/brand/token-template2.png'),
     // Monorepo / tracing root may place cwd at repo root.
-    join(cwd, 'apps/web/public/brand/token-template.png'),
+    join(cwd, 'apps/web/public/brand/token-template2.png'),
   ];
 }
 

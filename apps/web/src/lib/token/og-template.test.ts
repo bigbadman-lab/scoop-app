@@ -15,7 +15,7 @@ describe('loadTokenOgTemplateDataUri', () => {
   it('loads the local PNG template from public/brand', async () => {
     const dataUri = await loadTokenOgTemplateDataUri();
     expect(dataUri?.startsWith('data:image/png;base64,')).toBe(true);
-    expect(TOKEN_OG_TEMPLATE_PUBLIC_PATH).toBe('/brand/token-template.png');
+    expect(TOKEN_OG_TEMPLATE_PUBLIC_PATH).toBe('/brand/token-template2.png');
   });
 
   it('falls back to HTTPS fetch when filesystem paths miss', async () => {
