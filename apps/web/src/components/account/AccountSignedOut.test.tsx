@@ -23,13 +23,6 @@ vi.mock('@/lib/auth/siwe-session-client', () => ({
   requestSiweSession: (...args: unknown[]) => requestSiweSession(...args),
 }));
 
-vi.mock('next/image', () => ({
-  default: (props: { alt: string; className?: string }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img alt={props.alt} className={props.className} />
-  ),
-}));
-
 import { AccountSignedOut } from '@/components/account/AccountSignedOut';
 
 describe('AccountSignedOut', () => {

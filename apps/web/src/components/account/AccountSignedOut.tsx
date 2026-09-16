@@ -1,11 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 import { useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
-import { ROBINHOOD_CHAIN_ID, SCOOP_MARK_SRC } from '@/lib/brand';
+import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
@@ -35,87 +34,58 @@ function AccountSignedOutFrame({
   statusNote?: string | null;
 }) {
   return (
-    <main className="relative isolate overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            'radial-gradient(90% 60% at 12% 0%, color-mix(in srgb, var(--scoop-orange) 16%, transparent), transparent 58%), radial-gradient(70% 50% at 100% 18%, color-mix(in srgb, var(--fg) 6%, transparent), transparent 55%), linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 42%, var(--bg) 100%)',
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-[var(--scoop-orange)] to-transparent opacity-70"
-      />
+    <main className="mx-auto max-w-3xl px-4 py-3 md:px-8 md:py-4 lg:px-10">
+      <header className="mb-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+          Account
+        </p>
+        <h1 className="mt-0.5 text-xl font-semibold tracking-tight md:text-2xl">
+          Your account
+        </h1>
+        <p className="mt-1.5 max-w-md text-sm text-[var(--muted)]">
+          Join once to open your profile. Connect a wallet when you are ready to
+          launch or trade.
+        </p>
+      </header>
 
-      <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col justify-center px-4 py-14 md:px-8 md:py-20">
-        <div>
-          <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--muted)]">
-            Account
+      <div>
+        {error ? (
+          <p className="mb-2 font-mono text-[11px] text-[#b42318]" role="alert">
+            {error}
           </p>
-
-          <div className="mt-8 flex items-end gap-5">
-            <Image
-              src={SCOOP_MARK_SRC}
-              alt=""
-              width={88}
-              height={88}
-              className="h-[4.5rem] w-[4.5rem] object-contain md:h-[5.5rem] md:w-[5.5rem]"
-              priority
-            />
-            <div className="min-w-0 pb-1">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--scoop-orange)]">
-                SCOOP
-              </p>
-              <h1 className="mt-1 text-4xl font-semibold tracking-tight md:text-5xl">
-                Your account
-              </h1>
-            </div>
-          </div>
-
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-[var(--muted)] md:text-lg">
-            Join once to open your profile. Connect a wallet when you are ready
-            to launch or trade.
+        ) : null}
+        {statusNote ? (
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+            {statusNote}
           </p>
+        ) : null}
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {primary}
+          <Link
+            href="/"
+            className="inline-flex min-h-10 items-center justify-center px-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
+          >
+            Back to markets
+          </Link>
         </div>
-
-        <div className="mt-10">
-          {error ? (
-            <p className="mb-4 font-mono text-[11px] text-[#b42318]" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {statusNote ? (
-            <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
-              {statusNote}
-            </p>
-          ) : null}
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            {primary}
-            <Link
-              href="/"
-              className="inline-flex min-h-11 items-center justify-center px-2 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)] transition-colors hover:text-[var(--fg)]"
-            >
-              Back to markets
-            </Link>
-          </div>
-        </div>
-
-        <ul className="mt-14 max-w-xl divide-y divide-[var(--divider)] border-t border-[var(--divider)]">
-          {ACCOUNT_OPENERS.map((item) => (
-            <li key={item.label} className="flex flex-col gap-1 py-5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-8">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)]">
-                {item.label}
-              </p>
-              <p className="text-sm text-[var(--muted)] sm:max-w-sm sm:text-right">
-                {item.detail}
-              </p>
-            </li>
-          ))}
-        </ul>
       </div>
+
+      <ul className="mt-5 max-w-xl divide-y divide-[var(--divider)] border-t border-[var(--divider)]">
+        {ACCOUNT_OPENERS.map((item) => (
+          <li
+            key={item.label}
+            className="flex flex-col gap-0.5 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)]">
+              {item.label}
+            </p>
+            <p className="text-sm text-[var(--muted)] sm:max-w-sm sm:text-right">
+              {item.detail}
+            </p>
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }
@@ -133,7 +103,7 @@ export function AccountSignedOutPending({
         <button
           type="button"
           disabled
-          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] opacity-50"
+          className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] opacity-50"
         >
           Join SCOOP
         </button>
@@ -201,7 +171,7 @@ export function AccountSignedOut({
       type="button"
       disabled={busy || status === 'connecting' || status === 'reconnecting'}
       onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
-      className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
+      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
     >
       {status === 'connecting' || status === 'reconnecting'
         ? 'Connecting…'
@@ -212,7 +182,7 @@ export function AccountSignedOut({
       type="button"
       disabled={busy || signing || !signerReady}
       onClick={() => void completeSiwe()}
-      className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
+      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
     >
       {busy || signing ? 'Confirming…' : 'Finish signing in'}
     </button>
