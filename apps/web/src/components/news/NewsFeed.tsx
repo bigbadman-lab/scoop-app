@@ -129,7 +129,7 @@ function StoryBody({
         {isLead ? null : (
           <NewsFreshnessBadge publishedAt={item.publishedAt} />
         )}
-        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
+        <div className="inline-flex max-w-full flex-wrap items-center font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)]">
           <span>{item.sourceDomain}</span>
           <span className="text-[var(--muted-2)]">{' '}·{' '}</span>
           <NewsAge iso={item.publishedAt} />

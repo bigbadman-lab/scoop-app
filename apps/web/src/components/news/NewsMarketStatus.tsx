@@ -89,13 +89,13 @@ const feedMetaZero = `${feedMetaBase} text-[var(--muted)]`;
 /** Compact live-markets artwork for /news feed meta (replaces ● + count text). */
 function LiveMarketsFeedIcon() {
   return (
-    <span className="inline-flex overflow-hidden rounded-[var(--radius-sm)]">
+    <span className="inline-flex shrink-0 items-center overflow-hidden rounded-[var(--radius-sm)] align-middle leading-none">
       <Image
-        src="/brand/livemarkets.png"
+        src="/brand/livemarkets2.png"
         alt=""
-        width={280}
-        height={40}
-        className="h-3.5 w-auto rounded-[var(--radius-sm)] object-contain"
+        width={240}
+        height={50}
+        className="block h-3.5 w-auto rounded-[var(--radius-sm)] object-contain"
         sizes="98px"
       />
     </span>

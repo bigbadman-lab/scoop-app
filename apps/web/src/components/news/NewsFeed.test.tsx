@@ -259,7 +259,7 @@ describe('NewsFeed lead rotation', () => {
     expect(within(lead()).getByText('BBB')).toBeTruthy();
     const status = within(lead()).getByTestId('news-market-status');
     expect(status.getAttribute('aria-label')).toMatch(/1 live market/i);
-    expect(status.querySelector('img[data-src="/brand/livemarkets.png"]')).toBeTruthy();
+    expect(status.querySelector('img[data-src="/brand/livemarkets2.png"]')).toBeTruthy();
     expect(status.textContent).not.toMatch(/1 LIVE MARKET/i);
     expect(status.getAttribute('href')).toBe(
       '/token/0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
@@ -279,7 +279,7 @@ describe('NewsFeed lead rotation', () => {
     expect(within(lead()).getByText('Charlie lead')).toBeTruthy();
     const multi = within(lead()).getByTestId('news-market-status');
     expect(multi.getAttribute('aria-label')).toMatch(/3 live markets/i);
-    expect(multi.querySelector('img[data-src="/brand/livemarkets.png"]')).toBeTruthy();
+    expect(multi.querySelector('img[data-src="/brand/livemarkets2.png"]')).toBeTruthy();
     expect(multi.textContent).not.toMatch(/3 LIVE MARKETS/i);
     fireEvent.click(multi);
     expect(screen.getByRole('link', { name: /\$AAA/i }).getAttribute('href')).toBe(
