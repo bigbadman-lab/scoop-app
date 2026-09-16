@@ -433,6 +433,92 @@ export async function loadHoodlockLocksForOwnerToken(args) {
 }
 
 /**
+ * Resolve the on-chain creation block timestamp for an existing HoodLock lock id
+ * from the unique Locked event log. Fail closed if not uniquely determinable.
+ *
+ * @param {{
+ *   client: {
+ *     getLogs: (args: unknown) => Promise<Array<{
+ *       blockNumber?: bigint,
+ *       transactionHash?: `0x${string}`,
+ *     }>>,
+ *     getBlock: (args: { blockNumber: bigint }) => Promise<{ timestamp: bigint | number }>,
+ *   },
+ *   lockId: bigint | number,
+ *   locker?: `0x${string}`,
+ * }} args
+ */
+export async function resolveHoodlockLockCreationTimestamp(args) {
+  const locker = getAddress(args.locker ?? HOODLOCK_LOCKER_ADDRESS);
+  const lockId = BigInt(args.lockId);
+
+  let logs;
+  try {
+    logs = await args.client.getLogs({
+      address: locker,
+      event: {
+        type: 'event',
+        name: 'Locked',
+        inputs: [
+          { name: 'id', type: 'uint256', indexed: true },
+          { name: 'owner', type: 'address', indexed: true },
+          { name: 'token', type: 'address', indexed: true },
+          { name: 'amount', type: 'uint256', indexed: false },
+          { name: 'unlockTime', type: 'uint256', indexed: false },
+        ],
+      },
+      args: { id: lockId },
+      fromBlock: 0n,
+      toBlock: 'latest',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      reason: `Failed to fetch Locked logs for lock id ${lockId.toString()}: ${message}`,
+    };
+  }
+
+  if (!logs || logs.length === 0) {
+    return {
+      ok: false,
+      reason: `No Locked event found for lock id ${lockId.toString()}`,
+    };
+  }
+  if (logs.length > 1) {
+    return {
+      ok: false,
+      reason: `Ambiguous Locked events for lock id ${lockId.toString()} (${logs.length} logs)`,
+    };
+  }
+
+  const log = logs[0];
+  if (log.blockNumber == null) {
+    return {
+      ok: false,
+      reason: `Locked event for lock id ${lockId.toString()} missing blockNumber`,
+    };
+  }
+
+  try {
+    const block = await args.client.getBlock({ blockNumber: log.blockNumber });
+    return {
+      ok: true,
+      lockId,
+      blockNumber: log.blockNumber,
+      timestampUnix: Number(block.timestamp),
+      txHash: log.transactionHash ?? null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      reason: `Failed to read lock creation block ${log.blockNumber.toString()}: ${message}`,
+    };
+  }
+}
+
+/**
  * @param {{
  *   client: { readContract: (args: unknown) => Promise<unknown> },
  *   token: `0x${string}`,

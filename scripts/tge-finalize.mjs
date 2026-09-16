@@ -43,6 +43,7 @@ import {
 } from './lib/tge-signer-env.mjs';
 import { buildLiveTgeFinalizeDeps } from './lib/tge-live-deps.mjs';
 import { runTgeFinalizeMutation } from './lib/tge-mutation.mjs';
+import { formatTgeConfirmFailure } from './lib/tge-failure-report.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -61,13 +62,15 @@ Usage:
   pnpm tape:tge-finalize <0xTAPE_ADDRESS>
   pnpm tape:tge-finalize <0xTAPE_ADDRESS> --confirm
   pnpm tape:check-signer
+  pnpm tape:verify-lock <0xTAPE_ADDRESS>
 
 Preview is always read-only (WRITE: NO).
 --confirm runs the guarded mutation workflow when TGE_PRODUCTION_EXECUTION_ARMED is true
 (currently: ${TGE_PRODUCTION_EXECUTION_ARMED ? 'ARMED' : 'DISARMED'}).
+tape:verify-lock is read-only post-lock / manual-takeover verification.
 
 Requires ROBINHOOD_RPC_URL.
-DATABASE_URL required for --confirm; optional for preview DB classification.
+DATABASE_URL required for --confirm; optional for preview DB classification and verify-lock.
 ${TAPE_TGE_SIGNER_PRIVATE_KEY_ENV} required for --confirm and tape:check-signer.
 Optional TAPE_TGE_DEV_BUY_WALLET = additional expected-wallet assertion.
 `);
@@ -298,11 +301,7 @@ async function runConfirm(parsed, fileEnv) {
     });
 
     if (!result.ok) {
-      console.error(result.reason ?? 'TGE finalization failed.');
-      if (result.liveFeeEth) {
-        console.error(`HoodLock live fee: ${result.liveFeeEth} ETH`);
-        console.error(`Maximum permitted: ${result.maxFeeEth} ETH`);
-      }
+      console.error(formatTgeConfirmFailure(result));
       process.exit(1);
     }
 
@@ -335,6 +334,11 @@ async function main() {
 }
 
 await main().catch((error) => {
-  console.error('Failed:', redactSecrets(error));
+  console.error('TGE FINALIZATION FAILED — DEV TOKEN LOCK NOT VERIFIED');
+  console.error(
+    'AUTOMATED LOCK STATUS UNCERTAIN — VERIFY ON-CHAIN BEFORE MANUAL TAKEOVER',
+  );
+  console.error(`Failed: ${redactSecrets(error)}`);
+  console.error('Action: run pnpm tape:verify-lock <TAPE> before any manual lock.');
   process.exit(1);
 });

@@ -259,28 +259,69 @@ export async function runTgeFinalizeMutation(deps) {
   const signer = deriveSignerAddress(deps.account);
   /** @type {string[]} */
   const mutations = [];
+  /** @type {'UNSET' | 'REGISTERED_NEW' | 'ALREADY_REGISTERED' | 'BLOCKED' | 'FAILED' | 'UNKNOWN'} */
+  let dbRegistration = 'UNKNOWN';
+  /** @type {`0x${string}` | null} */
+  let canonicalTape = null;
+  /** @type {`0x${string}` | null} */
+  let takeoverOwner = null;
+  /** @type {bigint | null} */
+  let takeoverAmount = null;
+  /** @type {`0x${string}` | null} */
+  let takeoverSpender = null;
+
+  const takeoverSnapshot = () =>
+    canonicalTape || takeoverOwner || takeoverAmount != null || takeoverSpender
+      ? {
+          token: canonicalTape,
+          owner: takeoverOwner,
+          amountRaw: takeoverAmount != null ? takeoverAmount.toString() : null,
+          spender: takeoverSpender,
+        }
+      : null;
+
+  /**
+   * @param {Record<string, unknown>} fields
+   */
+  const fail = (fields) => ({
+    ok: false,
+    blocked: false,
+    mutated: mutations.length > 0,
+    dbRegistration,
+    canonicalTape,
+    lockStatus: 'NONE',
+    takeover: takeoverSnapshot(),
+    ...fields,
+  });
 
   // --- DB stage ---
   const dbResult = await deps.db.ensureRegistered(candidate);
   if (dbResult.status === 'BLOCKED' || dbResult.status === 'FAILED') {
-    return {
-      ok: false,
+    dbRegistration = dbResult.status === 'BLOCKED' ? 'BLOCKED' : 'FAILED';
+    return fail({
       blocked: dbResult.status === 'BLOCKED',
       reason: dbResult.reason,
       mutated: Boolean(dbResult.wrote),
       stage: 'OFFICIAL_TAPE_DB',
-    };
+      lockStatus: 'NONE',
+    });
   }
-  if (dbResult.wrote) mutations.push('OFFICIAL_TAPE_DB');
+  if (dbResult.wrote) {
+    mutations.push('OFFICIAL_TAPE_DB');
+    dbRegistration = 'REGISTERED_NEW';
+  } else if (dbResult.status === 'ALREADY_COMPLETE') {
+    dbRegistration = 'ALREADY_REGISTERED';
+  } else {
+    dbRegistration = 'REGISTERED_NEW';
+  }
 
-  const canonicalTape = dbResult.canonical;
+  canonicalTape = dbResult.canonical;
   if (!canonicalTape) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: 'Canonical TAPE missing after DB stage',
-      mutated: mutations.length > 0,
-    };
+      stage: 'OFFICIAL_TAPE_DB',
+    });
   }
 
   // --- Dev allocation from canonical address ---
@@ -291,15 +332,15 @@ export async function runTgeFinalizeMutation(deps) {
     expectedWallet: deps.configuredExpectedWallet,
   });
   if (allocation.status !== 'READY' || !allocation.wallet || allocation.amount == null) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: allocation.reason ?? 'BLOCKED — TAPE DEV BUY NOT PROVEN',
-      mutated: mutations.length > 0,
       stage: 'DEV_ALLOCATION',
-      canonicalTape,
-    };
+    });
   }
+
+  takeoverOwner = allocation.wallet;
+  takeoverAmount = allocation.amount;
 
   const signerCheck = assertSignerMatchesDevBuyWallet({
     signerAddress: signer,
@@ -307,44 +348,36 @@ export async function runTgeFinalizeMutation(deps) {
     configuredExpectedWallet: deps.configuredExpectedWallet,
   });
   if (!signerCheck.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: signerCheck.reason,
-      mutated: mutations.length > 0,
       stage: 'SIGNER',
-      canonicalTape,
       signer: signerCheck.signer,
       devBuyWallet: allocation.wallet,
-    };
+    });
   }
 
   const hoodlock = await deps.verifyHoodlock();
   if (!hoodlock.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: hoodlock.reason,
-      mutated: mutations.length > 0,
       stage: 'HOODLOCK_IDENTITY',
-      canonicalTape,
-    };
+    });
   }
+  takeoverSpender = hoodlock.locker;
 
   const earlyFee = assertHoodlockFeeWithinTgeLimit(hoodlock.fee);
   if (!earlyFee.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: earlyFee.reason,
       liveFeeWei: earlyFee.liveFeeWei?.toString(),
       maxFeeWei: earlyFee.maxFeeWei?.toString(),
       liveFeeEth: earlyFee.liveFeeEth,
       maxFeeEth: earlyFee.maxFeeEth,
-      mutated: mutations.length > 0,
       stage: 'HOODLOCK_FEE',
-      canonicalTape,
-    };
+    });
   }
 
   const minUnlock = minimumUnlockUnixFromReference(
@@ -364,14 +397,12 @@ export async function runTgeFinalizeMutation(deps) {
     minimumUnlockUnix: minUnlock,
   });
   if (existing.status === 'BLOCKED') {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: existing.reason,
-      mutated: mutations.length > 0,
       stage: 'HOODLOCK_LOCK',
-      canonicalTape,
-    };
+      lockStatus: 'UNCERTAIN',
+    });
   }
 
   let approvalTx = 'SKIPPED_EXISTING_ALLOWANCE';
@@ -412,13 +443,13 @@ export async function runTgeFinalizeMutation(deps) {
       lock.owner.toLowerCase() !== allocation.wallet.toLowerCase() ||
       recordedAmount !== allocation.amount
     ) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: 'FAILED — EXISTING LOCK FAILED FINAL VERIFICATION',
-        mutated: mutations.length > 0,
         stage: 'FINAL_VERIFICATION',
-      };
+        lockStatus: 'UNCERTAIN',
+        lockId: lockId?.toString?.() ?? String(lockId),
+      });
     }
     void verified;
     const ab = await deps.getAllowanceBalance({
@@ -474,17 +505,14 @@ export async function runTgeFinalizeMutation(deps) {
     devBuyAmount: allocation.amount,
   });
   if (!balanceCheck.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: balanceCheck.reason,
       expected: balanceCheck.expected?.toString(),
       balance: balanceCheck.balance?.toString(),
       deficit: balanceCheck.deficit?.toString(),
-      mutated: mutations.length > 0,
       stage: 'BALANCE',
-      canonicalTape,
-    };
+    });
   }
 
   const lockAmount = balanceCheck.lockAmount;
@@ -503,13 +531,11 @@ export async function runTgeFinalizeMutation(deps) {
       configuredExpectedWallet: deps.configuredExpectedWallet,
     });
     if (!preApproveSigner.ok) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: preApproveSigner.reason,
-        mutated: mutations.length > 0,
         stage: 'SIGNER',
-      };
+      });
     }
 
     const approvalIntent = buildExactApprovalIntent({
@@ -521,37 +547,33 @@ export async function runTgeFinalizeMutation(deps) {
     if (deps.simulateApproval) {
       const sim = await deps.simulateApproval(approvalIntent);
       if (!sim.ok) {
-        return {
-          ok: false,
+        return fail({
           blocked: true,
           reason: sim.reason ?? 'BLOCKED — APPROVAL SIMULATION FAILED',
-          mutated: mutations.length > 0,
           stage: 'HOODLOCK_APPROVAL',
-        };
+        });
       }
     }
 
     if (!deps.sendApproval || !deps.waitReceipt) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: 'BLOCKED — APPROVAL TRANSPORT NOT CONFIGURED',
-        mutated: mutations.length > 0,
-      };
+      });
     }
 
     const sent = await deps.sendApproval(approvalIntent);
     mutations.push('HOODLOCK_APPROVAL');
     const receipt = await deps.waitReceipt(sent.hash);
     if (receipt.status !== 'success') {
-      return {
-        ok: false,
+      return fail({
         blocked: false,
         reason: 'FAILED — APPROVAL RECEIPT NOT SUCCESSFUL',
         mutated: true,
         approvalTxHash: sent.hash,
         stage: 'HOODLOCK_APPROVAL',
-      };
+        lockStatus: 'NONE',
+      });
     }
     approvalTx = sent.hash;
 
@@ -561,26 +583,25 @@ export async function runTgeFinalizeMutation(deps) {
       spender: hoodlock.locker,
     });
     if (ab.allowance < lockAmount) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: 'BLOCKED — POST-APPROVAL ALLOWANCE INSUFFICIENT',
         mutated: true,
         approvalTxHash: sent.hash,
         stage: 'HOODLOCK_APPROVAL',
-      };
+        lockStatus: 'NONE',
+      });
     }
   }
 
   // --- Post-approval safety recheck ---
   const chainId2 = await deps.getChainId();
   if (chainId2 !== ROBINHOOD_CHAIN_ID) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: `Wrong chain ID before lock: ${chainId2}`,
-      mutated: mutations.length > 0,
-    };
+      stage: 'RECHECK',
+    });
   }
 
   if (deps.db.rereadOfficial) {
@@ -589,13 +610,11 @@ export async function runTgeFinalizeMutation(deps) {
       !dbNow ||
       dbNow.toLowerCase() !== canonicalTape.toLowerCase()
     ) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: 'BLOCKED — OFFICIAL TAPE ADDRESS CHANGED DURING FINALIZATION',
-        mutated: mutations.length > 0,
         stage: 'RECHECK',
-      };
+      });
     }
   }
 
@@ -605,34 +624,28 @@ export async function runTgeFinalizeMutation(deps) {
     configuredExpectedWallet: deps.configuredExpectedWallet,
   });
   if (!signerRecheck.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: signerRecheck.reason,
-      mutated: mutations.length > 0,
       stage: 'RECHECK',
-    };
+    });
   }
 
   const hoodlock2 = await deps.verifyHoodlock();
   if (!hoodlock2.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: hoodlock2.reason,
-      mutated: mutations.length > 0,
       stage: 'RECHECK',
-    };
+    });
   }
   if (hoodlock2.codeSha256 !== hoodlock.codeSha256) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason:
         'BLOCKED — HOODLOCK BYTECODE DOES NOT MATCH FORENSICALLY APPROVED DEPLOYMENT',
-      mutated: mutations.length > 0,
       stage: 'RECHECK',
-    };
+    });
   }
 
   ab = await deps.getAllowanceBalance({
@@ -645,22 +658,18 @@ export async function runTgeFinalizeMutation(deps) {
     devBuyAmount: lockAmount,
   });
   if (!balanceRecheck.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: balanceRecheck.reason,
-      mutated: mutations.length > 0,
       stage: 'RECHECK',
-    };
+    });
   }
   if (ab.allowance < lockAmount) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: 'BLOCKED — ALLOWANCE DISAPPEARED BEFORE LOCK',
-      mutated: mutations.length > 0,
       stage: 'RECHECK',
-    };
+    });
   }
 
   // Concurrent lock appeared?
@@ -709,12 +718,12 @@ export async function runTgeFinalizeMutation(deps) {
     };
   }
   if (existingAgain.status === 'BLOCKED') {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: existingAgain.reason,
-      mutated: mutations.length > 0,
-    };
+      lockStatus: 'UNCERTAIN',
+      stage: 'HOODLOCK_LOCK',
+    });
   }
 
   const chainTs = await deps.getBlockTimestamp();
@@ -725,18 +734,15 @@ export async function runTgeFinalizeMutation(deps) {
   const freshFee = hoodlock2.fee;
   const feeCheck = assertHoodlockFeeWithinTgeLimit(freshFee);
   if (!feeCheck.ok) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: feeCheck.reason,
       liveFeeWei: feeCheck.liveFeeWei?.toString(),
       maxFeeWei: feeCheck.maxFeeWei?.toString(),
       liveFeeEth: feeCheck.liveFeeEth,
       maxFeeEth: feeCheck.maxFeeEth,
-      mutated: mutations.length > 0,
       stage: 'HOODLOCK_FEE',
-      canonicalTape,
-    };
+    });
   }
 
   const lockIntent = buildHoodlockLockIntent({
@@ -750,27 +756,24 @@ export async function runTgeFinalizeMutation(deps) {
   if (deps.simulateLock) {
     const sim = await deps.simulateLock(lockIntent);
     if (!sim.ok) {
-      return {
-        ok: false,
+      return fail({
         blocked: true,
         reason: sim.reason ?? 'BLOCKED — HOODLOCK LOCK SIMULATION FAILED',
-        mutated: mutations.length > 0,
         stage: 'HOODLOCK_LOCK',
         lockIntent,
         proposedUnlockUtc: formatUnlockUtc(proposedUnlock),
         liveFeeEth: feeCheck.liveFeeEth,
         maxFeeEth: feeCheck.maxFeeEth,
-      };
+        lockStatus: 'NONE',
+      });
     }
   }
 
   if (!deps.sendLock || !deps.waitReceipt) {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason: 'BLOCKED — LOCK TRANSPORT NOT CONFIGURED',
-      mutated: mutations.length > 0,
-    };
+    });
   }
 
   const lockSent = await deps.sendLock(lockIntent);
@@ -778,14 +781,16 @@ export async function runTgeFinalizeMutation(deps) {
   lockTxHash = lockSent.hash;
   const lockReceipt = await deps.waitReceipt(lockSent.hash);
   if (lockReceipt.status !== 'success') {
-    return {
-      ok: false,
+    return fail({
       blocked: false,
       reason: 'FAILED — LOCK RECEIPT NOT SUCCESSFUL',
       mutated: true,
       lockTxHash,
       stage: 'HOODLOCK_LOCK',
-    };
+      lockStatus: 'NONE',
+      approvalTxHash:
+        approvalTx !== 'SKIPPED_EXISTING_ALLOWANCE' ? approvalTx : undefined,
+    });
   }
   lockBlock = lockReceipt.blockNumber;
 
@@ -803,8 +808,7 @@ export async function runTgeFinalizeMutation(deps) {
     expectedToken: canonicalTape,
   });
   if (decoded.status !== 'OK') {
-    return {
-      ok: false,
+    return fail({
       blocked: true,
       reason:
         decoded.reason ??
@@ -812,7 +816,10 @@ export async function runTgeFinalizeMutation(deps) {
       mutated: true,
       lockTxHash,
       stage: 'HOODLOCK_LOCK',
-    };
+      lockStatus: 'UNCERTAIN',
+      approvalTxHash:
+        approvalTx !== 'SKIPPED_EXISTING_ALLOWANCE' ? approvalTx : undefined,
+    });
   }
 
   lockId = decoded.lock.id;
@@ -830,15 +837,17 @@ export async function runTgeFinalizeMutation(deps) {
       lockBlockTimestampUnix: lockBlockTs,
     });
     if (!verified.ok) {
-      return {
-        ok: false,
+      return fail({
         blocked: false,
         reason: verified.reason,
         mutated: true,
         lockTxHash,
         lockId: lockId.toString(),
         stage: 'FINAL_VERIFICATION',
-      };
+        lockStatus: 'UNCERTAIN',
+        approvalTxHash:
+          approvalTx !== 'SKIPPED_EXISTING_ALLOWANCE' ? approvalTx : undefined,
+      });
     }
     recordedAmount = typeof onchain.amount === 'bigint' ? onchain.amount : BigInt(onchain.amount);
     unlockTime = Number(onchain.unlockTime);
@@ -857,15 +866,17 @@ export async function runTgeFinalizeMutation(deps) {
       lockBlockTimestampUnix: lockBlockTs,
     });
     if (!verified.ok) {
-      return {
-        ok: false,
+      return fail({
         blocked: false,
         reason: verified.reason,
         mutated: true,
         lockTxHash,
         lockId: lockId.toString(),
         stage: 'FINAL_VERIFICATION',
-      };
+        lockStatus: 'UNCERTAIN',
+        approvalTxHash:
+          approvalTx !== 'SKIPPED_EXISTING_ALLOWANCE' ? approvalTx : undefined,
+      });
     }
   }
 
