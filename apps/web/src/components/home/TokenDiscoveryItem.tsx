@@ -13,6 +13,7 @@ import {
 } from '@/lib/format';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
+import { toDiscoverTokenImageThumb } from '@/lib/media/discover-token-image-thumb';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 
 type Props = {
@@ -66,7 +67,9 @@ export function TokenDiscoveryItemCard({
       >
         <div className="relative aspect-square overflow-hidden bg-[var(--bg)]">
           <TokenImage
-            src={pickTokenImageSrc(token.displayImageUrl, token.imageUri)}
+            src={toDiscoverTokenImageThumb(
+              pickTokenImageSrc(token.displayImageUrl, token.imageUri),
+            )}
             alt={token.name}
             className="h-full w-full rounded-none"
             size={320}

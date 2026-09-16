@@ -229,7 +229,10 @@ describe('TokenImage fallback', () => {
       />,
     );
     const img = screen.getByRole('img', { name: /hello world/i });
-    expect(img.getAttribute('src')).toBe(display);
+    expect(img.getAttribute('src')).toBe(
+      'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/render/image/public/token-image/helloworld.png?width=640&height=640&quality=70',
+    );
     expect(img.getAttribute('src')?.includes('ipfs.io')).toBe(false);
+    expect(img.getAttribute('src')?.includes('/object/public/')).toBe(false);
   });
 });
