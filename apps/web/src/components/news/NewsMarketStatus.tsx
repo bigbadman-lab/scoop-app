@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { formatCompactAge, displayUsd, formatCompactUsdMarketValue } from '@/lib/format';
@@ -84,6 +85,22 @@ const feedMetaLive =
   `${feedMetaBase} text-[var(--fg)]/90 underline-offset-2 transition-colors hover:text-[var(--fg)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--scoop-live)]`;
 
 const feedMetaZero = `${feedMetaBase} text-[var(--muted)]`;
+
+/** Compact live-markets artwork for /news feed meta (replaces ● + count text). */
+function LiveMarketsFeedIcon() {
+  return (
+    <span className="inline-flex overflow-hidden rounded-[var(--radius-sm)]">
+      <Image
+        src="/brand/livemarkets.png"
+        alt=""
+        width={280}
+        height={40}
+        className="h-3.5 w-auto rounded-[var(--radius-sm)] object-contain"
+        sizes="98px"
+      />
+    </span>
+  );
+}
 
 /**
  * Homepage hero metadata — market state as quiet editorial copy, not a control.
@@ -264,10 +281,7 @@ function NewsMarketStatusFeed({
         data-interactive="true"
         aria-label={`${label} — open ${tickerLabel(primary.symbol)}`}
       >
-        <span className="text-[var(--scoop-live)]" aria-hidden>
-          ●
-        </span>
-        <span>{label}</span>
+        <LiveMarketsFeedIcon />
       </Link>
     );
   }
@@ -291,10 +305,7 @@ function NewsMarketStatusFeed({
         data-interactive="true"
         onClick={() => selector.setOpen((v) => !v)}
       >
-        <span className="text-[var(--scoop-live)]" aria-hidden>
-          ●
-        </span>
-        <span>{label}</span>
+        <LiveMarketsFeedIcon />
       </button>
       {selector.open ? (
         <MarketsSelectorPanel
