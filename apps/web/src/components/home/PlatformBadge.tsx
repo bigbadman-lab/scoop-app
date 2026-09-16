@@ -15,7 +15,7 @@ export function PlatformBadge({ icon, eyebrow, value, className = '' }: Props) {
   return (
     <div
       className={[
-        'inline-flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-2 sm:h-[52px] sm:flex-none sm:gap-2.5 sm:rounded-[var(--radius-lg)] sm:px-3',
+        'inline-flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-1.5 sm:h-11 sm:flex-none sm:gap-2 sm:rounded-[var(--radius-lg)] sm:px-2.5',
         className,
       ]
         .filter(Boolean)

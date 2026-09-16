@@ -137,7 +137,7 @@ export function LiveDeskStrip({ initialSpot }: Props) {
     spot.instruments.length > 0 ? spot.instruments : emptySpotPayload().instruments;
 
   return (
-    <div className="live-desk-strip mb-3 md:mb-4" aria-label="Live desk" data-testid="live-desk-strip">
+    <div className="live-desk-strip mb-2.5 md:mb-3" aria-label="Live desk" data-testid="live-desk-strip">
       <span className="desk-pill desk-pill-live">
         <span className="desk-live-dot" aria-hidden />
         <span className="desk-pill-label">Live</span>

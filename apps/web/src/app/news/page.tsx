@@ -31,7 +31,7 @@ export default async function NewsPage({ searchParams }: NewsPageProps) {
   ]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-5 md:px-8 md:py-6 lg:px-10">
+    <main className="mx-auto max-w-4xl px-4 py-3 md:px-8 md:py-4 lg:px-10">
       <Suspense fallback={null}>
         <NewsFeed initial={initial} quoteCatalogue={quoteCatalogue} />
       </Suspense>

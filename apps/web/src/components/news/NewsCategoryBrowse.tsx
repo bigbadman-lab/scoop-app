@@ -15,7 +15,7 @@ const CARD_ORDER: readonly NewsFeedCategory[] = ['stocks', 'markets'];
 export function NewsCategoryBrowse({ selected, onSelect }: Props) {
   return (
     <div
-      className="mb-5 grid grid-cols-2 gap-2 sm:gap-3"
+      className="mb-3 grid grid-cols-2 gap-2 sm:gap-2.5"
       role="group"
       aria-label="News feeds"
       data-testid="news-category-browse"

@@ -15,13 +15,13 @@ type Props = {
 export function NowSection({ news, deskSpot }: Props) {
   return (
     <section aria-label="Now">
-      <div className="mx-auto max-w-[1400px] px-4 pt-4 pb-2 md:px-8 md:pt-5 md:pb-3 lg:px-10">
+      <div className="mx-auto max-w-[1400px] px-4 pt-3 pb-2 md:px-8 md:pt-4 md:pb-2.5 lg:px-10">
         <LiveDeskStrip initialSpot={deskSpot} />
 
         {/* Brand mark + infrastructure badges + Launch */}
-        <div className="mb-3 flex flex-col gap-4 md:mb-4 md:flex-row md:items-start md:justify-between md:gap-8 lg:items-center">
+        <div className="mb-2.5 flex flex-col gap-3 md:mb-3 md:flex-row md:items-start md:justify-between md:gap-6 lg:items-center">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:gap-3.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={SCOOP_HERO_SRC}
@@ -32,14 +32,14 @@ export function NowSection({ news, deskSpot }: Props) {
               />
               <HomepageInfrastructureBadges className="w-full min-w-0 lg:w-auto" />
             </div>
-            <p className="mt-3 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
+            <p className="mt-2.5 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
               Turn{' '}
               <Link href="/news" className="underline-offset-2 hover:underline">
                 news
               </Link>{' '}
               into markets. Earn from every trade.
             </p>
-            <div className="mt-5 md:hidden">
+            <div className="mt-4 md:hidden">
               <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5">
                 Launch
               </CtaLink>
@@ -55,7 +55,7 @@ export function NowSection({ news, deskSpot }: Props) {
 
         <div
           aria-hidden
-          className="mb-5 hidden h-px w-[90%] bg-[var(--divider)] md:mb-6 md:block"
+          className="mb-3.5 hidden h-px w-[90%] bg-[var(--divider)] md:mb-4 md:block"
         />
 
         <div>

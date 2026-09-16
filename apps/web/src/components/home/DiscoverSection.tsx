@@ -81,11 +81,11 @@ export function DiscoverSection({
 
   return (
     <section aria-label="Markets" className="border-b border-[var(--divider)]">
-      <div className="mx-auto max-w-[1400px] px-4 pt-3 pb-10 md:px-8 md:pt-4 md:pb-14 lg:px-10">
+      <div className="mx-auto max-w-[1400px] px-4 pt-2.5 pb-10 md:px-8 md:pt-3 md:pb-14 lg:px-10">
         <div
           role="tablist"
           aria-label="Market filters"
-          className="mb-8 flex flex-wrap justify-start gap-x-4 gap-y-2 border-b border-[var(--divider)] pb-2"
+          className="mb-4 flex flex-wrap justify-start gap-x-4 gap-y-2 border-b border-[var(--divider)] pb-2 md:mb-5"
         >
           {DISCOVER_TABS.map((item) => {
             const selected = tab === item.id;
@@ -117,7 +117,7 @@ export function DiscoverSection({
         >
           {result.status === 'ok' && result.items.length > 0 ? (
             <div
-              className="grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               data-testid="discover-grid"
             >
               {result.items.map((token) => {

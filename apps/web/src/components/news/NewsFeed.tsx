@@ -45,11 +45,11 @@ function NewsDeskHeader({
   lastSuccessfulIngestAt: string | null;
 }) {
   return (
-    <header className="mb-2" data-testid="news-desk-header">
+    <header className="mb-1.5" data-testid="news-desk-header">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
         News
       </p>
-      <div className="mt-0.5 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <div className="mt-0.5 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Market feed</h1>
         <NewsIngestFreshness lastSuccessfulIngestAt={lastSuccessfulIngestAt} />
       </div>
@@ -123,7 +123,7 @@ function StoryBody({
       </h2>
 
       <div
-        className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5"
+        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5"
         data-testid="news-feed-meta"
       >
         {isLead ? null : (
@@ -153,7 +153,7 @@ function StoryBody({
       </div>
 
       <div
-        className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+        className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1"
         data-testid="news-feed-actions"
       >
         <LaunchAsTokenLink
@@ -183,7 +183,7 @@ function NewsFeedStaticRow({
   const fresh = isNewsFresh(freshness);
 
   return (
-    <li className="border-b border-[var(--divider)] pb-6 pt-5 last:border-b-0 last:pb-0">
+    <li className="border-b border-[var(--divider)] py-3 last:border-b-0 last:pb-0">
       <article
         className={fresh ? 'border-l-2 border-[var(--scoop-live)]/40 pl-2.5' : 'pl-0'}
         data-testid="news-feed-item"
@@ -280,7 +280,7 @@ function NewsLeadSlot({
 
   return (
     <div
-      className="border-b border-[var(--divider)] pb-6"
+      className="border-b border-[var(--divider)] pb-3.5"
       data-testid="news-lead-slot"
       data-lead-id={displayed.id}
       data-lead-paused={paused ? 'true' : 'false'}
@@ -309,7 +309,7 @@ function NewsLeadSlot({
           data-testid="news-lead-content"
         >
           <p
-            className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]"
+            className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]"
             data-testid="news-lead-kicker"
             aria-hidden
           >
@@ -764,7 +764,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
         ) : (
           <>
             {pendingNew.length > 0 ? (
-              <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-4 flex justify-center">
+              <div className="sticky top-[calc(var(--announcement-offset,0px)+0.75rem)] z-20 mb-3 flex justify-center">
                 <button
                   type="button"
                   onClick={revealPending}
@@ -794,7 +794,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
             </ul>
 
             {nextCursor ? (
-              <div className="mt-6 flex flex-col items-stretch gap-2 sm:items-start">
+              <div className="mt-4 flex flex-col items-stretch gap-2 sm:items-start">
                 <button
                   type="button"
                   onClick={() => void loadMore()}

@@ -28,8 +28,8 @@ describe('HomepageInfrastructureBadges', () => {
 
     const rh = screen.getByTestId('platform-badge-rh-icon');
     expect(rh.className).toMatch(/overflow-hidden/);
-    expect(rh.className).toMatch(/rounded-\[7px\]/);
-    expect(rh.className).toMatch(/sm:rounded-\[9px\]/);
+    expect(rh.className).toMatch(/rounded-\[6px\]/);
+    expect(rh.className).toMatch(/sm:rounded-\[8px\]/);
     const rhImg = rh.querySelector('img');
     expect(rhImg?.getAttribute('src')).toBe('/brand/rh.svg');
 

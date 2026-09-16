@@ -55,9 +55,9 @@ function OverlayCopy({
   const metaClass =
     'font-mono text-[11px] uppercase tracking-[0.16em] text-white/85 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
   const headlineClass =
-    'mt-1.5 max-w-3xl text-[1.25rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-2 md:mt-2 md:text-2xl lg:text-[1.85rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
+    'mt-1 max-w-3xl text-[1.25rem] font-semibold leading-[1.15] tracking-tight text-white line-clamp-2 md:mt-1.5 md:text-2xl lg:text-[1.85rem] lg:leading-[1.12] [text-shadow:0_1px_2px_rgba(0,0,0,0.65),0_8px_28px_rgba(0,0,0,0.4)]';
   const sourceMetaClass =
-    'mt-2 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white/80 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
+    'mt-1.5 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] uppercase tracking-[0.14em] text-white/80 md:mt-2 md:text-[12px] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]';
 
   if (news.status === 'ok' && article) {
     return (
@@ -269,7 +269,7 @@ export function HouseLeadHero({ news }: Props) {
 
         {/* In-flow story block sizes the frame; imagery fills behind via absolute inset. */}
         <div
-          className="relative z-10 space-y-3 p-4 pb-5 md:space-y-4 md:p-6 md:pb-6 lg:p-7 lg:pb-7"
+          className="relative z-10 space-y-2.5 p-3.5 pb-4 md:space-y-3.5 md:p-5 md:pb-5 lg:p-6 lg:pb-6"
           data-testid="house-lead-story"
           data-story-id={article?.providerArticleId ?? ''}
           data-story-offset={String(storyOffset)}
@@ -283,12 +283,20 @@ export function HouseLeadHero({ news }: Props) {
 
           {showActions ? (
             <div
-              className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center md:gap-3"
+              className="flex min-w-0 flex-row flex-wrap items-center gap-x-2.5 gap-y-2 md:gap-x-3"
               data-testid="house-lead-actions"
             >
-              <LaunchAsTokenLink providerArticleId={article.providerArticleId} />
+              <LaunchAsTokenLink
+                providerArticleId={article.providerArticleId}
+                className="min-w-0 shrink"
+              />
               {href ? (
-                <CtaLink href={href} external variant="secondary">
+                <CtaLink
+                  href={href}
+                  external
+                  variant="secondary"
+                  className="min-h-11 min-w-0 shrink px-3"
+                >
                   Read story ↗
                 </CtaLink>
               ) : null}

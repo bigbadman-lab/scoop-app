@@ -143,6 +143,8 @@ describe('HouseLeadHero', () => {
     render(<HouseLeadHero news={okNews([article])} />);
     const actions = screen.getByTestId('house-lead-actions');
     expect(actions.closest('[data-testid="house-lead-hero"]')).toBeTruthy();
+    expect(actions.className).toMatch(/flex-row/);
+    expect(actions.className).not.toMatch(/flex-col/);
 
     const launch = screen.getByRole('link', { name: /launch market/i });
     expect(launch.getAttribute('href')).toBe('/news/77/launch');
@@ -182,8 +184,8 @@ describe('HouseLeadHero', () => {
     render(
       <HouseLeadHero news={okNews([makeArticle('one', 'One market story', 1)])} />,
     );
-    expect(screen.getByTestId('news-market-status').textContent).toMatch(/1 LIVE MARKET/);
-    expect(screen.getByTestId('news-market-status').textContent).not.toMatch(/MARKETS$/);
+    expect(screen.getByTestId('news-market-status').textContent).toMatch(/1 live market/i);
+    expect(screen.getByTestId('news-market-status').textContent).not.toMatch(/markets$/i);
   });
 
   it('sizes the lead frame from story content instead of a fixed aspect ratio', () => {
