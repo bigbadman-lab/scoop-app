@@ -141,15 +141,15 @@ function TokenMarketLiveBody({
       data-live="true"
       className="pb-2"
     >
-      <header className="pb-2.5">
-        <div className="flex gap-3 sm:items-start sm:gap-4">
+      <header className="pb-1.5">
+        <div className="flex gap-2.5 sm:items-start sm:gap-3.5">
           <TokenImage
             src={imageSrc}
             alt={token.name}
-            size={64}
-            className="h-14 w-14 shrink-0 rounded-[var(--radius-lg)] sm:h-16 sm:w-16"
+            size={56}
+            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] sm:h-14 sm:w-14"
           />
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-8 lg:gap-10">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-6 lg:gap-8">
             <div className="min-w-0">
               <div className="flex items-start gap-2">
                 <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight text-[var(--fg)] sm:text-xl">
@@ -158,7 +158,7 @@ function TokenMarketLiveBody({
                 <CopyMarketLinkButton />
               </div>
               <div
-                className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+                className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1"
                 data-testid="token-pair"
               >
                 <span className="font-mono text-[12px] tracking-wide text-[var(--muted)]">
@@ -173,12 +173,13 @@ function TokenMarketLiveBody({
                   className="rounded-[var(--radius-sm)] px-1 py-0.5 shadow-none"
                 />
               </div>
-              <div className="mt-1.5">
+              {/* Desktop: contract under pair. Mobile: demoted below price. */}
+              <div className="mt-1 hidden sm:block">
                 <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
               </div>
             </div>
 
-            <div className="min-w-0 shrink-0 sm:pt-0.5">
+            <div className="min-w-0 shrink-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <p
                   className="tabular text-[1.5rem] font-semibold leading-none tracking-tight text-[var(--fg)] sm:text-[1.75rem]"
@@ -198,7 +199,7 @@ function TokenMarketLiveBody({
               </div>
               {priceUsd && priceQuote ? (
                 <p
-                  className="mt-1 tabular font-mono text-[11px] tracking-wide text-[var(--muted)]"
+                  className="mt-0.5 tabular font-mono text-[11px] tracking-wide text-[var(--muted)]"
                   data-testid="token-price-quote"
                 >
                   {priceQuote}
@@ -206,12 +207,15 @@ function TokenMarketLiveBody({
               ) : null}
               {!priceUsd && priceQuote ? (
                 <p
-                  className="mt-1 font-mono text-[10px] text-[var(--muted-2)]"
+                  className="mt-0.5 font-mono text-[10px] text-[var(--muted-2)]"
                   data-testid="token-usd-unavailable"
                 >
                   USD unavailable
                 </p>
               ) : null}
+              <div className="mt-1 sm:hidden">
+                <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+              </div>
             </div>
           </div>
         </div>
@@ -219,18 +223,18 @@ function TokenMarketLiveBody({
 
       {lore && loreHref ? (
         <section
-          className="mt-2 border-t border-[var(--divider)] pt-2.5"
+          className="mt-1.5 border-t border-[var(--divider)] pt-1.5"
           aria-labelledby="token-lore-heading"
           data-testid="token-lore"
         >
           <h2
             id="token-lore-heading"
-            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+            className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
           >
             Lore
           </h2>
           <p
-            className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]"
+            className="mt-0.5 max-w-2xl text-[13px] leading-snug text-[var(--fg)]"
             data-testid="token-lore-headline"
           >
             {lore.title}
@@ -239,7 +243,7 @@ function TokenMarketLiveBody({
             href={loreHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1.5 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
+            className="mt-0.5 inline-block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline"
             data-testid="token-lore-link"
           >
             {lore.sourceDomain?.trim() || 'Original article'}
@@ -249,23 +253,23 @@ function TokenMarketLiveBody({
 
       {showAbout ? (
         <section
-          className="mt-2 border-t border-[var(--divider)] pt-2.5"
+          className="mt-1.5 border-t border-[var(--divider)] pt-1.5"
           aria-labelledby="token-about-heading"
           data-testid="token-about"
         >
           <h2
             id="token-about-heading"
-            className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+            className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
           >
             About
           </h2>
           {description ? (
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--fg)]">
+            <p className="mt-0.5 max-w-2xl text-[13px] leading-snug text-[var(--fg)]">
               {description}
             </p>
           ) : null}
           {aboutLinks.length > 0 ? (
-            <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
               {aboutLinks.map((link) => (
                 <li key={link.label}>
                   <a
@@ -284,7 +288,7 @@ function TokenMarketLiveBody({
       ) : null}
 
       <div
-        className="mt-3 flex flex-wrap items-start gap-x-5 gap-y-2 border-y border-[var(--divider)] py-3 sm:gap-x-6 lg:gap-x-8"
+        className="mt-2 flex flex-wrap items-start gap-x-5 gap-y-1.5 border-y border-[var(--divider)] py-2 sm:gap-x-6 lg:gap-x-8"
         data-testid="token-metrics"
       >
         {metrics.map((m) => (
@@ -309,7 +313,7 @@ function TokenMarketLiveBody({
       )}
 
       <div
-        className="mt-3 grid gap-3 lg:grid-cols-12 lg:items-start lg:gap-x-5"
+        className="mt-2 grid gap-3 lg:grid-cols-12 lg:items-start lg:gap-x-5"
         data-testid="token-market-main"
       >
         <div

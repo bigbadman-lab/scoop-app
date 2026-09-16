@@ -80,7 +80,7 @@ export default async function TokenPage({ params }: Props) {
   }
 
   return (
-    <main className="mx-auto max-w-[1400px] px-4 py-4 md:px-8 md:py-5 lg:px-10">
+    <main className="mx-auto max-w-[1400px] px-4 py-3 md:px-8 md:py-4 lg:px-10">
       {result.status === 'not_found' ? (
         <TokenFreshLaunchGate address={result.address} />
       ) : null}
