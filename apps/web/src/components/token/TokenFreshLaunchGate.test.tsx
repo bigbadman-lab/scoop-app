@@ -10,7 +10,20 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn(), push: vi.fn() }),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+}));
+
 import {
+  FRESH_LAUNCH_REFRESH_LABEL,
   FRESH_LAUNCH_RETRY_LABEL,
   FRESH_LAUNCH_SYNCING_STATUS,
   FRESH_LAUNCH_UNKNOWN_COPY,
@@ -22,6 +35,8 @@ import {
   INDEXED_LAUNCH_TIMEOUT_MS,
 } from '@/lib/launch/wait-for-indexed-launch';
 import { TOKEN_MARKET_LIVE_POLL_MS } from '@/lib/token/live-market';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('TokenFreshLaunchGate copy contracts', () => {
   it('exports the gate component', () => {
@@ -44,18 +59,37 @@ describe('TokenFreshLaunchGate copy contracts', () => {
     expect(FRESH_LAUNCH_RETRY_LABEL).toBe('Retry sync check');
   });
 
-  it('keeps genuine unknown/no-market copy unchanged', () => {
+  it('uses friendly unknown/no-handoff refresh copy', () => {
     expect(FRESH_LAUNCH_UNKNOWN_COPY).toEqual({
-      title: 'Market not found',
-      body: 'No SCOOP market exists for this token address.',
+      title: 'Market still loading…',
+      body: 'This market may still be syncing. Refresh the page in a few seconds.',
     });
+    expect(FRESH_LAUNCH_REFRESH_LABEL).toBe('Refresh page');
   });
 
-  it('does not conflate empty trades with market-not-found', () => {
+  it('does not conflate empty trades with unknown-market copy', () => {
     const syncing = JSON.stringify(freshLaunchSyncCopy(false));
     const unknown = JSON.stringify(FRESH_LAUNCH_UNKNOWN_COPY);
     expect(syncing).not.toMatch(/No trades yet/i);
     expect(unknown).not.toMatch(/No trades yet/i);
+    expect(unknown).not.toMatch(/Market not found/i);
+    expect(unknown).not.toMatch(/No SCOOP market exists/i);
+  });
+
+  it('unknown branch reloads the page and omits the 404 eyebrow', () => {
+    const src = readFileSync(
+      join(process.cwd(), 'src/components/token/TokenFreshLaunchGate.tsx'),
+      'utf8',
+    );
+    const start = src.indexOf("mode.kind === 'unknown'");
+    const end = src.indexOf('const { handoff, timedOut } = mode;');
+    const unknownBlock = src.slice(start, end);
+    expect(unknownBlock).toContain('window.location.reload()');
+    expect(unknownBlock).toContain('token-unknown-refresh');
+    expect(unknownBlock).toContain('Back to home');
+    expect(unknownBlock).toContain('FRESH_LAUNCH_REFRESH_LABEL');
+    expect(unknownBlock).not.toMatch(/>\s*404\s*</);
+    expect(unknownBlock).not.toContain('Market not found');
   });
 });
 

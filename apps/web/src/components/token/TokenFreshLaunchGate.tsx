@@ -32,12 +32,13 @@ export function freshLaunchSyncCopy(timedOut: boolean): {
   };
 }
 
-/** Genuine no-market copy — only when fresh-launch handoff is absent. */
+/** Ambiguous no-handoff / not-yet-indexed copy — intentionally neutral. */
 export const FRESH_LAUNCH_UNKNOWN_COPY = {
-  title: 'Market not found',
-  body: 'No SCOOP market exists for this token address.',
+  title: 'Market still loading…',
+  body: 'This market may still be syncing. Refresh the page in a few seconds.',
 } as const;
 
+export const FRESH_LAUNCH_REFRESH_LABEL = 'Refresh page';
 export const FRESH_LAUNCH_RETRY_LABEL = 'Retry sync check';
 export const FRESH_LAUNCH_SYNCING_STATUS = 'Syncing market data…';
 
@@ -121,23 +122,28 @@ export function TokenFreshLaunchGate({ address }: Props) {
   if (mode.kind === 'unknown') {
     return (
       <div data-testid="token-market-not-found">
-        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-          404
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-semibold tracking-tight">
           {FRESH_LAUNCH_UNKNOWN_COPY.title}
         </h1>
-        <p className="mt-4 text-[var(--muted)]">
-          {FRESH_LAUNCH_UNKNOWN_COPY.body}
-        </p>
-        <p className="mt-6">
+        <p className="mt-4 text-[var(--muted)]">{FRESH_LAUNCH_UNKNOWN_COPY.body}</p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <button
+            type="button"
+            className="min-h-9 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            data-testid="token-unknown-refresh"
+            onClick={() => {
+              window.location.reload();
+            }}
+          >
+            {FRESH_LAUNCH_REFRESH_LABEL}
+          </button>
           <Link
             href="/"
             className="font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] underline-offset-2 hover:underline"
           >
             Back to home
           </Link>
-        </p>
+        </div>
       </div>
     );
   }

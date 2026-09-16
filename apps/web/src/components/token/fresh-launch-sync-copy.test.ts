@@ -26,10 +26,10 @@ describe('freshLaunchSyncCopy', () => {
     expect(FRESH_LAUNCH_RETRY_LABEL).toBe('Retry sync check');
   });
 
-  it('preserves genuine unknown market copy', () => {
-    expect(FRESH_LAUNCH_UNKNOWN_COPY.title).toBe('Market not found');
+  it('preserves friendly unknown-market refresh copy', () => {
+    expect(FRESH_LAUNCH_UNKNOWN_COPY.title).toBe('Market still loading…');
     expect(FRESH_LAUNCH_UNKNOWN_COPY.body).toBe(
-      'No SCOOP market exists for this token address.',
+      'This market may still be syncing. Refresh the page in a few seconds.',
     );
   });
 });
