@@ -24,8 +24,8 @@ export const ANNOUNCEMENTS: readonly Announcement[] = [
   {
     id: 'live-news-desk',
     label: 'Live',
-    message: 'LIVE NEWS DESK — Stock-moving stories, as they break →',
-    href: '/news',
+    message: 'The SCOOP Protocol is live. Read more →',
+    href: '/protocol/tape',
     imageSrc: '/house/live.png',
     enabled: true,
   },
