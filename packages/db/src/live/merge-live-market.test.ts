@@ -50,6 +50,7 @@ function discovery(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
     holderCountRetail: null,
     lastTradeAt: null,
     priceChange24hBps: null,
+    loreTitle: null,
     ...overrides,
   };
 }

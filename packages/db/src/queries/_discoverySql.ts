@@ -42,6 +42,8 @@ export interface DiscoverySqlRow {
   last_trade_at: string | number | null;
   price_change_24h_bps: number | null;
   quote_decimals: number | null;
+  /** Present when discovery SELECT joins news lore; absent elsewhere → null. */
+  lore_title?: string | null;
 }
 
 export function mapDiscoveryItem(
@@ -98,6 +100,11 @@ export function mapDiscoveryItem(
     holderCountRetail: row.holder_count_retail == null ? null : Number(row.holder_count_retail),
     lastTradeAt: row.last_trade_at == null ? null : Number(row.last_trade_at),
     priceChange24hBps: row.price_change_24h_bps == null ? null : Number(row.price_change_24h_bps),
+    loreTitle: (() => {
+      if (row.lore_title == null) return null;
+      const title = String(row.lore_title).trim();
+      return title === '' ? null : title;
+    })(),
   };
 }
 
@@ -137,7 +144,8 @@ export const DISCOVERY_SELECT = `
     m.holder_count_retail,
     m.last_trade_at,
     m.price_change_24h_bps,
-    q.decimals AS quote_decimals
+    q.decimals AS quote_decimals,
+    a.title AS lore_title
   FROM launches l
   INNER JOIN tokens t
     ON t.chain_id = l.chain_id AND t.token_address = l.token_address
@@ -145,4 +153,8 @@ export const DISCOVERY_SELECT = `
     ON m.chain_id = l.chain_id AND m.token_address = l.token_address
   LEFT JOIN quote_assets q
     ON q.chain_id = l.chain_id AND q.quote_asset = l.quote_asset
+  LEFT JOIN news_article_markets nam
+    ON nam.chain_id = l.chain_id AND nam.token_address = l.token_address
+  LEFT JOIN provider_news_articles a
+    ON a.provider = nam.provider AND a.provider_article_id = nam.provider_article_id
 `;

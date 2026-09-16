@@ -6,6 +6,7 @@ import { createLivePoll } from '@/lib/live/create-live-poll';
 import {
   MARKETS_DESKTOP_ROW_GRID,
   MARKETS_LIVE_POLL_MS,
+  MARKETS_MOBILE_ROW_GRID,
   MARKETS_STALE_AFTER_MS,
 } from '@/lib/markets/constants';
 import { fetchMarketsBoard } from '@/lib/markets/fetch-markets';
@@ -176,7 +177,7 @@ export function MarketsBoard({ initial }: Props) {
     <div className="flex flex-1 flex-col" data-testid="markets-board">
       <div className="flex items-start justify-between gap-3">
         <p
-          className="font-mono text-[12px] uppercase tracking-[0.18em] text-[var(--fg)]"
+          className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--fg)]"
           data-testid="markets-feed-label"
         >
           Market feed
@@ -184,7 +185,7 @@ export function MarketsBoard({ initial }: Props) {
         <div className="text-right">
           <p
             className={[
-              'flex items-center justify-end gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em]',
+              'flex items-center justify-end gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em]',
               isStale ? 'text-[var(--muted)]' : 'text-[var(--scoop-live)]',
             ].join(' ')}
             data-testid="markets-live"
@@ -209,11 +210,11 @@ export function MarketsBoard({ initial }: Props) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 border-b border-[var(--divider)] pb-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="mt-2 flex flex-col gap-2 border-b border-[var(--divider)] pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div
           role="tablist"
           aria-label="Market discovery"
-          className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5"
         >
           {MARKETS_SORT_OPTIONS.map((option) => {
             const selected = sort === option.id;
@@ -226,9 +227,9 @@ export function MarketsBoard({ initial }: Props) {
                 data-testid={`markets-sort-${option.id}`}
                 onClick={() => selectSort(option.id)}
                 className={[
-                  'min-h-11 font-mono text-[12px] uppercase tracking-[0.16em] transition-colors',
+                  'min-h-9 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors',
                   selected
-                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-orange)] decoration-2 underline-offset-8'
+                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-orange)] decoration-2 underline-offset-6'
                     : 'text-[var(--muted)] hover:text-[var(--fg)]',
                 ].join(' ')}
               >
@@ -238,7 +239,7 @@ export function MarketsBoard({ initial }: Props) {
           })}
         </div>
 
-        <label className="min-w-0 sm:w-56 sm:shrink-0">
+        <label className="min-w-0 sm:w-52 sm:shrink-0">
           <span className="sr-only">Search tickers</span>
           <input
             type="search"
@@ -247,30 +248,57 @@ export function MarketsBoard({ initial }: Props) {
             placeholder="Search tickers"
             data-testid="markets-search"
             autoComplete="off"
-            className="h-10 w-full rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--muted-2)] focus-visible:border-[var(--fg)]"
+            className="h-9 w-full rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--muted-2)] focus-visible:border-[var(--fg)]"
           />
         </label>
       </div>
 
+      {/* Mobile metric header — labels live once at board level, not per row */}
       <div
         className={[
-          'mt-2 hidden border-b border-[var(--divider)] pb-2 md:grid',
-          MARKETS_DESKTOP_ROW_GRID,
+          'mt-1.5 grid border-b border-[var(--divider)] pb-1.5 md:hidden',
+          MARKETS_MOBILE_ROW_GRID,
         ].join(' ')}
+        data-testid="markets-mobile-header"
       >
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
           #
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+        <span aria-hidden />
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
           Market
         </span>
-        <span className="text-right font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+        <span className="text-right font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
           Fdv
         </span>
-        <span className="text-right font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+        <span className="text-right font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
           Trades
         </span>
-        <span className="text-right font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
+        <span className="text-right font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
+          Holders
+        </span>
+      </div>
+
+      <div
+        className={[
+          'mt-1.5 hidden border-b border-[var(--divider)] pb-1.5 md:grid',
+          MARKETS_DESKTOP_ROW_GRID,
+        ].join(' ')}
+        data-testid="markets-desktop-header"
+      >
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          #
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          Market
+        </span>
+        <span className="text-right font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          Fdv
+        </span>
+        <span className="text-right font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
+          Trades
+        </span>
+        <span className="text-right font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted)]">
           Holders
         </span>
       </div>

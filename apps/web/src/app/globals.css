@@ -237,10 +237,10 @@ w3m-router-container {
   }
 }
 
-/* Markets board — restrained #1 leader treatments */
+/* Markets board — restrained #1 leader treatments (terminal accent, not card) */
 .markets-leader-row {
-  background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--scoop-orange) 70%, transparent);
+  background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -257,21 +257,21 @@ w3m-router-container {
   0%,
   85%,
   100% {
-    background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
+    background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
   }
   92% {
-    background: color-mix(in srgb, var(--scoop-orange) 9%, var(--bg));
+    background: color-mix(in srgb, var(--scoop-orange) 6%, var(--bg));
   }
 }
 
 @keyframes markets-leader-pulse {
   0% {
-    background: color-mix(in srgb, var(--scoop-orange) 14%, var(--bg));
-    box-shadow: inset 3px 0 0 var(--scoop-orange);
+    background: color-mix(in srgb, var(--scoop-orange) 9%, var(--bg));
+    box-shadow: inset 2px 0 0 var(--scoop-orange);
   }
   100% {
-    background: color-mix(in srgb, var(--scoop-orange) 5%, var(--bg));
-    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--scoop-orange) 70%, transparent);
+    background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
   }
 }
 

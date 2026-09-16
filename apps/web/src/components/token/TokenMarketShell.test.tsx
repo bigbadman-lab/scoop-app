@@ -96,6 +96,7 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     holderCountRetail: 2,
     lastTradeAt: null,
     priceChange24hBps: -154,
+    loreTitle: null,
     description: 'Hello from SCOOP.',
     twitter: 'https://x.com/scoopterminal',
     telegram: '',

@@ -44,6 +44,7 @@ function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
     holderCountRetail: 124,
     lastTradeAt: null,
     priceChange24hBps: 1240,
+    loreTitle: null,
     ...overrides,
   };
 }

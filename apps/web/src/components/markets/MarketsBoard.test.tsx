@@ -1,15 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { MarketsBoard } from '@/components/markets/MarketsBoard';
 import { MarketRow } from '@/components/markets/MarketRow';
 import type { MarketsBoardItem, MarketsBoardSnapshot } from '@/lib/markets/types';
-import { truncateAddress } from '@/lib/format';
+import { buildMarketsBoardItems } from '@/lib/markets/types';
 import { buildPageMetadata } from '@/lib/seo/site';
 import { SEO_SITEMAP_STATIC_PATHS } from '@/lib/seo/build-sitemap';
-
+import type { TokenDiscoveryItem } from '@scoop/db';
+import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 const TOKEN_ADDR = '0x259D3f3412345678901234567890123456784379';
-const QUOTE_ADDR = '0x1111111111111111111111111111111111111111';
 
 const fetchMarketsBoard = vi.fn();
 
@@ -64,6 +64,7 @@ function market(
     tradeCount24h: 4,
     holderCountAll: 20,
     holderCountRetail: 17,
+    loreTitle: null,
     ...partial,
   };
 }
@@ -126,6 +127,8 @@ describe('MarketsBoard UI', () => {
     expect(screen.getByTestId('markets-updated-at').textContent).toMatch(/Updated/i);
     expect(screen.getByTestId('markets-sort-trending')).toBeTruthy();
     expect(screen.getByTestId('markets-search')).toBeTruthy();
+    expect(screen.getByTestId('markets-mobile-header')).toBeTruthy();
+    expect(screen.getByTestId('markets-desktop-header')).toBeTruthy();
 
     const rows = screen.getAllByTestId('market-row');
     expect(rows).toHaveLength(3);
@@ -186,9 +189,10 @@ describe('MarketsBoard UI', () => {
         />
       </ul>,
     );
-    const badge = screen.getByTestId('quote-asset-badge');
-    expect(badge.textContent).toMatch(/ETH/i);
-    expect(badge.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/eth.png');
+    const badges = screen.getAllByTestId('quote-asset-badge');
+    expect(badges.length).toBeGreaterThan(0);
+    expect(badges[0]!.textContent).toMatch(/ETH/i);
+    expect(badges[0]!.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example/eth.png');
   });
 
   it('quote badge degrades to ticker without broken image when icon missing', () => {
@@ -205,10 +209,10 @@ describe('MarketsBoard UI', () => {
         />
       </ul>,
     );
-    const badge = screen.getByTestId('quote-asset-badge');
-    expect(badge.textContent).toMatch(/NVDA/i);
-    expect(badge.querySelector('img')).toBeNull();
-    expect(screen.getByTestId('quote-asset-monogram')).toBeTruthy();
+    const badges = screen.getAllByTestId('quote-asset-badge');
+    expect(badges[0]!.textContent).toMatch(/NVDA/i);
+    expect(badges[0]!.querySelector('img')).toBeNull();
+    expect(screen.getAllByTestId('quote-asset-monogram').length).toBeGreaterThan(0);
   });
 
   it('search preserves canonical ranks and does not promote a filtered row to #1', () => {
@@ -331,13 +335,7 @@ describe('MarketsBoard UI', () => {
 });
 
 describe('MarketRow', () => {
-  beforeEach(() => {
-    Object.assign(navigator, {
-      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
-    });
-  });
-
-  it('links to /token/[address] and shows pair badge · age', () => {
+  it('links to /token/[address] and shows pair badge, metrics, and desktop age', () => {
     const now = Date.parse('2026-09-12T12:00:00.000Z');
     render(
       <ul>
@@ -358,73 +356,47 @@ describe('MarketRow', () => {
     expect(screen.getByTestId('market-row-link').getAttribute('href')).toBe(
       '/token/0xcccccccccccccccccccccccccccccccccccccccc',
     );
-    expect(screen.getByTestId('quote-asset-badge').textContent).toMatch(/ETH/);
-    expect(screen.getByTestId('market-age').textContent).toBe('18m ago');
+    expect(screen.getAllByTestId('quote-asset-badge')[0]!.textContent).toMatch(/ETH/);
+    expect(screen.getByTestId('market-age').textContent).toMatch(/18m ago/);
     expect(screen.getByTestId('market-trades').textContent).toBe('42');
     expect(screen.getByTestId('market-holders').textContent).toBe('17');
+    expect(screen.getByTestId('market-fdv').textContent).toBeTruthy();
   });
 
-  it('renders shortened token address and copies the full canonical address', async () => {
-    render(
-      <ul>
-        <MarketRow
-          rank={2}
-          market={market({
-            tokenAddress: TOKEN_ADDR,
-            quoteAsset: QUOTE_ADDR,
-            name: 'Coinbase',
-            symbol: 'COIN',
-          })}
-        />
-      </ul>,
-    );
-
-    expect(screen.getByTestId('contract-copy-address').textContent).toBe(
-      truncateAddress(TOKEN_ADDR),
-    );
-    expect(screen.getByTestId('contract-copy-address').textContent).not.toBe(
-      truncateAddress(QUOTE_ADDR),
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /copy token address/i }));
-    await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(TOKEN_ADDR);
-    });
-    expect(navigator.clipboard.writeText).not.toHaveBeenCalledWith(QUOTE_ADDR);
-    expect(screen.getByRole('button', { name: /token address copied/i })).toBeTruthy();
-    expect(screen.getByTestId('contract-copy').getAttribute('data-copied')).toBe('true');
-  });
-
-  it('copy action does not activate the market row link', async () => {
-    render(
+  it('renders canonical Lore when present and omits it cleanly when absent', () => {
+    const { rerender } = render(
       <ul>
         <MarketRow
           rank={1}
           market={market({
             tokenAddress: TOKEN_ADDR,
-            quoteAsset: QUOTE_ADDR,
-            name: 'Leader',
-            symbol: 'LEAD',
+            loreTitle: 'Meta AI story behind the launch',
           })}
         />
       </ul>,
     );
+    expect(screen.getByTestId('market-row').getAttribute('data-has-lore')).toBe('true');
+    expect(screen.getAllByTestId('market-lore').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('market-lore')[0]!.textContent).toMatch(
+      /Meta AI story behind the launch/,
+    );
 
-    expect(screen.getByTestId('market-row').getAttribute('data-leader')).toBe('true');
-    expect(screen.getByTestId('market-leader-flame')).toBeTruthy();
-
-    const link = screen.getByTestId('market-row-link');
-    const linkClick = vi.fn((event: Event) => event.preventDefault());
-    link.addEventListener('click', linkClick);
-
-    fireEvent.click(screen.getByRole('button', { name: /copy token address/i }));
-    await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(TOKEN_ADDR);
-    });
-    expect(linkClick).not.toHaveBeenCalled();
+    rerender(
+      <ul>
+        <MarketRow
+          rank={2}
+          market={market({
+            tokenAddress: TOKEN_ADDR,
+            loreTitle: null,
+          })}
+        />
+      </ul>,
+    );
+    expect(screen.getByTestId('market-row').getAttribute('data-has-lore')).toBe('false');
+    expect(screen.queryByTestId('market-lore')).toBeNull();
   });
 
-  it('shows address copy on both leader and normal rows', () => {
+  it('does not permanently display contract address on the board row', () => {
     render(
       <ul>
         <MarketRow
@@ -441,12 +413,106 @@ describe('MarketRow', () => {
         />
       </ul>,
     );
-    const copies = screen.getAllByTestId('contract-copy');
-    expect(copies).toHaveLength(2);
-    expect(copies[0]!.textContent).toMatch(truncateAddress(TOKEN_ADDR));
-    expect(copies[1]!.textContent).toMatch(
-      truncateAddress('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+    expect(screen.queryByTestId('contract-copy')).toBeNull();
+    expect(screen.queryByTestId('contract-copy-address')).toBeNull();
+    expect(screen.getByTestId('market-leader-flame')).toBeTruthy();
+  });
+
+  it('mobile identity is a single non-wrapping track without per-row metric labels', () => {
+    render(
+      <ul>
+        <MarketRow
+          rank={2}
+          market={market({
+            tokenAddress: TOKEN_ADDR,
+            name: 'Coinbase',
+            symbol: 'COIN',
+            loreTitle: 'A long lore headline that must truncate',
+          })}
+        />
+      </ul>,
     );
+    const mobile = screen.getByTestId('market-identity-mobile');
+    expect(mobile.className).toMatch(/whitespace-nowrap/);
+    expect(mobile.className).toMatch(/overflow-hidden/);
+    expect(screen.queryByText(/^Fdv$/i)).toBeNull();
+    expect(screen.queryByText(/^Trades$/i)).toBeNull();
+    expect(screen.queryByText(/^Holders$/i)).toBeNull();
+  });
+});
+
+describe('markets Lore mapping', () => {
+  it('buildMarketsBoardItems carries loreTitle from discovery without inventing context', () => {
+    const catalogue: PublicQuoteCatalogueItem[] = [
+      {
+        quoteAsset: '0x0000000000000000000000000000000000000000',
+        symbol: 'ETH',
+        displaySymbol: 'ETH',
+        name: 'Ether',
+        decimals: 18,
+        imageUrl: null,
+        category: 'crypto',
+        sortOrder: 1,
+        isRegistered: true,
+        isEnabled: true,
+        chainId: 4663,
+        quoteType: 'native',
+        sourceName: null,
+      },
+    ];
+    const base = (overrides: Partial<TokenDiscoveryItem>): TokenDiscoveryItem => ({
+      chainId: 4663,
+      tokenAddress: '0xaaa',
+      name: 'Alpha',
+      symbol: 'ALPHA',
+      decimals: 18,
+      imageUri: '',
+      displayImageUrl: null,
+      poolId: '0xpool',
+      creatorId: '0x1111111111111111111111111111111111111111',
+      quoteAsset: '0x0000000000000000000000000000000000000000',
+      launchedAt: 1,
+      ageSeconds: 1,
+      launchProgressBps: 0,
+      launchComplete: false,
+      isNew: false,
+      isSoon: false,
+      isBonded: false,
+      priceQuoteX18: null,
+      priceQuoteDisplay: null,
+      priceUsdX18: null,
+      priceUsdDisplay: null,
+      fdvUsdX18: '100',
+      fdvUsdDisplay: '100',
+      volume24hQuoteRaw: null,
+      volume24hQuoteDisplay: null,
+      volume24hUsdX18: null,
+      volume24hUsdDisplay: null,
+      tradeCount24h: null,
+      tradeCountAllTime: 1,
+      buyCount24h: null,
+      sellCount24h: null,
+      holderCountAll: 1,
+      holderCountRetail: 1,
+      lastTradeAt: null,
+      priceChange24hBps: null,
+      loreTitle: null,
+      ...overrides,
+    });
+    const items = buildMarketsBoardItems(
+      [
+        base({
+          tokenAddress: '0xbbb',
+          loreTitle: 'Canonical news headline',
+          fdvUsdX18: '200',
+          fdvUsdDisplay: '200',
+        }),
+        base({ tokenAddress: '0xaaa', loreTitle: null }),
+      ],
+      catalogue,
+    );
+    expect(items[0]!.loreTitle).toBe('Canonical news headline');
+    expect(items[1]!.loreTitle).toBeNull();
   });
 });
 

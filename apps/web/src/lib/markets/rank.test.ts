@@ -45,6 +45,7 @@ function token(
     holderCountRetail: null,
     lastTradeAt: null,
     priceChange24hBps: null,
+    loreTitle: null,
     ...overrides,
   };
 }

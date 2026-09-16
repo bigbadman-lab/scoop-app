@@ -68,6 +68,11 @@ export interface TokenDiscoveryItem {
   holderCountRetail: number | null;
   lastTradeAt: number | null;
   priceChange24hBps: number | null;
+  /**
+   * Canonical news Lore headline (`provider_news_articles.title`) when a durable
+   * `news_article_markets` link exists. Null for manual/non-news markets.
+   */
+  loreTitle: string | null;
 }
 
 /** Per-asset lifetime fee leg for token MARKET display (never cross-sum assets). */

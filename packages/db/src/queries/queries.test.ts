@@ -178,6 +178,89 @@ describe('query validation / SQL mapping', () => {
     expect(params).toEqual([4663, 604800, 8000]);
   });
 
+  it('getActiveMarkets batch-joins canonical news Lore title (no N+1)', async () => {
+    const db = mockDb([
+      {
+        chain_id: 4663,
+        token_address: '0x2284ed0e4d446c6d78ac2d49a68bae822fd87373',
+        name: 'Hello World',
+        symbol: 'HELLO',
+        decimals: 18,
+        image_uri: '',
+        display_image_url: null,
+        pool_id: `0x${'c'.repeat(64)}`,
+        creator_id: `0x${'d'.repeat(64)}`,
+        quote_asset: '0x0000000000000000000000000000000000000000',
+        launched_at: 1,
+        age_seconds: 100,
+        launch_progress_bps: 0,
+        launch_complete: false,
+        is_new: false,
+        is_soon: false,
+        is_bonded: false,
+        price_quote_x18: null,
+        price_usd_x18: null,
+        fdv_usd_x18: null,
+        volume_24h_quote_raw: null,
+        volume_24h_usd_x18: null,
+        trade_count_24h: 7,
+        trade_count_all_time: 116,
+        buy_count_24h: 2,
+        sell_count_24h: 1,
+        holder_count_all: 4,
+        holder_count_retail: 2,
+        last_trade_at: null,
+        price_change_24h_bps: null,
+        quote_decimals: 18,
+        lore_title: '  Meta AI story behind the launch  ',
+      },
+      {
+        chain_id: 4663,
+        token_address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        name: 'Manual Coin',
+        symbol: 'MAN',
+        decimals: 18,
+        image_uri: '',
+        display_image_url: null,
+        pool_id: `0x${'e'.repeat(64)}`,
+        creator_id: `0x${'f'.repeat(64)}`,
+        quote_asset: '0x0000000000000000000000000000000000000000',
+        launched_at: 2,
+        age_seconds: 50,
+        launch_progress_bps: 0,
+        launch_complete: false,
+        is_new: false,
+        is_soon: false,
+        is_bonded: false,
+        price_quote_x18: null,
+        price_usd_x18: null,
+        fdv_usd_x18: null,
+        volume_24h_quote_raw: null,
+        volume_24h_usd_x18: null,
+        trade_count_24h: 1,
+        trade_count_all_time: 1,
+        buy_count_24h: 1,
+        sell_count_24h: 0,
+        holder_count_all: 1,
+        holder_count_retail: 1,
+        last_trade_at: null,
+        price_change_24h_bps: null,
+        quote_decimals: 18,
+        lore_title: null,
+      },
+    ]);
+    const items = await getActiveMarkets(db, { chainId: 4663 });
+    expect(db.query).toHaveBeenCalledOnce();
+    const [sql] = db.query.mock.calls[0]!;
+    const sqlText = String(sql);
+    expect(sqlText).toContain('LEFT JOIN news_article_markets nam');
+    expect(sqlText).toContain('LEFT JOIN provider_news_articles a');
+    expect(sqlText).toContain('a.title AS lore_title');
+    expect(items[0]?.loreTitle).toBe('Meta AI story behind the launch');
+    expect(items[0]?.tradeCountAllTime).toBe(116);
+    expect(items[1]?.loreTitle).toBeNull();
+  });
+
   it('mapDiscoveryItem exposes tradeCountAllTime from trade_count_all_time', async () => {
     const db = mockDb([
       {

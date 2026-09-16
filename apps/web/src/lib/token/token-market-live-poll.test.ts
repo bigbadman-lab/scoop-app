@@ -42,6 +42,7 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     holderCountRetail: 2,
     lastTradeAt: null,
     priceChange24hBps: 0,
+    loreTitle: null,
     description: '',
     twitter: '',
     telegram: '',

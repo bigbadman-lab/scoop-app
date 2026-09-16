@@ -107,6 +107,7 @@ function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryIte
     holderCountRetail: null,
     lastTradeAt: tip.lastTradeAt,
     priceChange24hBps: null,
+    loreTitle: null,
   };
 }
 

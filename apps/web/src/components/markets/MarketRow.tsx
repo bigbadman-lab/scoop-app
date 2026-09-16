@@ -10,9 +10,11 @@ import {
 } from '@/lib/format';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
-import { ContractCopy } from '@/components/ui/ContractCopy';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
-import { MARKETS_DESKTOP_ROW_GRID } from '@/lib/markets/constants';
+import {
+  MARKETS_DESKTOP_ROW_GRID,
+  MARKETS_MOBILE_ROW_GRID,
+} from '@/lib/markets/constants';
 
 type Props = {
   /** Canonical rank in the active discovery view (not search position). */
@@ -85,6 +87,7 @@ export function MarketRow({
   const age = formatLaunchAge(market.launchedAt, nowMs);
   const imageSrc = pickTokenImageSrc(market.displayImageUrl, market.imageUri);
   const isLeader = rank === 1;
+  const loreTitle = market.loreTitle?.trim() || null;
 
   return (
     <li
@@ -93,6 +96,7 @@ export function MarketRow({
       data-rank={rank}
       data-leader={isLeader ? 'true' : 'false'}
       data-leader-pulse={leaderPulse ? 'true' : 'false'}
+      data-has-lore={loreTitle ? 'true' : 'false'}
       className={[
         'group relative',
         isLeader ? 'markets-leader-row' : '',
@@ -102,7 +106,6 @@ export function MarketRow({
       data-ambient={isLeader ? 'true' : undefined}
       data-pulse={leaderPulse ? 'true' : undefined}
     >
-      {/* Overlay link keeps ContractCopy a sibling (valid HTML; no nested button-in-link). */}
       <Link
         href={href}
         className="absolute inset-0 z-0 rounded-[var(--radius-sm)] focus-visible:outline-offset-4"
@@ -115,14 +118,15 @@ export function MarketRow({
       />
       <div
         className={[
-          'pointer-events-none relative z-10 grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 py-3.5 transition-colors',
-          'group-hover:bg-[color-mix(in_srgb,var(--bg)_40%,transparent)]',
+          'pointer-events-none relative z-10 grid overflow-hidden py-2',
+          MARKETS_MOBILE_ROW_GRID,
           MARKETS_DESKTOP_ROW_GRID,
+          'group-hover:bg-[color-mix(in_srgb,var(--bg)_40%,transparent)]',
         ].join(' ')}
       >
         <span
           className={[
-            'flex items-center justify-center gap-0.5 pt-2 font-mono text-[12px] tabular md:pt-0',
+            'flex items-center justify-center gap-0.5 font-mono text-[11px] tabular md:text-[12px]',
             isLeader ? 'text-[var(--scoop-orange)]' : 'text-[var(--muted)]',
           ].join(' ')}
           aria-hidden
@@ -134,76 +138,102 @@ export function MarketRow({
           <span>{rank}</span>
         </span>
 
-        <span className="flex min-w-0 items-center gap-3">
+        {/* Mobile image column */}
+        <TokenImage
+          src={imageSrc}
+          alt=""
+          size={28}
+          className="h-7 w-7 shrink-0 rounded-[var(--radius-md)] md:hidden"
+        />
+
+        <span className="flex min-w-0 items-center gap-2.5 overflow-hidden md:gap-3">
           <TokenImage
             src={imageSrc}
             alt=""
-            size={40}
-            className="h-10 w-10 shrink-0 rounded-[var(--radius-md)]"
+            size={32}
+            className="hidden h-8 w-8 shrink-0 rounded-[var(--radius-md)] md:block"
           />
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-semibold tracking-tight">
-              {market.name}
-            </span>
+          <span className="min-w-0 flex-1 overflow-hidden">
+            {/* Mobile: single non-wrapping identity line */}
             <span
-              className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[12px] tracking-wide text-[var(--muted)]"
-              data-testid="market-pair-age"
+              className="flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap md:hidden"
+              data-testid="market-identity-mobile"
             >
-              <span className="shrink-0">${market.symbol}</span>
-              <span aria-hidden>/</span>
+              <span className="shrink-0 font-mono text-[12px] font-semibold tracking-tight">
+                ${market.symbol}
+              </span>
+              <span className="shrink-0 text-[var(--muted)]" aria-hidden>
+                /
+              </span>
               <QuoteAssetBadge
                 symbol={market.quoteSymbol}
                 imageUrl={market.quoteImageUrl}
-                className="align-middle"
+                className="shrink-0 align-middle !py-0 !text-[10px]"
               />
-              <span aria-hidden>·</span>
-              <span data-testid="market-age" className="shrink-0">
-                {age}
+              <span className="min-w-0 truncate text-[12px] text-[var(--muted)]">
+                {market.name}
               </span>
+              {loreTitle ? (
+                <span
+                  className="hidden min-w-0 truncate text-[11px] text-[var(--muted-2)] min-[390px]:inline"
+                  data-testid="market-lore"
+                >
+                  · {loreTitle}
+                </span>
+              ) : null}
             </span>
-            <span className="mt-0.5 block min-w-0">
-              <ContractCopy
-                address={market.tokenAddress}
-                label="Copy token address"
-                copiedLabel="Token address copied"
-                className="pointer-events-auto min-h-9 max-w-full px-0 py-0 text-[11px] md:min-h-0"
-              />
+
+            {/* Desktop: primary ticker/name + optional lore secondary line */}
+            <span className="hidden min-w-0 md:block" data-testid="market-identity-desktop">
+              <span className="flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
+                <span className="shrink-0 font-mono text-[13px] font-semibold tracking-tight">
+                  ${market.symbol}
+                </span>
+                <span className="shrink-0 text-[var(--muted)]" aria-hidden>
+                  /
+                </span>
+                <QuoteAssetBadge
+                  symbol={market.quoteSymbol}
+                  imageUrl={market.quoteImageUrl}
+                  className="shrink-0 align-middle"
+                />
+                <span className="min-w-0 truncate text-[13px] font-medium tracking-tight text-[var(--fg)]">
+                  {market.name}
+                </span>
+                <span
+                  data-testid="market-age"
+                  className="shrink-0 font-mono text-[11px] text-[var(--muted-2)]"
+                >
+                  · {age}
+                </span>
+              </span>
+              {loreTitle ? (
+                <span
+                  className="mt-0.5 block min-w-0 truncate text-[12px] leading-tight text-[var(--muted)]"
+                  data-testid="market-lore"
+                >
+                  {loreTitle}
+                </span>
+              ) : null}
             </span>
           </span>
         </span>
 
-        <span className="col-span-2 grid max-w-[17.5rem] grid-cols-3 gap-x-3 pl-[2.75rem] md:contents">
-          <span className="min-w-0 md:contents">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)] md:hidden">
-              Fdv
-            </span>
-            <LiveMetric
-              value={fdv}
-              testId="market-fdv"
-              className="mt-0.5 block text-[13px] font-medium tracking-tight md:mt-0 md:text-right md:text-[15px]"
-            />
-          </span>
-          <span className="min-w-0 md:contents">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)] md:hidden">
-              Trades
-            </span>
-            <LiveMetric
-              value={trades}
-              testId="market-trades"
-              className="mt-0.5 block text-[13px] font-medium tracking-tight md:mt-0 md:text-right md:text-[15px]"
-            />
-          </span>
-          <span className="min-w-0 md:contents">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--muted)] md:hidden">
-              Holders
-            </span>
-            <LiveMetric
-              value={holders}
-              testId="market-holders"
-              className="mt-0.5 block text-[13px] font-medium tracking-tight md:mt-0 md:text-right md:text-[15px]"
-            />
-          </span>
-        </span>
+        <LiveMetric
+          value={fdv}
+          testId="market-fdv"
+          className="block truncate text-right text-[12px] font-medium tracking-tight tabular md:text-[13px]"
+        />
+        <LiveMetric
+          value={trades}
+          testId="market-trades"
+          className="block truncate text-right text-[12px] font-medium tracking-tight tabular md:text-[13px]"
+        />
+        <LiveMetric
+          value={holders}
+          testId="market-holders"
+          className="block truncate text-right text-[12px] font-medium tracking-tight tabular md:text-[13px]"
+        />
       </div>
     </li>
   );

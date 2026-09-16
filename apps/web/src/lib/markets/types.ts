@@ -26,6 +26,11 @@ export type MarketsBoardItem = {
   tradeCount24h: number | null;
   holderCountAll: number | null;
   holderCountRetail: number | null;
+  /**
+   * Canonical news Lore headline when a durable article↔token link exists.
+   * Same source as token-page Lore (`provider_news_articles.title`).
+   */
+  loreTitle: string | null;
 };
 
 export type MarketsLiveHealth = 'live' | 'stale';
@@ -61,6 +66,7 @@ export function toMarketsBoardItem(
     tradeCount24h: token.tradeCount24h,
     holderCountAll: token.holderCountAll,
     holderCountRetail: token.holderCountRetail,
+    loreTitle: token.loreTitle,
   };
 }
 

@@ -10,6 +10,8 @@ const getCandles = vi.fn();
 const getCreatorEarnings = vi.fn();
 const getRankings = vi.fn();
 const getIndexerStatus = vi.fn();
+const listLiveTips = vi.fn().mockResolvedValue([]);
+const mergeLiveDiscoveryItems = vi.fn((canonical: unknown[]) => canonical);
 const assertCandleInterval = vi.fn((v: string) => {
   if (!['5s', '1m', '5m', '15m', '1h', '4h', '1d'].includes(v)) throw new Error('bad');
   return v;
@@ -30,6 +32,8 @@ vi.mock('@/lib/server/queries', () => ({
   getCreatorEarnings,
   getRankings,
   getIndexerStatus,
+  listLiveTips,
+  mergeLiveDiscoveryItems,
   assertCandleInterval,
   assertRankingType,
   serverDb: () => ({}),
@@ -164,6 +168,7 @@ describe('product API routes', () => {
         holderCountRetail: null,
         lastTradeAt: null,
         priceChange24hBps: null,
+        loreTitle: null,
       };
     };
 
