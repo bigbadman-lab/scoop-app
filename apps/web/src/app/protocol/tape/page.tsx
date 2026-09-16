@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ProtocolStatsLive } from '@/components/protocol/ProtocolStatsLive';
 import { emptyProtocolStats, loadProtocolStatsSafe } from '@/lib/protocol/load-stats';
 import { buildPageMetadata } from '@/lib/seo/site';
@@ -60,6 +61,28 @@ export default async function TapeProtocolPage() {
             distributions marked to market in USD; they do not invent executed buy
             volume or uncollected LP fees.
           </p>
+        </section>
+
+        <section
+          className="mt-14 max-w-2xl border-t border-[var(--divider)] pt-10 md:mt-16"
+          aria-labelledby="tape-docs-cta-heading"
+        >
+          <h2
+            id="tape-docs-cta-heading"
+            className="font-serif text-xl tracking-tight text-[var(--fg)] md:text-2xl"
+          >
+            Want the full picture?
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--muted)] md:text-base">
+            Read the complete SCOOP documentation — protocol mechanics, launches, fees,
+            rewards and more.
+          </p>
+          <Link
+            href="/docs"
+            className="mt-5 inline-flex min-h-11 items-center text-[14px] tracking-tight text-[var(--scoop-orange)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
+          >
+            Read the docs →
+          </Link>
         </section>
       </div>
     </main>
