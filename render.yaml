@@ -38,7 +38,11 @@ services:
       - key: SCOOP_QUOTE_USD_MAX_AGE_SECONDS
         value: "300"
       - key: SCOOP_POLL_INTERVAL_MS
-        value: "500"
+        value: "5000"
+      - key: SCOOP_LIVE_OVERLAY_ENABLED
+        value: "true"
+      - key: SCOOP_LIVE_POLL_MS
+        value: "5000"
       # Near-tip throughput: range catch-up for any lag > 0 (threshold 0).
       # Do not lower confirm lag here (fixed-lag 64 stays).
       - key: SCOOP_MAX_BLOCK_BATCH

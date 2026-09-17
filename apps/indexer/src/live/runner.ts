@@ -565,11 +565,9 @@ export async function runIndexer(opts: RunnerOptions): Promise<RunnerResult> {
         }
 
         await Promise.race([
-          // Hard-cap idle poll so a dashboard override of 2000ms cannot let tip
-          // race ~40+ blocks ahead between wakes (RHC often ≥10–20 blk/s).
-          new Promise((r) =>
-            setTimeout(r, Math.min(config.SCOOP_POLL_INTERVAL_MS, 500)),
-          ),
+          // Idle-at-tip only. Behind tip: no sleep (catch-up stays unthrottled).
+          // SCOOP_POLL_INTERVAL_MS is the source of truth (no hardcoded max).
+          new Promise((r) => setTimeout(r, config.SCOOP_POLL_INTERVAL_MS)),
           wakePromise,
         ]);
         armWake();

@@ -72,8 +72,8 @@ const indexerEnvSchema = z
     SCOOP_VOLUME_24H_SWEEP_SECONDS: z.coerce.number().int().positive().default(60),
     /** Max age of quote_price_snapshots before USD/FDV fields are nulled. */
     SCOOP_QUOTE_USD_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
-    // Near-tip: keep short so behindTarget stays in the 0–20 band while tip advances.
-    SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
+    // Idle-at-tip sleep only (catch-up is unthrottled). Default 5s to reduce RPC spend.
+    SCOOP_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
     /**
      * Max blocks processed per live (non-range) iteration when lag ≤ threshold.
      * Keep modest — each block still does getBlock+getLogs.
@@ -81,7 +81,8 @@ const indexerEnvSchema = z
     SCOOP_MAX_BLOCK_BATCH: z.coerce.number().int().positive().default(32),
     /** Best-effort presentation-only observer; canonical fixed-lag ingest is unchanged. */
     SCOOP_LIVE_OVERLAY_ENABLED: boolFromEnv.default(true),
-    SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(1000),
+    /** Idle tip-overlay poll; catch-up path does not wait on this interval. */
+    SCOOP_LIVE_POLL_MS: z.coerce.number().int().positive().default(5000),
     SCOOP_LIVE_MAX_CATCHUP_BLOCKS: z.coerce.number().int().positive().default(512),
     /** Near-tip replay on missing/stale live checkpoint; canonical owns full history. */
     SCOOP_LIVE_REPLAY_WINDOW_BLOCKS: z.coerce.number().int().positive().default(192),

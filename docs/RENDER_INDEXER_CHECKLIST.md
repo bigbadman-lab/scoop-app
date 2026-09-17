@@ -24,7 +24,9 @@ Staged enablement for the SCOOP background worker on Render.
 | `SCOOP_REORG_WINDOW_BLOCKS` | optional | default `128` |
 | `SCOOP_QUOTE_SNAPSHOT_SECONDS` | optional | default `60` |
 | `SCOOP_QUOTE_USD_MAX_AGE_SECONDS` | optional | default `300` — stale ETH/USD snapshots null USD/FDV |
-| `SCOOP_POLL_INTERVAL_MS` | optional | default `2000` |
+| `SCOOP_POLL_INTERVAL_MS` | optional | default `5000` — idle-at-tip sleep only (catch-up unthrottled) |
+| `SCOOP_LIVE_OVERLAY_ENABLED` | optional | default `true` |
+| `SCOOP_LIVE_POLL_MS` | optional | default `5000` — tip-overlay idle poll (catch-up unthrottled) |
 | `SCOOP_MAX_BLOCK_BATCH` | optional | default `20` (near-tip / live mode) |
 | `SCOOP_FAST_CATCHUP_THRESHOLD_BLOCKS` | optional | default `5000` — lag above this uses fast catch-up |
 | `SCOOP_FAST_CATCHUP_RANGE` | optional | default `5000` — getLogs / batch span in fast mode |

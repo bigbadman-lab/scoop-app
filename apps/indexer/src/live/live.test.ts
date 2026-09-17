@@ -23,7 +23,8 @@ describe('config 6A.6', () => {
     expect(config.SCOOP_NEW_WINDOW_SECONDS).toBe(604800);
     expect(config.SCOOP_SOON_THRESHOLD_BPS).toBe(8000);
     expect(config.SCOOP_REORG_WINDOW_BLOCKS).toBe(128);
-    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(500);
+    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(5000);
+    expect(config.SCOOP_LIVE_POLL_MS).toBe(5000);
     expect(config.SCOOP_MAX_BLOCK_BATCH).toBe(32);
     expect(config.SCOOP_LAUNCH_DUST_RAW).toBe(1000n);
     expect(config.SCOOP_QUOTE_USD_MAX_AGE_SECONDS).toBe(300);

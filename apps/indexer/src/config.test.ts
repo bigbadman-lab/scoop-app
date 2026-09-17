@@ -73,9 +73,14 @@ describe('indexer config', () => {
       DATABASE_URL: 'postgres://localhost/scoop',
     });
     expect(config.SCOOP_INDEXING_ENABLED).toBe(true);
-    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(500);
+    expect(config.SCOOP_POLL_INTERVAL_MS).toBe(5000);
+    expect(config.SCOOP_LIVE_POLL_MS).toBe(5000);
+    expect(config.SCOOP_LIVE_OVERLAY_ENABLED).toBe(true);
     expect(config.SCOOP_VOLUME_24H_SWEEP_SECONDS).toBe(60);
     expect(publicConfigView(config).volume24hSweepSeconds).toBe(60);
+    expect(publicConfigView(config).pollIntervalMs).toBe(5000);
+    expect(publicConfigView(config).livePollMs).toBe(5000);
+    expect(publicConfigView(config).liveOverlayEnabled).toBe(true);
     expect(config.SCOOP_LIVE_MAX_CATCHUP_BLOCKS).toBe(512);
     expect(config.SCOOP_LIVE_REPLAY_WINDOW_BLOCKS).toBe(192);
     expect(config.SCOOP_LIVE_STALE_LAG_BLOCKS).toBe(256);
