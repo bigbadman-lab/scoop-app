@@ -8,11 +8,17 @@ Production smoke and Vercel status are recorded after the push of this commit. N
 
 ## 2. Time
 
-2026-09-19T21:32:49Z (report authored immediately before the isolated commit)
+2026-09-19T21:36:00Z
 
 Pre-HEAD: `8b58665bbbcaedaff3d18112966d07bc9ee3c008`
 
-Commit SHA: the commit that adds this file (`git log -1 --format=%H`).
+Commit SHA: `0958143e62f9ee77e74f1a13208f244879de0328`
+
+Pushed to `main`: `8b58665..0958143`.
+
+Vercel production deploy completed: https://vercel.com/cope2/scoop-web/2F4LU6iYwxga1BXs3Wx2C1hrhcmS
+
+Render indexer deploy `dep-danfvguq1p3s73ceq060` (this commit) was canceled. Live indexer remains `dep-dandmqtg1s2s738djia0` (`b2669fe`). Paused workers were not resumed.
 
 ## 3. Policies
 
@@ -75,7 +81,23 @@ Pons launch economics and the live fee reads are unchanged.
 
 `ReviewStep.test.tsx` still looks for success-panel test ids (`launch-market-live-status`, `launch-token-contract`) that are not in the committed review component. That mismatch predates this gate.
 
-## 9. Onchain
+## 9. Production smoke
+
+`https://scoop.fun/launch` returned 200.
+
+Headless Chrome on the live page, without a wallet and without clicking Launch:
+
+- Dev Supply showed exactly 24 Hours, 7 Days, 3 Months, 6 Months, Burn Dev Supply
+- 6 Months was selected by default
+- helper: “Your full dev allocation will be locked for 6 calendar months after launch.”
+- Burn Dev Supply switched the helper to the permanent-burn sentence and showed “Permanent and irreversible.”
+- burn funding copy says the HoodLock fee is not charged
+
+Review requires a connected wallet before the step advances. No wallet was connected, so the live review ticket was not opened. Review copy was verified in `DevBuyStep.test.tsx` against the same labels that shipped in this commit.
+
+`https://scoop.fun/api/launch/pons-schema-ready` returned `ready: true` (`hasMarketSource` and `hasCurveAddress` true).
+
+## 10. Onchain
 
 ```text
 Pons launch broadcast: NO
@@ -86,7 +108,7 @@ burn transfer: NO
 
 No production transaction was broadcast. The canary was not run.
 
-## 10. Next step
+## 11. Next step
 
 Gate 8 controlled production canary.
 
