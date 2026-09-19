@@ -16,23 +16,29 @@ describe('hidden production canaries', () => {
     expect(
       isHiddenProductionCanary('0x9903AA6646D1BB29bB584724e66c42a5cd318814'),
     ).toBe(true);
+    expect(
+      isHiddenProductionCanary('0x5D7493B2d151d35cbe172c10713bf50b83e58392'),
+    ).toBe(true);
   });
 
-  it('does not hide a normal non-canary address', () => {
+  it('does not hide a normal non-listed address', () => {
     expect(
       isHiddenProductionCanary('0x1111111111111111111111111111111111111111'),
     ).toBe(false);
+    expect(HIDDEN_PRODUCTION_CANARY_SQL).not.toContain(
+      '0x1111111111111111111111111111111111111111',
+    );
   });
 
-  it('exposes exactly three normalized canary addresses', () => {
-    expect(HIDDEN_PRODUCTION_CANARY_TOKENS).toHaveLength(3);
+  it('exposes exactly four normalized hidden addresses', () => {
+    expect(HIDDEN_PRODUCTION_CANARY_TOKENS).toHaveLength(4);
     for (const addr of HIDDEN_PRODUCTION_CANARY_TOKENS) {
       expect(addr).toBe(addr.toLowerCase());
       expect(isHiddenProductionCanary(addr)).toBe(true);
     }
   });
 
-  it('SQL fragment lists all three canaries', () => {
+  it('SQL fragment lists every hidden address', () => {
     for (const addr of HIDDEN_PRODUCTION_CANARY_TOKENS) {
       expect(HIDDEN_PRODUCTION_CANARY_SQL).toContain(addr);
     }

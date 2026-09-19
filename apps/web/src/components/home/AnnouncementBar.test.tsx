@@ -36,25 +36,17 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-describe('AnnouncementBar — protocol live', () => {
-  it('activates the protocol announcement by default', () => {
-    const active = getActiveAnnouncement();
-    expect(active?.id).toBe('live-news-desk');
-    expect(active?.href).toBe('/protocol/tape');
-    expect(active?.imageSrc).toBe('/house/live.png');
-    expect(active?.message).toBe('The SCOOP Protocol is live. Read more →');
-    expect(ANNOUNCEMENTS.some((a) => a.id === 'welcome-launch-desk')).toBe(false);
+describe('AnnouncementBar — $TAPE promotion removed', () => {
+  it('has no active announcement and does not link to /protocol/tape', () => {
+    expect(getActiveAnnouncement()).toBeNull();
+    expect(ANNOUNCEMENTS.some((item) => item.href === '/protocol/tape')).toBe(false);
+    expect(ANNOUNCEMENTS.some((item) => /\$TAPE/i.test(item.message))).toBe(false);
   });
 
-  it('renders exact copy, decorative live.png, and whole-bar /protocol/tape link', () => {
-    render(<AnnouncementBar />);
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('href')).toBe('/protocol/tape');
-    expect(screen.getByText('The SCOOP Protocol is live. Read more →')).toBeTruthy();
-    const img = document.querySelector('img[data-src="/house/live.png"]') as HTMLImageElement;
-    expect(img).toBeTruthy();
-    expect(img.getAttribute('alt')).toBe('');
-    expect(img.closest('a')?.getAttribute('href')).toBe('/protocol/tape');
+  it('renders nothing when no announcement is active', () => {
+    const { container } = render(<AnnouncementBar />);
+    expect(container.textContent).not.toMatch(/\$TAPE/);
+    expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('does not show the old news-desk or launch-desk announcement copy', () => {
@@ -62,12 +54,5 @@ describe('AnnouncementBar — protocol live', () => {
     expect(screen.queryByText(/LIVE NEWS DESK/i)).toBeNull();
     expect(screen.queryByText(/Launch desk is live/i)).toBeNull();
     expect(screen.queryByText(/^New$/)).toBeNull();
-  });
-
-  it('keeps the entire bar keyboard-focusable as one link', () => {
-    render(<AnnouncementBar />);
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('aria-label')).toMatch(/The SCOOP Protocol is live/i);
-    expect(link.className).toMatch(/focus-visible:outline/);
   });
 });

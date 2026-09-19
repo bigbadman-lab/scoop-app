@@ -9,7 +9,7 @@ function mockDb(rows: unknown[] = []) {
 }
 
 describe('discovery canary exclusion', () => {
-  it('excludes S5FA/S5FB/S5FC from getActiveMarkets SQL', async () => {
+  it('excludes hidden tokens including $TAPE from getActiveMarkets SQL', async () => {
     const db = mockDb([]);
     await getActiveMarkets(db as never, { chainId: 4663 });
     const [sql] = db.query.mock.calls[0]!;
@@ -28,17 +28,17 @@ describe('discovery canary exclusion', () => {
     expect(String(sql)).toContain(HIDDEN_PRODUCTION_CANARY_TOKENS[2]);
   });
 
-  it('does not exclude canaries from getToken detail lookup', async () => {
+  it('does not exclude hidden tokens from getToken detail lookup', async () => {
     const db = mockDb([]);
     await getToken(
       db as never,
       4663,
-      '0x9903AA6646D1BB29bB584724e66c42a5cd318814',
+      '0x5D7493B2d151d35cbe172c10713bf50b83e58392',
     );
     const [sql, params] = db.query.mock.calls[0]!;
     const text = String(sql);
     expect(text).not.toMatch(/NOT IN/i);
     expect(text).toContain('l.token_address = $2');
-    expect(params?.[1]).toBe('0x9903aa6646d1bb29bb584724e66c42a5cd318814');
+    expect(params?.[1]).toBe('0x5d7493b2d151d35cbe172c10713bf50b83e58392');
   });
 });

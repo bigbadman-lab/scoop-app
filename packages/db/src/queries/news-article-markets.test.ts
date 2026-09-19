@@ -186,4 +186,16 @@ describe('listNewsArticleMarkets', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.symbol).toBe('NEW');
   });
+
+  it('excludes hidden tokens including $TAPE from the article market SQL', async () => {
+    const db = mockDb(() => ({ rows: [] }));
+    await listNewsArticleMarkets(db as never, {
+      provider: 'stocknewsapi',
+      providerArticleId: 'sna_1',
+    });
+    const [sql] = db.query.mock.calls[0]!;
+    const text = String(sql);
+    expect(text).toMatch(/NOT IN/i);
+    expect(text).toContain('0x5d7493b2d151d35cbe172c10713bf50b83e58392');
+  });
 });

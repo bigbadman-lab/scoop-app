@@ -1,6 +1,7 @@
 import type { Queryable } from '../types.js';
 import { formatX18 } from '../decimal.js';
 import { normalizeAddress } from '../hex.js';
+import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
 
 export type NewsArticleMarketSummary = {
   chainId: number;
@@ -111,6 +112,7 @@ export async function getNewsArticleMarketsForArticles(
         ON m.chain_id = nam.chain_id AND m.token_address = nam.token_address
       WHERE nam.provider = $1
         AND nam.provider_article_id = ANY($2::text[])
+        ${HIDDEN_PRODUCTION_CANARY_SQL}
     )
     SELECT
       provider_article_id, chain_id, token_address, symbol, name, quote_asset,
@@ -174,6 +176,7 @@ export async function listNewsArticleMarkets(
     LEFT JOIN token_market_state m
       ON m.chain_id = nam.chain_id AND m.token_address = nam.token_address
     WHERE nam.provider = $1 AND nam.provider_article_id = $2
+    ${HIDDEN_PRODUCTION_CANARY_SQL}
     ORDER BY l.launched_at DESC, nam.token_address ASC
     LIMIT $3
     `,

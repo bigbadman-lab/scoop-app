@@ -20,16 +20,11 @@ export type Announcement = {
   endsAt?: string;
 };
 
-export const ANNOUNCEMENTS: readonly Announcement[] = [
-  {
-    id: 'live-news-desk',
-    label: 'Live',
-    message: 'The SCOOP Protocol is live. Read more →',
-    href: '/protocol/tape',
-    imageSrc: '/house/live.png',
-    enabled: true,
-  },
-];
+/**
+ * No active banner. The previous entry promoted `/protocol/tape` ($TAPE).
+ * That route stays reachable by direct URL; it is not linked from the shell.
+ */
+export const ANNOUNCEMENTS: readonly Announcement[] = [];
 
 function inWindow(item: Announcement, now: number): boolean {
   if (item.startsAt) {
