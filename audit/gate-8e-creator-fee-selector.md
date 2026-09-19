@@ -6,14 +6,15 @@ PASS — CREATOR FEE SELECTOR DEPLOYED; CANARY NOT RUN
 
 ## 2. UTC timestamp
 
-2026-09-19T21:53:19Z at authoring. Deploy and smoke are recorded in the completion of this gate.
+2026-09-19T21:57:00Z
 
 ## 3. Git/deploy state
 
 - pre-HEAD: `4e43fd60ee42cc53984a08dd6e15f604c5037713`
-- feature commit: the commit that introduces this file
-- push: `main`
-- Vercel: production auto-deploy from that push
+- commit SHA: `e14f68c3b29899341bf0c4ef9370e09c8a9fae5c`
+- push: `4e43fd6..e14f68c` on `main`
+- Vercel production deploy completed: https://vercel.com/cope2/scoop-web/2VkEPowQ3BviVC3K7qBLSppcs7ti
+- Render indexer deploy `dep-dang997f3r2c73e1n36g` for this commit was canceled. Paused workers were not resumed.
 
 ## 4. Public options
 
@@ -62,7 +63,21 @@ Compatibility:
 
 ## 9. Production smoke
 
-Recorded after the Vercel deploy of this commit. No wallet signature.
+`https://scoop.fun/launch` returned 200. No wallet was connected and Launch was not clicked.
+
+On the live Dev Buy step:
+
+- Creator Fee showed exactly `1%` and `2%`
+- `1%` was selected by default
+- switching to `2%` worked
+- helper copy matched the brief
+- Dev Supply still showed all five options, with 6 Months selected by default
+- Burn Dev Supply still showed “Permanent and irreversible.”
+- at 390px the two fee buttons stayed side by side inside the page (358px row, no overflow)
+
+Review still requires a connected wallet before that step opens, so the live review ticket was not opened. `Creator Fee: 1%` and `Creator Fee: 2%` were verified in the review component test for this commit.
+
+`https://scoop.fun/api/launch/pons-schema-ready` returned `ready: true`.
 
 ## 10. Explicit no-mutation proof
 
