@@ -6,6 +6,10 @@ import {
   devSupplyOption,
   isBurnDevSupplyPolicy,
 } from '@/lib/launch/dev-supply-policy';
+import {
+  CREATOR_FEE_HELPER,
+  CREATOR_FEE_OPTIONS,
+} from '@/lib/launch/creator-fee';
 
 type Props = {
   state: LaunchFormState;
@@ -77,6 +81,48 @@ export function DevBuyStep({ state, errors, onPatch, policyLocked = false }: Pro
             Permanent and irreversible.
           </p>
         ) : null}
+      </fieldset>
+
+      <fieldset className="space-y-2" disabled={policyLocked}>
+        <legend className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+          Creator Fee
+        </legend>
+        <div
+          className="grid grid-cols-2 gap-2"
+          role="radiogroup"
+          aria-label="Creator Fee"
+          data-testid="creator-fee-options"
+        >
+          {CREATOR_FEE_OPTIONS.map((option) => {
+            const active = state.creatorFeeBps === option.bps;
+            return (
+              <label
+                key={option.bps}
+                className={[
+                  'flex min-h-11 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border px-2 text-center font-mono text-[12px]',
+                  active
+                    ? 'border-[var(--scoop-green)] bg-[var(--scoop-green)] text-white!'
+                    : 'border-[var(--divider)] bg-[var(--bg-elevated)] text-[var(--fg)]',
+                  policyLocked ? 'cursor-not-allowed opacity-70' : '',
+                ].join(' ')}
+              >
+                <input
+                  type="radio"
+                  name="creator-fee"
+                  className="sr-only"
+                  checked={active}
+                  disabled={policyLocked}
+                  data-testid={`creator-fee-${option.bps}`}
+                  onChange={() => onPatch({ creatorFeeBps: option.bps })}
+                />
+                {option.label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-[12px] text-[var(--muted)]" data-testid="creator-fee-helper">
+          {CREATOR_FEE_HELPER}
+        </p>
       </fieldset>
 
       <label className="block space-y-1.5">

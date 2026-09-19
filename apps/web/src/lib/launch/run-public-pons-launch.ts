@@ -13,6 +13,7 @@ import { getAddress, pad } from 'viem';
 import { creatorIdFromWallet } from '@scoop/shared';
 import { ensureArtworkPinned } from '@/lib/launch/ensure-ipfs';
 import { parseEthDevBuyWei } from '@/lib/launch/dev-buy';
+import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
 import { isArtworkBlockingLaunch } from '@/lib/launch/validation';
 import type { LaunchFormState, TokenImageState } from '@/lib/launch/types';
 import {
@@ -301,6 +302,12 @@ export async function runPublicPonsLaunch(
   }
 
   const creator = getAddress(input.liveAddress) as `0x${string}`;
+  const existingDraft = loadPonsPendingLaunch(input.draftId);
+  if (!existingDraft || !isLaunchCommitted(existingDraft)) {
+    if (!isPublicCreatorFeeBps(input.state.creatorFeeBps)) {
+      return fail(callbacks, 'Choose a creator fee of 1% or 2%.');
+    }
+  }
   let pending = createOrResumePonsDraft({
     draftId: input.draftId,
     creator,
@@ -314,7 +321,9 @@ export async function runPublicPonsLaunch(
     discord: '',
     farcaster: '',
     quoteInWei: buy.amount,
-    creatorTaxBps: 0,
+    creatorTaxBps: isPublicCreatorFeeBps(input.state.creatorFeeBps)
+      ? input.state.creatorFeeBps
+      : (existingDraft?.creatorTaxBps ?? 100),
     buybackEnabled: true,
     slippageBps: PONS_DEV_BUY_SLIPPAGE_BPS,
     devSupplyPolicy: input.state.devSupplyPolicy,

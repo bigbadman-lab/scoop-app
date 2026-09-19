@@ -117,6 +117,45 @@ describe('pons preflight', () => {
     ).rejects.toMatchObject({ code: 'CREATOR_TAX_TOO_HIGH' });
   });
 
+  it('accepts 100 and 200 bps when the live cap allows them', async () => {
+    for (const creatorTaxBps of [100, 200]) {
+      const client = mockClient({
+        canLaunch: true,
+        launchEnabled: true,
+        launchFee: BigInt(1),
+        getLaunchConfig: enabledConfig,
+        previewLaunchEconomics: economics,
+        maxCreatorTaxBps: 1000,
+        balance: BigInt(10) ** BigInt(18),
+      });
+      const result = await runPonsPreflight({
+        publicClient: client as never,
+        chainId: PONS_V2_CHAIN_ID,
+        input: { creator, quoteInWei: BigInt(1), creatorTaxBps },
+      });
+      expect(result.maxCreatorTaxBps).toBe(1000);
+    }
+  });
+
+  it('blocks 200 bps without clamping when the live cap is lower', async () => {
+    const client = mockClient({
+      canLaunch: true,
+      launchEnabled: true,
+      launchFee: BigInt(1),
+      getLaunchConfig: enabledConfig,
+      previewLaunchEconomics: economics,
+      maxCreatorTaxBps: 150,
+      balance: BigInt(10) ** BigInt(18),
+    });
+    await expect(
+      runPonsPreflight({
+        publicClient: client as never,
+        chainId: PONS_V2_CHAIN_ID,
+        input: { creator, quoteInWei: BigInt(1), creatorTaxBps: 200 },
+      }),
+    ).rejects.toMatchObject({ code: 'CREATOR_TAX_TOO_HIGH' });
+  });
+
   it('fails on insufficient ETH', async () => {
     const launchFee = BigInt(500000000000000);
     const quoteIn = BigInt(10) ** BigInt(16);

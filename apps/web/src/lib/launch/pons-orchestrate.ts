@@ -124,10 +124,14 @@ export function createOrResumePonsDraft(
     const policy = resolveDevSupplyPolicy(
       input.devSupplyPolicy ?? existing.devSupplyPolicy,
     );
-    if (existing.devSupplyPolicy === policy) return existing;
+    const fee = input.creatorTaxBps;
+    if (existing.devSupplyPolicy === policy && existing.creatorTaxBps === fee) {
+      return existing;
+    }
     const next: PonsPendingLaunchState = {
       ...existing,
       devSupplyPolicy: policy,
+      creatorTaxBps: fee,
       updatedAt: now(),
     };
     savePonsPendingLaunch(next);

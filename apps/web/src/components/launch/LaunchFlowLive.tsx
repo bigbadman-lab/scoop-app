@@ -60,6 +60,7 @@ import {
   isBurnDevSupplyPolicy,
   resolveDevSupplyPolicy,
 } from '@/lib/launch/dev-supply-policy';
+import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -450,6 +451,9 @@ function LaunchFlowInner({ catalogue }: Props) {
           telegram: ponsPending.telegram,
           website: ponsPending.website,
           devSupplyPolicy: resumedPolicy,
+          ...(isPublicCreatorFeeBps(ponsPending.creatorTaxBps)
+            ? { creatorFeeBps: ponsPending.creatorTaxBps }
+            : {}),
           devBuyAmount:
             ponsPending.quoteInWei && ponsPending.quoteInWei !== '0'
               ? '' // amount already committed; UI shows recovery, not editable buy
@@ -464,6 +468,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             : 'lock_verified'
           : 'lock_required',
         txHash: ponsPending.ponsTxHash,
+        persistedCreatorTaxBps: ponsPending.creatorTaxBps,
         decoded: ponsPending.tokenAddress
           ? {
               token: ponsPending.tokenAddress,

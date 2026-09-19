@@ -40,6 +40,37 @@ describe('Dev Supply selector', () => {
     expect(screen.getByTestId('dev-buy-funding').textContent).toMatch(/not charged/i);
   });
 
+  it('offers only 1% and 2%, defaulting to 1%', () => {
+    const onPatch = vi.fn();
+    const { rerender } = render(
+      <DevBuyStep
+        state={createInitialLaunchState()}
+        errors={{}}
+        onPatch={onPatch}
+      />,
+    );
+    const options = screen.getByTestId('creator-fee-options').querySelectorAll('input');
+    expect(options.length).toBe(2);
+    expect(screen.getByTestId('creator-fee-options').textContent).not.toMatch(/0%/);
+    expect(screen.queryByRole('spinbutton')).toBeNull();
+    expect((screen.getByTestId('creator-fee-100') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId('creator-fee-helper').textContent).toMatch(
+      /creator wallet receives the selected creator fee/i,
+    );
+
+    fireEvent.click(screen.getByTestId('creator-fee-200'));
+    expect(onPatch).toHaveBeenCalledWith({ creatorFeeBps: 200 });
+
+    rerender(
+      <DevBuyStep
+        state={{ ...createInitialLaunchState(), creatorFeeBps: 200 }}
+        errors={{}}
+        onPatch={onPatch}
+      />,
+    );
+    expect((screen.getByTestId('creator-fee-200') as HTMLInputElement).checked).toBe(true);
+  });
+
   it('review copy follows the selected policy', () => {
     const locked = createInitialLaunchState();
     locked.devBuyAmount = '0.05';
@@ -51,6 +82,7 @@ describe('Dev Supply selector', () => {
       />,
     );
     expect(screen.getByTestId('dev-supply-summary').textContent).toContain('6 Month Lock');
+    expect(screen.getByTestId('creator-fee-review').textContent).toContain('Creator Fee: 1%');
     expect(screen.getByTestId('dev-supply-funding').textContent).toMatch(/HoodLock fee/i);
 
     rerender(
@@ -61,11 +93,31 @@ describe('Dev Supply selector', () => {
       />,
     );
     expect(screen.getByTestId('dev-supply-summary').textContent).toContain('Burned');
+    expect(screen.getByTestId('creator-fee-review').textContent).toContain('Creator Fee: 1%');
     expect(screen.getByTestId('dev-supply-review-detail').textContent).toBe(
       'Your full dev allocation will be permanently sent to the burn address after launch.',
     );
     expect(screen.getByTestId('dev-supply-funding').textContent).not.toMatch(
       /HoodLock fee \+/,
     );
+
+    rerender(
+      <ReviewStep
+        state={{ ...locked, creatorFeeBps: 200, devSupplyPolicy: 'lock_6m' }}
+        connectedAddress={null}
+        tx={INITIAL_LAUNCH_TX_STATE}
+      />,
+    );
+    expect(screen.getByTestId('creator-fee-review').textContent).toContain('Creator Fee: 2%');
+    expect(screen.getByTestId('dev-supply-summary').textContent).toContain('6 Month Lock');
+
+    rerender(
+      <ReviewStep
+        state={locked}
+        connectedAddress={null}
+        tx={{ ...INITIAL_LAUNCH_TX_STATE, persistedCreatorTaxBps: 0, txHash: '0x' + 'ab'.repeat(32) }}
+      />,
+    );
+    expect(screen.getByTestId('creator-fee-review').textContent).toContain('Creator Fee: 0%');
   });
 });

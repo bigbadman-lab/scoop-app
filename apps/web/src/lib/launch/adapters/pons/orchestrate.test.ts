@@ -234,4 +234,57 @@ describe('pons orchestrator', () => {
       '0x10ada643ab9b790aa4d50ec91d65d11844df1049615e779c2c219eea05a69d3f',
     );
   });
+
+  it('updates creator fee before broadcast and freezes it, including historical 0', () => {
+    const draft = {
+      draftId,
+      creator: FIXTURE_CREATOR,
+      name: 'Example',
+      symbol: 'EXMPL',
+      logo: 'ipfs://logo',
+      description: 'd',
+      quoteInWei: BigInt('45000000000000000'),
+      buybackEnabled: true,
+    };
+    const old = createOrResumePonsDraft({ ...draft, creatorTaxBps: 0 });
+    expect(old.creatorTaxBps).toBe(0);
+    expect(old.ponsTxHash).toBeNull();
+
+    const adopted = createOrResumePonsDraft({ ...draft, creatorTaxBps: 100 });
+    expect(adopted.creatorTaxBps).toBe(100);
+    const selected = createOrResumePonsDraft({ ...draft, creatorTaxBps: 200 });
+    expect(selected.creatorTaxBps).toBe(200);
+    expect(selected.buybackEnabled).toBe(true);
+
+    savePonsPendingLaunch({
+      ...selected,
+      ponsTxHash:
+        '0x10ada643ab9b790aa4d50ec91d65d11844df1049615e779c2c219eea05a69d3f',
+      phase: 'launch_submitted',
+    });
+    const frozen = createOrResumePonsDraft({ ...draft, creatorTaxBps: 100 });
+    expect(frozen.creatorTaxBps).toBe(200);
+
+    clearPonsPendingLaunch('orch-fee-hist');
+    const historical = createOrResumePonsDraft({
+      ...draft,
+      draftId: 'orch-fee-hist',
+      creatorTaxBps: 0,
+    });
+    savePonsPendingLaunch({
+      ...historical,
+      ponsTxHash:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      phase: 'launch_submitted',
+    });
+    const recovered = createOrResumePonsDraft({
+      ...draft,
+      draftId: 'orch-fee-hist',
+      creatorTaxBps: 200,
+    });
+    expect(recovered.creatorTaxBps).toBe(0);
+    expect(recovered.ponsTxHash).toBe(
+      '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    );
+  });
 });

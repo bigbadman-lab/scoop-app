@@ -22,6 +22,10 @@ import {
   type DevSupplyPolicy,
 } from '@/lib/launch/dev-supply-policy';
 import { burnFundingNote, lockFundingNote } from '@/lib/launch/burn-orchestrate';
+import {
+  CREATOR_FEE_REVIEW_DETAIL,
+  creatorFeeLabel,
+} from '@/lib/launch/creator-fee';
 
 type Props = {
   state: LaunchFormState;
@@ -52,6 +56,7 @@ export function ReviewStep({
   const busy = isLaunchTxBusy(tx.phase);
   const supply = devSupplyOption(state.devSupplyPolicy);
   const burn = isBurnDevSupplyPolicy(state.devSupplyPolicy);
+  const creatorFeeBps = tx.persistedCreatorTaxBps ?? state.creatorFeeBps;
   const ticker = tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
   const tokenAddr = tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
   const marketHref = tokenAddr ? tokenMarketPath(tokenAddr) : null;
@@ -189,11 +194,14 @@ export function ReviewStep({
               value={buyWei > BigInt(0) ? `${formatEthWei(buyWei)} ETH` : '—'}
             />
             <Row label="Launch config" value="0 (ETH)" />
-            <Row label="Creator tax" value="0 bps" />
+            <Row label="Creator Fee" value={creatorFeeLabel(creatorFeeBps)} />
             <Row label="Pons buyback" value="Enabled" />
             <Row label="Slippage" value={`${PONS_DEV_BUY_SLIPPAGE_BPS / 100}%`} />
             <Row label="Chain" value={`${ROBINHOOD_CHAIN_LABEL} (${ROBINHOOD_CHAIN_ID})`} />
           </dl>
+          <p className="mt-3 text-sm text-[var(--muted)]" data-testid="creator-fee-review">
+            Creator Fee: {creatorFeeLabel(creatorFeeBps)}. {CREATOR_FEE_REVIEW_DETAIL}
+          </p>
           <p className="mt-3 text-sm text-[var(--muted)]">
             Launch fee is read live from the Pons factory at submit time (not hardcoded).
           </p>

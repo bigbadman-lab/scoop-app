@@ -9,6 +9,7 @@ import {
 } from '@scoop/shared';
 import { generateLaunchSalt } from '@/lib/launch/salt';
 import { DEFAULT_DEV_SUPPLY_POLICY, type DevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
+import { DEFAULT_CREATOR_FEE_BPS, type CreatorFeeBps } from '@/lib/launch/creator-fee';
 
 export type LaunchStepId = 1 | 2 | 3;
 
@@ -120,6 +121,8 @@ export type LaunchFormState = {
   devBuyAmount: string;
   /** How the creator allocation is handled after LaunchAndBuy. Default 6 months. */
   devSupplyPolicy: DevSupplyPolicy;
+  /** Public creator fee. 100 = 1%, 200 = 2%. Not a free-form field. */
+  creatorFeeBps: CreatorFeeBps;
   /**
    * Explicit news provenance (News Page V2). Survives to launch success linking.
    * Never inferred from headline/ticker — only set from assist handoff.
@@ -170,6 +173,7 @@ export function createInitialLaunchState(
     salt: generateLaunchSalt(),
     devBuyAmount: '',
     devSupplyPolicy: DEFAULT_DEV_SUPPLY_POLICY,
+    creatorFeeBps: DEFAULT_CREATOR_FEE_BPS,
     sourceProvider: null,
     sourceProviderArticleId: null,
     sourceDraftId: null,

@@ -103,4 +103,26 @@ describe('pons simulation helpers', () => {
     expect(result.salt).toBe(salt);
     expect(result.expectedEconomics).toBe(economics);
   });
+
+  it('probe and final simulation both use the selected creator fee, not 0', async () => {
+    const probeOut = BigInt('1000');
+    const publicClient = {
+      simulateContract: vi.fn(async ({ args }: { args: readonly unknown[] }) => {
+        const params = args[0] as { creatorTaxBps: number; creatorFeeRecipient: string; buybackEnabled: boolean };
+        expect(params.creatorTaxBps).toBe(200);
+        expect(params.creatorTaxBps).not.toBe(0);
+        expect(params.creatorFeeRecipient.toLowerCase()).toBe(creator.toLowerCase());
+        expect(params.buybackEnabled).toBe(true);
+        return { result: [token, curve, probeOut] as const, request: {} };
+      }),
+    };
+    const result = await simulatePonsLaunchAndBuy({
+      publicClient: publicClient as never,
+      input: { ...input, creatorTaxBps: 200 },
+      preflight,
+    });
+    expect(publicClient.simulateContract).toHaveBeenCalledTimes(2);
+    expect(result.request.args[0].creatorTaxBps).toBe(200);
+    expect(result.request.args[0].buybackEnabled).toBe(true);
+  });
 });

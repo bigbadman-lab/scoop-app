@@ -91,6 +91,16 @@ describe('pons build-params', () => {
     expect(req.value).toBe(preflight.launchFeeWei + input().quoteInWei);
   });
 
+  it('keeps the creator wallet as fee recipient for a 2% selection', () => {
+    const params = buildPonsTokenParams({
+      input: input({ creatorTaxBps: 200 }),
+      preflight,
+    });
+    expect(params.creatorTaxBps).toBe(200);
+    expect(params.creatorFeeRecipient.toLowerCase()).toBe(creator.toLowerCase());
+    expect(params.buybackEnabled).toBe(true);
+  });
+
   it('rejects zero quote', () => {
     const params = buildPonsTokenParams({ input: input(), preflight });
     expect(() =>

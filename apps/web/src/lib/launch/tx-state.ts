@@ -87,6 +87,12 @@ export type LaunchTxState = {
   newsActivation: 'idle' | 'skipped' | 'ok' | 'failed' | 'pending';
   /** Display image sync after indexed (V2.F) — never fails the launch. */
   displayImageSync: 'idle' | 'skipped' | 'ok' | 'failed';
+  /**
+   * Persisted Pons creatorTaxBps once a launch tx exists.
+   * Null before broadcast so the form selection is the source of truth.
+   * Historical records may be 0 and must not be rewritten to 100/200.
+   */
+  persistedCreatorTaxBps: number | null;
 };
 
 export type LaunchChecklist = {
@@ -130,6 +136,7 @@ export const INITIAL_LAUNCH_TX_STATE: LaunchTxState = {
   indexedLaunch: null,
   newsActivation: 'idle',
   displayImageSync: 'idle',
+  persistedCreatorTaxBps: null,
 };
 
 export function isLaunchTxBusy(phase: LaunchTxPhase): boolean {

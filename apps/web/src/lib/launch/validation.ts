@@ -1,5 +1,6 @@
 import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
 import { parseDevBuyAmount } from '@/lib/launch/dev-buy';
+import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
 import {
   readImageFileDimensions,
   squareDimensionError,
@@ -123,6 +124,9 @@ export function validateMarketStep(state: LaunchFormState): FieldErrors {
  */
 export function validateDevBuyStep(state: LaunchFormState): FieldErrors {
   const errors: FieldErrors = {};
+  if (!isPublicCreatorFeeBps(state.creatorFeeBps)) {
+    errors.creatorFeeBps = 'Choose a creator fee of 1% or 2%.';
+  }
   const buy = state.devBuyAmount.trim();
   if (!buy) {
     errors.devBuyAmount = 'Enter a non-zero ETH amount for the mandatory dev buy.';
