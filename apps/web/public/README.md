@@ -13,11 +13,11 @@ public/
 
 | Folder | Purpose | Example URL |
 | --- | --- | --- |
-| `brand/` | Logo / mark | `/brand/MARK.png` |
+| `brand/` | Logo / mark | `/brand/logogreen.png` |
 | `house/` | Editorial house images | `/house/place4.webp` |
 
 ## Notes
 
 - Prefer optimized PNG / JPEG / WebP.
 - After adding house images, register paths in `src/lib/brand.ts` → `HOUSE_IMAGE_SET`.
-- Canonical mark: `brand/MARK.png` (SCOOP orange `#FC4C00`).
+- Canonical mark: `brand/logogreen.png`.

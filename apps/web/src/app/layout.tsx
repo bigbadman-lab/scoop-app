@@ -7,6 +7,7 @@ import '@fontsource/open-sauce-sans/latin-500.css';
 import '@fontsource/open-sauce-sans/latin-600.css';
 import '@fontsource/open-sauce-sans/latin-700.css';
 import { AppShell } from '@/components/shell/AppShell';
+import { SCOOP_MARK_SRC } from '@/lib/brand';
 import { WalletShellProvider } from '@/components/auth/WalletShellProvider';
 import {
   SEO_DEFAULT_DESCRIPTION,
@@ -32,7 +33,8 @@ export const metadata: Metadata = {
   creator: SEO_SITE_NAME,
   publisher: SEO_SITE_NAME,
   icons: {
-    icon: '/brand/MARK.png',
+    icon: SCOOP_MARK_SRC,
+    apple: SCOOP_MARK_SRC,
   },
   openGraph: {
     type: 'website',

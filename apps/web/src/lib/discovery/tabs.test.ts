@@ -29,6 +29,6 @@ describe('discover tabs', () => {
 describe('brand lock', () => {
   it('uses locked SCOOP orange and master mark path', () => {
     expect(SCOOP_ORANGE.toUpperCase()).toBe('#FC4C00');
-    expect(SCOOP_MARK_SRC).toBe('/brand/MARK.png');
+    expect(SCOOP_MARK_SRC).toBe('/brand/logogreen.png');
   });
 });

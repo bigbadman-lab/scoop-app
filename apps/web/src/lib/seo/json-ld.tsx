@@ -1,4 +1,4 @@
-import { SCOOP_X_URL } from '@/lib/brand';
+import { SCOOP_MARK_SRC, SCOOP_X_URL } from '@/lib/brand';
 import { SEO_SITE_NAME, SEO_DEFAULT_DESCRIPTION, absoluteSeoUrl } from '@/lib/seo/site';
 
 /** Organization + WebSite JSON-LD for the homepage. No fake Article/Product claims. */
@@ -12,7 +12,7 @@ export function buildHomeJsonLd(): Record<string, unknown> {
         '@id': `${origin}/#organization`,
         name: SEO_SITE_NAME,
         url: origin,
-        logo: absoluteSeoUrl('/brand/MARK.png'),
+        logo: absoluteSeoUrl(SCOOP_MARK_SRC),
         sameAs: [SCOOP_X_URL],
       },
       {
