@@ -243,9 +243,9 @@ describe('NewsFeed lead rotation', () => {
     expect(within(lead()).getByTestId('news-market-status').textContent).toMatch(
       /NO LIVE MARKETS/i,
     );
-    expect(within(lead()).getByRole('link', { name: /launch market/i }).getAttribute('href')).toBe(
-      '/news/A/launch',
-    );
+    const launch = within(lead()).getByRole('link', { name: /launch market/i });
+    expect(launch.getAttribute('href')).toBe('/news/A/launch');
+    expect(launch.className).toContain('text-white!');
     expect(within(lead()).getByRole('link', { name: /read story/i }).getAttribute('href')).toBe(
       'https://ft.com/A',
     );

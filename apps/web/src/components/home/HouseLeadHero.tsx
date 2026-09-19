@@ -288,7 +288,7 @@ export function HouseLeadHero({ news }: Props) {
             >
               <LaunchAsTokenLink
                 providerArticleId={article.providerArticleId}
-                className="min-w-0 shrink"
+                className="min-w-0 shrink text-white!"
               />
               {href ? (
                 <CtaLink

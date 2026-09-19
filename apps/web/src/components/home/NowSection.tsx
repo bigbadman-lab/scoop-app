@@ -40,14 +40,14 @@ export function NowSection({ news, deskSpot }: Props) {
               into markets. Earn from every trade.
             </p>
             <div className="mt-4 md:hidden">
-              <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5">
+              <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5 text-white!">
                 Launch
               </CtaLink>
             </div>
           </div>
 
           <div className="hidden shrink-0 md:block">
-            <CtaLink href="/launch" variant="primary" className="px-6 text-[13px]">
+            <CtaLink href="/launch" variant="primary" className="px-6 text-[13px] text-white!">
               Launch
             </CtaLink>
           </div>

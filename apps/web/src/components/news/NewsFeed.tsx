@@ -159,6 +159,7 @@ function StoryBody({
         <LaunchAsTokenLink
           providerArticleId={item.id}
           variant={item.marketCount > 0 ? 'another' : 'feed'}
+          className="text-white!"
         />
         <CtaLink
           href={item.url}
