@@ -11,6 +11,8 @@ export type IndexedLaunchExpectation = {
   poolId?: string | null;
   feeDistributor?: string | null;
   liquidityLocker?: string | null;
+  /** When set, indexed row must report this market_source. */
+  marketSource?: 'scoop' | 'pons_v2' | null;
 };
 
 function normAddr(value: string): string {
@@ -41,6 +43,12 @@ export function verifyIndexedLaunchAgainstReceipt(
     mismatches.push('launchTxHash');
   }
 
+  if (expected.marketSource) {
+    if (launch.marketSource !== expected.marketSource) {
+      mismatches.push('marketSource');
+    }
+  }
+
   if (expected.creatorId) {
     if (normBytes32(launch.creatorId) !== normBytes32(expected.creatorId)) {
       mismatches.push('creatorId');
@@ -57,22 +65,27 @@ export function verifyIndexedLaunchAgainstReceipt(
     }
   }
   if (expected.poolId) {
-    if (normBytes32(launch.poolId) !== normBytes32(expected.poolId)) {
+    if (
+      launch.poolId == null ||
+      normBytes32(launch.poolId) !== normBytes32(expected.poolId)
+    ) {
       mismatches.push('poolId');
     }
   }
   if (expected.feeDistributor) {
     if (
+      launch.feeDistributorAddress == null ||
       normAddr(launch.feeDistributorAddress) !==
-      normAddr(expected.feeDistributor)
+        normAddr(expected.feeDistributor)
     ) {
       mismatches.push('feeDistributor');
     }
   }
   if (expected.liquidityLocker) {
     if (
+      launch.liquidityLockerAddress == null ||
       normAddr(launch.liquidityLockerAddress) !==
-      normAddr(expected.liquidityLocker)
+        normAddr(expected.liquidityLocker)
     ) {
       mismatches.push('liquidityLocker');
     }

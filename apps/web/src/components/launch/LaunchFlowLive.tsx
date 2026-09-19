@@ -15,12 +15,16 @@ import { launchReducer } from '@/lib/launch/state';
 import {
   compatibleAssistWebsite,
   isArtworkBlockingLaunch,
-  validateEarningsStep,
-  validateMarketStep,
+  validateDevBuyStep,
   validateTokenStep,
 } from '@/lib/launch/validation';
-import { LAUNCH_WRITE_ENABLED, canLaunchCanonicalProduction } from '@/lib/launch/execute';
-import { runWalletLaunch } from '@/lib/launch/orchestrate';
+import { LAUNCH_WRITE_ENABLED } from '@/lib/launch/execute';
+import {
+  checkPublicPonsSchemaReady,
+  PONS_SCHEMA_BLOCKED_MESSAGE,
+  resumePublicPonsLaunch,
+  runPublicPonsLaunch,
+} from '@/lib/launch/run-public-pons-launch';
 import { runLaunchCompletion } from '@/lib/launch/complete-launch';
 import { activateNewsArticleMarket } from '@/lib/news/activate-article-market';
 import {
@@ -35,6 +39,7 @@ import {
   isLaunchCompletionActive,
   isLaunchTxBusy,
   isMarketLivePhase,
+  isPostBroadcastRelaunchBlocked,
   tokenMarketPath,
   type LaunchTxState,
 } from '@/lib/launch/tx-state';
@@ -44,9 +49,12 @@ import type { LaunchAssistArticle } from '@/lib/launch-assist/types';
 import { LaunchProgress } from '@/components/launch/LaunchProgress';
 import { LaunchNav } from '@/components/launch/LaunchNav';
 import { TokenStep } from '@/components/launch/steps/TokenStep';
-import { MarketStep } from '@/components/launch/steps/MarketStep';
-import { EarningsStep } from '@/components/launch/steps/EarningsStep';
+import { DevBuyStep } from '@/components/launch/steps/DevBuyStep';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
+import {
+  isLaunchCommitted,
+  listPonsPendingLaunches,
+} from '@/lib/launch/adapters/pons';
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -112,7 +120,7 @@ function resolveSourceDraftId(
   return null;
 }
 
-function applyAssistedPrefill(catalogue: readonly PublicQuoteCatalogueItem[]): {
+function applyAssistedPrefill(): {
   prefill: Partial<LaunchFormState> | null;
   provenance: LaunchAssistArticle | null;
   quoteWarning: string | null;
@@ -122,19 +130,15 @@ function applyAssistedPrefill(catalogue: readonly PublicQuoteCatalogueItem[]): {
     return { prefill: null, provenance: null, quoteWarning: null };
   }
 
-  const address = handoff.quoteAsset.trim().toLowerCase();
-  const match = catalogue.find((q) => q.quoteAsset.toLowerCase() === address) ?? null;
-
+  // Gate 7: public Pons path is ETH-only — ignore legacy recommended quote pairs.
   let quoteWarning: string | null = null;
-  let quoteAsset: string | null = null;
-  let quoteSymbol: string | null = null;
-  let quoteDecimals: number | null = null;
-  if (match) {
-    quoteAsset = match.quoteAsset;
-    quoteSymbol = match.displaySymbol || match.symbol;
-    quoteDecimals = match.decimals;
-  } else if (address) {
-    quoteWarning = 'The recommended quote is no longer enabled. Choose a market pair to continue.';
+  const recommended = handoff.quoteAsset.trim().toLowerCase();
+  if (
+    recommended &&
+    recommended !== '0x0000000000000000000000000000000000000000'
+  ) {
+    quoteWarning =
+      'This story suggested a non-ETH pair. Public launches now use ETH only.';
   }
 
   return {
@@ -145,9 +149,9 @@ function applyAssistedPrefill(catalogue: readonly PublicQuoteCatalogueItem[]): {
       ticker: handoff.concept.ticker.trim().toUpperCase().replace(/^\$/, ''),
       description: handoff.concept.description,
       website: compatibleAssistWebsite(handoff.article.url),
-      quoteAsset,
-      quoteSymbol,
-      quoteDecimals,
+      quoteAsset: '0x0000000000000000000000000000000000000000',
+      quoteSymbol: 'ETH',
+      quoteDecimals: 18,
       sourceProvider: 'stocknewsapi',
       sourceProviderArticleId: handoff.providerArticleId,
       sourceDraftId: resolveSourceDraftId(handoff),
@@ -221,6 +225,8 @@ function ArtworkFlowNotice({
 }
 
 function LaunchFlowInner({ catalogue }: Props) {
+  // Catalogue retained for LaunchFlow shell API; public Pons path is ETH-fixed.
+  void catalogue;
   const searchParams = useSearchParams();
   const router = useRouter();
   const assist = searchParams.get('assist') === '1';
@@ -257,6 +263,9 @@ function LaunchFlowInner({ catalogue }: Props) {
   const [artworkNotice, setArtworkNotice] = useState<ArtworkNotice | null>(null);
   const [artworkJobBusy, setArtworkJobBusy] = useState(false);
   const [tx, setTx] = useState<LaunchTxState>(INITIAL_LAUNCH_TX_STATE);
+  const [schemaReady, setSchemaReady] = useState<boolean | null>(null);
+  const [ponsDraftId, setPonsDraftId] = useState<string | null>(null);
+  const ponsDraftIdRef = useRef<string | null>(null);
 
   imageSourceRef.current.source = state.image.source;
   stepRef.current = state.step;
@@ -272,11 +281,16 @@ function LaunchFlowInner({ catalogue }: Props) {
     imageUriArg?: string | null,
   ) {
     if (!base.decoded?.token || !base.txHash) return;
-    const key = `${base.txHash}:${base.decoded.token}`.toLowerCase();
-    if (completionKeyRef.current === key) return;
-    if (base.phase === 'market_live' || base.phase === 'index_mismatch') {
+    // Gate 7: only poll indexer after HoodLock verification (or legacy Scoop receipt).
+    if (
+      base.phase !== 'lock_verified' &&
+      base.phase !== 'receipt_success' &&
+      base.phase !== 'waiting_for_indexer'
+    ) {
       return;
     }
+    const key = `${base.txHash}:${base.decoded.token}`.toLowerCase();
+    if (completionKeyRef.current === key) return;
 
     completionAbortRef.current?.abort();
     const ac = new AbortController();
@@ -322,6 +336,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       provenance: base.provenance,
       displayImagePath: path,
       imageUri,
+      marketSource: 'pons_v2',
       signal: ac.signal,
       callbacks: {
         onPhase: (partial) => {
@@ -386,23 +401,81 @@ function LaunchFlowInner({ catalogue }: Props) {
   useEffect(() => {
     if (!assist || applied.current) return;
     applied.current = true;
-    const { prefill, provenance: story, quoteWarning: warning } = applyAssistedPrefill(catalogue);
+    const { prefill, provenance: story, quoteWarning: warning } = applyAssistedPrefill();
     if (!prefill) return;
     dispatch({ type: 'PATCH', patch: prefill });
     setProvenance(story);
     setQuoteWarning(warning);
-  }, [assist, catalogue]);
+  }, [assist]);
 
-  /** Resume pending indexer wait after refresh (sessionStorage). */
+  /** Schema readiness — fail closed until Gate 6 migration is applied. */
+  useEffect(() => {
+    let cancelled = false;
+    void checkPublicPonsSchemaReady().then((r) => {
+      if (!cancelled) setSchemaReady(r.ready);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Resume pending Pons / HoodLock / indexer wait after refresh. */
   useEffect(() => {
     if (resumeTriedRef.current) return;
     resumeTriedRef.current = true;
+
+    const ponsPending = listPonsPendingLaunches()[0] ?? null;
+    if (ponsPending && isLaunchCommitted(ponsPending)) {
+      ponsDraftIdRef.current = ponsPending.draftId;
+      setPonsDraftId(ponsPending.draftId);
+      dispatch({ type: 'SET_STEP', step: 3 });
+      dispatch({
+        type: 'PATCH',
+        patch: {
+          name: ponsPending.name,
+          ticker: ponsPending.symbol,
+          description: ponsPending.description,
+          twitter: ponsPending.twitter,
+          telegram: ponsPending.telegram,
+          website: ponsPending.website,
+          devBuyAmount:
+            ponsPending.quoteInWei && ponsPending.quoteInWei !== '0'
+              ? '' // amount already committed; UI shows recovery, not editable buy
+              : '',
+        },
+      });
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: ponsPending.hoodlockVerified ? 'lock_verified' : 'lock_required',
+        txHash: ponsPending.ponsTxHash,
+        decoded: ponsPending.tokenAddress
+          ? {
+              token: ponsPending.tokenAddress,
+              deployer: ponsPending.creator,
+              creatorId: ponsPending.creator,
+              quoteAsset: '0x0000000000000000000000000000000000000000',
+              feeDistributor: '0x0000000000000000000000000000000000000000',
+              liquidityLocker: '0x0000000000000000000000000000000000000000',
+              poolId:
+                '0x0000000000000000000000000000000000000000000000000000000000000000',
+              lpTokenId: '0',
+              name: ponsPending.name,
+              symbol: ponsPending.symbol,
+            }
+          : null,
+        error: ponsPending.hoodlockVerified
+          ? null
+          : 'Token launched successfully. Dev-token lock is incomplete. Resume locking.',
+      });
+      return;
+    }
+
     const pending = loadPendingLaunchCompletion();
     if (!pending) return;
-    dispatch({ type: 'SET_STEP', step: 4 });
+    dispatch({ type: 'SET_STEP', step: 3 });
     const restored: LaunchTxState = {
       ...INITIAL_LAUNCH_TX_STATE,
-      phase: 'receipt_success',
+      phase: 'lock_verified',
       txHash: pending.txHash,
       expectedCreatorId: pending.expectedCreatorId,
       expectedDeployer: pending.expectedDeployer,
@@ -415,9 +488,9 @@ function LaunchFlowInner({ catalogue }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only resume
   }, []);
 
-  /** After receipt_success with decoded token, start indexer completion once. */
+  /** After HoodLock verification, start indexer completion once. */
   useEffect(() => {
-    if (tx.phase !== 'receipt_success' || !tx.decoded?.token || !tx.txHash) {
+    if (tx.phase !== 'lock_verified' || !tx.decoded?.token || !tx.txHash) {
       return;
     }
     startCompletionFromTx(tx);
@@ -562,8 +635,7 @@ function LaunchFlowInner({ catalogue }: Props) {
   const stepErrors = useMemo(() => {
     if (!attempted) return {} as FieldErrors;
     if (state.step === 1) return validateTokenStep(state);
-    if (state.step === 2) return validateMarketStep(state);
-    if (state.step === 3) return validateEarningsStep(state);
+    if (state.step === 2) return validateDevBuyStep(state);
     return {};
   }, [attempted, state]);
 
@@ -588,18 +660,14 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
     if (state.step === 2) {
-      const next = validateMarketStep(state);
+      const next = validateDevBuyStep(state);
       setErrors(next);
       if (Object.keys(next).length) return;
+      if (!connectedAddress) {
+        setErrors({ ...next, creatorMode: 'Connect a wallet to launch.' });
+        return;
+      }
       dispatch({ type: 'SET_STEP', step: 3 });
-      setAttempted(false);
-      return;
-    }
-    if (state.step === 3) {
-      const next = validateEarningsStep(state, connectedAddress);
-      setErrors(next);
-      if (Object.keys(next).length) return;
-      dispatch({ type: 'SET_STEP', step: 4 });
       setAttempted(false);
     }
   }
@@ -694,34 +762,42 @@ function LaunchFlowInner({ catalogue }: Props) {
   }
 
   const launchDisabledReason =
-    state.step === 4
+    state.step === 3
       ? artworkBlockingLaunch
         ? 'Finishing your token image…'
-        : isLaunchCompletionActive(tx.phase)
+        : isPostBroadcastRelaunchBlocked(tx.phase) && tx.phase !== 'lock_required'
           ? isMarketLivePhase(tx.phase)
             ? 'Market is live'
             : tx.phase === 'indexing_timeout'
               ? 'Launch confirmed — indexing delayed'
               : tx.phase === 'index_mismatch'
                 ? 'Indexed launch mismatch'
-                : 'Launch transaction already confirmed'
+                : isLaunchTxBusy(tx.phase)
+                  ? launchTxBusyReason(tx.phase)
+                  : 'Launch transaction already submitted'
           : isLaunchTxBusy(tx.phase)
             ? launchTxBusyReason(tx.phase)
             : !LAUNCH_WRITE_ENABLED
               ? 'Launch submission is disabled.'
-              : !canLaunchCanonicalProduction()
-                ? 'Canonical Factory not deployed yet'
-                : !connectedAddress
-                  ? 'Connect a wallet to launch'
-                  : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
-                    ? 'Switch to Robinhood Chain (4663)'
-                    : undefined
+              : schemaReady === false
+                ? PONS_SCHEMA_BLOCKED_MESSAGE
+                : schemaReady == null
+                  ? 'Checking Pons indexing schema…'
+                  : !connectedAddress
+                    ? 'Connect a wallet to launch'
+                    : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
+                      ? 'Switch to Robinhood Chain (4663)'
+                      : undefined
       : undefined;
 
   async function submitLaunch() {
-    if (state.step !== 4) return;
+    if (state.step !== 3) return;
     if (launchInFlight.current || isLaunchTxBusy(tx.phase)) return;
     if (artworkBlockingLaunch) return;
+    if (tx.phase === 'lock_required') {
+      await resumeLock();
+      return;
+    }
     if (isLaunchCompletionActive(tx.phase)) {
       return;
     }
@@ -735,11 +811,11 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
 
-    if (!canLaunchCanonicalProduction()) {
+    if (schemaReady !== true) {
       setTx({
         ...INITIAL_LAUNCH_TX_STATE,
         phase: 'failed',
-        error: 'Canonical Factory not deployed yet — launch unavailable.',
+        error: PONS_SCHEMA_BLOCKED_MESSAGE,
       });
       return;
     }
@@ -768,13 +844,55 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
 
+    const draftId =
+      ponsDraftIdRef.current ??
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? `pons-${crypto.randomUUID()}`
+        : `pons-${Date.now()}`);
+    ponsDraftIdRef.current = draftId;
+    setPonsDraftId(draftId);
+
     launchInFlight.current = true;
     setTx({ ...INITIAL_LAUNCH_TX_STATE, phase: 'preparing_artwork' });
     try {
-      await runWalletLaunch({
+      await runPublicPonsLaunch({
         state,
+        draftId,
         liveAddress: connectedAddress,
         liveChainId: effectiveChainId,
+        publicClient,
+        walletClient,
+        schemaReady: true,
+        getLiveAccount: () => ({
+          address: accountRef.current.address,
+          chainId: accountRef.current.chainId,
+        }),
+        callbacks: {
+          onPhase: (partial) => {
+            setTx((prev) => ({ ...prev, ...partial }));
+          },
+          onImagePinned: (image) => {
+            dispatch({ type: 'SET_IMAGE', image });
+          },
+          onPendingState: (pending) => {
+            ponsDraftIdRef.current = pending.draftId;
+            setPonsDraftId(pending.draftId);
+          },
+        },
+      });
+    } finally {
+      launchInFlight.current = false;
+    }
+  }
+
+  async function resumeLock() {
+    if (launchInFlight.current || isLaunchTxBusy(tx.phase)) return;
+    const draftId = ponsDraftIdRef.current ?? ponsDraftId;
+    if (!draftId || !publicClient || !walletClient) return;
+    launchInFlight.current = true;
+    try {
+      await resumePublicPonsLaunch({
+        draftId,
         publicClient,
         walletClient,
         getLiveAccount: () => ({
@@ -789,6 +907,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             dispatch({ type: 'SET_IMAGE', image });
           },
         },
+        state,
       });
     } finally {
       launchInFlight.current = false;
@@ -800,9 +919,20 @@ function LaunchFlowInner({ catalogue }: Props) {
       <header className="mb-5 md:mb-6">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Launch something new</h1>
         <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)] md:text-base">
-          Turn the news into a market, choose what it trades against, and earn from every trade.
+          Create a Pons V2 token with an ETH dev buy. Your allocation locks for 6 months via
+          HoodLock.
         </p>
       </header>
+
+      {quoteWarning ? (
+        <p
+          className="mb-4 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--muted)]"
+          role="status"
+          data-testid="assist-quote-warning"
+        >
+          {quoteWarning}
+        </p>
+      ) : null}
 
       <LaunchProgress step={state.step} />
 
@@ -830,44 +960,27 @@ function LaunchFlowInner({ catalogue }: Props) {
       ) : null}
 
       {state.step === 2 ? (
-        <MarketStep
+        <DevBuyStep
           state={state}
           errors={visibleErrors}
-          catalogue={catalogue}
-          quoteWarning={quoteWarning}
-          onSelect={(quoteAsset, quoteSymbol, quoteDecimals) => {
-            setQuoteWarning(null);
-            dispatch({
-              type: 'SELECT_QUOTE',
-              quoteAsset,
-              quoteSymbol,
-              quoteDecimals,
-            });
-          }}
-        />
-      ) : null}
-
-      {state.step === 3 ? (
-        <EarningsStep
-          state={state}
-          errors={visibleErrors}
-          connectedAddress={connectedAddress}
-          onMode={(mode) => dispatch({ type: 'SET_CREATOR_MODE', mode })}
           onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
         />
       ) : null}
 
-      {state.step === 4 ? (
+      {state.step === 3 ? (
         <ReviewStep
           state={state}
-          catalogue={catalogue}
           connectedAddress={connectedAddress}
           tx={tx}
+          schemaBlocked={schemaReady === false}
           onRetryIndex={retryIndexCheck}
           onRetryNews={() => {
             void retryNewsLink();
           }}
           onViewMarket={viewMarket}
+          onResumeLock={() => {
+            void resumeLock();
+          }}
         />
       ) : null}
 
@@ -878,7 +991,7 @@ function LaunchFlowInner({ catalogue }: Props) {
             : undefined
         }
         onContinue={
-          state.step < 4
+          state.step < 3
             ? goContinue
             : canShowViewMarket(
                   tx.phase,
@@ -887,14 +1000,18 @@ function LaunchFlowInner({ catalogue }: Props) {
                     : null,
                 )
               ? viewMarket
-              : () => {
-                  void submitLaunch();
-                }
+              : tx.phase === 'lock_required'
+                ? () => {
+                    void resumeLock();
+                  }
+                : () => {
+                    void submitLaunch();
+                  }
         }
         continueLabel={
-          state.step === 3
+          state.step === 2
             ? 'Review →'
-            : state.step === 4
+            : state.step === 3
               ? canShowViewMarket(
                   tx.phase,
                   tx.indexedLaunch?.tokenAddress || tx.decoded?.token
@@ -902,15 +1019,18 @@ function LaunchFlowInner({ catalogue }: Props) {
                     : null,
                 )
                 ? 'View token →'
-                : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
-                  ? isLaunchTxBusy(tx.phase)
-                    ? launchTxBusyReason(tx.phase)
-                    : 'Confirmed'
-                  : 'Launch token →'
+                : tx.phase === 'lock_required'
+                  ? 'Resume locking →'
+                  : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
+                    ? isLaunchTxBusy(tx.phase)
+                      ? launchTxBusyReason(tx.phase)
+                      : 'Confirmed'
+                    : 'Launch token →'
               : 'Continue →'
         }
         continueDisabled={
-          state.step === 4 &&
+          state.step === 3 &&
+          tx.phase !== 'lock_required' &&
           (Boolean(launchDisabledReason) ||
             (!canShowViewMarket(
               tx.phase,
@@ -920,7 +1040,9 @@ function LaunchFlowInner({ catalogue }: Props) {
             ) &&
               (isLaunchTxBusy(tx.phase) || isLaunchCompletionActive(tx.phase))))
         }
-        continueDisabledReason={launchDisabledReason}
+        continueDisabledReason={
+          tx.phase === 'lock_required' ? undefined : launchDisabledReason
+        }
       />
     </div>
   );
@@ -930,15 +1052,22 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
   switch (phase) {
     case 'preparing_artwork':
       return 'Preparing artwork…';
-    case 'approving_quote':
-      return 'Approve quote token in your wallet…';
     case 'simulating':
-      return 'Simulating launch…';
+      return 'Simulating Pons launch…';
     case 'awaiting_wallet':
-      return 'Confirm in your wallet…';
+      return 'Confirm launch in your wallet…';
     case 'submitted':
     case 'confirming':
-      return 'Confirming transaction…';
+      return 'Confirming launch…';
+    case 'lock_preparing':
+      return 'Preparing 6-month lock…';
+    case 'approving_lock':
+      return 'Approve lock in your wallet…';
+    case 'awaiting_lock_wallet':
+    case 'locking_dev_tokens':
+      return 'Locking dev tokens…';
+    case 'verifying_lock':
+      return 'Verifying lock…';
     case 'waiting_for_indexer':
       return 'Market data is appearing now.';
     case 'activating_news':

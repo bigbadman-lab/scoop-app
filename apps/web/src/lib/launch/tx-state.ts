@@ -10,6 +10,14 @@ export type LaunchTxPhase =
   | 'awaiting_wallet'
   | 'submitted'
   | 'confirming'
+  /** Pons launch confirmed; HoodLock required (Gate 7). */
+  | 'lock_required'
+  | 'lock_preparing'
+  | 'approving_lock'
+  | 'awaiting_lock_wallet'
+  | 'locking_dev_tokens'
+  | 'verifying_lock'
+  | 'lock_verified'
   | 'receipt_success'
   | 'receipt_success_details_pending'
   | 'waiting_for_indexer'
@@ -41,11 +49,15 @@ export type IndexedLaunchSnapshot = {
   creatorId: string;
   quoteAsset: string;
   deployerAddress: string;
-  poolId: string;
-  feeDistributorAddress: string;
-  liquidityLockerAddress: string;
+  /** Null for Pons pre-graduation markets. */
+  poolId: string | null;
+  feeDistributorAddress: string | null;
+  liquidityLockerAddress: string | null;
   name: string;
   symbol: string;
+  marketSource?: 'scoop' | 'pons_v2';
+  marketPhase?: 'curve' | 'graduated_pool' | null;
+  curveAddress?: string | null;
 };
 
 export type LaunchTxState = {
@@ -125,15 +137,22 @@ export function isLaunchTxBusy(phase: LaunchTxPhase): boolean {
     phase === 'awaiting_wallet' ||
     phase === 'submitted' ||
     phase === 'confirming' ||
+    phase === 'lock_preparing' ||
+    phase === 'approving_lock' ||
+    phase === 'awaiting_lock_wallet' ||
+    phase === 'locking_dev_tokens' ||
+    phase === 'verifying_lock' ||
     phase === 'waiting_for_indexer' ||
     phase === 'indexed' ||
     phase === 'activating_news'
   );
 }
 
-/** Post-receipt completion in progress or finished (blocks rebroadcast). */
+/** Post-broadcast / post-lock completion in progress or finished (blocks relaunch). */
 export function isLaunchCompletionActive(phase: LaunchTxPhase): boolean {
   return (
+    phase === 'lock_required' ||
+    phase === 'lock_verified' ||
     phase === 'receipt_success' ||
     phase === 'receipt_success_details_pending' ||
     phase === 'waiting_for_indexer' ||
@@ -143,6 +162,16 @@ export function isLaunchCompletionActive(phase: LaunchTxPhase): boolean {
     phase === 'indexing_timeout' ||
     phase === 'news_activation_failed' ||
     phase === 'index_mismatch'
+  );
+}
+
+/** True once Pons tx hash exists or HoodLock/indexing is underway — never show fresh Launch. */
+export function isPostBroadcastRelaunchBlocked(phase: LaunchTxPhase): boolean {
+  return (
+    phase === 'submitted' ||
+    phase === 'confirming' ||
+    isLaunchTxBusy(phase) ||
+    isLaunchCompletionActive(phase)
   );
 }
 
@@ -166,6 +195,20 @@ export function launchTxStatusLabel(phase: LaunchTxPhase): string {
       return 'Transaction submitted…';
     case 'confirming':
       return 'Waiting for confirmation…';
+    case 'lock_required':
+      return 'Token launched — lock incomplete';
+    case 'lock_preparing':
+      return 'Preparing 6-month lock…';
+    case 'approving_lock':
+      return 'Approve dev-token lock…';
+    case 'awaiting_lock_wallet':
+      return 'Confirm lock in wallet…';
+    case 'locking_dev_tokens':
+      return 'Locking dev tokens for 6 months…';
+    case 'verifying_lock':
+      return 'Verifying lock onchain…';
+    case 'lock_verified':
+      return 'Dev tokens locked for 6 months.';
     case 'receipt_success':
       return 'Launch successful';
     case 'receipt_success_details_pending':

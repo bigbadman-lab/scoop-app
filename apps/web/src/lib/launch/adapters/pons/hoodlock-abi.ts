@@ -1,0 +1,37 @@
+/**
+ * Minimal ERC-20 + HoodLock ABIs for browser lock flow.
+ * Locker ABI re-exported from @scoop/shared (canonical @scoop/contracts).
+ */
+import { hoodlockLockerAbi as sharedHoodlockLockerAbi } from '@scoop/shared';
+
+export const hoodlockLockerAbi = sharedHoodlockLockerAbi;
+
+export const erc20ApproveAbi = [
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+  },
+] as const;

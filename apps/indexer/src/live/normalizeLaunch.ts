@@ -240,6 +240,7 @@ export async function normalizeLaunch(db: Queryable, input: LaunchNormalizeInput
     creatorAllocationDestination: input.launch.creatorAllocationDestination ?? 0,
     additionalFeeDestination: input.launch.additionalFeeDestination ?? 0,
     holderRewardsAddress: input.launch.holderRewardsAddress ?? null,
+    marketSource: 'scoop',
   });
 
   // Image metadata enrichment only — apply trusted display path from a bound

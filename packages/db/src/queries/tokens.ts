@@ -276,6 +276,9 @@ export async function getToken(
       l.fee_distributor_address,
       l.liquidity_locker_address,
       l.pool_id,
+      COALESCE(l.market_source, 'scoop') AS market_source,
+      l.graduation_status,
+      l.curve_address,
       l.creator_id,
       l.quote_asset,
       l.launched_at,
@@ -438,8 +441,14 @@ export async function getToken(
     totalSupplyDisplay: formatRawAmount(totalSupplyRaw, base.decimals),
     deployerAddress: String(row.deployer_address),
     factoryAddress: String(row.factory_address),
-    feeDistributorAddress: String(row.fee_distributor_address),
-    liquidityLockerAddress: String(row.liquidity_locker_address),
+    feeDistributorAddress:
+      row.fee_distributor_address == null || row.fee_distributor_address === ''
+        ? null
+        : String(row.fee_distributor_address),
+    liquidityLockerAddress:
+      row.liquidity_locker_address == null || row.liquidity_locker_address === ''
+        ? null
+        : String(row.liquidity_locker_address),
     sqrtPriceX96: row.sqrt_price_x96 == null ? null : String(row.sqrt_price_x96),
     tick: row.tick == null ? null : Number(row.tick),
     liquidityRaw: row.liquidity_raw == null ? null : String(row.liquidity_raw),

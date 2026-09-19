@@ -1,4 +1,4 @@
-/** Launch flow types — Phase 2 four-step desk + V2.B creator identity. */
+/** Launch flow types — Gate 7 public Pons wizard (Token → Dev Buy → Review). */
 
 import type { Hex } from 'viem';
 import {
@@ -9,13 +9,12 @@ import {
 } from '@scoop/shared';
 import { generateLaunchSalt } from '@/lib/launch/salt';
 
-export type LaunchStepId = 1 | 2 | 3 | 4;
+export type LaunchStepId = 1 | 2 | 3;
 
 export const LAUNCH_STEPS = [
   { id: 1 as const, key: 'TOKEN', label: 'Token' },
-  { id: 2 as const, key: 'MARKET', label: 'Market' },
-  { id: 3 as const, key: 'EARNINGS', label: 'Earnings & Buy' },
-  { id: 4 as const, key: 'REVIEW', label: 'Review & Launch' },
+  { id: 2 as const, key: 'DEV_BUY', label: 'Dev Buy' },
+  { id: 3 as const, key: 'REVIEW', label: 'Review & Launch' },
 ] as const;
 
 /**
@@ -79,12 +78,14 @@ export type LaunchFormState = {
   telegram: string;
   website: string;
   image: TokenImageState;
-  // Step 2 — Market — canonical quote token address (ETH = zero address)
+  // Step 2 — Dev buy (ETH only for Pons public cutover)
+  /** Always native ETH (zero address) for public Pons launches. */
   quoteAsset: string | null;
   quoteSymbol: string | null;
   /** Catalogue decimals for selected quote — required to parse ERC-20 / ETH buys. */
   quoteDecimals: number | null;
-  // Step 3 — Earnings & Buy
+  // Legacy Scoop fields retained for type compatibility / historical modules —
+  // public wizard no longer exposes them (fixed defaults for Pons).
   creatorMode: CreatorRecipientMode;
   /** Typed custom recipient — only used when creatorMode === 'custom'. */
   creatorCustomAddress: string;
@@ -95,24 +96,26 @@ export type LaunchFormState = {
   creatorX: ResolvedXCreator;
   /**
    * Where the base 70% creator allocation from SCOOP's fixed 1% fee goes.
-   * Immutable after launch.
+   * Unused by public Pons path (legacy Scoop only).
    */
   creatorAllocationDestination: CreatorAllocationDestinationType;
   /**
    * Optional additional trading fee in Uniswap v4 fee units (0–20_000, step 1_000).
+   * Unused by public Pons path.
    */
   additionalFee: number;
   /**
    * Destination for the entire additional fee when additionalFee > 0.
-   * Still encoded when additionalFee === 0 (economically inert).
+   * Unused by public Pons path.
    */
   additionalFeeDestination: AdditionalFeeDestinationType;
   /**
    * CREATE2 user salt (bytes32). Generated once per wizard session; preserved
    * across steps. Regenerating requires explicit action (not done automatically).
+   * Public Pons path uses a separate Pons salt in session pending state.
    */
   salt: Hex;
-  /** Optional initial buy in selected quote units (human decimal string). Empty or 0 = no buy. */
+  /** Required ETH dev buy (human decimal string). Must be > 0 for public Pons. */
   devBuyAmount: string;
   /**
    * Explicit news provenance (News Page V2). Survives to launch success linking.
@@ -152,9 +155,9 @@ export function createInitialLaunchState(
     telegram: '',
     website: '',
     image: { ...INITIAL_IMAGE },
-    quoteAsset: null,
-    quoteSymbol: null,
-    quoteDecimals: null,
+    quoteAsset: '0x0000000000000000000000000000000000000000',
+    quoteSymbol: 'ETH',
+    quoteDecimals: 18,
     creatorMode: 'connected',
     creatorCustomAddress: '',
     creatorX: { status: 'unresolved' },

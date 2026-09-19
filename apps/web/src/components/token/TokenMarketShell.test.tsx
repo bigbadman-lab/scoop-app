@@ -69,6 +69,9 @@ function baseToken(overrides: Partial<TokenDetail> = {}): TokenDetail {
     displayImageUrl:
       'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png',
     poolId: '0xe9ee30525faa467bcc5742f330a47c7d516a56a06f6fd9b302a8599f344f5abc',
+    marketSource: 'scoop',
+    marketPhase: null,
+    curveAddress: null,
     creatorId: '0x1111111111111111111111111111111111111111',
     quoteAsset: '0x0000000000000000000000000000000000000000',
     launchedAt: 1,
@@ -435,6 +438,31 @@ describe('TokenMarketShell', () => {
       name: /copy contract 0x1111/i,
     });
     expect(deployer).not.toBe(creator);
+  });
+
+  it('Gate 6: Pons markets hide Scoop fee panel and show source', () => {
+    render(
+      <TokenMarketShell
+        token={baseToken({
+          marketSource: 'pons_v2',
+          marketPhase: 'curve',
+          poolId: null,
+          curveAddress: '0xdE0E7e06E54003D112EeC210E5dDF727317cb6b0',
+          currency0: null,
+          currency1: null,
+          poolFee: null,
+          tickSpacing: null,
+          hooks: null,
+          creatorFeeDistributions: [],
+          buybackFeeDistributions: [],
+        })}
+        quoteSymbol="ETH"
+      />,
+    );
+    expect(screen.getByTestId('token-market-source').textContent).toMatch(/Pons/i);
+    expect(screen.queryByTestId('token-detail-trading-fee')).toBeNull();
+    expect(screen.queryByTestId('token-detail-protocol-buyback')).toBeNull();
+    expect(screen.queryByTestId('token-pool-id')).toBeNull();
   });
 
   it('shows unavailable state without stack traces', () => {

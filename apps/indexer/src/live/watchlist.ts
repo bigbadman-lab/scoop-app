@@ -5,6 +5,7 @@ import {
   BASE_FEE,
   TICK_SPACING,
   resolvePoolOrientation,
+  curveSyntheticPoolId,
 } from '@scoop/shared';
 
 export interface WatchlistEntry {
@@ -35,6 +36,19 @@ export interface WatchlistEntry {
   quoteDecimals: number;
 }
 
+/** Gate 6 — Pons bonding-curve watch entry (no UV4 pool). */
+export interface PonsCurveWatchEntry {
+  chainId: number;
+  tokenAddress: string;
+  curveAddress: string;
+  quoteAsset: string;
+  factoryAddress: string;
+  deployerAddress: string;
+  syntheticPoolId: string;
+  tokenDecimals: number;
+  quoteDecimals: number;
+}
+
 export interface Watchlist {
   tokens: Map<string, WatchlistEntry>;
   pools: Map<string, WatchlistEntry>;
@@ -44,6 +58,9 @@ export interface Watchlist {
   tokenAddresses: string[];
   distributorAddresses: string[];
   holderVaultAddresses: string[];
+  /** Gate 6 */
+  ponsCurves: Map<string, PonsCurveWatchEntry>;
+  curveAddresses: string[];
 }
 
 function emptyWatchlist(): Watchlist {
@@ -56,6 +73,8 @@ function emptyWatchlist(): Watchlist {
     tokenAddresses: [],
     distributorAddresses: [],
     holderVaultAddresses: [],
+    ponsCurves: new Map(),
+    curveAddresses: [],
   };
 }
 
@@ -77,6 +96,26 @@ function addEntry(wl: Watchlist, entry: WatchlistEntry): void {
   wl.distributorAddresses = [...wl.distributors.keys()];
   if (!wl.holderVaults) wl.holderVaults = new Map();
   wl.holderVaultAddresses = [...wl.holderVaults.keys()];
+}
+
+function addPonsCurve(wl: Watchlist, entry: PonsCurveWatchEntry): void {
+  const curve = normalizeAddress(entry.curveAddress);
+  wl.ponsCurves.set(curve, {
+    ...entry,
+    curveAddress: curve,
+    tokenAddress: normalizeAddress(entry.tokenAddress),
+    quoteAsset: normalizeAddress(entry.quoteAsset),
+    factoryAddress: normalizeAddress(entry.factoryAddress),
+    deployerAddress: normalizeAddress(entry.deployerAddress),
+    syntheticPoolId: normalizeBytes32(entry.syntheticPoolId),
+  });
+  wl.curveAddresses = [...wl.ponsCurves.keys()];
+  // Also watch token transfers for holder counts.
+  if (!wl.tokenAddresses.includes(entry.tokenAddress.toLowerCase())) {
+    wl.tokenAddresses = [
+      ...new Set([...wl.tokenAddresses, normalizeAddress(entry.tokenAddress)]),
+    ];
+  }
 }
 
 /** Load watched tokens/pools/distributors/lockers/holder vaults from launches + pools. */
@@ -117,14 +156,17 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
      LEFT JOIN pools p ON p.chain_id = l.chain_id AND p.pool_id = l.pool_id
      LEFT JOIN tokens t ON t.chain_id = l.chain_id AND t.token_address = l.token_address
      LEFT JOIN quote_assets q ON q.chain_id = l.chain_id AND q.quote_asset = l.quote_asset
-     WHERE l.chain_id = $1`,
+     WHERE l.chain_id = $1
+       AND COALESCE(l.market_source, 'scoop') = 'scoop'
+       AND l.pool_id IS NOT NULL
+       AND l.fee_distributor_address IS NOT NULL
+       AND l.liquidity_locker_address IS NOT NULL`,
     [chainId],
   );
 
   for (const row of result.rows) {
     const quote = normalizeAddress(row.quote_asset);
     const token = normalizeAddress(row.token_address);
-    // Prefer Uniswap address sort of (token, quote). Validate stored currencies when present.
     const orientation = resolvePoolOrientation({
       tokenAddress: token,
       quoteAsset: quote,
@@ -163,10 +205,48 @@ export async function loadWatchlist(db: Queryable, chainId: number): Promise<Wat
       quoteDecimals: row.quote_decimals ?? 18,
     });
   }
+
+  const pons = await db.query<{
+    chain_id: string;
+    token_address: string;
+    curve_address: string;
+    quote_asset: string;
+    factory_address: string;
+    deployer_address: string;
+    token_decimals: number | null;
+    quote_decimals: number | null;
+  }>(
+    `SELECT
+      l.chain_id, l.token_address, l.curve_address, l.quote_asset, l.factory_address,
+      l.deployer_address, t.decimals AS token_decimals, q.decimals AS quote_decimals
+     FROM launches l
+     LEFT JOIN tokens t ON t.chain_id = l.chain_id AND t.token_address = l.token_address
+     LEFT JOIN quote_assets q ON q.chain_id = l.chain_id AND q.quote_asset = l.quote_asset
+     WHERE l.chain_id = $1
+       AND l.market_source = 'pons_v2'
+       AND l.curve_address IS NOT NULL`,
+    [chainId],
+  );
+
+  for (const row of pons.rows) {
+    const curve = normalizeAddress(row.curve_address);
+    addPonsCurve(wl, {
+      chainId: Number(row.chain_id),
+      tokenAddress: normalizeAddress(row.token_address),
+      curveAddress: curve,
+      quoteAsset: normalizeAddress(row.quote_asset),
+      factoryAddress: normalizeAddress(row.factory_address),
+      deployerAddress: normalizeAddress(row.deployer_address),
+      syntheticPoolId: curveSyntheticPoolId(curve),
+      tokenDecimals: row.token_decimals ?? 18,
+      quoteDecimals: row.quote_decimals ?? 18,
+    });
+  }
+
   return wl;
 }
 
-/** Register a newly discovered launch into an in-memory watchlist. */
+/** Register a newly discovered Scoop launch into an in-memory watchlist. */
 export function watchlistAddLaunch(
   wl: Watchlist,
   entry: Omit<
@@ -212,6 +292,15 @@ export function watchlistAddLaunch(
   return full;
 }
 
+/** Register a Pons curve for ongoing CurveBuy/Sell indexing. */
+export function watchlistAddPonsCurve(
+  wl: Watchlist,
+  entry: PonsCurveWatchEntry,
+): PonsCurveWatchEntry {
+  addPonsCurve(wl, entry);
+  return wl.ponsCurves.get(normalizeAddress(entry.curveAddress))!;
+}
+
 export function watchlistSize(wl: Watchlist): number {
-  return wl.tokens.size;
+  return wl.tokens.size + wl.ponsCurves.size;
 }

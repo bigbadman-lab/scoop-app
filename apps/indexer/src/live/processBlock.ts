@@ -10,7 +10,7 @@ import {
   upsertPool,
   getQuoteAssetDecimals,
 } from '@scoop/db';
-import { scoopAbis } from '@scoop/contracts';
+import { scoopAbis, PONS_V2_FACTORY_ADDRESS } from '@scoop/contracts';
 import {
   DEAD_ADDRESS,
   ZERO_ADDRESS,
@@ -22,15 +22,29 @@ import {
   normalizeBytes32,
   resolvePoolOrientation,
   quoteAndTokenAmountsFromSwapDeltas,
+  curveSyntheticPoolId,
 } from '@scoop/shared';
 import { MAIN_STREAM_NAME } from '../config.js';
 import { requireIndexerCanonicalDeployment } from '../deployment.js';
 import { decodeLogs, decodeReceiptLogs, type DecodedChainEvent } from './decode.js';
+import {
+  decodePonsLogs,
+  decodePonsReceiptLogs,
+  PONS_TOKEN_LAUNCHED_TOPIC,
+  isPonsFactoryAddress,
+} from './decodePons.js';
 import { normalizeLaunch } from './normalizeLaunch.js';
+import {
+  curveExecutionPriceQuoteX18,
+  normalizePonsLaunch,
+  refreshPonsMarketActivity,
+} from './normalizePonsLaunch.js';
 import { hydrateLaunchView, hydrateTokenMetadata } from './hydrate.js';
+import { hydratePonsTokenMetadata } from './hydratePons.js';
 import {
   loadWatchlist,
   watchlistAddLaunch,
+  watchlistAddPonsCurve,
   type Watchlist,
 } from './watchlist.js';
 import { refreshTokenMarketFromTrades } from './projections/market.js';
@@ -166,14 +180,17 @@ export async function processBlock(
     ? confirmationStatusForBlock(blockNumber, args.heads)
     : 'confirmed';
 
-  // Factory TokenLaunched + watched addresses
+  // Factory TokenLaunched + watched addresses (+ Pons factory/curves)
+  const ponsFactory = normalizeAddress(PONS_V2_FACTORY_ADDRESS);
   const addressFilters = [
     factory,
+    ponsFactory,
     poolManager,
     creatorRewards,
     ...watchlist.tokenAddresses,
     ...watchlist.distributorAddresses,
     ...(watchlist.holderVaultAddresses ?? []),
+    ...(watchlist.curveAddresses ?? []),
   ];
   const uniqueAddresses = [...new Set(addressFilters)] as Hex[];
 
@@ -339,9 +356,83 @@ export async function processBlock(
     launchCount += 1;
   }
 
+  // --- Pons V2 Factory TokenLaunched (separate from ScoopFactory) ---
+  const ponsLaunchLogs = logs.filter(
+    (l) =>
+      isPonsFactoryAddress(l.address) &&
+      l.topics[0] &&
+      normalizeBytes32(l.topics[0]) === PONS_TOKEN_LAUNCHED_TOPIC,
+  );
+
+  for (const launchLog of ponsLaunchLogs) {
+    const txHash = normalizeBytes32(launchLog.transactionHash!);
+    const receipt = await client.getTransactionReceipt({ hash: txHash as Hex });
+    await ensureTxFromCache();
+    const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
+    const decoded = decodePonsReceiptLogs(receipt);
+    const tokenLaunched = decoded.find((e) => e.kind === 'PonsTokenLaunched');
+    if (!tokenLaunched || tokenLaunched.kind !== 'PonsTokenLaunched') continue;
+
+    const tokenAddress = tokenLaunched.args.token;
+    const curveAddress = tokenLaunched.args.curve;
+    const tokenMeta = await hydratePonsTokenMetadata(
+      client,
+      tokenAddress,
+      tokenLaunched.args.deployer,
+    );
+
+    await normalizePonsLaunch(db, {
+      chainId,
+      blockNumber,
+      blockHash,
+      blockTimestamp,
+      txHash,
+      txIndex: Number(receipt.transactionIndex),
+      txFrom,
+      logs: receipt.logs.map((log) => ({
+        address: log.address,
+        logIndex: Number(log.logIndex),
+        topics: [...(log.topics ?? [])],
+        data: log.data,
+      })),
+      decoded,
+      tokenMeta,
+      launch: {
+        tokenAddress,
+        curveAddress,
+        deployerAddress: tokenLaunched.args.deployer,
+        pairToken: tokenLaunched.args.pairToken,
+        launchConfigId: tokenLaunched.args.launchConfigId,
+        graduationThreshold: tokenLaunched.args.graduationThreshold,
+        launchLogIndex: tokenLaunched.logIndex,
+      },
+      confirmationStatus,
+    });
+
+    const quoteDecimals =
+      (await getQuoteAssetDecimals(db, chainId, tokenLaunched.args.pairToken)) ??
+      18;
+
+    watchlistAddPonsCurve(watchlist, {
+      chainId,
+      tokenAddress,
+      curveAddress,
+      quoteAsset: tokenLaunched.args.pairToken,
+      factoryAddress: ponsFactory,
+      deployerAddress: tokenLaunched.args.deployer,
+      syntheticPoolId: curveSyntheticPoolId(curveAddress),
+      tokenDecimals: tokenMeta.decimals || 18,
+      quoteDecimals,
+    });
+    launchCount += 1;
+  }
+
   // Process swaps for known pools (skip already handled in launch receipts)
   const launchTxHashes = new Set(
-    launchLogs.map((l) => normalizeBytes32(l.transactionHash!)),
+    [
+      ...launchLogs.map((l) => normalizeBytes32(l.transactionHash!)),
+      ...ponsLaunchLogs.map((l) => normalizeBytes32(l.transactionHash!)),
+    ],
   );
 
   for (const ev of decodedAll) {
@@ -501,6 +592,105 @@ export async function processBlock(
       tokenDecimals,
       quoteAsset: entry.quoteAsset,
       quoteUsdMaxAgeSeconds,
+    });
+
+    swapCount += 1;
+  }
+
+  // --- Pons curve buys/sells (watched curves; skip launch receipts already normalized) ---
+  const ponsDecoded = decodePonsLogs(
+    logs.map((l) => ({
+      address: l.address,
+      topics: [...(l.topics ?? [])],
+      data: l.data,
+      logIndex: l.logIndex,
+    })),
+  );
+
+  for (const ev of ponsDecoded) {
+    if (ev.kind !== 'CurveBuy' && ev.kind !== 'CurveSell') continue;
+    const curve = normalizeAddress(ev.address);
+    const entry = watchlist.ponsCurves?.get(curve);
+    if (!entry) continue;
+
+    const log = logs.find((l) => Number(l.logIndex) === ev.logIndex);
+    if (!log?.transactionHash) continue;
+    const txHash = normalizeBytes32(log.transactionHash);
+    if (launchTxHashes.has(txHash)) continue;
+
+    await ensureTxFromCache();
+    const txFrom = await resolveTxFrom({ client, txHash, txFromByHash });
+
+    const quoteAmount =
+      ev.kind === 'CurveBuy' ? ev.args.quoteIn : ev.args.quoteOut;
+    const tokenAmount =
+      ev.kind === 'CurveBuy' ? ev.args.tokensOut : ev.args.tokensIn;
+    const trader =
+      ev.kind === 'CurveBuy' ? ev.args.buyer : ev.args.seller;
+    const recipient = ev.args.recipient;
+    const side = ev.kind === 'CurveBuy' ? 'buy' : 'sell';
+    const exec = curveExecutionPriceQuoteX18(quoteAmount, tokenAmount);
+
+    await upsertRawChainEvent(db, {
+      chainId,
+      blockNumber,
+      blockHash,
+      blockTimestamp,
+      txHash,
+      txIndex: 0,
+      logIndex: ev.logIndex,
+      contractAddress: curve,
+      topic0: log.topics[0] ? normalizeBytes32(log.topics[0]) : '0x' + '0'.repeat(64),
+      topics: [...(log.topics ?? [])],
+      data: log.data,
+      decodedEventName: ev.kind,
+      decodedPayload: {
+        ...Object.fromEntries(
+          Object.entries(ev.args).map(([k, v]) => [
+            k,
+            typeof v === 'bigint' ? v.toString() : v,
+          ]),
+        ),
+      },
+      confirmationStatus,
+    });
+
+    await upsertTrade(db, {
+      chainId,
+      txHash,
+      logIndex: ev.logIndex,
+      blockNumber,
+      blockHash,
+      blockTimestamp,
+      poolId: entry.syntheticPoolId,
+      tokenAddress: entry.tokenAddress,
+      quoteAsset: entry.quoteAsset,
+      swapSender: trader,
+      txFrom,
+      traderAddress: recipient,
+      traderAttributionType: ev.kind === 'CurveBuy' ? 'curve_buy' : 'curve_sell',
+      side,
+      amount0Raw: BigInt(0),
+      amount1Raw: BigInt(0),
+      quoteAmountRaw: quoteAmount,
+      tokenAmountRaw: tokenAmount,
+      sqrtPriceX96After: BigInt(0),
+      tickAfter: 0,
+      liquidityAfterRaw: BigInt(0),
+      fee: Number(ev.args.fee > BigInt(2_000_000_000) ? BigInt(0) : ev.args.fee),
+      executionPriceQuoteX18: exec,
+      quoteUsdX18: null,
+      executionPriceUsdX18: null,
+      usdValueX18: null,
+      isInitialBuy: false,
+    });
+
+    await refreshPonsMarketActivity(db, {
+      chainId,
+      tokenAddress: entry.tokenAddress,
+      syntheticPoolId: entry.syntheticPoolId,
+      blockNumber,
+      priceQuoteX18: exec,
     });
 
     swapCount += 1;

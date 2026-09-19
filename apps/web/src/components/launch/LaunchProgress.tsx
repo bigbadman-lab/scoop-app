@@ -17,9 +17,9 @@ export function LaunchProgress({ step }: Props) {
         className="mt-2 h-[2px] w-full overflow-hidden rounded-full bg-[var(--divider)]"
         role="progressbar"
         aria-valuemin={1}
-        aria-valuemax={4}
+        aria-valuemax={LAUNCH_STEPS.length}
         aria-valuenow={step}
-        aria-label={`Launch step ${step} of 4`}
+        aria-label={`Launch step ${step} of ${LAUNCH_STEPS.length}`}
       >
         <div
           className="h-full bg-[var(--scoop-orange)] transition-[width] duration-300 ease-out motion-reduce:transition-none"

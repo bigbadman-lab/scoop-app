@@ -37,7 +37,20 @@ export interface TokenDiscoveryItem {
   imageUri: string;
   /** SCOOP-controlled HTTPS display copy; prefer over imageUri for UI. */
   displayImageUrl: string | null;
-  poolId: string;
+  /**
+   * Explicit market source (Gate 6).
+   * `scoop` = ScoopFactory UV4-at-launch; `pons_v2` = Pons bonding curve.
+   */
+  marketSource: 'scoop' | 'pons_v2';
+  /**
+   * Pons-only phase. Null for Scoop markets.
+   * `curve` pre-graduation; `graduated_pool` after graduation indexing.
+   */
+  marketPhase: 'curve' | 'graduated_pool' | null;
+  /** Null for Pons pre-graduation (no UV4 pool). */
+  poolId: string | null;
+  /** Pons bonding curve address; null for Scoop. */
+  curveAddress: string | null;
   creatorId: string;
   quoteAsset: string;
   launchedAt: number;
@@ -96,8 +109,10 @@ export interface TokenDetail extends TokenDiscoveryItem {
   totalSupplyDisplay: string;
   deployerAddress: string;
   factoryAddress: string;
-  feeDistributorAddress: string;
-  liquidityLockerAddress: string;
+  /** Null for Pons pre-graduation. */
+  feeDistributorAddress: string | null;
+  /** Null for Pons pre-graduation. */
+  liquidityLockerAddress: string | null;
   sqrtPriceX96: string | null;
   tick: number | null;
   liquidityRaw: string | null;

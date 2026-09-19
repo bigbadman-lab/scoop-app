@@ -139,11 +139,26 @@ describe('LaunchFlowLive', () => {
     mockConnectedAddress.mockReturnValue(
       '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
     );
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/api/launch/pons-schema-ready')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ready: true,
+            reason: null,
+            hasMarketSource: true,
+            hasCurveAddress: true,
+          }),
+        };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
   });
 
   it('starts on TOKEN and blocks continue until required fields are valid', () => {
     render(<LaunchFlowLive catalogue={[eth]} />);
-    expect(screen.getByText(/01 \/ 04 — TOKEN/i)).toBeTruthy();
+    expect(screen.getByText(/01 \/ 03 — TOKEN/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     expect(screen.getByText(/name is required/i)).toBeTruthy();
   });
@@ -201,16 +216,19 @@ describe('LaunchFlowLive', () => {
     expect(provenance.getAttribute('data-source-draft-id')).toBe('draft-1');
   });
 
-  it('does not silently substitute an invalid recommended quote', async () => {
+  it('forces ETH pair and warns when assist recommended a non-ETH quote', async () => {
     searchParams.set('assist', '1');
     seedAssistHandoff('0xdeaddeaddeaddeaddeaddeaddeaddeaddeaddead');
     render(<LaunchFlowLive catalogue={[eth, nvda]} />);
     await waitFor(() => {
       expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
     });
+    expect(screen.getByTestId('assist-quote-warning')).toBeTruthy();
+    expect(screen.getByText(/use ETH only/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     await waitFor(() => {
-      expect(screen.getByText(/no longer enabled/i)).toBeTruthy();
+      expect(screen.getByText(/02 \/ 03 — DEV_BUY/i)).toBeTruthy();
+      expect(screen.getByTestId('dev-buy-pair').textContent).toBe('ETH');
     });
   });
 
@@ -256,6 +274,13 @@ describe('LaunchFlowLive', () => {
 
     let ready = false;
     global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/api/launch/pons-schema-ready')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ready: true, reason: null }),
+        };
+      }
       if (String(url).includes('/artwork/status')) {
         if (!ready) {
           return {
@@ -359,6 +384,13 @@ describe('LaunchFlowLive', () => {
     let ready = false;
     let statusPolls = 0;
     global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/api/launch/pons-schema-ready')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ready: true, reason: null }),
+        };
+      }
       if (String(url).includes('/artwork/status')) {
         statusPolls += 1;
         if (!ready) {
@@ -387,13 +419,16 @@ describe('LaunchFlowLive', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     await waitFor(() => {
-      expect(screen.getByText(/02 \/ 04 — MARKET/i)).toBeTruthy();
+      expect(screen.getByText(/02 \/ 03 — DEV_BUY/i)).toBeTruthy();
     });
     const pollsAfterStep2 = statusPolls;
 
-    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    fireEvent.change(screen.getByTestId('dev-buy-amount'), {
+      target: { value: '0.05' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
     await waitFor(() => {
-      expect(screen.getByText(/03 \/ 04 — EARNINGS/i)).toBeTruthy();
+      expect(screen.getByText(/03 \/ 03 — REVIEW/i)).toBeTruthy();
     });
 
     ready = true;
@@ -408,7 +443,7 @@ describe('LaunchFlowLive', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /view image/i }));
     await waitFor(() => {
-      expect(screen.getByText(/01 \/ 04 — TOKEN/i)).toBeTruthy();
+      expect(screen.getByText(/01 \/ 03 — TOKEN/i)).toBeTruthy();
       expect(screen.getByAltText('Token preview').getAttribute('src')).toBe(
         'https://signed.example/ready.png',
       );
@@ -421,6 +456,13 @@ describe('LaunchFlowLive', () => {
 
     let retries = 0;
     global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes('/api/launch/pons-schema-ready')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ready: true, reason: null }),
+        };
+      }
       if (String(url).includes('/artwork/retry')) {
         retries += 1;
         const body = JSON.parse(String(init?.body ?? '{}')) as { force?: boolean };
@@ -450,7 +492,7 @@ describe('LaunchFlowLive', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     await waitFor(() => {
-      expect(screen.getByText(/02 \/ 04 — MARKET/i)).toBeTruthy();
+      expect(screen.getByText(/02 \/ 03 — DEV_BUY/i)).toBeTruthy();
     });
   });
 

@@ -18,7 +18,10 @@ export interface DiscoverySqlRow {
   decimals: number;
   image_uri: string;
   display_image_url: string | null;
-  pool_id: string;
+  market_source?: string | null;
+  graduation_status?: string | null;
+  pool_id: string | null;
+  curve_address?: string | null;
   creator_id: string;
   quote_asset: string;
   launched_at: string | number;
@@ -59,6 +62,20 @@ export function mapDiscoveryItem(
   const resolvedQuoteDecimals =
     row.quote_decimals == null ? quoteDecimals : Number(row.quote_decimals);
 
+  const marketSource =
+    row.market_source === 'pons_v2' ? ('pons_v2' as const) : ('scoop' as const);
+  const marketPhase =
+    marketSource !== 'pons_v2'
+      ? null
+      : row.graduation_status === 'graduated'
+        ? ('graduated_pool' as const)
+        : ('curve' as const);
+
+  // Withhold misleading UV4 FDV/USD for Pons curve markets until curve pricing is proven.
+  const safePriceUsd = marketSource === 'pons_v2' ? null : priceUsdX18;
+  const safeFdvUsd = marketSource === 'pons_v2' ? null : fdvUsdX18;
+  const safeVolumeUsd = marketSource === 'pons_v2' ? null : volume24hUsd;
+
   return {
     chainId: Number(row.chain_id),
     tokenAddress: String(row.token_address),
@@ -70,7 +87,13 @@ export function mapDiscoveryItem(
       row.display_image_url == null || String(row.display_image_url).trim() === ''
         ? null
         : String(row.display_image_url),
-    poolId: String(row.pool_id),
+    marketSource,
+    marketPhase,
+    poolId: row.pool_id == null || row.pool_id === '' ? null : String(row.pool_id),
+    curveAddress:
+      row.curve_address == null || row.curve_address === ''
+        ? null
+        : String(row.curve_address).toLowerCase(),
     creatorId: String(row.creator_id),
     quoteAsset: String(row.quote_asset),
     launchedAt: Number(row.launched_at),
@@ -82,15 +105,15 @@ export function mapDiscoveryItem(
     isBonded: Boolean(row.is_bonded),
     priceQuoteX18,
     priceQuoteDisplay: formatX18(priceQuoteX18),
-    priceUsdX18,
-    priceUsdDisplay: formatX18(priceUsdX18),
-    fdvUsdX18,
-    fdvUsdDisplay: formatX18(fdvUsdX18),
+    priceUsdX18: safePriceUsd,
+    priceUsdDisplay: formatX18(safePriceUsd),
+    fdvUsdX18: safeFdvUsd,
+    fdvUsdDisplay: formatX18(safeFdvUsd),
     volume24hQuoteRaw: volume24h,
     volume24hQuoteDisplay:
       volume24h == null ? null : formatRawAmount(volume24h, resolvedQuoteDecimals),
-    volume24hUsdX18: volume24hUsd,
-    volume24hUsdDisplay: formatX18(volume24hUsd),
+    volume24hUsdX18: safeVolumeUsd,
+    volume24hUsdDisplay: formatX18(safeVolumeUsd),
     tradeCount24h: row.trade_count_24h == null ? null : Number(row.trade_count_24h),
     tradeCountAllTime:
       row.trade_count_all_time == null ? null : Number(row.trade_count_all_time),
@@ -118,7 +141,10 @@ export const DISCOVERY_SELECT = `
     t.decimals,
     t.image_uri,
     t.display_image_url,
+    COALESCE(l.market_source, 'scoop') AS market_source,
+    l.graduation_status,
     l.pool_id,
+    l.curve_address,
     l.creator_id,
     l.quote_asset,
     l.launched_at,

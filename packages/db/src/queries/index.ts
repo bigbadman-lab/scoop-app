@@ -31,6 +31,10 @@ export {
   getLaunchMarketReady,
   type LaunchMarketReady,
 } from './launch-market-ready.js';
+export {
+  checkPonsMarketSchemaReady,
+  type PonsSchemaReadiness,
+} from './pons-schema-ready.js';
 export { getTrades, type GetTradesOptions } from './trades.js';
 export { getHolders, type GetHoldersOptions } from './holders.js';
 export { getCandles, assertCandleInterval, type GetCandlesOptions } from './candles.js';

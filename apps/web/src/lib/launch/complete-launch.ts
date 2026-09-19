@@ -27,6 +27,11 @@ export type RunLaunchCompletionInput = {
   displayImagePath?: string | null;
   /** Canonical ipfs:// for durable Supabase mirror fallback. */
   imageUri?: string | null;
+  /**
+   * Gate 7: when `pons_v2`, do not require UV4 pool / feeDistributor / locker.
+   * Indexed readiness uses launch+token join only.
+   */
+  marketSource?: 'scoop' | 'pons_v2';
   signal?: AbortSignal;
   callbacks: LaunchCompletionCallbacks;
   waitForIndexed?: typeof waitForIndexedLaunch;
@@ -48,13 +53,20 @@ export type LaunchCompletionResult =
   | { status: 'failed'; error: string };
 
 function buildExpectation(input: RunLaunchCompletionInput): IndexedLaunchExpectation {
-  return {
+  const base: IndexedLaunchExpectation = {
     chainId: input.chainId,
     tokenAddress: input.tokenAddress,
     txHash: input.txHash,
     creatorId: input.expectedCreatorId ?? input.decoded.creatorId,
     quoteAsset: input.decoded.quoteAsset,
     deployer: input.expectedDeployer ?? input.decoded.deployer,
+  };
+  if (input.marketSource === 'pons_v2') {
+    // Pons curve markets are ready without UV4 pool metadata.
+    return { ...base, marketSource: 'pons_v2' };
+  }
+  return {
+    ...base,
     poolId: input.decoded.poolId,
     feeDistributor: input.decoded.feeDistributor,
     liquidityLocker: input.decoded.liquidityLocker,

@@ -5,8 +5,8 @@ import {
   hasDevBuy,
   isArtworkBlockingLaunch,
   isArtworkInFlight,
-  isValidEvmAddress,
   normalizeTicker,
+  validateDevBuyStep,
   validateEarningsStep,
   validateImageFile,
   validateMarketStep,
@@ -195,58 +195,51 @@ describe('launch token validation', () => {
   });
 });
 
-describe('launch market + earnings', () => {
-  it('requires quote selection', () => {
-    expect(validateMarketStep(createInitialLaunchState()).quoteAsset).toBeTruthy();
+describe('launch market + earnings (Gate 7 Pons public)', () => {
+  it('ETH pair is fixed — market step validates mandatory ETH buy', () => {
+    const empty = validateMarketStep(createInitialLaunchState());
+    expect(empty.devBuyAmount).toBeTruthy();
+    expect(empty.quoteAsset).toBeUndefined();
   });
 
-  it('allows connected mode when live wallet is present', () => {
+  it('requires non-zero ETH buy on Dev Buy step', () => {
+    expect(
+      validateDevBuyStep(createInitialLaunchState({ devBuyAmount: '' })).devBuyAmount,
+    ).toBeTruthy();
+    expect(
+      validateDevBuyStep(createInitialLaunchState({ devBuyAmount: '0' })).devBuyAmount,
+    ).toBeTruthy();
+    expect(
+      validateDevBuyStep(createInitialLaunchState({ devBuyAmount: '0.05' })).devBuyAmount,
+    ).toBeUndefined();
+  });
+
+  it('allows connected mode when live wallet is present (earnings wrapper)', () => {
     const errors = validateEarningsStep(
-      createInitialLaunchState({ creatorMode: 'connected' }),
+      createInitialLaunchState({ creatorMode: 'connected', devBuyAmount: '0.05' }),
       WALLET,
     );
     expect(errors.creatorMode).toBeUndefined();
+    expect(errors.devBuyAmount).toBeUndefined();
   });
 
   it('blocks connected mode without wallet', () => {
     expect(
-      validateEarningsStep(createInitialLaunchState({ creatorMode: 'connected' }), null)
-        .creatorMode,
+      validateEarningsStep(
+        createInitialLaunchState({ creatorMode: 'connected', devBuyAmount: '0.05' }),
+        null,
+      ).creatorMode,
     ).toMatch(/connect/i);
   });
 
-  it('blocks X mode (unresolved / disabled)', () => {
-    expect(
-      validateEarningsStep(createInitialLaunchState({ creatorMode: 'x' }), WALLET)
-        .creatorMode,
-    ).toMatch(/in development/i);
-  });
-
-  it('validates custom wallet address', () => {
-    expect(isValidEvmAddress('0x35afc8a0c2f5e6a1b2c3d4e5f60718293a4b5c6d')).toBe(true);
-    const missing = validateEarningsStep(
-      createInitialLaunchState({ creatorMode: 'custom', creatorCustomAddress: '' }),
-      WALLET,
-    );
-    expect(missing.creatorCustomAddress).toBeTruthy();
-    const bad = validateEarningsStep(
-      createInitialLaunchState({ creatorMode: 'custom', creatorCustomAddress: '0x123' }),
-      WALLET,
-    );
-    expect(bad.creatorCustomAddress).toBeTruthy();
-  });
-
-  it('treats empty/zero as no dev buy; quote controls denomination label elsewhere', () => {
+  it('treats empty/zero as no dev buy; rejects invalid amount', () => {
     expect(hasDevBuy(createInitialLaunchState({ devBuyAmount: '' }))).toBe(false);
     expect(hasDevBuy(createInitialLaunchState({ devBuyAmount: '0' }))).toBe(false);
     expect(hasDevBuy(createInitialLaunchState({ devBuyAmount: '0.01' }))).toBe(true);
-    const bad = validateEarningsStep(
+    const bad = validateDevBuyStep(
       createInitialLaunchState({
-        creatorMode: 'custom',
-        creatorCustomAddress: '0x35afc8a0c2f5e6a1b2c3d4e5f60718293a4b5c6d',
         devBuyAmount: 'abc',
       }),
-      WALLET,
     );
     expect(bad.devBuyAmount).toBeTruthy();
   });
@@ -299,53 +292,31 @@ describe('launch reducer navigation', () => {
     expect(state.quoteDecimals).toBe(18);
   });
 
-  it('accepts ERC-20 positive dev buy with catalogue decimals', () => {
-    const errors = validateEarningsStep(
+  it('accepts positive ETH dev buy', () => {
+    const errors = validateDevBuyStep(
       createInitialLaunchState({
-        creatorMode: 'connected',
-        quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        quoteSymbol: 'USDG',
-        quoteDecimals: 6,
-        devBuyAmount: '10',
+        quoteAsset: '0x0000000000000000000000000000000000000000',
+        quoteSymbol: 'ETH',
+        quoteDecimals: 18,
+        devBuyAmount: '0.05',
       }),
-      WALLET,
     );
     expect(errors.devBuyAmount).toBeUndefined();
   });
 
-  it('rejects ERC-20 buy without decimals', () => {
-    const errors = validateEarningsStep(
-      createInitialLaunchState({
-        creatorMode: 'connected',
-        quoteAsset: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-        quoteSymbol: 'USDG',
-        quoteDecimals: null,
-        devBuyAmount: '1',
-      }),
-      WALLET,
-    );
-    expect(errors.devBuyAmount).toMatch(/decimals/i);
-  });
-
-  it('keeps X creator disabled as in development', () => {
-    const errors = validateEarningsStep(
-      createInitialLaunchState({
-        creatorMode: 'x',
-        quoteAsset: '0x0000000000000000000000000000000000000000',
-        quoteDecimals: 18,
-      }),
-      WALLET,
-    );
-    expect(errors.creatorMode).toMatch(/in development/i);
-  });
-
-  it('only advances when step is valid', () => {
+  it('only advances when step is valid (Token / Dev Buy)', () => {
     expect(canAdvanceFromStep(1, createInitialLaunchState())).toBe(false);
     expect(canAdvanceFromStep(1, validTokenState())).toBe(true);
     expect(
+      canAdvanceFromStep(2, createInitialLaunchState({ creatorMode: 'connected' }), WALLET),
+    ).toBe(false);
+    expect(
       canAdvanceFromStep(
-        3,
-        createInitialLaunchState({ creatorMode: 'connected' }),
+        2,
+        createInitialLaunchState({
+          creatorMode: 'connected',
+          devBuyAmount: '0.05',
+        }),
         WALLET,
       ),
     ).toBe(true);

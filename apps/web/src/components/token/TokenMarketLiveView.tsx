@@ -129,6 +129,9 @@ function TokenMarketLiveBody({
   const creatorEarningsLines = formatFeeAssetDistributionLines(
     token.creatorFeeDistributions,
   );
+  const isPons = token.marketSource === 'pons_v2';
+  // Scoop-only fee/buyback UI — never show Scoop protocol fee semantics on Pons.
+  const showScoopFeePanel = !isPons;
   const buybackAllocationLines = formatFeeAssetDistributionLines(
     token.buybackFeeDistributions,
   );
@@ -353,6 +356,8 @@ function TokenMarketLiveBody({
               tokenDecimals={token.decimals}
               quoteAsset={token.quoteAsset}
               quoteSymbol={quoteSymbol}
+              marketSource={token.marketSource}
+              marketPhase={token.marketPhase}
               currency0={token.currency0}
               currency1={token.currency1}
               poolFee={token.poolFee}
@@ -410,14 +415,29 @@ function TokenMarketLiveBody({
                 <DetailRow label="Contract">
                   <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
                 </DetailRow>
-                <DetailRow label="Pool">
-                  <span className="font-mono text-[11px]" title={token.poolId}>
-                    {truncateAddress(token.poolId, 6, 4)}
-                  </span>
-                  <span className="sr-only" data-testid="token-pool-id">
-                    {token.poolId}
+                <DetailRow label="Source">
+                  <span data-testid="token-market-source">
+                    {isPons ? 'Pons V2' : 'SCOOP'}
                   </span>
                 </DetailRow>
+                {isPons && token.curveAddress ? (
+                  <DetailRow label="Curve">
+                    <ContractCopy address={token.curveAddress} className="min-h-0 py-0" />
+                    <span className="sr-only" data-testid="token-curve-address">
+                      {token.curveAddress}
+                    </span>
+                  </DetailRow>
+                ) : null}
+                {!isPons && token.poolId ? (
+                  <DetailRow label="Pool">
+                    <span className="font-mono text-[11px]" title={token.poolId}>
+                      {truncateAddress(token.poolId, 6, 4)}
+                    </span>
+                    <span className="sr-only" data-testid="token-pool-id">
+                      {token.poolId}
+                    </span>
+                  </DetailRow>
+                ) : null}
                 <DetailRow label="Deployer">
                   <ContractCopy address={token.deployerAddress} className="min-h-0 py-0" />
                 </DetailRow>
@@ -429,6 +449,7 @@ function TokenMarketLiveBody({
                 </DetailRow>
               </MarketGroup>
 
+              {showScoopFeePanel ? (
               <MarketGroup>
                 <DetailRow label="Trading fee">
                   <span data-testid="token-detail-trading-fee">{tradingFee ?? '—'}</span>
@@ -468,6 +489,7 @@ function TokenMarketLiveBody({
                   </span>
                 </DetailRow>
               </MarketGroup>
+              ) : null}
             </dl>
           </section>
         </aside>

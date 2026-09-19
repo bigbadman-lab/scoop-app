@@ -6,6 +6,9 @@ export type CreatorAllocationDestinationOrdinal = 0 | 1;
 /** ScoopFeeTypes.AdditionalFeeDestination ordinals. */
 export type AdditionalFeeDestinationOrdinal = 0 | 1 | 2;
 
+export type LaunchMarketSource = 'scoop' | 'pons_v2';
+export type LaunchGraduationStatus = 'curve' | 'graduated';
+
 export interface LaunchRow {
   chainId: number;
   tokenAddress: string;
@@ -13,14 +16,14 @@ export interface LaunchRow {
   deployerAddress: string;
   creatorId: string;
   quoteAsset: string;
-  feeDistributorAddress: string;
-  liquidityLockerAddress: string;
-  poolId: string;
-  lpTokenId: string | bigint | number;
-  openingSqrtPriceX96: string | bigint;
-  openingTick: number;
-  tickLower: number;
-  tickUpper: number;
+  feeDistributorAddress?: string | null;
+  liquidityLockerAddress?: string | null;
+  poolId?: string | null;
+  lpTokenId?: string | bigint | number | null;
+  openingSqrtPriceX96?: string | bigint | null;
+  openingTick?: number | null;
+  tickLower?: number | null;
+  tickUpper?: number | null;
   launchTxHash: string;
   launchBlock: number | bigint;
   launchLogIndex: number;
@@ -38,6 +41,12 @@ export interface LaunchRow {
   additionalFeeDestination?: AdditionalFeeDestinationOrdinal;
   /** Null for historical canaries without HolderRewards. */
   holderRewardsAddress?: string | null;
+  /** Gate 6 — default scoop for legacy. */
+  marketSource?: LaunchMarketSource;
+  curveAddress?: string | null;
+  launchConfigId?: string | bigint | number | null;
+  graduationThresholdRaw?: string | bigint | null;
+  graduationStatus?: LaunchGraduationStatus | null;
 }
 
 /**
@@ -45,14 +54,33 @@ export interface LaunchRow {
  * (e.g. LaunchEconomicsConfigured) cannot null out values already set.
  */
 export async function upsertLaunch(db: Queryable, row: LaunchRow): Promise<void> {
-  const additionalFee = row.additionalFee ?? 0;
-  const totalPoolFee = row.totalPoolFee ?? 10_000 + additionalFee;
+  const marketSource: LaunchMarketSource = row.marketSource ?? 'scoop';
+  const additionalFee = row.additionalFee ?? (marketSource === 'pons_v2' ? 0 : 0);
+  const totalPoolFee =
+    row.totalPoolFee ?? (marketSource === 'scoop' ? 10_000 + additionalFee : 0);
   const creatorAlloc = row.creatorAllocationDestination ?? 0;
   const additionalDest = row.additionalFeeDestination ?? 0;
   const holderRewards =
     row.holderRewardsAddress == null || row.holderRewardsAddress === ''
       ? null
       : normalizeAddress(row.holderRewardsAddress);
+
+  const feeDistributor =
+    row.feeDistributorAddress == null || row.feeDistributorAddress === ''
+      ? null
+      : normalizeAddress(row.feeDistributorAddress);
+  const liquidityLocker =
+    row.liquidityLockerAddress == null || row.liquidityLockerAddress === ''
+      ? null
+      : normalizeAddress(row.liquidityLockerAddress);
+  const poolId =
+    row.poolId == null || row.poolId === ''
+      ? null
+      : normalizeBytes32(row.poolId);
+  const curveAddress =
+    row.curveAddress == null || row.curveAddress === ''
+      ? null
+      : normalizeAddress(row.curveAddress);
 
   await db.query(
     `INSERT INTO launches (
@@ -62,24 +90,25 @@ export async function upsertLaunch(db: Queryable, row: LaunchRow): Promise<void>
       launch_tx_hash, launch_block, launch_log_index, launched_at, launch_fee_raw,
       initial_buy_present, initial_buy_quote_raw, initial_buy_tokens_raw, metadata_hydrated,
       additional_fee, total_pool_fee, creator_allocation_destination, additional_fee_destination,
-      holder_rewards_address
+      holder_rewards_address,
+      market_source, curve_address, launch_config_id, graduation_threshold_raw, graduation_status
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
-      $24,$25,$26,$27,$28
+      $24,$25,$26,$27,$28,$29,$30,$31,$32,$33
     )
     ON CONFLICT (chain_id, token_address) DO UPDATE SET
       factory_address = EXCLUDED.factory_address,
       deployer_address = EXCLUDED.deployer_address,
       creator_id = EXCLUDED.creator_id,
       quote_asset = EXCLUDED.quote_asset,
-      fee_distributor_address = EXCLUDED.fee_distributor_address,
-      liquidity_locker_address = EXCLUDED.liquidity_locker_address,
-      pool_id = EXCLUDED.pool_id,
-      lp_token_id = EXCLUDED.lp_token_id,
-      opening_sqrt_price_x96 = EXCLUDED.opening_sqrt_price_x96,
-      opening_tick = EXCLUDED.opening_tick,
-      tick_lower = EXCLUDED.tick_lower,
-      tick_upper = EXCLUDED.tick_upper,
+      fee_distributor_address = COALESCE(EXCLUDED.fee_distributor_address, launches.fee_distributor_address),
+      liquidity_locker_address = COALESCE(EXCLUDED.liquidity_locker_address, launches.liquidity_locker_address),
+      pool_id = COALESCE(EXCLUDED.pool_id, launches.pool_id),
+      lp_token_id = COALESCE(EXCLUDED.lp_token_id, launches.lp_token_id),
+      opening_sqrt_price_x96 = COALESCE(EXCLUDED.opening_sqrt_price_x96, launches.opening_sqrt_price_x96),
+      opening_tick = COALESCE(EXCLUDED.opening_tick, launches.opening_tick),
+      tick_lower = COALESCE(EXCLUDED.tick_lower, launches.tick_lower),
+      tick_upper = COALESCE(EXCLUDED.tick_upper, launches.tick_upper),
       launch_tx_hash = EXCLUDED.launch_tx_hash,
       launch_block = EXCLUDED.launch_block,
       launch_log_index = EXCLUDED.launch_log_index,
@@ -103,6 +132,14 @@ export async function upsertLaunch(db: Queryable, row: LaunchRow): Promise<void>
         EXCLUDED.holder_rewards_address,
         launches.holder_rewards_address
       ),
+      market_source = EXCLUDED.market_source,
+      curve_address = COALESCE(EXCLUDED.curve_address, launches.curve_address),
+      launch_config_id = COALESCE(EXCLUDED.launch_config_id, launches.launch_config_id),
+      graduation_threshold_raw = COALESCE(
+        EXCLUDED.graduation_threshold_raw,
+        launches.graduation_threshold_raw
+      ),
+      graduation_status = COALESCE(EXCLUDED.graduation_status, launches.graduation_status),
       updated_at = NOW()`,
     [
       row.chainId,
@@ -111,14 +148,16 @@ export async function upsertLaunch(db: Queryable, row: LaunchRow): Promise<void>
       normalizeAddress(row.deployerAddress),
       normalizeBytes32(row.creatorId),
       normalizeAddress(row.quoteAsset),
-      normalizeAddress(row.feeDistributorAddress),
-      normalizeAddress(row.liquidityLockerAddress),
-      normalizeBytes32(row.poolId),
-      toNumericString(row.lpTokenId),
-      toNumericString(row.openingSqrtPriceX96),
-      row.openingTick,
-      row.tickLower,
-      row.tickUpper,
+      feeDistributor,
+      liquidityLocker,
+      poolId,
+      row.lpTokenId == null ? null : toNumericString(row.lpTokenId),
+      row.openingSqrtPriceX96 == null
+        ? null
+        : toNumericString(row.openingSqrtPriceX96),
+      row.openingTick ?? null,
+      row.tickLower ?? null,
+      row.tickUpper ?? null,
       normalizeBytes32(row.launchTxHash),
       toNumericString(row.launchBlock),
       row.launchLogIndex,
@@ -126,13 +165,22 @@ export async function upsertLaunch(db: Queryable, row: LaunchRow): Promise<void>
       toNumericString(row.launchFeeRaw),
       row.initialBuyPresent,
       row.initialBuyQuoteRaw == null ? null : toNumericString(row.initialBuyQuoteRaw),
-      row.initialBuyTokensRaw == null ? null : toNumericString(row.initialBuyTokensRaw),
+      row.initialBuyTokensRaw == null
+        ? null
+        : toNumericString(row.initialBuyTokensRaw),
       row.metadataHydrated ?? false,
       additionalFee,
       totalPoolFee,
       creatorAlloc,
       additionalDest,
       holderRewards,
+      marketSource,
+      curveAddress,
+      row.launchConfigId == null ? null : toNumericString(row.launchConfigId),
+      row.graduationThresholdRaw == null
+        ? null
+        : toNumericString(row.graduationThresholdRaw),
+      row.graduationStatus ?? null,
     ],
   );
 }

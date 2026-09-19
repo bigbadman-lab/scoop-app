@@ -1,20 +1,11 @@
 import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
-import {
-  isCreatorResolved,
-  resolveCreatorRecipient,
-} from '@/lib/launch/creator-recipient';
-import { isNativeEthQuote, parseDevBuyAmount } from '@/lib/launch/dev-buy';
+import { parseDevBuyAmount } from '@/lib/launch/dev-buy';
 import {
   readImageFileDimensions,
   squareDimensionError,
   TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR,
   TOKEN_IMAGE_SQUARE_ERROR,
 } from '@/lib/launch/image-dimensions';
-import {
-  AdditionalFeeDestination,
-  CreatorAllocationDestination,
-  validateAdditionalFeeUnits,
-} from '@scoop/shared';
 
 export { TOKEN_IMAGE_SQUARE_ERROR, TOKEN_IMAGE_DIMENSIONS_UNREADABLE_ERROR };
 const TICKER_RE = /^[A-Z0-9]{2,10}$/;
@@ -123,98 +114,63 @@ export function validateTokenStep(state: LaunchFormState): FieldErrors {
 }
 
 export function validateMarketStep(state: LaunchFormState): FieldErrors {
+  // Public Pons cutover: ETH pair is fixed — no quote catalogue step.
+  return validateDevBuyStep(state);
+}
+
+/**
+ * Dev Buy step (Gate 7 public Pons) — ETH only, non-zero mandatory.
+ */
+export function validateDevBuyStep(state: LaunchFormState): FieldErrors {
   const errors: FieldErrors = {};
-  if (!state.quoteAsset) {
-    errors.quoteAsset = 'Select a quote asset.';
+  const buy = state.devBuyAmount.trim();
+  if (!buy) {
+    errors.devBuyAmount = 'Enter a non-zero ETH amount for the mandatory dev buy.';
+    return errors;
+  }
+  if (!/^\d+(\.\d+)?$/.test(buy)) {
+    errors.devBuyAmount = 'Enter a valid ETH amount.';
+    return errors;
+  }
+  if (!hasDevBuy(state)) {
+    errors.devBuyAmount = 'Dev buy must be greater than zero.';
+    return errors;
+  }
+  const parsed = parseDevBuyAmount({
+    raw: buy,
+    decimals: 18,
+    quoteSymbol: 'ETH',
+    quoteAsset: '0x0000000000000000000000000000000000000000',
+  });
+  if (!parsed.ok) {
+    errors.devBuyAmount = parsed.error;
   }
   return errors;
 }
 
 /**
- * Earnings step validation.
+ * Earnings step validation (legacy Scoop). Public Pons wizard uses validateDevBuyStep.
  * @param liveConnectedAddress — wagmi account; required when mode is connected.
  */
 export function validateEarningsStep(
   state: LaunchFormState,
   liveConnectedAddress?: string | null,
 ): FieldErrors {
-  const errors: FieldErrors = {};
-
-  if (state.creatorMode === 'x') {
-    errors.creatorMode = 'X creator attribution is in development.';
-  } else {
-    const recipient = resolveCreatorRecipient(state, liveConnectedAddress ?? null);
-    if (!isCreatorResolved(recipient)) {
-      if (state.creatorMode === 'connected') {
-        errors.creatorMode = recipient.reason;
-      } else {
-        errors.creatorCustomAddress = recipient.reason;
-      }
-    }
+  // Public path: require connected wallet + non-zero ETH buy; ignore Scoop fee fields.
+  const errors = validateDevBuyStep(state);
+  if (!liveConnectedAddress) {
+    errors.creatorMode = 'Connect a wallet to launch.';
   }
-
-  const buy = state.devBuyAmount.trim();
-  if (buy !== '') {
-    if (!/^\d+(\.\d+)?$/.test(buy)) {
-      errors.devBuyAmount = 'Enter a valid amount.';
-    } else if (Number(buy) < 0) {
-      errors.devBuyAmount = 'Amount cannot be negative.';
-    } else if (hasDevBuy(state)) {
-      const decimals =
-        state.quoteDecimals ??
-        (isNativeEthQuote(state.quoteAsset) ? 18 : null);
-      if (decimals == null) {
-        errors.devBuyAmount =
-          'Quote decimals missing. Re-select the market pair.';
-      } else {
-        const parsed = parseDevBuyAmount({
-          raw: buy,
-          decimals,
-          quoteSymbol: state.quoteSymbol,
-          quoteAsset: state.quoteAsset,
-        });
-        if (!parsed.ok) {
-          errors.devBuyAmount = parsed.error;
-        }
-      }
-    }
-  }
-
-  const feeCheck = validateAdditionalFeeUnits(state.additionalFee);
-  if (!feeCheck.ok) {
-    errors.additionalFee = feeCheck.message;
-  }
-
-  if (
-    state.creatorAllocationDestination !== CreatorAllocationDestination.Creator &&
-    state.creatorAllocationDestination !== CreatorAllocationDestination.Holders
-  ) {
-    errors.creatorAllocationDestination =
-      'Choose whether the base creator allocation goes to the Creator or Holders.';
-  }
-
-  if (state.additionalFee > 0) {
-    if (
-      state.additionalFeeDestination !== AdditionalFeeDestination.Creator &&
-      state.additionalFeeDestination !== AdditionalFeeDestination.Deployer &&
-      state.additionalFeeDestination !== AdditionalFeeDestination.Holders
-    ) {
-      errors.additionalFeeDestination =
-        'Choose where the additional fee should go.';
-    }
-  }
-
   return errors;
 }
 
 export function canAdvanceFromStep(
-  step: 1 | 2 | 3,
+  step: 1 | 2,
   state: LaunchFormState,
   liveConnectedAddress?: string | null,
 ): boolean {
   if (step === 1) return Object.keys(validateTokenStep(state)).length === 0;
-  if (step === 2) return Object.keys(validateMarketStep(state)).length === 0;
-  return Object.keys(validateEarningsStep(state, liveConnectedAddress)).length === 0;
+  return Object.keys(validateDevBuyStep(state)).length === 0 && Boolean(liveConnectedAddress);
 }
 
 /** Human decimal → whether this is a positive dev buy. */

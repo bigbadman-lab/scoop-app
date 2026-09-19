@@ -3,6 +3,10 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { useWalletShell } from '@/components/auth/WalletShellProvider';
 import { DEFAULT_SLIPPAGE_BPS } from '@/lib/trade/constants';
+import {
+  canUseScoopUv4TradePath,
+  PONS_TRADE_DISABLED_COPY,
+} from '@/lib/trade/market-source-guard';
 
 export type TokenBuySellProps = {
   tokenAddress: string;
@@ -11,6 +15,8 @@ export type TokenBuySellProps = {
   quoteAsset: string;
   quoteSymbol: string;
   quoteDecimals?: number;
+  marketSource?: 'scoop' | 'pons_v2';
+  marketPhase?: 'curve' | 'graduated_pool' | null;
   currency0: string | null;
   currency1: string | null;
   poolFee: number | null;
@@ -22,22 +28,63 @@ export type TokenBuySellProps = {
 /**
  * Light trade entry — no AppKit/wagmi static imports.
  * Loads TokenBuySellLive only after WalletRuntimeProviders is ready.
+ * Gate 6: Pons curve markets never load Scoop UV4 swap UI.
  */
 export function TokenBuySell(props: TokenBuySellProps) {
   const { configured, runtimeReady, activating, ensureRuntime } = useWalletShell();
   const [Live, setLive] = useState<ComponentType<TokenBuySellProps> | null>(null);
 
-  useEffect(() => {
-    if (!configured) return;
-    void ensureRuntime(null);
-  }, [configured, ensureRuntime]);
+  const scoopTradeAllowed = canUseScoopUv4TradePath({
+    marketSource: props.marketSource,
+    marketPhase: props.marketPhase,
+    currency0: props.currency0,
+    currency1: props.currency1,
+    poolFee: props.poolFee,
+    tickSpacing: props.tickSpacing,
+    hooks: props.hooks,
+  });
 
   useEffect(() => {
-    if (!runtimeReady) return;
+    if (!configured || !scoopTradeAllowed) return;
+    void ensureRuntime(null);
+  }, [configured, ensureRuntime, scoopTradeAllowed]);
+
+  useEffect(() => {
+    if (!runtimeReady || !scoopTradeAllowed) return;
     void import('@/components/token/TokenBuySellLive').then((mod) => {
       setLive(() => mod.TokenBuySellLive);
     });
-  }, [runtimeReady]);
+  }, [runtimeReady, scoopTradeAllowed]);
+
+  if (!scoopTradeAllowed) {
+    return (
+      <section
+        className="min-w-0"
+        aria-labelledby="token-buy-sell-heading"
+        data-testid="token-buy-sell"
+        data-trade-path="disabled"
+        data-market-source={props.marketSource ?? 'scoop'}
+      >
+        <h2
+          id="token-buy-sell-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]"
+        >
+          Trade
+        </h2>
+        <div className="mt-1.5 rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-3">
+          <p
+            className="font-mono text-[11px] text-[var(--muted)]"
+            role="status"
+            data-testid="token-trade-disabled"
+          >
+            {props.marketSource === 'pons_v2'
+              ? PONS_TRADE_DISABLED_COPY
+              : 'Trading is unavailable for this market.'}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   if (!configured) {
     return (

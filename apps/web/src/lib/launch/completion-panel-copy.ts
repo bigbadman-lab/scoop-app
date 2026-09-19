@@ -62,13 +62,20 @@ export function completionPanelCopy(
   if (
     tx.phase === 'waiting_for_indexer' ||
     tx.phase === 'receipt_success' ||
+    tx.phase === 'lock_verified' ||
     tx.phase === 'indexed' ||
     tx.phase === 'activating_news'
   ) {
     return {
       title: 'Launch successful',
-      primary: 'Market is live',
-      body: 'Your token is live and trading is available. Market data is appearing now.',
+      primary:
+        tx.phase === 'lock_verified'
+          ? 'Dev tokens locked for 6 months.'
+          : 'Market is live',
+      body:
+        tx.phase === 'lock_verified'
+          ? 'HoodLock verified. Waiting for Pons market indexing…'
+          : 'Your token is live and trading is available. Market data is appearing now.',
       syncHint:
         tx.phase === 'activating_news'
           ? 'News article is appearing now.'
@@ -78,7 +85,9 @@ export function completionPanelCopy(
           ? 'launch-activating-news'
           : tx.phase === 'indexed'
             ? 'launch-indexed'
-            : 'launch-waiting-indexer',
+            : tx.phase === 'lock_verified'
+              ? 'launch-lock-verified'
+              : 'launch-waiting-indexer',
     };
   }
 
