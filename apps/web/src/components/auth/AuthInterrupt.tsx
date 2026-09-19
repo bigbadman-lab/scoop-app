@@ -25,7 +25,7 @@ function AuthInterruptShell({
 }) {
   return (
     <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
-      <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-orange)]">
+      <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-green)]">
         Sign in to continue
       </p>
       <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -105,7 +105,7 @@ export function AuthInterrupt(props: AuthInterruptProps) {
             type="button"
             disabled={activating || !runtimeReady}
             onClick={() => void ensureRuntime(null)}
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
+            className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] disabled:opacity-40"
           >
             {activating || !Live ? 'Loading wallet…' : 'Continue'}
           </button>

@@ -143,7 +143,7 @@ export function ArtworkChooser({
                 {selected ? (
                   <span
                     aria-hidden
-                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--scoop-orange)] font-mono text-[11px] text-[var(--scoop-orange-contrast)]"
+                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--scoop-green)] font-mono text-[11px] text-[var(--scoop-green-contrast)]"
                   >
                     ✓
                   </span>
@@ -182,7 +182,7 @@ export function ArtworkChooser({
               <p className="font-mono text-[12px] text-[var(--muted)]">
                 {selection.file.fileName}
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--scoop-orange)]">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--scoop-green)]">
                 Selected upload
               </p>
             </div>
@@ -209,7 +209,7 @@ export function ArtworkChooser({
             const image = resolveSelected();
             if (image) onContinue(image);
           }}
-          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {continuing ? 'Continuing…' : 'Continue →'}
         </button>

@@ -282,7 +282,7 @@ export function ScoopWalletConnect({
           <div className="flex flex-wrap gap-2">
             <a
               href={wcUri}
-              className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--scoop-orange)] px-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--scoop-orange-contrast)]"
+              className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--scoop-green)] px-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--scoop-green-contrast)]"
             >
               Open wallet
             </a>

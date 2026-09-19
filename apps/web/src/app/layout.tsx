@@ -7,7 +7,7 @@ import '@fontsource/open-sauce-sans/latin-500.css';
 import '@fontsource/open-sauce-sans/latin-600.css';
 import '@fontsource/open-sauce-sans/latin-700.css';
 import { AppShell } from '@/components/shell/AppShell';
-import { SCOOP_MARK_SRC } from '@/lib/brand';
+import { SCOOP_GREEN, SCOOP_MARK_SRC } from '@/lib/brand';
 import { WalletShellProvider } from '@/components/auth/WalletShellProvider';
 import {
   SEO_DEFAULT_DESCRIPTION,
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#FC4C00',
+  themeColor: SCOOP_GREEN,
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',

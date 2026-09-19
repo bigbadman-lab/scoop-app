@@ -41,8 +41,8 @@ export function NewsCategoryBrowse({ selected, onSelect }: Props) {
               'motion-reduce:transition-none',
               isSelected
                 ? [
-                    'border-[color-mix(in_srgb,var(--scoop-orange)_55%,var(--divider))]',
-                    'shadow-[inset_3px_0_0_var(--scoop-orange),0_0_0_1px_color-mix(in_srgb,var(--scoop-orange)_35%,transparent)]',
+                    'border-[color-mix(in_srgb,var(--scoop-green)_55%,var(--divider))]',
+                    'shadow-[inset_3px_0_0_var(--scoop-green),0_0_0_1px_color-mix(in_srgb,var(--scoop-green)_35%,transparent)]',
                   ].join(' ')
                 : [
                     'border-[var(--divider)]',
@@ -69,7 +69,7 @@ export function NewsCategoryBrowse({ selected, onSelect }: Props) {
 
             {isSelected ? (
               <span
-                className="pointer-events-none absolute right-2 top-2 z-[1] h-2 w-2 rounded-full bg-[var(--scoop-orange)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--bg)_70%,transparent)]"
+                className="pointer-events-none absolute right-2 top-2 z-[1] h-2 w-2 rounded-full bg-[var(--scoop-green)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--bg)_70%,transparent)]"
                 aria-hidden
                 data-testid={`news-category-${category}-selected-dot`}
               />

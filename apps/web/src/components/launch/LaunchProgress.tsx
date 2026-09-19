@@ -22,7 +22,7 @@ export function LaunchProgress({ step }: Props) {
         aria-label={`Launch step ${step} of ${LAUNCH_STEPS.length}`}
       >
         <div
-          className="h-full bg-[var(--scoop-orange)] transition-[width] duration-300 ease-out motion-reduce:transition-none"
+          className="h-full bg-[var(--scoop-green)] transition-[width] duration-300 ease-out motion-reduce:transition-none"
           style={{ width: `${progress}%` }}
         />
       </div>

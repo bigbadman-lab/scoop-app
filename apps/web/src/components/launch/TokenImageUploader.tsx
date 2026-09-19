@@ -81,7 +81,7 @@ export function TokenImageUploader({
       <div
         className={[
           'rounded-[var(--radius-lg)] border border-dashed border-[var(--divider)] p-3 transition-colors',
-          dragOver ? 'border-[var(--scoop-orange)] bg-[var(--bg-elevated)]' : '',
+          dragOver ? 'border-[var(--scoop-green)] bg-[var(--bg-elevated)]' : '',
         ].join(' ')}
         onDragOver={(e) => {
           e.preventDefault();

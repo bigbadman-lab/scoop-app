@@ -193,7 +193,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
               <button
                 type="button"
                 onClick={() => send({ type: 'CHOOSE_EMAIL' })}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90"
               >
                 Continue with email
               </button>

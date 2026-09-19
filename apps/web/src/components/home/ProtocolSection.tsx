@@ -30,7 +30,7 @@ export function ProtocolSection() {
   return (
     <section
       aria-labelledby="protocol-heading"
-      className="bg-[var(--scoop-orange)] text-[var(--scoop-orange-contrast)]"
+      className="bg-[var(--scoop-green)] text-[var(--scoop-green-contrast)]"
       data-testid="protocol-economics"
     >
       <div className="mx-auto max-w-[1400px] px-4 py-14 md:px-8 md:py-20 lg:px-10 lg:py-24">
@@ -57,7 +57,7 @@ export function ProtocolSection() {
                   <dd className="font-mono text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
                     {row.pct}%
                   </dd>
-                  <dt className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]/75">
+                  <dt className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]/75">
                     {row.label}
                   </dt>
                 </div>

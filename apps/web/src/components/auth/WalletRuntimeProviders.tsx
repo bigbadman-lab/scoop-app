@@ -7,6 +7,7 @@ import { cookieToInitialState, type Config, WagmiProvider } from 'wagmi';
 import { EmailDeviceApprovalHelper } from '@/components/auth/EmailDeviceApprovalHelper';
 import { ScoopAuthHost } from '@/components/auth/ScoopAuthHost';
 import { ScoopHeadlessApproveOverlay } from '@/components/auth/ScoopHeadlessApproveOverlay';
+import { SCOOP_GREEN } from '@/lib/brand';
 import {
   buildScoopAppKitDefaultAccountTypes,
   buildScoopAppKitFeatures,
@@ -39,7 +40,7 @@ function ensureAppKit() {
     // Keep AppKit UI alerts off in production; do not silence real errors.
     debug: process.env.NODE_ENV !== 'production',
     themeVariables: {
-      '--w3m-accent': '#FC4C00',
+      '--w3m-accent': SCOOP_GREEN,
       '--w3m-border-radius-master': '2px',
     },
     // Prefer EOA for Reown embedded (email) wallets — avoid SA/Pimlico.

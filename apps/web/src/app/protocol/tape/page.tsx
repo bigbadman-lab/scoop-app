@@ -26,7 +26,7 @@ export default async function TapeProtocolPage() {
     <main className="relative overflow-hidden" data-testid="tape-protocol-page">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[22rem] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--scoop-orange)_12%,transparent)_0%,transparent_65%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[22rem] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--scoop-green)_12%,transparent)_0%,transparent_65%)]"
       />
 
       <div className="relative mx-auto max-w-[1400px] px-4 py-12 md:px-8 md:py-16 lg:px-10 lg:py-20">
@@ -79,7 +79,7 @@ export default async function TapeProtocolPage() {
           </p>
           <Link
             href="/docs"
-            className="mt-5 inline-flex min-h-11 items-center text-[14px] tracking-tight text-[var(--scoop-orange)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
+            className="mt-5 inline-flex min-h-11 items-center text-[14px] tracking-tight text-[var(--scoop-green)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
           >
             Read the docs →
           </Link>

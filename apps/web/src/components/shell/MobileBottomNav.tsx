@@ -35,7 +35,7 @@ export function MobileBottomNav({ pathname }: Props) {
                   className={[
                     'flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)]',
                     isCreate
-                      ? 'bg-[var(--scoop-orange)] text-[var(--scoop-orange-contrast)]'
+                      ? 'bg-[var(--scoop-green)] text-[var(--scoop-green-contrast)]'
                       : '',
                   ].join(' ')}
                 >

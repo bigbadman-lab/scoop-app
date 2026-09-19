@@ -223,7 +223,7 @@ export function HouseLeadHero({ news }: Props) {
   return (
     <div data-testid="house-lead-module" className="relative">
       <div
-        className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-orange)]"
+        className="relative w-full overflow-hidden rounded-[var(--radius-editorial)] bg-[var(--scoop-green)]"
         data-testid="house-lead-hero"
       >
         {images.length > 0 ? (
@@ -248,7 +248,7 @@ export function HouseLeadHero({ news }: Props) {
           })
         ) : (
           <div
-            className="absolute inset-0 bg-[var(--scoop-orange)]"
+            className="absolute inset-0 bg-[var(--scoop-green)]"
             aria-hidden
             data-testid="house-lead-fallback"
           >

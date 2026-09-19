@@ -35,7 +35,7 @@ function QuoteIcon({ item }: { item: PublicQuoteCatalogueItem }) {
   return (
     <span
       aria-hidden
-      className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] font-mono text-[11px] font-medium text-[var(--scoop-orange-contrast)] sm:h-12 sm:w-12"
+      className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] font-mono text-[11px] font-medium text-[var(--scoop-green-contrast)] sm:h-12 sm:w-12"
     >
       {label.slice(0, 3)}
     </span>
@@ -125,7 +125,7 @@ export function MarketStep({ state, errors, catalogue, quoteWarning, onSelect }:
                     className={[
                       'flex w-full flex-col items-center gap-1.5 rounded-[var(--radius-lg)] border px-1.5 py-2.5 transition-colors',
                       isSelected
-                        ? 'border-[var(--scoop-orange)] bg-[var(--bg-elevated)]'
+                        ? 'border-[var(--scoop-green)] bg-[var(--bg-elevated)]'
                         : 'border-transparent hover:border-[var(--divider)] hover:bg-[var(--bg-elevated)]/70',
                     ].join(' ')}
                   >

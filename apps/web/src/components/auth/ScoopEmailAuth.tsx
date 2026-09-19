@@ -170,7 +170,7 @@ export function ScoopEmailAuth({
         <button
           type="button"
           onClick={() => dispatch({ type: 'RETRY' })}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
         >
           Try again
         </button>
@@ -235,7 +235,7 @@ export function ScoopEmailAuth({
                   otpRefs.current[i - 1]?.focus();
                 }
               }}
-              className="h-12 w-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] text-center font-mono text-lg text-[var(--fg)] outline-none focus:border-[var(--scoop-orange)] disabled:opacity-50"
+              className="h-12 w-10 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] text-center font-mono text-lg text-[var(--fg)] outline-none focus:border-[var(--scoop-green)] disabled:opacity-50"
               aria-label={`Digit ${i + 1}`}
             />
           ))}
@@ -249,7 +249,7 @@ export function ScoopEmailAuth({
           type="button"
           disabled={busy || state.otp.length !== 6}
           onClick={() => void submitOtp()}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] disabled:opacity-40"
         >
           {state.phase === 'otp_verifying' ? 'Verifying…' : 'Verify'}
         </button>
@@ -296,7 +296,7 @@ export function ScoopEmailAuth({
             }
           }}
           placeholder="you@example.com"
-          className="min-h-11 w-full rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--muted)] focus:border-[var(--scoop-orange)] disabled:opacity-50"
+          className="min-h-11 w-full rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--muted)] focus:border-[var(--scoop-green)] disabled:opacity-50"
         />
       </label>
       {errorText ? (
@@ -308,7 +308,7 @@ export function ScoopEmailAuth({
         type="button"
         disabled={busy}
         onClick={() => void submitEmail()}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] disabled:opacity-40"
+        className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] disabled:opacity-40"
       >
         {state.phase === 'email_sending' ? 'Sending…' : 'Continue'}
       </button>

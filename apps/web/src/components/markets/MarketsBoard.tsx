@@ -229,7 +229,7 @@ export function MarketsBoard({ initial }: Props) {
                 className={[
                   'min-h-9 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors',
                   selected
-                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-orange)] decoration-2 underline-offset-6'
+                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-green)] decoration-2 underline-offset-6'
                     : 'text-[var(--muted)] hover:text-[var(--fg)]',
                 ].join(' ')}
               >

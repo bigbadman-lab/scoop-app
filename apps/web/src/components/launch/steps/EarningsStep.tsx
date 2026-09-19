@@ -160,7 +160,7 @@ export function EarningsStep({
                 {selected ? (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-orange)]"
+                    className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-green)]"
                   />
                 ) : null}
                 <span className="text-[15px] font-semibold tracking-tight">{opt.label}</span>
@@ -307,7 +307,7 @@ export function EarningsStep({
                     {selected ? (
                       <span
                         aria-hidden
-                        className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-orange)]"
+                        className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-green)]"
                       />
                     ) : null}
                     <span className="text-[15px] font-semibold tracking-tight">
@@ -395,7 +395,7 @@ export function EarningsStep({
                   {selected ? (
                     <span
                       aria-hidden
-                      className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-orange)]"
+                      className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-green)]"
                     />
                   ) : null}
                   <span className="text-[15px] font-semibold tracking-tight">{opt.label}</span>

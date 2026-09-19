@@ -196,7 +196,7 @@ function ArtworkFlowNotice({
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+          className="min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
           onClick={onViewImage}
         >
           {actionLabel}

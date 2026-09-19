@@ -226,7 +226,7 @@ const components: Components = {
     <td className="px-3 py-2.5 align-top text-[var(--fg)] [&_code]:break-all">{children}</td>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="mt-4 border-l-2 border-[var(--scoop-orange)] pl-4 text-[15px] leading-relaxed text-[var(--muted)]">
+    <blockquote className="mt-4 border-l-2 border-[var(--scoop-green)] pl-4 text-[15px] leading-relaxed text-[var(--muted)]">
       {children}
     </blockquote>
   ),

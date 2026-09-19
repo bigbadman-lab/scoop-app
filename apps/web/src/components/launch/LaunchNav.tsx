@@ -31,7 +31,7 @@ export function LaunchNav({
           onClick={onContinue}
           disabled={continueDisabled}
           title={continueDisabled ? continueDisabledReason : undefined}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-8 font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-8 font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity enabled:hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {continueLabel}
         </button>

@@ -100,7 +100,7 @@ export function DiscoverSection({
                 className={[
                   'min-h-11 font-mono text-[12px] uppercase tracking-[0.18em] transition-colors',
                   selected
-                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-orange)] decoration-2 underline-offset-8'
+                    ? 'text-[var(--fg)] underline decoration-[var(--scoop-green)] decoration-2 underline-offset-8'
                     : 'text-[var(--muted)] hover:text-[var(--fg)]',
                 ].join(' ')}
               >

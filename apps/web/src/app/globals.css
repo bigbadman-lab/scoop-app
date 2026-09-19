@@ -10,9 +10,9 @@
   --divider: #d8d4cd;
   --focus: #0a0a0a;
 
-  /* Locked SCOOP orange from SCOOPMASTER.png */
-  --scoop-orange: #fc4c00;
-  --scoop-orange-contrast: #0a0a0a;
+  /* Canonical SCOOP green. Contrast is paper so type stays readable on the dark fill. */
+  --scoop-green: #015225;
+  --scoop-green-contrast: #f5f3ef;
   /* Desk / freshness accent (matches live market up) */
   --scoop-live: #2f9e44;
   --scoop-live-soft: color-mix(in srgb, var(--scoop-live) 14%, transparent);
@@ -35,7 +35,7 @@
 }
 
 @theme inline {
-  --color-scoop: var(--scoop-orange);
+  --color-scoop: var(--scoop-green);
   --color-canvas: var(--bg);
   --color-ink: var(--fg);
   --color-mute: var(--muted);
@@ -103,8 +103,8 @@ w3m-router-container {
   height: 6px;
   flex-shrink: 0;
   border-radius: 999px;
-  background: var(--scoop-orange);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
+  background: var(--scoop-green);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-green) 55%, transparent);
   animation: desk-pulse 2.4s ease-out infinite;
 }
 
@@ -192,7 +192,7 @@ w3m-router-container {
 
 @keyframes desk-pulse {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-orange) 45%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--scoop-green) 45%, transparent);
   }
   70% {
     box-shadow: 0 0 0 8px transparent;
@@ -239,8 +239,8 @@ w3m-router-container {
 
 /* Markets board — restrained #1 leader treatments (terminal accent, not card) */
 .markets-leader-row {
-  background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
+  background: color-mix(in srgb, var(--scoop-green) 3%, var(--bg));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-green) 55%, transparent);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -257,21 +257,21 @@ w3m-router-container {
   0%,
   85%,
   100% {
-    background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
+    background: color-mix(in srgb, var(--scoop-green) 3%, var(--bg));
   }
   92% {
-    background: color-mix(in srgb, var(--scoop-orange) 6%, var(--bg));
+    background: color-mix(in srgb, var(--scoop-green) 6%, var(--bg));
   }
 }
 
 @keyframes markets-leader-pulse {
   0% {
-    background: color-mix(in srgb, var(--scoop-orange) 9%, var(--bg));
-    box-shadow: inset 2px 0 0 var(--scoop-orange);
+    background: color-mix(in srgb, var(--scoop-green) 9%, var(--bg));
+    box-shadow: inset 2px 0 0 var(--scoop-green);
   }
   100% {
-    background: color-mix(in srgb, var(--scoop-orange) 3%, var(--bg));
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-orange) 55%, transparent);
+    background: color-mix(in srgb, var(--scoop-green) 3%, var(--bg));
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--scoop-green) 55%, transparent);
   }
 }
 

@@ -49,7 +49,7 @@ export function DevBuyStep({ state, errors, onPatch }: Props) {
           className="w-full rounded-[var(--radius-sm)] border border-[var(--divider)] bg-[var(--bg)] px-3 py-2.5 font-mono text-[14px] text-[var(--fg)] outline-none focus:border-[var(--fg)]"
         />
         {errors.devBuyAmount ? (
-          <span className="block text-[12px] text-[var(--scoop-orange)]" role="alert">
+          <span className="block text-[12px] text-red-600" role="alert">
             {errors.devBuyAmount}
           </span>
         ) : (

@@ -101,8 +101,8 @@ export function SupportPageView() {
         </p>
       </div>
 
-      <aside className="mt-6 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--scoop-orange)_35%,var(--divider))] bg-[color-mix(in_srgb,var(--scoop-orange)_6%,var(--bg))] px-4 py-3.5 text-[14px] leading-relaxed text-[var(--fg)]">
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange)]">
+      <aside className="mt-6 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--scoop-green)_35%,var(--divider))] bg-[color-mix(in_srgb,var(--scoop-green)_6%,var(--bg))] px-4 py-3.5 text-[14px] leading-relaxed text-[var(--fg)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green)]">
           Security
         </p>
         <p className="mt-1.5">

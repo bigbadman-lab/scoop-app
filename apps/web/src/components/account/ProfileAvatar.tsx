@@ -31,7 +31,7 @@ export function ProfileAvatar({
   if (!src || failed) {
     return (
       <span
-        className={`inline-flex shrink-0 items-center justify-center bg-[var(--scoop-orange)] font-mono text-[var(--scoop-orange-contrast)] ${roundedClassName} ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center bg-[var(--scoop-green)] font-mono text-[var(--scoop-green-contrast)] ${roundedClassName} ${className}`}
         style={{ width: size, height: size, fontSize: Math.max(10, size * 0.32) }}
         aria-hidden
       >

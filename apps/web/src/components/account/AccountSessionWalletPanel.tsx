@@ -64,7 +64,7 @@ export function AccountSessionWalletPanel({
         <button
           type="button"
           onClick={onSignOut}
-          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
         >
           Sign out of SCOOP
         </button>
@@ -180,7 +180,7 @@ export function AccountSessionWalletPanel({
             <button
               type="button"
               onClick={onConnectWallet}
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
             >
               Connect wallet
             </button>

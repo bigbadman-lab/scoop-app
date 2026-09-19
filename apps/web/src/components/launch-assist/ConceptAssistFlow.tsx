@@ -73,7 +73,7 @@ function StagedConceptLoading() {
       role="status"
       aria-live="polite"
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--scoop-orange)]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--scoop-green)]">
         Making a market
       </p>
       <p className="mt-3 max-w-sm text-sm text-[var(--muted)] motion-safe:animate-pulse motion-reduce:animate-none">
@@ -338,7 +338,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
               <button
                 type="button"
                 onClick={() => void generateConcepts()}
-                className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+                className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
               >
                 Try again
               </button>
@@ -383,7 +383,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
                   concepts: state.concepts,
                 })
               }
-              className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
             >
               Back to ideas
             </button>
@@ -465,7 +465,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
                         className="h-[22px] w-[22px] rounded-[var(--radius-sm)] object-cover"
                       />
                     ) : (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-orange)] font-mono text-[8px] text-[var(--scoop-orange-contrast)]">
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[var(--radius-sm)] bg-[var(--scoop-green)] font-mono text-[8px] text-[var(--scoop-green-contrast)]">
                         {(quote?.displaySymbol ?? concept.recommendedPairSymbol).slice(0, 3)}
                       </span>
                     )}
@@ -484,7 +484,7 @@ export function ConceptAssistFlow({ providerArticleId, catalogue }: Props) {
                     disabled={disabled}
                     aria-busy={busy}
                     onClick={() => void handleUseThisIdea(concept, article, concepts)}
-                    className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-3 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-3 inline-flex min-h-9 w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-3 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {busy ? 'Opening…' : 'Use this idea'}
                   </button>

@@ -1,12 +1,14 @@
 /** Locked SCOOP brand tokens for Phase 1 UI. */
 
-export const SCOOP_ORANGE = '#FC4C00' as const;
+/** Canonical SCOOP green. Paper contrast is required on fills — near-black fails on this green. */
+export const SCOOP_GREEN = '#015225' as const;
+export const SCOOP_GREEN_CONTRAST = '#f5f3ef' as const;
 
 /** Canonical mark asset — `public/brand/logogreen.png`. */
 export const SCOOP_MARK_SRC = '/brand/logogreen.png' as const;
 
-/** Signed-out shell avatar — `public/brand/SCOOPAV.png`. */
-export const SCOOP_AVATAR_SRC = '/brand/SCOOPAV.png' as const;
+/** Signed-out SCOOP brand avatar — same mark as the site logo, not a user identity. */
+export const SCOOP_AVATAR_SRC = SCOOP_MARK_SRC;
 
 /** Front-page brand strip — `public/scoophero.png`. */
 export const SCOOP_HERO_SRC = '/scoophero.png' as const;

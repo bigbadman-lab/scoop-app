@@ -26,7 +26,7 @@ export function LaunchAsTokenLink({
       <Link
         href={href}
         className={[
-          'inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90',
+          'inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90',
           className,
         ].join(' ')}
       >
@@ -40,7 +40,7 @@ export function LaunchAsTokenLink({
     <Link
       href={href}
       className={[
-        'inline-flex min-h-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90',
+        'inline-flex min-h-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90',
         className,
       ].join(' ')}
     >

@@ -103,7 +103,7 @@ export function AccountSignedOutPending({
         <button
           type="button"
           disabled
-          className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] opacity-50"
+          className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] opacity-50"
         >
           Join SCOOP
         </button>
@@ -171,7 +171,7 @@ export function AccountSignedOut({
       type="button"
       disabled={busy || status === 'connecting' || status === 'reconnecting'}
       onClick={() => requestScoopConnect(() => open({ view: 'Connect' }))}
-      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
+      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
     >
       {status === 'connecting' || status === 'reconnecting'
         ? 'Connecting…'
@@ -182,7 +182,7 @@ export function AccountSignedOut({
       type="button"
       disabled={busy || signing || !signerReady}
       onClick={() => void completeSiwe()}
-      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
+      className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90 disabled:opacity-40"
     >
       {busy || signing ? 'Confirming…' : 'Finish signing in'}
     </button>

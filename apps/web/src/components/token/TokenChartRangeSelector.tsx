@@ -36,7 +36,7 @@ export function TokenChartRangeSelector({ value, onChange, disabled }: Props) {
             className={[
               'min-h-8 min-w-9 rounded-[var(--radius-sm)] px-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
               selected
-                ? 'bg-[var(--fg)] text-[var(--bg)] underline decoration-[var(--scoop-orange)] decoration-2 underline-offset-4'
+                ? 'bg-[var(--fg)] text-[var(--bg)] underline decoration-[var(--scoop-green)] decoration-2 underline-offset-4'
                 : 'text-[var(--muted)] hover:text-[var(--fg)]',
               disabled ? 'opacity-50' : '',
             ].join(' ')}

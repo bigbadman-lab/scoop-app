@@ -73,7 +73,7 @@ export function ContractCopy({
         aria-hidden
         className={`shrink-0 ${
           feedback === 'text'
-            ? 'uppercase tracking-[0.12em] text-[var(--scoop-orange)]'
+            ? 'uppercase tracking-[0.12em] text-[var(--scoop-green)]'
             : 'text-[var(--muted-2)]'
         }`}
         data-testid="contract-copy-feedback"

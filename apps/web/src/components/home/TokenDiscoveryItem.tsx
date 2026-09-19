@@ -50,7 +50,7 @@ export function TokenDiscoveryItemCard({
       : token.priceChange24hBps > 0
         ? 'text-[var(--scoop-live)]'
         : token.priceChange24hBps < 0
-          ? 'text-[var(--scoop-orange)]'
+          ? 'text-[var(--scoop-green)]'
           : 'text-[var(--muted)]';
 
   return (

@@ -483,7 +483,7 @@ export function ReownEmailProofLive() {
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 py-16">
       <header className="space-y-3">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-orange)]">
+        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-green)]">
           C.3-proof · temporary
         </p>
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -522,7 +522,7 @@ export function ReownEmailProofLive() {
         <button
           type="button"
           onClick={() => void open({ view: 'Connect' })}
-          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)]"
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)]"
         >
           Open AppKit (email)
         </button>
@@ -562,7 +562,7 @@ export function ReownEmailProofLive() {
           type="button"
           disabled={!isConnected || busy != null}
           onClick={() => void runSplitClientPrepare()}
-          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--scoop-orange)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange)] disabled:opacity-40"
+          className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green)] disabled:opacity-40"
         >
           {busy === 'split' ? '…' : 'Prepare via public RPC (no broadcast)'}
         </button>

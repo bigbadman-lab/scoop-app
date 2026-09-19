@@ -50,7 +50,7 @@ export function ReownEmailProofClient() {
   if (!runtimeReady || !Live) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16">
-        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-orange)]">
+        <p className="font-mono text-[12px] uppercase tracking-[0.16em] text-[var(--scoop-green)]">
           C.3-proof
         </p>
         <h1 className="mt-3 text-2xl font-semibold">Loading wallet runtime…</h1>

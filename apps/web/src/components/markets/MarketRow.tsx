@@ -62,7 +62,7 @@ function LiveMetric({
       className={[
         'tabular transition-[opacity,background-color] duration-300',
         flash
-          ? 'bg-[color-mix(in_srgb,var(--scoop-orange)_10%,transparent)] opacity-90'
+          ? 'bg-[color-mix(in_srgb,var(--scoop-green)_10%,transparent)] opacity-90'
           : 'bg-transparent opacity-100',
         className,
       ]
@@ -127,7 +127,7 @@ export function MarketRow({
         <span
           className={[
             'flex items-center justify-center gap-0.5 font-mono text-[11px] tabular md:text-[12px]',
-            isLeader ? 'text-[var(--scoop-orange)]' : 'text-[var(--muted)]',
+            isLeader ? 'text-[var(--scoop-green)]' : 'text-[var(--muted)]',
           ].join(' ')}
           aria-hidden
           data-testid="market-rank"

@@ -129,7 +129,7 @@ export function TokenFreshLaunchGate({ address }: Props) {
         <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
           <button
             type="button"
-            className="min-h-9 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="min-h-9 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             data-testid="token-unknown-refresh"
             onClick={() => {
               window.location.reload();
@@ -190,7 +190,7 @@ export function TokenFreshLaunchGate({ address }: Props) {
       {timedOut ? (
         <button
           type="button"
-          className="mt-4 min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+          className="mt-4 min-h-9 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
           data-testid="token-sync-retry"
           onClick={() => setAttempt((n) => n + 1)}
         >

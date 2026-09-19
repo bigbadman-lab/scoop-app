@@ -31,7 +31,7 @@ export default function AboutPage() {
     <main className="relative overflow-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--scoop-orange)_10%,transparent)_0%,transparent_62%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--scoop-green)_10%,transparent)_0%,transparent_62%)]"
       />
 
       <div className="relative mx-auto max-w-3xl px-4 py-16 md:px-8 md:py-24">
@@ -51,7 +51,7 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-3xl divide-y divide-[var(--divider)] px-4 md:grid-cols-3 md:divide-x md:divide-y-0 md:px-8">
           {PILLARS.map((pillar) => (
             <div key={pillar.label} className="py-6 md:px-6 md:py-8 first:md:pl-0 last:md:pr-0">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--scoop-orange)]">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--scoop-green)]">
                 {pillar.label}
               </p>
               <p className="mt-3 text-sm leading-snug text-[var(--muted)] md:text-[15px]">

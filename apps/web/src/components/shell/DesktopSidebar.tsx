@@ -38,14 +38,14 @@ export function DesktopSidebar({ pathname }: Props) {
                 {!isCreate && active ? (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-1/2 h-10 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-orange)]"
+                    className="absolute left-0 top-1/2 h-10 w-[3px] -translate-y-1/2 rounded-r bg-[var(--scoop-green)]"
                   />
                 ) : null}
                 <span
                   className={[
                     'flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)]',
                     isCreate
-                      ? 'bg-[var(--scoop-orange)] text-[var(--scoop-orange-contrast)]'
+                      ? 'bg-[var(--scoop-green)] text-[var(--scoop-green-contrast)]'
                       : '',
                   ].join(' ')}
                 >

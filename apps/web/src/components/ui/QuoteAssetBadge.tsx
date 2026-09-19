@@ -46,7 +46,7 @@ export function QuoteAssetBadge({ symbol, imageUrl = null, className = '' }: Pro
       ) : (
         <span
           aria-hidden
-          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[var(--scoop-orange)] text-[8px] font-semibold leading-none text-[var(--scoop-orange-contrast)]"
+          className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[var(--scoop-green)] text-[8px] font-semibold leading-none text-[var(--scoop-green-contrast)]"
           data-testid="quote-asset-monogram"
         >
           {monogram.slice(0, 1)}

@@ -768,7 +768,7 @@ export function NewsFeed({ initial, quoteCatalogue = [] }: Props) {
                 <button
                   type="button"
                   onClick={revealPending}
-                  className="rounded-[var(--radius-md)] bg-[var(--scoop-orange)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-orange-contrast)] transition-opacity hover:opacity-90 motion-reduce:transition-none"
+                  className="rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] transition-opacity hover:opacity-90 motion-reduce:transition-none"
                 >
                   {pendingNew.length === 1
                     ? '1 new story'

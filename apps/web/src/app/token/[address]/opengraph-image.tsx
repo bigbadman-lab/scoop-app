@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { SCOOP_GREEN, SCOOP_GREEN_CONTRAST } from '@/lib/brand';
 import { loadOgLogoDataUri } from '@/lib/media/og-safe-image';
 import {
   TOKEN_OG_SIZE,
@@ -162,7 +163,7 @@ function MarketCard({
                 fontWeight: 700,
                 letterSpacing: '-0.03em',
                 lineHeight: 1.05,
-                color: '#FC4C00',
+                color: SCOOP_GREEN_CONTRAST,
               }}
             >
               {model.ticker}
@@ -260,7 +261,7 @@ function MarketCard({
                 fontSize: 18,
                 fontWeight: 700,
                 letterSpacing: '0.2em',
-                color: '#FC4C00',
+                color: SCOOP_GREEN_CONTRAST,
               }}
             >
               SCOOP
@@ -315,7 +316,7 @@ function UnavailableCard({
           style={{
             display: 'flex',
             fontSize: 22,
-            color: '#FC4C00',
+            color: SCOOP_GREEN_CONTRAST,
             letterSpacing: '0.18em',
           }}
         >
@@ -388,7 +389,7 @@ function LogoBadge({
         width: 168,
         height: 168,
         borderRadius: 28,
-        backgroundColor: '#FC4C00',
+        backgroundColor: SCOOP_GREEN,
         alignItems: 'center',
         justifyContent: 'center',
         border: '3px solid rgba(255,255,255,0.22)',

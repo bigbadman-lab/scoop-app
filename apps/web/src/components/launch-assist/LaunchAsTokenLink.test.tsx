@@ -14,17 +14,17 @@ describe('LaunchAsTokenLink', () => {
     expect(container.querySelector('a')).toBeNull();
   });
 
-  it('uses compact orange feed CTA styling', () => {
+  it('uses compact green feed CTA styling', () => {
     render(<LaunchAsTokenLink providerArticleId="77" variant="feed" />);
     const link = screen.getByRole('link', { name: /launch market/i });
-    expect(link.className).toContain('bg-[var(--scoop-orange)]');
+    expect(link.className).toContain('bg-[var(--scoop-green)]');
     expect(link.className).toContain('min-h-7');
   });
 
-  it('uses compact orange another-market CTA styling', () => {
+  it('uses compact green another-market CTA styling', () => {
     render(<LaunchAsTokenLink providerArticleId="77" variant="another" />);
     const link = screen.getByRole('link', { name: /launch another market/i });
     expect(link.getAttribute('href')).toBe('/news/77/launch');
-    expect(link.className).toContain('bg-[var(--scoop-orange)]');
+    expect(link.className).toContain('bg-[var(--scoop-green)]');
   });
 });

@@ -81,12 +81,12 @@ describe('WalletSlot (C.1c lazy wallet boundary)', () => {
     expect(screen.queryByText(/wallet off/i)).toBeNull();
   });
 
-  it('sidebar signed-out control uses SCOOPAV avatar instead of Join text', () => {
+  it('sidebar signed-out control uses the green SCOOP mark instead of Join text', () => {
     render(<WalletSlot variant="sidebar" />);
     const button = screen.getByRole('button', { name: /^sign in$/i });
     expect(button.textContent).not.toMatch(/^join$/i);
     const img = button.querySelector('img');
-    expect(img?.getAttribute('src')).toMatch(/SCOOPAV|scoopav/i);
+    expect(img?.getAttribute('src')).toMatch(/logogreen\.png/);
   });
 
   it('clicking Sign in requests wallet-stack activation once', () => {

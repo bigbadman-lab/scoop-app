@@ -5,7 +5,7 @@ import {
   DISCOVER_TABS,
   getDiscoverTab,
 } from '@/lib/discovery/tabs';
-import { SCOOP_ORANGE, SCOOP_MARK_SRC } from '@/lib/brand';
+import { SCOOP_GREEN, SCOOP_MARK_SRC } from '@/lib/brand';
 
 describe('discover tabs', () => {
   it('defaults to NEW; Trending is live with activity ranking', () => {
@@ -27,8 +27,8 @@ describe('discover tabs', () => {
 });
 
 describe('brand lock', () => {
-  it('uses locked SCOOP orange and master mark path', () => {
-    expect(SCOOP_ORANGE.toUpperCase()).toBe('#FC4C00');
+  it('uses locked SCOOP green and master mark path', () => {
+    expect(SCOOP_GREEN.toUpperCase()).toBe('#015225');
     expect(SCOOP_MARK_SRC).toBe('/brand/logogreen.png');
   });
 });

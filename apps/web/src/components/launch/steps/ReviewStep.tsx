@@ -110,7 +110,7 @@ export function ReviewStep({
           </p>
           <button
             type="button"
-            className="mt-3 min-h-10 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="mt-3 min-h-10 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             onClick={onResumeLock}
           >
             Resume locking →
@@ -149,7 +149,7 @@ export function ReviewStep({
                 className="h-16 w-16 rounded-[var(--radius-md)] object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-orange)] font-mono text-[11px] text-[var(--scoop-orange-contrast)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] font-mono text-[11px] text-[var(--scoop-green-contrast)]">
                 Scoop
               </div>
             )}
@@ -210,7 +210,7 @@ export function ReviewStep({
                 href={robinhoodTxUrl(tx.txHash)}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[var(--scoop-orange)] underline-offset-2 hover:underline"
+                className="text-[var(--scoop-green)] underline-offset-2 hover:underline"
               >
                 {tx.txHash}
               </a>
@@ -310,7 +310,7 @@ function CompletionPanel({
         {tx.phase === 'indexing_timeout' && onRetryIndex ? (
           <button
             type="button"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             onClick={onRetryIndex}
           >
             Retry indexing
@@ -319,7 +319,7 @@ function CompletionPanel({
         {tx.phase === 'news_activation_failed' && onRetryNews ? (
           <button
             type="button"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             onClick={onRetryNews}
           >
             Retry news link
@@ -328,7 +328,7 @@ function CompletionPanel({
         {showView && onViewMarket ? (
           <button
             type="button"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-orange)] underline-offset-4 hover:underline"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             onClick={onViewMarket}
           >
             View {live ? 'token' : 'market'} →
