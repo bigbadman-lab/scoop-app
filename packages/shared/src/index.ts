@@ -59,12 +59,16 @@ export {
 } from '@scoop/contracts';
 export {
   DEV_BUY_LOCK_CALENDAR_MONTHS,
+  LOCK_24H_SECONDS,
+  LOCK_7D_SECONDS,
   UNLOCK_SAFETY_MARGIN_SECONDS,
   addCalendarMonthsUtc,
   daysInUtcMonth,
   formatUnlockUtc,
   minimumUnlockUnixFromReference,
+  proposeDurationUnlock,
   proposeSixMonthUnlock,
+  verifyDurationUnlock,
   verifySixMonthUnlock,
 } from './unlockPolicy.js';
 export {

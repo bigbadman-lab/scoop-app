@@ -35,6 +35,7 @@ import {
   savePonsPendingLaunch,
 } from '@/lib/launch/adapters/pons/pending-storage';
 import { isLaunchCommitted } from '@/lib/launch/adapters/pons/lifecycle-types';
+import { resolveDevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 
 function now(): number {
   return Date.now();
@@ -49,6 +50,15 @@ function requireExactDevTokens(state: PonsPendingLaunchState): bigint {
     );
   }
   return amount;
+}
+
+function assertLockPolicy(state: PonsPendingLaunchState): void {
+  if (resolveDevSupplyPolicy(state.devSupplyPolicy) === 'burn') {
+    throw new PonsAdapterError(
+      'INVALID_INPUT',
+      'Burn policy does not use HoodLock.',
+    );
+  }
 }
 
 function assertLaunchDone(state: PonsPendingLaunchState): void {
@@ -83,6 +93,7 @@ export async function prepareHoodlockLock(args: {
     throw new PonsAdapterError('INVALID_INPUT', 'Unknown Pons launch draft.');
   }
   assertLaunchDone(state);
+  assertLockPolicy(state);
   assertHoodlockLockNotCommitted(state);
 
   // Recover existing onchain lock before approving/locking again.
@@ -102,6 +113,7 @@ export async function prepareHoodlockLock(args: {
     token,
     expectedAmount: exactLockAmount,
     lockTimeReferenceUnix: ref,
+    policy: resolveDevSupplyPolicy(state.devSupplyPolicy),
   });
   if (existing) {
     const block = await args.publicClient.getBlock({ blockTag: 'latest' });
@@ -173,6 +185,7 @@ export async function broadcastHoodlockApproval(args: {
     throw new PonsAdapterError('INVALID_INPUT', 'Unknown Pons launch draft.');
   }
   assertLaunchDone(state);
+  assertLockPolicy(state);
   assertHoodlockLockNotCommitted(state);
 
   const exactLockAmount = requireExactDevTokens(state);
@@ -306,6 +319,7 @@ export async function broadcastHoodlockLock(args: {
     throw new PonsAdapterError('INVALID_INPUT', 'Unknown Pons launch draft.');
   }
   assertLaunchDone(state);
+  assertLockPolicy(state);
   assertHoodlockLockNotCommitted(state);
 
   const exactLockAmount = requireExactDevTokens(state);
@@ -421,6 +435,7 @@ export async function broadcastHoodlockLock(args: {
     expectedToken: token,
     expectedAmount: exactLockAmount,
     lockBlockTimestampUnix: Number(lockBlock.timestamp),
+    policy: resolveDevSupplyPolicy(state.devSupplyPolicy),
   });
 
   next = {

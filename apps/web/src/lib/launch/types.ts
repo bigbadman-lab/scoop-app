@@ -8,6 +8,7 @@ import {
   type CreatorAllocationDestination as CreatorAllocationDestinationType,
 } from '@scoop/shared';
 import { generateLaunchSalt } from '@/lib/launch/salt';
+import { DEFAULT_DEV_SUPPLY_POLICY, type DevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 
 export type LaunchStepId = 1 | 2 | 3;
 
@@ -117,6 +118,8 @@ export type LaunchFormState = {
   salt: Hex;
   /** Required ETH dev buy (human decimal string). Must be > 0 for public Pons. */
   devBuyAmount: string;
+  /** How the creator allocation is handled after LaunchAndBuy. Default 6 months. */
+  devSupplyPolicy: DevSupplyPolicy;
   /**
    * Explicit news provenance (News Page V2). Survives to launch success linking.
    * Never inferred from headline/ticker — only set from assist handoff.
@@ -166,6 +169,7 @@ export function createInitialLaunchState(
     additionalFeeDestination: AdditionalFeeDestination.Creator,
     salt: generateLaunchSalt(),
     devBuyAmount: '',
+    devSupplyPolicy: DEFAULT_DEV_SUPPLY_POLICY,
     sourceProvider: null,
     sourceProviderArticleId: null,
     sourceDraftId: null,

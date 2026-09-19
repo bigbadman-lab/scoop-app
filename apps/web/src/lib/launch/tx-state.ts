@@ -18,6 +18,9 @@ export type LaunchTxPhase =
   | 'locking_dev_tokens'
   | 'verifying_lock'
   | 'lock_verified'
+  | 'burning_dev_tokens'
+  | 'verifying_burn'
+  | 'burn_verified'
   | 'receipt_success'
   | 'receipt_success_details_pending'
   | 'waiting_for_indexer'
@@ -142,6 +145,8 @@ export function isLaunchTxBusy(phase: LaunchTxPhase): boolean {
     phase === 'awaiting_lock_wallet' ||
     phase === 'locking_dev_tokens' ||
     phase === 'verifying_lock' ||
+    phase === 'burning_dev_tokens' ||
+    phase === 'verifying_burn' ||
     phase === 'waiting_for_indexer' ||
     phase === 'indexed' ||
     phase === 'activating_news'
@@ -153,6 +158,7 @@ export function isLaunchCompletionActive(phase: LaunchTxPhase): boolean {
   return (
     phase === 'lock_required' ||
     phase === 'lock_verified' ||
+    phase === 'burn_verified' ||
     phase === 'receipt_success' ||
     phase === 'receipt_success_details_pending' ||
     phase === 'waiting_for_indexer' ||
@@ -179,7 +185,18 @@ export function isMarketLivePhase(phase: LaunchTxPhase): boolean {
   return phase === 'market_live' || phase === 'news_activation_failed';
 }
 
-export function launchTxStatusLabel(phase: LaunchTxPhase): string {
+export function launchTxStatusLabel(
+  phase: LaunchTxPhase,
+  policy: 'lock_24h' | 'lock_7d' | 'lock_3m' | 'lock_6m' | 'burn' = 'lock_6m',
+): string {
+  const duration =
+    policy === 'lock_24h'
+      ? '24 hours'
+      : policy === 'lock_7d'
+        ? '7 days'
+        : policy === 'lock_3m'
+          ? '3 calendar months'
+          : '6 months';
   switch (phase) {
     case 'idle':
       return '';
@@ -196,19 +213,33 @@ export function launchTxStatusLabel(phase: LaunchTxPhase): string {
     case 'confirming':
       return 'Waiting for confirmation…';
     case 'lock_required':
-      return 'Token launched — lock incomplete';
+      return policy === 'burn'
+        ? 'Token launched — burn incomplete'
+        : 'Token launched — lock incomplete';
     case 'lock_preparing':
-      return 'Preparing 6-month lock…';
+      return policy === 'lock_6m' && duration === '6 months'
+        ? 'Preparing 6-month lock…'
+        : `Preparing ${duration} lock…`;
     case 'approving_lock':
       return 'Approve dev-token lock…';
     case 'awaiting_lock_wallet':
       return 'Confirm lock in wallet…';
     case 'locking_dev_tokens':
-      return 'Locking dev tokens for 6 months…';
+      return policy === 'lock_6m'
+        ? 'Locking dev tokens for 6 months…'
+        : `Locking dev tokens for ${duration}…`;
     case 'verifying_lock':
       return 'Verifying lock onchain…';
     case 'lock_verified':
-      return 'Dev tokens locked for 6 months.';
+      return policy === 'lock_6m'
+        ? 'Dev tokens locked for 6 months.'
+        : `Dev tokens locked for ${duration}.`;
+    case 'burning_dev_tokens':
+      return 'Burning dev supply';
+    case 'verifying_burn':
+      return 'Verifying burn';
+    case 'burn_verified':
+      return 'Dev supply burned.';
     case 'receipt_success':
       return 'Launch successful';
     case 'receipt_success_details_pending':

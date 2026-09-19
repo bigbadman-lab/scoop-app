@@ -9,6 +9,7 @@ import {
   emptyHoodlockFields,
   type PonsPendingLaunchState,
 } from './lifecycle-types';
+import { resolveDevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 
 const STORAGE_PREFIX = 'scoop:pons:pending-launch:v1:';
 const SCHEMA_VERSION_V1 = 1 as const;
@@ -175,6 +176,22 @@ export function parsePonsPendingLaunchState(raw: unknown): PonsPendingLaunchStat
   const hoodlock = parseHoodlockFields(o);
   if (!hoodlock) return null;
 
+  if (o.devSupplyPolicy != null && resolveDevSupplyPolicy(o.devSupplyPolicy) !== o.devSupplyPolicy) {
+    return null;
+  }
+  const burnTxHash = o.burnTxHash === undefined ? null : optionalTx(o.burnTxHash);
+  if (o.burnTxHash != null && burnTxHash == null) return null;
+  const burnVerified =
+    o.burnVerified === undefined ? null : optionalBoolean(o.burnVerified);
+  if (o.burnVerified != null && burnVerified == null) return null;
+  let burnVerifiedAt: number | null = null;
+  if (o.burnVerifiedAt != null) {
+    if (typeof o.burnVerifiedAt !== 'number' || !Number.isFinite(o.burnVerifiedAt)) {
+      return null;
+    }
+    burnVerifiedAt = o.burnVerifiedAt;
+  }
+
   let lastError: PonsPendingLaunchState['lastError'] = null;
   if (o.lastError != null) {
     if (typeof o.lastError !== 'object') return null;
@@ -226,6 +243,10 @@ export function parsePonsPendingLaunchState(raw: unknown): PonsPendingLaunchStat
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
     ...hoodlock,
+    devSupplyPolicy: resolveDevSupplyPolicy(o.devSupplyPolicy),
+    burnTxHash,
+    burnVerified,
+    burnVerifiedAt,
   };
 }
 

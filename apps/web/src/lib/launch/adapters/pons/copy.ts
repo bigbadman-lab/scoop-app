@@ -81,6 +81,27 @@ export function ponsLifecycleUserMessage(phase: PonsLaunchPhase): {
     case 'lock_verified':
     case 'complete':
       return PONS_LIFECYCLE_COPY.lockComplete;
+    case 'burn_required':
+      return {
+        title: 'Token launched successfully',
+        body: 'Dev supply burn still required. Do not launch again.',
+      };
+    case 'burn_submitted':
+    case 'burn_confirming':
+      return {
+        title: 'Burning dev supply',
+        body: 'Waiting for confirmation…',
+      };
+    case 'burn_verifying':
+      return {
+        title: 'Verifying burn',
+        body: 'Verifying the burn onchain…',
+      };
+    case 'burn_verified':
+      return {
+        title: 'Dev supply burned.',
+        body: 'Dev supply burned. Waiting for market indexing.',
+      };
     case 'recoverable_failure':
       return PONS_LIFECYCLE_COPY.lockRecoverableFailure;
     case 'lock_required':

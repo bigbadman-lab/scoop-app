@@ -1,38 +1,83 @@
 'use client';
 
 import type { FieldErrors, LaunchFormState } from '@/lib/launch/types';
+import {
+  DEV_SUPPLY_OPTIONS,
+  devSupplyOption,
+  isBurnDevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 type Props = {
   state: LaunchFormState;
   errors: FieldErrors;
   onPatch: (patch: Partial<LaunchFormState>) => void;
+  /** True after a launch tx exists — policy is then immutable. */
+  policyLocked?: boolean;
 };
 
 /**
- * Gate 7 public Dev Buy step — ETH pair fixed, mandatory non-zero buy,
- * 6-month HoodLock disclosure (no Scoop fee/quote catalogue).
+ * Gate 8D public Dev Buy step — ETH pair, mandatory buy, Dev Supply policy.
  */
-export function DevBuyStep({ state, errors, onPatch }: Props) {
+export function DevBuyStep({ state, errors, onPatch, policyLocked = false }: Props) {
+  const selected = devSupplyOption(state.devSupplyPolicy);
+  const burn = isBurnDevSupplyPolicy(state.devSupplyPolicy);
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Dev buy</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Every launch buys tokens with ETH and locks the creator&apos;s allocation for 6
-          months.
+          Every launch buys tokens with ETH. Choose how the creator allocation is
+          handled after launch.
         </p>
       </div>
 
-      <dl className="rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-3 font-mono text-[12px]">
-        <div className="flex justify-between gap-3 border-b border-[var(--divider)] py-2">
-          <dt className="text-[var(--muted-2)]">Pair</dt>
-          <dd data-testid="dev-buy-pair">ETH</dd>
+      <fieldset className="space-y-2" disabled={policyLocked}>
+        <legend className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+          Dev Supply
+        </legend>
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          role="radiogroup"
+          aria-label="Dev Supply"
+          data-testid="dev-supply-options"
+        >
+          {DEV_SUPPLY_OPTIONS.map((option) => {
+            const active = state.devSupplyPolicy === option.id;
+            return (
+              <label
+                key={option.id}
+                className={[
+                  'flex min-h-11 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border px-2 text-center font-mono text-[11px] uppercase tracking-[0.08em]',
+                  active
+                    ? 'border-[var(--scoop-green)] bg-[var(--scoop-green)] text-white!'
+                    : 'border-[var(--divider)] bg-[var(--bg-elevated)] text-[var(--fg)]',
+                  policyLocked ? 'cursor-not-allowed opacity-70' : '',
+                ].join(' ')}
+              >
+                <input
+                  type="radio"
+                  name="dev-supply-policy"
+                  className="sr-only"
+                  checked={active}
+                  disabled={policyLocked}
+                  data-testid={`dev-supply-${option.id}`}
+                  onChange={() => onPatch({ devSupplyPolicy: option.id })}
+                />
+                {option.label}
+              </label>
+            );
+          })}
         </div>
-        <div className="flex justify-between gap-3 py-2">
-          <dt className="text-[var(--muted-2)]">Dev tokens</dt>
-          <dd data-testid="dev-buy-lock-note">Locked for 6 months after launch</dd>
-        </div>
-      </dl>
+        <p className="text-[12px] text-[var(--muted)]" data-testid="dev-supply-helper">
+          {selected.helper}
+        </p>
+        {burn ? (
+          <p className="text-[12px] text-[var(--muted)]" data-testid="dev-supply-burn-warning">
+            Permanent and irreversible.
+          </p>
+        ) : null}
+      </fieldset>
 
       <label className="block space-y-1.5">
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
@@ -53,9 +98,10 @@ export function DevBuyStep({ state, errors, onPatch }: Props) {
             {errors.devBuyAmount}
           </span>
         ) : (
-          <span className="block text-[12px] text-[var(--muted)]">
-            Required. Pays the initial buy on Pons LaunchAndBuy (plus live launch fee &amp;
-            gas).
+          <span className="block text-[12px] text-[var(--muted)]" data-testid="dev-buy-funding">
+            {burn
+              ? 'Required. Pays the initial buy on Pons LaunchAndBuy, plus the live launch fee and gas. HoodLock fee is not charged.'
+              : 'Required. Pays the initial buy on Pons LaunchAndBuy, plus the live launch fee, HoodLock fee, and gas.'}
           </span>
         )}
       </label>

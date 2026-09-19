@@ -9,6 +9,7 @@ import { erc20ApproveAbi } from './hoodlock-abi';
 import { HOODLOCK_LOCKER_ADDRESS } from './hoodlock-constants';
 import { verifyHoodlockOnchainLock } from './hoodlock-verify';
 import { PonsAdapterError } from './errors';
+import { resolveDevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 import {
   bigintToDecimal,
   decimalToBigint,
@@ -225,6 +226,7 @@ export async function recoverHoodlockFromPending(args: {
         expectedAmount: exactAmount,
         lockBlockTimestampUnix: Number(block.timestamp),
         lockerAddress: hoodlock,
+        policy: resolveDevSupplyPolicy(state.devSupplyPolicy),
       });
       let next: PonsPendingLaunchState = {
         ...state,

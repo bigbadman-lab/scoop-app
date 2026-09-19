@@ -2,6 +2,8 @@
  * Pons launch + HoodLock lifecycle state (Gate 4 / Gate 5).
  */
 
+import type { DevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
+
 export type PonsLaunchPhase =
   | 'draft'
   | 'review'
@@ -25,6 +27,11 @@ export type PonsLaunchPhase =
   | 'lock_confirmed'
   | 'lock_verifying'
   | 'lock_verified'
+  | 'burn_required'
+  | 'burn_submitted'
+  | 'burn_confirming'
+  | 'burn_verifying'
+  | 'burn_verified'
   | 'recoverable_failure'
   | 'complete';
 
@@ -81,6 +88,14 @@ type PonsPendingLaunchBase = {
   hoodlockLockedAmount: DecimalString | null;
   hoodlockVerified: boolean | null;
   hoodlockVerificationBlock: DecimalString | null;
+  /**
+   * Chosen before LaunchAndBuy. Missing values are lock_6m.
+   * Immutable once ponsTxHash exists.
+   */
+  devSupplyPolicy?: DevSupplyPolicy;
+  burnTxHash?: `0x${string}` | null;
+  burnVerified?: boolean | null;
+  burnVerifiedAt?: number | null;
 };
 
 /** Gate 4 schema (still readable). */

@@ -1,4 +1,8 @@
 import { isMarketLivePhase, type LaunchTxPhase, type LaunchTxState } from '@/lib/launch/tx-state';
+import {
+  devSupplyOption,
+  type DevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 export type CompletionPanelCopy = {
   title: string;
@@ -15,6 +19,7 @@ export type CompletionPanelCopy = {
 export function completionPanelCopy(
   tx: Pick<LaunchTxState, 'phase' | 'error'>,
   ticker: string,
+  policy: DevSupplyPolicy = 'lock_6m',
 ): CompletionPanelCopy {
   const live = isMarketLivePhase(tx.phase);
   const symbol = ticker.startsWith('$') ? ticker : `$${ticker}`;
@@ -63,19 +68,27 @@ export function completionPanelCopy(
     tx.phase === 'waiting_for_indexer' ||
     tx.phase === 'receipt_success' ||
     tx.phase === 'lock_verified' ||
+    tx.phase === 'burn_verified' ||
     tx.phase === 'indexed' ||
     tx.phase === 'activating_news'
   ) {
+    const supply = devSupplyOption(policy);
     return {
       title: 'Launch successful',
       primary:
-        tx.phase === 'lock_verified'
-          ? 'Dev tokens locked for 6 months.'
-          : 'Market is live',
+        tx.phase === 'burn_verified'
+          ? 'Dev supply burned.'
+          : tx.phase === 'lock_verified'
+            ? policy === 'lock_6m'
+              ? 'Dev tokens locked for 6 months.'
+              : `Dev tokens locked for ${supply.label.toLowerCase()}.`
+            : 'Market is live',
       body:
-        tx.phase === 'lock_verified'
-          ? 'HoodLock verified. Waiting for Pons market indexing…'
-          : 'Your token is live and trading is available. Market data is appearing now.',
+        tx.phase === 'burn_verified'
+          ? 'Burn verified. Waiting for Pons market indexing…'
+          : tx.phase === 'lock_verified'
+            ? 'HoodLock verified. Waiting for Pons market indexing…'
+            : 'Your token is live and trading is available. Market data is appearing now.',
       syncHint:
         tx.phase === 'activating_news'
           ? 'News article is appearing now.'

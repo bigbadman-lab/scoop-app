@@ -55,6 +55,11 @@ import {
   isLaunchCommitted,
   listPonsPendingLaunches,
 } from '@/lib/launch/adapters/pons';
+import {
+  devSupplyOption,
+  isBurnDevSupplyPolicy,
+  resolveDevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -284,6 +289,7 @@ function LaunchFlowInner({ catalogue }: Props) {
     // Gate 7: only poll indexer after HoodLock verification (or legacy Scoop receipt).
     if (
       base.phase !== 'lock_verified' &&
+      base.phase !== 'burn_verified' &&
       base.phase !== 'receipt_success' &&
       base.phase !== 'waiting_for_indexer'
     ) {
@@ -429,6 +435,11 @@ function LaunchFlowInner({ catalogue }: Props) {
       ponsDraftIdRef.current = ponsPending.draftId;
       setPonsDraftId(ponsPending.draftId);
       dispatch({ type: 'SET_STEP', step: 3 });
+      const resumedPolicy = resolveDevSupplyPolicy(ponsPending.devSupplyPolicy);
+      const resumedBurn = isBurnDevSupplyPolicy(resumedPolicy);
+      const allocationDone = resumedBurn
+        ? ponsPending.burnVerified === true
+        : ponsPending.hoodlockVerified === true;
       dispatch({
         type: 'PATCH',
         patch: {
@@ -438,6 +449,7 @@ function LaunchFlowInner({ catalogue }: Props) {
           twitter: ponsPending.twitter,
           telegram: ponsPending.telegram,
           website: ponsPending.website,
+          devSupplyPolicy: resumedPolicy,
           devBuyAmount:
             ponsPending.quoteInWei && ponsPending.quoteInWei !== '0'
               ? '' // amount already committed; UI shows recovery, not editable buy
@@ -446,7 +458,11 @@ function LaunchFlowInner({ catalogue }: Props) {
       });
       setTx({
         ...INITIAL_LAUNCH_TX_STATE,
-        phase: ponsPending.hoodlockVerified ? 'lock_verified' : 'lock_required',
+        phase: allocationDone
+          ? resumedBurn
+            ? 'burn_verified'
+            : 'lock_verified'
+          : 'lock_required',
         txHash: ponsPending.ponsTxHash,
         decoded: ponsPending.tokenAddress
           ? {
@@ -463,9 +479,11 @@ function LaunchFlowInner({ catalogue }: Props) {
               symbol: ponsPending.symbol,
             }
           : null,
-        error: ponsPending.hoodlockVerified
+        error: allocationDone
           ? null
-          : 'Token launched successfully. Dev-token lock is incomplete. Resume locking.',
+          : resumedBurn
+            ? 'Token launched successfully. Dev-supply burn is incomplete. Resume burn.'
+            : 'Token launched successfully. Dev-token lock is incomplete. Resume locking.',
       });
       return;
     }
@@ -488,9 +506,13 @@ function LaunchFlowInner({ catalogue }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only resume
   }, []);
 
-  /** After HoodLock verification, start indexer completion once. */
+  /** After lock or burn verification, start indexer completion once. */
   useEffect(() => {
-    if (tx.phase !== 'lock_verified' || !tx.decoded?.token || !tx.txHash) {
+    if (
+      (tx.phase !== 'lock_verified' && tx.phase !== 'burn_verified') ||
+      !tx.decoded?.token ||
+      !tx.txHash
+    ) {
       return;
     }
     startCompletionFromTx(tx);
@@ -773,10 +795,10 @@ function LaunchFlowInner({ catalogue }: Props) {
               : tx.phase === 'index_mismatch'
                 ? 'Indexed launch mismatch'
                 : isLaunchTxBusy(tx.phase)
-                  ? launchTxBusyReason(tx.phase)
+                  ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
                   : 'Launch transaction already submitted'
           : isLaunchTxBusy(tx.phase)
-            ? launchTxBusyReason(tx.phase)
+            ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
             : !LAUNCH_WRITE_ENABLED
               ? 'Launch submission is disabled.'
               : schemaReady === false
@@ -919,8 +941,11 @@ function LaunchFlowInner({ catalogue }: Props) {
       <header className="mb-5 md:mb-6">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Launch something new</h1>
         <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)] md:text-base">
-          Create a Pons V2 token with an ETH dev buy. Your allocation locks for 6 months via
-          HoodLock.
+          {isBurnDevSupplyPolicy(state.devSupplyPolicy)
+            ? 'Create a Pons V2 token with an ETH dev buy. Your full dev allocation is burned after launch.'
+            : state.devSupplyPolicy === 'lock_6m'
+              ? 'Create a Pons V2 token with an ETH dev buy. Your allocation locks for 6 months via HoodLock.'
+              : `Create a Pons V2 token with an ETH dev buy. ${devSupplyOption(state.devSupplyPolicy).helper}`}
         </p>
       </header>
 
@@ -963,6 +988,7 @@ function LaunchFlowInner({ catalogue }: Props) {
         <DevBuyStep
           state={state}
           errors={visibleErrors}
+          policyLocked={Boolean(tx.txHash) || isLaunchCompletionActive(tx.phase)}
           onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
         />
       ) : null}
@@ -1020,10 +1046,12 @@ function LaunchFlowInner({ catalogue }: Props) {
                 )
                 ? 'View token →'
                 : tx.phase === 'lock_required'
-                  ? 'Resume locking →'
+                  ? isBurnDevSupplyPolicy(state.devSupplyPolicy)
+                    ? 'Resume burn →'
+                    : 'Resume locking →'
                   : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
                     ? isLaunchTxBusy(tx.phase)
-                      ? launchTxBusyReason(tx.phase)
+                      ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
                       : 'Confirmed'
                     : 'Launch token →'
               : 'Continue →'
@@ -1048,7 +1076,11 @@ function LaunchFlowInner({ catalogue }: Props) {
   );
 }
 
-function launchTxBusyReason(phase: LaunchTxState['phase']): string {
+function launchTxBusyReason(
+  phase: LaunchTxState['phase'],
+  policy: ReturnType<typeof resolveDevSupplyPolicy> = 'lock_6m',
+): string {
+  const burn = isBurnDevSupplyPolicy(policy);
   switch (phase) {
     case 'preparing_artwork':
       return 'Preparing artwork…';
@@ -1060,7 +1092,7 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
     case 'confirming':
       return 'Confirming launch…';
     case 'lock_preparing':
-      return 'Preparing 6-month lock…';
+      return policy === 'lock_6m' ? 'Preparing 6-month lock…' : 'Preparing lock…';
     case 'approving_lock':
       return 'Approve lock in your wallet…';
     case 'awaiting_lock_wallet':
@@ -1068,12 +1100,16 @@ function launchTxBusyReason(phase: LaunchTxState['phase']): string {
       return 'Locking dev tokens…';
     case 'verifying_lock':
       return 'Verifying lock…';
+    case 'burning_dev_tokens':
+      return 'Burning dev supply';
+    case 'verifying_burn':
+      return 'Verifying burn';
     case 'waiting_for_indexer':
       return 'Market data is appearing now.';
     case 'activating_news':
       return 'Linking News article…';
     default:
-      return 'Launch in progress…';
+      return burn ? 'Burn in progress…' : 'Launch in progress…';
   }
 }
 

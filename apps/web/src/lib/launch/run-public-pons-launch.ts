@@ -42,6 +42,11 @@ import {
   broadcastHoodlockApproval,
   broadcastHoodlockLock,
 } from '@/lib/launch/hoodlock-orchestrate';
+import {
+  broadcastBurnDevSupply,
+  recoverBurnFromPending,
+} from '@/lib/launch/burn-orchestrate';
+import { resolveDevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 
 export const PONS_SCHEMA_BLOCKED_MESSAGE =
   'BLOCKED — PONS MARKET INDEXING SCHEMA NOT READY';
@@ -183,6 +188,15 @@ export function ponsPhaseToTxPhase(
     case 'lock_verified':
     case 'complete':
       return 'lock_verified';
+    case 'burn_required':
+      return 'lock_required';
+    case 'burn_submitted':
+    case 'burn_confirming':
+      return 'burning_dev_tokens';
+    case 'burn_verifying':
+      return 'verifying_burn';
+    case 'burn_verified':
+      return 'burn_verified';
     case 'recoverable_failure':
       return 'failed';
     default:
@@ -303,6 +317,7 @@ export async function runPublicPonsLaunch(
     creatorTaxBps: 0,
     buybackEnabled: true,
     slippageBps: PONS_DEV_BUY_SLIPPAGE_BPS,
+    devSupplyPolicy: input.state.devSupplyPolicy,
   });
   callbacks.onPendingState?.(pending);
 
@@ -379,7 +394,9 @@ export async function runPublicPonsLaunch(
     pending = broadcast.state;
     callbacks.onPendingState?.(pending);
     callbacks.onPhase({
-      phase: 'lock_required',
+      phase: resolveDevSupplyPolicy(pending.devSupplyPolicy) === 'burn'
+        ? 'burning_dev_tokens'
+        : 'lock_required',
       txHash: broadcast.ponsTxHash,
       expectedDeployer: creator,
       expectedCreatorId: creatorIdFromWallet(creator),
@@ -407,7 +424,7 @@ export async function runPublicPonsLaunch(
     return fail(callbacks, userFacingError(e), {}, mid);
   }
 
-  return finishHoodlockAndVerify({
+  return continueAfterPonsLaunch({
     draftId: input.draftId,
     publicClient: input.publicClient,
     walletClient: input.walletClient,
@@ -458,6 +475,20 @@ export async function resumePublicPonsLaunch(args: {
         pending,
       );
     }
+  }
+
+  const policy = resolveDevSupplyPolicy(pending.devSupplyPolicy);
+  if (policy === 'burn') {
+    if (pending.burnVerified || pending.phase === 'burn_verified') {
+      return successFromPending(callbacks, pending, args.state);
+    }
+    return finishBurnAndVerify({
+      draftId: args.draftId,
+      publicClient: args.publicClient,
+      walletClient: args.walletClient,
+      callbacks,
+      formState: args.state,
+    });
   }
 
   if (pending.hoodlockVerified || pending.phase === 'lock_verified') {
@@ -518,6 +549,182 @@ export async function resumePublicPonsLaunch(args: {
   });
 }
 
+async function continueAfterPonsLaunch(args: {
+  draftId: string;
+  publicClient: PublicClient;
+  walletClient: WalletClient<Transport, Chain | undefined, Account | undefined>;
+  getLiveAccount: () => {
+    address: `0x${string}` | undefined;
+    chainId: number | undefined;
+  };
+  callbacks: PublicPonsLaunchCallbacks;
+  formState: LaunchFormState;
+}): Promise<RunPublicPonsLaunchResult> {
+  const pending = loadPonsPendingLaunch(args.draftId);
+  if (resolveDevSupplyPolicy(pending?.devSupplyPolicy) === 'burn') {
+    return finishBurnAndVerify(args);
+  }
+  return finishHoodlockAndVerify(args);
+}
+
+async function finishBurnAndVerify(args: {
+  draftId: string;
+  publicClient: PublicClient;
+  walletClient: WalletClient<Transport, Chain | undefined, Account | undefined>;
+  callbacks: PublicPonsLaunchCallbacks;
+  formState: LaunchFormState;
+}): Promise<RunPublicPonsLaunchResult> {
+  const { callbacks } = args;
+  let pending = loadPonsPendingLaunch(args.draftId);
+  if (!pending?.tokenAddress || !pending.devTokensOut) {
+    return fail(
+      callbacks,
+      'Token launched successfully. Dev-supply burn is incomplete. Resume burn.',
+      { txHash: pending?.ponsTxHash ?? null, phase: 'lock_required' },
+      pending,
+    );
+  }
+  if (resolveDevSupplyPolicy(pending.devSupplyPolicy) !== 'burn') {
+    return finishHoodlockAndVerify({
+      ...args,
+      getLiveAccount: () => ({ address: pending?.creator, chainId: pending?.chainId }),
+    });
+  }
+  if (pending.burnVerified) {
+    return successFromPending(callbacks, pending, args.formState);
+  }
+
+  if (pending.burnTxHash) {
+    callbacks.onPhase({
+      phase: 'verifying_burn',
+      txHash: pending.ponsTxHash,
+      decoded: ponsPendingToDecoded(pending),
+      error: 'Burn transaction already submitted. Checking its status…',
+    });
+    try {
+      const recovered = await recoverBurnFromPending({
+        publicClient: args.publicClient,
+        draftId: args.draftId,
+      });
+      pending = recovered.state;
+      callbacks.onPendingState?.(pending);
+      if (pending.burnVerified) {
+        return successFromPending(callbacks, pending, args.formState);
+      }
+      if (recovered.outcome === 'BURN_PENDING') {
+        return fail(
+          callbacks,
+          'Burn transaction already submitted. Checking its status…',
+          {
+            txHash: pending.ponsTxHash,
+            decoded: ponsPendingToDecoded(pending),
+            phase: 'burning_dev_tokens',
+          },
+          pending,
+        );
+      }
+      if (recovered.outcome === 'BURN_RECOVERY_UNRESOLVED') {
+        return fail(
+          callbacks,
+          pending.lastError?.message ?? 'Burn could not be verified.',
+          {
+            txHash: pending.ponsTxHash,
+            decoded: ponsPendingToDecoded(pending),
+            phase: 'failed',
+          },
+          pending,
+        );
+      }
+    } catch (e) {
+      return fail(
+        callbacks,
+        userFacingError(e),
+        {
+          txHash: pending.ponsTxHash,
+          decoded: ponsPendingToDecoded(pending),
+          phase: 'failed',
+        },
+        pending,
+      );
+    }
+  }
+
+  pending = loadPonsPendingLaunch(args.draftId) ?? pending;
+  if (pending.burnTxHash) {
+    return fail(
+      callbacks,
+      'Burn transaction already submitted. Do not launch again.',
+      {
+        txHash: pending.ponsTxHash,
+        decoded: ponsPendingToDecoded(pending),
+        phase: 'burning_dev_tokens',
+      },
+      pending,
+    );
+  }
+
+  callbacks.onPhase({
+    phase: 'burning_dev_tokens',
+    txHash: pending.ponsTxHash,
+    decoded: ponsPendingToDecoded(pending),
+    error: null,
+  });
+
+  try {
+    const burned = await broadcastBurnDevSupply({
+      publicClient: args.publicClient,
+      draftId: args.draftId,
+      writeContract: async (request) => {
+        callbacks.onPhase({
+          phase: 'burning_dev_tokens',
+          txHash: pending?.ponsTxHash ?? null,
+          decoded: ponsPendingToDecoded(pending!),
+          error: null,
+        });
+        return args.walletClient.writeContract({
+          address: request.address,
+          abi: request.abi,
+          functionName: request.functionName,
+          args: [...request.args],
+          account: request.account,
+          chain: null,
+        });
+      },
+    });
+    pending = burned.state;
+    callbacks.onPendingState?.(pending);
+  } catch (e) {
+    const mid = loadPonsPendingLaunch(args.draftId);
+    return fail(
+      callbacks,
+      mid?.ponsTxHash
+        ? `Token launched successfully. Dev-supply burn is incomplete. Resume burn. (${userFacingError(e)})`
+        : userFacingError(e),
+      {
+        txHash: mid?.ponsTxHash ?? null,
+        decoded: mid ? ponsPendingToDecoded(mid) : null,
+        phase: mid?.ponsTxHash ? 'lock_required' : 'failed',
+      },
+      mid,
+    );
+  }
+
+  pending = loadPonsPendingLaunch(args.draftId);
+  if (!pending?.burnVerified) {
+    return fail(
+      callbacks,
+      'Token launched successfully. Dev-supply burn is incomplete. Resume burn.',
+      {
+        txHash: pending?.ponsTxHash ?? null,
+        decoded: pending ? ponsPendingToDecoded(pending) : null,
+        phase: 'lock_required',
+      },
+      pending,
+    );
+  }
+  return successFromPending(callbacks, pending, args.formState);
+}
+
 async function finishHoodlockAndVerify(args: {
   draftId: string;
   publicClient: PublicClient;
@@ -538,6 +745,9 @@ async function finishHoodlockAndVerify(args: {
       { txHash: pending?.ponsTxHash ?? null, phase: 'lock_required' },
       pending,
     );
+  }
+  if (resolveDevSupplyPolicy(pending.devSupplyPolicy) === 'burn') {
+    return finishBurnAndVerify(args);
   }
 
   callbacks.onPhase({
@@ -656,9 +866,10 @@ function successFromPending(
 ): RunPublicPonsLaunchResult {
   const decoded = ponsPendingToDecoded(pending);
   const creator = getAddress(pending.creator) as `0x${string}`;
+  const burned = resolveDevSupplyPolicy(pending.devSupplyPolicy) === 'burn';
   const state: LaunchTxState = {
     ...INITIAL_LAUNCH_TX_STATE,
-    phase: 'lock_verified',
+    phase: burned ? 'burn_verified' : 'lock_verified',
     txHash: pending.ponsTxHash,
     expectedDeployer: creator,
     expectedCreatorId: creatorIdFromWallet(creator),

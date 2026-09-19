@@ -29,6 +29,8 @@ export type PonsAdapterErrorCode =
   | 'LOCK_DECODE_FAILED'
   | 'LOCK_VERIFY_FAILED'
   | 'LOCK_DUPLICATE_BLOCKED'
+  | 'BURN_SIMULATION_FAILED'
+  | 'BURN_VERIFY_FAILED'
   | 'UNKNOWN';
 
 export type PonsCustomErrorName =

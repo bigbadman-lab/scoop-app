@@ -21,6 +21,7 @@ import {
   bigintToDecimal,
   decimalToBigint,
   emptyHoodlockFields,
+  isLaunchCommitted,
   type PonsPendingLaunchState,
 } from '@/lib/launch/adapters/pons/lifecycle-types';
 import {
@@ -28,6 +29,11 @@ import {
   savePonsPendingLaunch,
 } from '@/lib/launch/adapters/pons/pending-storage';
 import { assertPonsRelaunchAllowed } from '@/lib/launch/adapters/pons/relaunch-guard';
+import {
+  DEFAULT_DEV_SUPPLY_POLICY,
+  resolveDevSupplyPolicy,
+  type DevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 import type {
   PonsLaunchAdapterInput,
   PonsLaunchAndBuyRequest,
@@ -96,6 +102,8 @@ export type CreatePonsDraftInput = {
   slippageBps?: number;
   /** Optional pre-existing salt (resume). */
   salt?: `0x${string}`;
+  /** Persisted before broadcast. Ignored once ponsTxHash exists. */
+  devSupplyPolicy?: DevSupplyPolicy;
 };
 
 /**
@@ -107,8 +115,23 @@ export function createOrResumePonsDraft(
 ): PonsPendingLaunchState {
   const existing = loadPonsPendingLaunch(input.draftId);
   if (existing) {
-    // Salt immutable once set; never replace silently.
-    return existing;
+    if (isLaunchCommitted(existing)) {
+      return {
+        ...existing,
+        devSupplyPolicy: resolveDevSupplyPolicy(existing.devSupplyPolicy),
+      };
+    }
+    const policy = resolveDevSupplyPolicy(
+      input.devSupplyPolicy ?? existing.devSupplyPolicy,
+    );
+    if (existing.devSupplyPolicy === policy) return existing;
+    const next: PonsPendingLaunchState = {
+      ...existing,
+      devSupplyPolicy: policy,
+      updatedAt: now(),
+    };
+    savePonsPendingLaunch(next);
+    return next;
   }
 
   const creator = getAddress(input.creator) as `0x${string}`;
@@ -152,6 +175,12 @@ export function createOrResumePonsDraft(
     receiptBlockNumber: null,
     lastError: null,
     ...emptyHoodlockFields(),
+    devSupplyPolicy: resolveDevSupplyPolicy(
+      input.devSupplyPolicy ?? DEFAULT_DEV_SUPPLY_POLICY,
+    ),
+    burnTxHash: null,
+    burnVerified: null,
+    burnVerifiedAt: null,
     createdAt,
     updatedAt: createdAt,
   };

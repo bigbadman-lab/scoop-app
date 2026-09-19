@@ -111,4 +111,12 @@ describe('pons pending storage', () => {
     savePonsPendingLaunch(baseState());
     expect(loadPonsPendingLaunch('draft-1')?.salt).toBe(salt);
   });
+
+  it('recovers old records with no policy as lock_6m', () => {
+    const raw = baseState();
+    delete (raw as { devSupplyPolicy?: string }).devSupplyPolicy;
+    const parsed = parsePonsPendingLaunchState(raw);
+    expect(parsed?.devSupplyPolicy).toBe('lock_6m');
+    expect(parsePonsPendingLaunchState({ ...baseState(), devSupplyPolicy: 'not-a-policy' })).toBeNull();
+  });
 });

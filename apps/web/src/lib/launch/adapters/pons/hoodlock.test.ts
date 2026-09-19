@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { proposeSixMonthUnlock, addCalendarMonthsUtc } from '@scoop/shared';
+import { proposeUnlockUnix } from '@/lib/launch/dev-supply-policy';
 import {
   __resetPonsPendingLaunchMemoryForTests,
   clearPonsPendingLaunch,
@@ -231,6 +232,40 @@ describe('Gate 5 HoodLock browser flow', () => {
       expect(loadPonsPendingLaunch(draftId)?.hoodlockFeeWei).toBe(
         bigintToDecimal(FIXTURE_HOODLOCK_FEE),
       );
+    });
+
+    it('proposes a 24-hour unlock when that policy is selected', async () => {
+      savePonsPendingLaunch(lockRequiredState({ devSupplyPolicy: 'lock_24h' }));
+      const publicClient = {
+        readContract: vi.fn(async ({ functionName }: { functionName: string }) => {
+          if (functionName === 'fee') return FIXTURE_HOODLOCK_FEE;
+          return FIXTURE_TOKENS_OUT;
+        }),
+        getBalance: vi.fn(async () => BigInt(10) ** BigInt(18)),
+      };
+      const result = await runHoodlockPreflight({
+        publicClient: publicClient as never,
+        state: loadPonsPendingLaunch(draftId)!,
+        chainId: HOODLOCK_CHAIN_ID,
+        chainTimestampUnix: CHAIN_TS,
+      });
+      expect(result.unlockTime).toBe(
+        BigInt(proposeUnlockUnix({ policy: 'lock_24h', chainTimestampUnix: CHAIN_TS })),
+      );
+    });
+
+    it('refuses HoodLock preflight for burn policy', async () => {
+      savePonsPendingLaunch(lockRequiredState({ devSupplyPolicy: 'burn' }));
+      const publicClient = { readContract: vi.fn() };
+      await expect(
+        runHoodlockPreflight({
+          publicClient: publicClient as never,
+          state: loadPonsPendingLaunch(draftId)!,
+          chainId: HOODLOCK_CHAIN_ID,
+          chainTimestampUnix: CHAIN_TS,
+        }),
+      ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+      expect(publicClient.readContract).not.toHaveBeenCalled();
     });
 
     it('rejects insufficient token balance', async () => {

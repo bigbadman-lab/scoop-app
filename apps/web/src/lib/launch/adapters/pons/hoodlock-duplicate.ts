@@ -3,7 +3,6 @@
  */
 import type { PublicClient } from 'viem';
 import { getAddress } from 'viem';
-import { verifySixMonthUnlock } from '@scoop/shared';
 import { PonsAdapterError } from './errors';
 import { hoodlockLockerAbi } from './hoodlock-abi';
 import { HOODLOCK_LOCKER_ADDRESS } from './hoodlock-constants';
@@ -13,6 +12,11 @@ import {
 } from './lifecycle-types';
 import type { HoodlockOnchainLock } from './hoodlock-verify';
 import { readHoodlockLock } from './hoodlock-verify';
+import {
+  resolveDevSupplyPolicy,
+  unlockSatisfiesPolicy,
+  type DevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 /**
  * Block blind second lock when local evidence already commits a lock.
@@ -44,9 +48,10 @@ export async function loadMatchingHoodlockLocks(args: {
   owner: `0x${string}`;
   token: `0x${string}`;
   expectedAmount: bigint;
-  /** Reference for six-month minimum (e.g. launch/lock block time). */
+  /** Reference for the selected lock policy (lock block time). */
   lockTimeReferenceUnix: number;
   lockerAddress?: `0x${string}`;
+  policy?: DevSupplyPolicy;
 }): Promise<HoodlockOnchainLock[]> {
   const locker = getAddress(
     args.lockerAddress ?? HOODLOCK_LOCKER_ADDRESS,
@@ -82,11 +87,14 @@ export async function loadMatchingHoodlockLocks(args: {
     if (lock.owner.toLowerCase() !== owner.toLowerCase()) continue;
     if (lock.token.toLowerCase() !== token.toLowerCase()) continue;
     if (lock.amount !== args.expectedAmount) continue;
-    const policy = verifySixMonthUnlock({
+    const policy = resolveDevSupplyPolicy(args.policy);
+    if (policy === 'burn') continue;
+    const check = unlockSatisfiesPolicy({
+      policy,
       unlockTimeUnix: Number(lock.unlockTime),
       lockTimeReferenceUnix: args.lockTimeReferenceUnix,
     });
-    if (!policy.ok) continue;
+    if (!check.ok) continue;
     matches.push(lock);
   }
   return matches;
@@ -102,6 +110,7 @@ export async function findExistingQualifyingHoodlockLock(args: {
   expectedAmount: bigint;
   lockTimeReferenceUnix: number;
   lockerAddress?: `0x${string}`;
+  policy?: DevSupplyPolicy;
 }): Promise<HoodlockOnchainLock | null> {
   const matches = await loadMatchingHoodlockLocks(args);
   if (matches.length === 0) return null;

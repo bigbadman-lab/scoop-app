@@ -3,10 +3,14 @@
  */
 import type { PublicClient } from 'viem';
 import { getAddress } from 'viem';
-import { verifySixMonthUnlock } from '@scoop/shared';
 import { PonsAdapterError } from './errors';
 import { hoodlockLockerAbi } from './hoodlock-abi';
 import { HOODLOCK_LOCKER_ADDRESS } from './hoodlock-constants';
+import {
+  resolveDevSupplyPolicy,
+  unlockSatisfiesPolicy,
+  type DevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 export type HoodlockOnchainLock = {
   lockId: bigint;
@@ -55,6 +59,8 @@ export async function verifyHoodlockOnchainLock(args: {
   /** Block timestamp when the lock was mined. */
   lockBlockTimestampUnix: number;
   lockerAddress?: `0x${string}`;
+  /** Defaults to lock_6m so older callers keep the previous policy. */
+  policy?: DevSupplyPolicy;
 }): Promise<HoodlockOnchainLock> {
   const lock = await readHoodlockLock({
     publicClient: args.publicClient,
@@ -90,15 +96,20 @@ export async function verifyHoodlockOnchainLock(args: {
     );
   }
 
-  const policy = verifySixMonthUnlock({
+  const policy = resolveDevSupplyPolicy(args.policy);
+  if (policy === 'burn') {
+    throw new PonsAdapterError(
+      'INVALID_INPUT',
+      'Burn policy does not use HoodLock.',
+    );
+  }
+  const check = unlockSatisfiesPolicy({
+    policy,
     unlockTimeUnix: Number(lock.unlockTime),
     lockTimeReferenceUnix: args.lockBlockTimestampUnix,
   });
-  if (!policy.ok) {
-    throw new PonsAdapterError(
-      'LOCK_VERIFY_FAILED',
-      'Onchain unlock time does not satisfy the 6-calendar-month policy.',
-    );
+  if (!check.ok) {
+    throw new PonsAdapterError('LOCK_VERIFY_FAILED', check.message);
   }
 
   return lock;

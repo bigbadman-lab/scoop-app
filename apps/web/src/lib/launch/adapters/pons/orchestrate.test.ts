@@ -8,6 +8,7 @@ import {
   __resetPonsPendingLaunchMemoryForTests,
   clearPonsPendingLaunch,
   loadPonsPendingLaunch,
+  savePonsPendingLaunch,
 } from './pending-storage';
 import { PonsAdapterError } from './errors';
 import {
@@ -176,5 +177,61 @@ describe('pons orchestrator', () => {
         chainId: PONS_V2_CHAIN_ID,
       }),
     ).rejects.toBeInstanceOf(PonsAdapterError);
+  });
+
+  it('persists dev supply policy before launch and freezes it after ponsTxHash', () => {
+    const first = createOrResumePonsDraft({
+      draftId,
+      creator: FIXTURE_CREATOR,
+      name: 'Example',
+      symbol: 'EXMPL',
+      logo: 'ipfs://logo',
+      description: 'd',
+      quoteInWei: BigInt('45000000000000000'),
+      creatorTaxBps: 0,
+      buybackEnabled: true,
+      devSupplyPolicy: 'burn',
+    });
+    expect(first.devSupplyPolicy).toBe('burn');
+    expect(first.ponsTxHash).toBeNull();
+    expect(loadPonsPendingLaunch(draftId)?.devSupplyPolicy).toBe('burn');
+
+    const edited = createOrResumePonsDraft({
+      draftId,
+      creator: FIXTURE_CREATOR,
+      name: 'Example',
+      symbol: 'EXMPL',
+      logo: 'ipfs://logo',
+      description: 'd',
+      quoteInWei: BigInt('45000000000000000'),
+      creatorTaxBps: 0,
+      buybackEnabled: true,
+      devSupplyPolicy: 'lock_24h',
+    });
+    expect(edited.devSupplyPolicy).toBe('lock_24h');
+
+    const committed = loadPonsPendingLaunch(draftId)!;
+    savePonsPendingLaunch({
+      ...committed,
+      ponsTxHash:
+        '0x10ada643ab9b790aa4d50ec91d65d11844df1049615e779c2c219eea05a69d3f',
+      phase: 'launch_submitted',
+    });
+    const frozen = createOrResumePonsDraft({
+      draftId,
+      creator: FIXTURE_CREATOR,
+      name: 'Example',
+      symbol: 'EXMPL',
+      logo: 'ipfs://logo',
+      description: 'd',
+      quoteInWei: BigInt('45000000000000000'),
+      creatorTaxBps: 0,
+      buybackEnabled: true,
+      devSupplyPolicy: 'burn',
+    });
+    expect(frozen.devSupplyPolicy).toBe('lock_24h');
+    expect(frozen.ponsTxHash).toBe(
+      '0x10ada643ab9b790aa4d50ec91d65d11844df1049615e779c2c219eea05a69d3f',
+    );
   });
 });

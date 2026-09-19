@@ -3,7 +3,6 @@
  */
 import type { PublicClient } from 'viem';
 import { getAddress } from 'viem';
-import { proposeSixMonthUnlock } from '@scoop/shared';
 import { PonsAdapterError } from './errors';
 import { erc20ApproveAbi, hoodlockLockerAbi } from './hoodlock-abi';
 import {
@@ -17,6 +16,10 @@ import {
   type PonsPendingLaunchState,
 } from './lifecycle-types';
 import { savePonsPendingLaunch } from './pending-storage';
+import {
+  proposeUnlockUnix,
+  resolveDevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
 
 export type HoodlockPreflightResult = {
   state: PonsPendingLaunchState;
@@ -73,6 +76,13 @@ export async function runHoodlockPreflight(args: {
   }
 
   const exactLockAmount = requireExactDevTokens(state);
+  const policy = resolveDevSupplyPolicy(state.devSupplyPolicy);
+  if (policy === 'burn') {
+    throw new PonsAdapterError(
+      'INVALID_INPUT',
+      'Burn policy does not use HoodLock.',
+    );
+  }
   const creator = getAddress(state.creator) as `0x${string}`;
   const token = getAddress(state.tokenAddress) as `0x${string}`;
   const hoodlock = getAddress(HOODLOCK_LOCKER_ADDRESS) as `0x${string}`;
@@ -128,7 +138,8 @@ export async function runHoodlockPreflight(args: {
     chainTimestampUnix = Number(block.timestamp);
   }
 
-  const unlockTimeNum = proposeSixMonthUnlock({
+  const unlockTimeNum = proposeUnlockUnix({
+    policy,
     chainTimestampUnix,
   });
   const unlockTime = BigInt(unlockTimeNum);

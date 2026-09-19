@@ -16,6 +16,12 @@ import { formatEthWei, parseEthDevBuyWei } from '@/lib/launch/dev-buy';
 import { truncateAddress } from '@/lib/format';
 import { ContractCopy } from '@/components/ui/ContractCopy';
 import { PONS_DEV_BUY_SLIPPAGE_BPS } from '@/lib/launch/adapters/pons/constants';
+import {
+  devSupplyOption,
+  isBurnDevSupplyPolicy,
+  type DevSupplyPolicy,
+} from '@/lib/launch/dev-supply-policy';
+import { burnFundingNote, lockFundingNote } from '@/lib/launch/burn-orchestrate';
 
 type Props = {
   state: LaunchFormState;
@@ -44,12 +50,15 @@ export function ReviewStep({
   const buy = parseEthDevBuyWei(state.devBuyAmount);
   const buyWei = buy.ok ? buy.amount : BigInt(0);
   const busy = isLaunchTxBusy(tx.phase);
+  const supply = devSupplyOption(state.devSupplyPolicy);
+  const burn = isBurnDevSupplyPolicy(state.devSupplyPolicy);
   const ticker = tx.indexedLaunch?.symbol ?? tx.decoded?.symbol ?? state.ticker;
   const tokenAddr = tx.indexedLaunch?.tokenAddress ?? tx.decoded?.token ?? null;
   const marketHref = tokenAddr ? tokenMarketPath(tokenAddr) : null;
 
   const showPostReceipt =
     tx.phase === 'lock_verified' ||
+    tx.phase === 'burn_verified' ||
     tx.phase === 'receipt_success' ||
     tx.phase === 'receipt_success_details_pending' ||
     tx.phase === 'waiting_for_indexer' ||
@@ -69,8 +78,9 @@ export function ReviewStep({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Pons V2 launches the token with your ETH dev buy, then HoodLock locks those
-          tokens for 6 months. You may confirm up to three wallet transactions.
+          {burn
+            ? 'Pons V2 launches the token with your ETH dev buy, then the full dev allocation is burned. You may confirm two wallet transactions.'
+            : 'Pons V2 launches the token with your ETH dev buy, then HoodLock locks those tokens. You may confirm up to three wallet transactions.'}
         </p>
       </div>
 
@@ -91,6 +101,7 @@ export function ReviewStep({
           tokenName={tx.indexedLaunch?.name ?? tx.decoded?.name ?? state.name}
           previewUrl={state.image.previewUrl}
           marketHref={marketHref}
+          policy={state.devSupplyPolicy}
           onRetryIndex={onRetryIndex}
           onRetryNews={onRetryNews}
           onViewMarket={onViewMarket}
@@ -106,14 +117,16 @@ export function ReviewStep({
             Token launched successfully.
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Dev-token lock is incomplete. Resume locking — do not launch again.
+            {burn
+              ? 'Dev-supply burn is incomplete. Resume burn — do not launch again.'
+              : 'Dev-token lock is incomplete. Resume locking — do not launch again.'}
           </p>
           <button
             type="button"
             className="mt-3 min-h-10 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
             onClick={onResumeLock}
           >
-            Resume locking →
+            {burn ? 'Resume burn →' : 'Resume locking →'}
           </button>
         </div>
       ) : null}
@@ -134,7 +147,7 @@ export function ReviewStep({
           role="status"
           data-testid="launch-tx-phase"
         >
-          {launchTxStatusLabel(tx.phase)}
+          {launchTxStatusLabel(tx.phase, state.devSupplyPolicy)}
         </p>
       ) : null}
 
@@ -186,12 +199,22 @@ export function ReviewStep({
           </p>
         </TicketBlock>
 
-        <TicketBlock title="HoodLock">
-          <dl className="space-y-2 text-sm" data-testid="hoodlock-summary">
-            <Row label="Dev tokens" value="Locked for 6 calendar months" />
-            <Row label="Approval" value="Exact amount only" />
-            <Row label="Lock fee" value="Live onchain read" />
+        <TicketBlock title="Dev supply">
+          <dl className="space-y-2 text-sm" data-testid="dev-supply-summary">
+            <Row label="Dev Supply" value={supply.reviewValue} />
+            {burn ? null : (
+              <>
+                <Row label="Approval" value="Exact amount only" />
+                <Row label="Lock fee" value="Live onchain read" />
+              </>
+            )}
           </dl>
+          <p className="mt-3 text-sm text-[var(--muted)]" data-testid="dev-supply-review-detail">
+            {supply.reviewDetail}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]" data-testid="dev-supply-funding">
+            {burn ? burnFundingNote() : lockFundingNote()}
+          </p>
         </TicketBlock>
 
         <TicketBlock title="Creator wallet">
@@ -199,7 +222,8 @@ export function ReviewStep({
             {connectedAddress ? truncateAddress(connectedAddress) : 'Connect a wallet'}
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Connected wallet is deployer, fee recipient, buy recipient, and HoodLock owner.
+            Connected wallet is deployer, fee recipient, and buy recipient
+            {burn ? '.' : ', and HoodLock owner.'}
           </p>
         </TicketBlock>
 
@@ -259,6 +283,7 @@ function CompletionPanel({
   tokenName,
   previewUrl,
   marketHref,
+  policy,
   onRetryIndex,
   onRetryNews,
   onViewMarket,
@@ -268,11 +293,12 @@ function CompletionPanel({
   tokenName: string;
   previewUrl: string | null;
   marketHref: string | null;
+  policy: DevSupplyPolicy;
   onRetryIndex?: () => void;
   onRetryNews?: () => void;
   onViewMarket?: () => void;
 }) {
-  const copy = completionPanelCopy(tx, ticker);
+  const copy = completionPanelCopy(tx, ticker, policy);
   const live = isMarketLivePhase(tx.phase);
   const showView = canShowViewMarket(tx.phase, marketHref);
 
