@@ -205,6 +205,7 @@ export function applyLiveTipToTokenDetail(
     factoryAddress: tip.factoryAddress ?? '',
     feeDistributorAddress: '',
     liquidityLockerAddress: '',
+    launchTxHash: null,
     sqrtPriceX96: null,
     tick: null,
     liquidityRaw: null,

@@ -31,6 +31,11 @@ import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { shouldShowBondingProgress } from '@/lib/token/market-status';
 import { safeHttpsUrl } from '@/lib/token/safe-external-url';
 import type { TokenNewsLore } from '@/lib/token/load-token-page';
+import {
+  pumpFunCoinUrl,
+  solanaExplorerAddressUrl,
+  solanaExplorerTxUrl,
+} from '@/lib/solana/explorer';
 
 type Props = {
   token: TokenDetail;
@@ -97,7 +102,9 @@ function TokenMarketLiveBody({
   const holdersRaw = displayHolderCount(token.holderCountRetail, token.holderCountAll);
   const holders = holdersRaw ? holdersRaw.replace(/ holders?$/, '') : null;
   const age = formatCompactAge(token.ageSeconds);
-  const showProgress = shouldShowBondingProgress(token);
+  const isPons = token.marketSource === 'pons_v2';
+  const isPump = token.marketSource === 'pump';
+  const showProgress = !isPump && shouldShowBondingProgress(token);
   const changeTone =
     token.priceChange24hBps == null
       ? 'text-[var(--muted-2)]'
@@ -129,12 +136,19 @@ function TokenMarketLiveBody({
   const creatorEarningsLines = formatFeeAssetDistributionLines(
     token.creatorFeeDistributions,
   );
-  const isPons = token.marketSource === 'pons_v2';
-  // Scoop-only fee/buyback UI — never show Scoop protocol fee semantics on Pons.
-  const showScoopFeePanel = !isPons;
+  // Scoop-only fee/buyback UI — never show Scoop protocol fee semantics on Pons/Pump.
+  const showScoopFeePanel = !isPons && !isPump;
   const buybackAllocationLines = formatFeeAssetDistributionLines(
     token.buybackFeeDistributions,
   );
+  const pumpUrl = isPump ? pumpFunCoinUrl(token.tokenAddress) : null;
+  const mintExplorerUrl = isPump
+    ? solanaExplorerAddressUrl(token.tokenAddress)
+    : null;
+  const launchExplorerUrl =
+    isPump && token.launchTxHash
+      ? solanaExplorerTxUrl(token.launchTxHash)
+      : null;
 
   return (
     <div
@@ -178,7 +192,15 @@ function TokenMarketLiveBody({
               </div>
               {/* Desktop: contract under pair. Mobile: demoted below price. */}
               <div className="mt-1 hidden sm:block">
-                <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+                <ContractCopy
+                  address={token.tokenAddress}
+                  className="min-h-0 py-0"
+                  label={
+                    isPump
+                      ? `Copy mint ${token.tokenAddress}`
+                      : `Copy contract ${token.tokenAddress}`
+                  }
+                />
               </div>
             </div>
 
@@ -217,7 +239,15 @@ function TokenMarketLiveBody({
                 </p>
               ) : null}
               <div className="mt-1 sm:hidden">
-                <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+                <ContractCopy
+                  address={token.tokenAddress}
+                  className="min-h-0 py-0"
+                  label={
+                    isPump
+                      ? `Copy mint ${token.tokenAddress}`
+                      : `Copy contract ${token.tokenAddress}`
+                  }
+                />
               </div>
             </div>
           </div>
@@ -329,19 +359,60 @@ function TokenMarketLiveBody({
             data-testid="token-price-panel"
             data-region="token-market-primary"
           >
-            <TokenPriceChart
-              tokenAddress={token.tokenAddress}
-              symbol={token.symbol}
-              quoteSymbol={quoteSymbol}
-              totalSupplyRaw={token.totalSupplyRaw}
-              tokenDecimals={token.decimals}
-              currentPriceUsdX18={token.priceUsdX18}
-              currentPriceQuoteX18={token.priceQuoteX18}
-            />
+            {isPump ? (
+              <div
+                className="rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-4"
+                data-testid="token-price-panel-external"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+                  Chart
+                </p>
+                <p className="mt-2 text-sm text-[var(--muted)]">
+                  SCOOP does not index Pump.fun candles yet. Open the coin on
+                  Pump.fun for live price action.
+                </p>
+                {pumpUrl ? (
+                  <a
+                    href={pumpUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+                  >
+                    View on Pump.fun →
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <TokenPriceChart
+                tokenAddress={token.tokenAddress}
+                symbol={token.symbol}
+                quoteSymbol={quoteSymbol}
+                totalSupplyRaw={token.totalSupplyRaw}
+                tokenDecimals={token.decimals}
+                currentPriceUsdX18={token.priceUsdX18}
+                currentPriceQuoteX18={token.priceQuoteX18}
+              />
+            )}
           </section>
 
           <div className="order-3 min-w-0 lg:order-none" data-testid="token-market-trades">
-            <TokenRecentTrades tokenAddress={token.tokenAddress} quoteSymbol={quoteSymbol} />
+            {isPump ? (
+              <section
+                className="min-w-0"
+                data-testid="token-trades-external"
+                aria-label="Trades"
+              >
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
+                  Trades
+                </h2>
+                <p className="mt-1.5 font-mono text-[11px] text-[var(--muted)]">
+                  Live SCOOP trade tape for Pump markets is not indexed yet. View
+                  activity on Pump.fun.
+                </p>
+              </section>
+            ) : (
+              <TokenRecentTrades tokenAddress={token.tokenAddress} quoteSymbol={quoteSymbol} />
+            )}
           </div>
         </div>
 
@@ -363,6 +434,7 @@ function TokenMarketLiveBody({
               poolFee={token.poolFee}
               tickSpacing={token.tickSpacing}
               hooks={token.hooks}
+              pumpTradeUrl={pumpUrl}
               onTradeConfirmed={refreshNow}
             />
           </div>
@@ -412,14 +484,66 @@ function TokenMarketLiveBody({
               </MarketGroup>
 
               <MarketGroup>
-                <DetailRow label="Contract">
-                  <ContractCopy address={token.tokenAddress} className="min-h-0 py-0" />
+                <DetailRow label={isPump ? 'Mint' : 'Contract'}>
+                  <ContractCopy
+                    address={token.tokenAddress}
+                    className="min-h-0 py-0"
+                    label={
+                      isPump
+                        ? `Copy mint ${token.tokenAddress}`
+                        : `Copy contract ${token.tokenAddress}`
+                    }
+                  />
+                </DetailRow>
+                <DetailRow label="Network">
+                  <span data-testid="token-network-badge">
+                    {isPump ? 'Solana' : 'Robinhood Chain'}
+                  </span>
                 </DetailRow>
                 <DetailRow label="Source">
                   <span data-testid="token-market-source">
-                    {isPons ? 'Pons V2' : 'SCOOP'}
+                    {isPump ? 'Pump.fun' : isPons ? 'Pons' : 'SCOOP'}
                   </span>
                 </DetailRow>
+                {isPump && pumpUrl ? (
+                  <DetailRow label="Pump.fun">
+                    <a
+                      href={pumpUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-[11px] text-[var(--scoop-green)] underline-offset-2 hover:underline"
+                      data-testid="token-pump-fun-link"
+                    >
+                      Open coin →
+                    </a>
+                  </DetailRow>
+                ) : null}
+                {isPump && mintExplorerUrl ? (
+                  <DetailRow label="Explorer">
+                    <a
+                      href={mintExplorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-[11px] text-[var(--scoop-green)] underline-offset-2 hover:underline"
+                      data-testid="token-solana-mint-link"
+                    >
+                      View mint →
+                    </a>
+                  </DetailRow>
+                ) : null}
+                {isPump && launchExplorerUrl ? (
+                  <DetailRow label="Launch tx">
+                    <a
+                      href={launchExplorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-[11px] text-[var(--scoop-green)] underline-offset-2 hover:underline"
+                      data-testid="token-solana-tx-link"
+                    >
+                      View signature →
+                    </a>
+                  </DetailRow>
+                ) : null}
                 {isPons && token.curveAddress ? (
                   <DetailRow label="Curve">
                     <ContractCopy address={token.curveAddress} className="min-h-0 py-0" />
@@ -428,7 +552,7 @@ function TokenMarketLiveBody({
                     </span>
                   </DetailRow>
                 ) : null}
-                {!isPons && token.poolId ? (
+                {!isPons && !isPump && token.poolId ? (
                   <DetailRow label="Pool">
                     <span className="font-mono text-[11px]" title={token.poolId}>
                       {truncateAddress(token.poolId, 6, 4)}
@@ -442,9 +566,12 @@ function TokenMarketLiveBody({
                   <ContractCopy address={token.deployerAddress} className="min-h-0 py-0" />
                 </DetailRow>
                 <DetailRow label="Creator">
-                  <ContractCopy address={token.creatorId} className="min-h-0 py-0" />
+                  <ContractCopy
+                    address={isPump ? token.deployerAddress : token.creatorId}
+                    className="min-h-0 py-0"
+                  />
                   <span className="sr-only" data-testid="token-creator-id">
-                    {token.creatorId}
+                    {isPump ? token.deployerAddress : token.creatorId}
                   </span>
                 </DetailRow>
               </MarketGroup>

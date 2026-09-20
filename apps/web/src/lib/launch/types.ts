@@ -10,12 +10,25 @@ import {
 import { generateLaunchSalt } from '@/lib/launch/salt';
 import { DEFAULT_DEV_SUPPLY_POLICY, type DevSupplyPolicy } from '@/lib/launch/dev-supply-policy';
 import { DEFAULT_CREATOR_FEE_BPS, type CreatorFeeBps } from '@/lib/launch/creator-fee';
+import {
+  DEFAULT_LAUNCH_RAIL,
+  type LaunchRail,
+} from '@/lib/launch/launch-rail';
+
+export type { LaunchRail };
 
 export type LaunchStepId = 1 | 2 | 3;
 
 export const LAUNCH_STEPS = [
   { id: 1 as const, key: 'TOKEN', label: 'Token' },
   { id: 2 as const, key: 'DEV_BUY', label: 'Dev Buy' },
+  { id: 3 as const, key: 'REVIEW', label: 'Review & Launch' },
+] as const;
+
+/** Step 2 label when Solana → Pump is selected. */
+export const LAUNCH_STEPS_PUMP = [
+  { id: 1 as const, key: 'TOKEN', label: 'Token' },
+  { id: 2 as const, key: 'WALLET', label: 'Wallet' },
   { id: 3 as const, key: 'REVIEW', label: 'Review & Launch' },
 ] as const;
 
@@ -124,6 +137,11 @@ export type LaunchFormState = {
   /** Public creator fee. 100 = 1%, 200 = 2%. Not a free-form field. */
   creatorFeeBps: CreatorFeeBps;
   /**
+   * Explicit launch rail — never inferred from the connected wallet.
+   * Default remains Robinhood → Pons.
+   */
+  launchRail: LaunchRail;
+  /**
    * Explicit news provenance (News Page V2). Survives to launch success linking.
    * Never inferred from headline/ticker — only set from assist handoff.
    * Not part of Factory calldata.
@@ -174,6 +192,7 @@ export function createInitialLaunchState(
     devBuyAmount: '',
     devSupplyPolicy: DEFAULT_DEV_SUPPLY_POLICY,
     creatorFeeBps: DEFAULT_CREATOR_FEE_BPS,
+    launchRail: DEFAULT_LAUNCH_RAIL,
     sourceProvider: null,
     sourceProviderArticleId: null,
     sourceDraftId: null,

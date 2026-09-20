@@ -84,17 +84,18 @@ export function buildTokenOgCardModel(input: {
   token: Pick<
     TokenDetail,
     'tokenAddress' | 'name' | 'symbol' | 'displayImageUrl' | 'imageUri'
-  >;
+  > & { marketSource?: TokenDetail['marketSource'] };
   quotePairLabel: string;
 }): TokenOgCardModel {
   const symbol = input.token.symbol?.trim() || '';
+  const isPump = input.token.marketSource === 'pump';
   return {
     kind: 'market',
     ticker: formatTokenTicker(symbol),
     name: formatTokenDisplayName(input.token.name, symbol),
     pairLabel: truncateOgText(input.quotePairLabel.trim() || '—', 56),
     contractShort: shortenContractAddress(input.token.tokenAddress),
-    networkLabel: ROBINHOOD_CHAIN_LABEL,
+    networkLabel: isPump ? 'Solana' : ROBINHOOD_CHAIN_LABEL,
     logoCandidateUrl: pickTokenImageSrc(
       input.token.displayImageUrl,
       input.token.imageUri,

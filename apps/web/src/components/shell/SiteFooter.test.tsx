@@ -26,7 +26,7 @@ describe('SiteFooter', () => {
     expect(screen.getByRole('link', { name: 'Privacy' }).getAttribute('href')).toBe(
       '/legal/privacy',
     );
-    expect(screen.getByText(/Markets for what’s happening now/i)).toBeTruthy();
+    expect(screen.getByText(/News to markets — Solana or Robinhood Chain/i)).toBeTruthy();
     expect(screen.getAllByLabelText('SCOOP on X').length).toBeGreaterThanOrEqual(1);
     const github = screen.getByRole('link', { name: 'SCOOP Protocol on GitHub' });
     expect(github.getAttribute('href')).toBe(

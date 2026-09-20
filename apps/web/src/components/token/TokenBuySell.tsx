@@ -6,6 +6,7 @@ import { DEFAULT_SLIPPAGE_BPS } from '@/lib/trade/constants';
 import {
   canUseScoopUv4TradePath,
   PONS_TRADE_DISABLED_COPY,
+  PUMP_TRADE_EXTERNAL_COPY,
 } from '@/lib/trade/market-source-guard';
 
 export type TokenBuySellProps = {
@@ -15,7 +16,7 @@ export type TokenBuySellProps = {
   quoteAsset: string;
   quoteSymbol: string;
   quoteDecimals?: number;
-  marketSource?: 'scoop' | 'pons_v2';
+  marketSource?: 'scoop' | 'pons_v2' | 'pump';
   marketPhase?: 'curve' | 'graduated_pool' | null;
   currency0: string | null;
   currency1: string | null;
@@ -23,6 +24,8 @@ export type TokenBuySellProps = {
   tickSpacing: number | null;
   hooks: string | null;
   onTradeConfirmed?: () => void;
+  /** Pump.fun coin URL — shown when marketSource === 'pump'. */
+  pumpTradeUrl?: string | null;
 };
 
 /**
@@ -57,12 +60,13 @@ export function TokenBuySell(props: TokenBuySellProps) {
   }, [runtimeReady, scoopTradeAllowed]);
 
   if (!scoopTradeAllowed) {
+    const isPump = props.marketSource === 'pump';
     return (
       <section
         className="min-w-0"
         aria-labelledby="token-buy-sell-heading"
         data-testid="token-buy-sell"
-        data-trade-path="disabled"
+        data-trade-path={isPump ? 'external-pump' : 'disabled'}
         data-market-source={props.marketSource ?? 'scoop'}
       >
         <h2
@@ -72,15 +76,36 @@ export function TokenBuySell(props: TokenBuySellProps) {
           Trade
         </h2>
         <div className="mt-1.5 rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-3">
-          <p
-            className="font-mono text-[11px] text-[var(--muted)]"
-            role="status"
-            data-testid="token-trade-disabled"
-          >
-            {props.marketSource === 'pons_v2'
-              ? PONS_TRADE_DISABLED_COPY
-              : 'Trading is unavailable for this market.'}
-          </p>
+          {isPump && props.pumpTradeUrl ? (
+            <>
+              <p
+                className="font-mono text-[11px] text-[var(--muted)]"
+                role="status"
+                data-testid="token-trade-disabled"
+              >
+                {PUMP_TRADE_EXTERNAL_COPY}
+              </p>
+              <a
+                href={props.pumpTradeUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green-contrast)]"
+                data-testid="token-trade-pump-link"
+              >
+                Trade on Pump.fun →
+              </a>
+            </>
+          ) : (
+            <p
+              className="font-mono text-[11px] text-[var(--muted)]"
+              role="status"
+              data-testid="token-trade-disabled"
+            >
+              {props.marketSource === 'pons_v2'
+                ? PONS_TRADE_DISABLED_COPY
+                : 'Trading is unavailable for this market.'}
+            </p>
+          )}
         </div>
       </section>
     );

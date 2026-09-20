@@ -9,9 +9,9 @@ import {
 import { buildPageMetadata } from '@/lib/seo/site';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'SCOOP Protocol Docs',
+  title: 'SCOOP Docs',
   description:
-    'Technical documentation for SCOOP Protocol — permissionless Uniswap v4 markets on Robinhood Chain with configurable fee economics, creator identity, holder rewards and stock-token quote assets.',
+    'SCOOP product and protocol docs — launch on Solana via Pump.fun or Robinhood Chain via Pons, plus Robinhood Uniswap v4 protocol reference.',
   path: '/docs',
 });
 
@@ -30,7 +30,13 @@ export default function DocsPage() {
         <div className="max-w-3xl">
           <SectionHeading>Docs</SectionHeading>
           <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
-            SCOOP Protocol
+            Product + protocol
+          </p>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">
+            SCOOP is the discovery and market-creation layer. Execution rails:{' '}
+            <strong className="font-medium text-[var(--fg)]">Solana → Pump.fun</strong> and{' '}
+            <strong className="font-medium text-[var(--fg)]">Robinhood Chain → Pons</strong>.
+            Sections below document the Robinhood protocol stack where it still applies.
           </p>
         </div>
 

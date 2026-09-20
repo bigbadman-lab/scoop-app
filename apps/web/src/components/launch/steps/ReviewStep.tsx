@@ -26,12 +26,26 @@ import {
   CREATOR_FEE_REVIEW_DETAIL,
   creatorFeeLabel,
 } from '@/lib/launch/creator-fee';
+import { isPumpRail, launchRailLabel } from '@/lib/launch/launch-rail';
+import type { LaunchResult } from '@/lib/launch/launch-result';
+import {
+  pumpFunCoinUrl,
+  solanaExplorerAddressUrl,
+  solanaExplorerTxUrl,
+} from '@/lib/solana/explorer';
 
 type Props = {
   state: LaunchFormState;
   connectedAddress: string | null | undefined;
+  /** Solana wallet when rail = Pump. */
+  solanaAddress?: string | null;
   tx: LaunchTxState;
   schemaBlocked?: boolean;
+  /** Temporary Pump success (Gate D/E) — not an EVM token page. */
+  pumpResult?: LaunchResult | null;
+  /** Persistence failed after on-chain confirm — retry without relaunch. */
+  pumpPersistError?: string | null;
+  onRetryPumpPersist?: () => void;
   onRetryIndex?: () => void;
   onRetryNews?: () => void;
   onViewMarket?: () => void;
@@ -39,18 +53,37 @@ type Props = {
 };
 
 /**
- * Gate 7 public review — Pons V2 + HoodLock (no Scoop fee catalogue).
+ * Gate 7 / Gate D public review — Pons V2 + HoodLock, or Pump CREATE ONLY.
  */
 export function ReviewStep({
   state,
   connectedAddress,
+  solanaAddress,
   tx,
   schemaBlocked = false,
+  pumpResult = null,
+  pumpPersistError = null,
+  onRetryPumpPersist,
   onRetryIndex,
   onRetryNews,
   onViewMarket,
   onResumeLock,
 }: Props) {
+  const pump = isPumpRail(state.launchRail);
+
+  if (pump) {
+    return (
+      <PumpReview
+        state={state}
+        solanaAddress={solanaAddress}
+        tx={tx}
+        pumpResult={pumpResult}
+        pumpPersistError={pumpPersistError}
+        onRetryPumpPersist={onRetryPumpPersist}
+      />
+    );
+  }
+
   const buy = parseEthDevBuyWei(state.devBuyAmount);
   const buyWei = buy.ok ? buy.amount : BigInt(0);
   const busy = isLaunchTxBusy(tx.phase);
@@ -84,8 +117,8 @@ export function ReviewStep({
         <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {burn
-            ? 'Pons V2 launches the token with your ETH dev buy, then the full dev allocation is burned. You may confirm two wallet transactions.'
-            : 'Pons V2 launches the token with your ETH dev buy, then HoodLock locks those tokens. You may confirm up to three wallet transactions.'}
+            ? 'Pons launches the token with your ETH dev buy, then the full dev allocation is burned. You may confirm two wallet transactions.'
+            : 'Pons launches the token with your ETH dev buy, then HoodLock locks those tokens. You may confirm up to three wallet transactions.'}
         </p>
       </div>
 
@@ -186,7 +219,7 @@ export function ReviewStep({
           </div>
         </TicketBlock>
 
-        <TicketBlock title="Pons V2 launch">
+        <TicketBlock title="Pons launch">
           <dl className="space-y-2 text-sm" data-testid="pons-launch-summary">
             <Row label="Pair" value="ETH" />
             <Row
@@ -253,6 +286,279 @@ export function ReviewStep({
               </div>
             ) : null}
           </TicketBlock>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PumpReview({
+  state,
+  solanaAddress,
+  tx,
+  pumpResult,
+  pumpPersistError,
+  onRetryPumpPersist,
+}: {
+  state: LaunchFormState;
+  solanaAddress?: string | null;
+  tx: LaunchTxState;
+  pumpResult: LaunchResult | null;
+  pumpPersistError?: string | null;
+  onRetryPumpPersist?: () => void;
+}) {
+  const busy = isLaunchTxBusy(tx.phase);
+  const showSuccess =
+    Boolean(pumpResult) ||
+    (tx.phase === 'receipt_success' && Boolean(tx.txHash)) ||
+    (tx.phase === 'market_live' && Boolean(tx.txHash));
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Create a coin on Pump.fun (Solana). No initial buy in this release — you
+          confirm one wallet transaction.
+        </p>
+      </div>
+
+      {showSuccess && (pumpResult || tx.txHash) ? (
+        <PumpSuccessPanel
+          result={
+            pumpResult ??
+            ({
+              chain: 'solana',
+              provider: 'pump',
+              assetAddress: '',
+              txHash: tx.txHash!,
+            } satisfies LaunchResult)
+          }
+          name={state.name}
+          ticker={state.ticker}
+          previewUrl={state.image.previewUrl}
+          persistError={pumpPersistError}
+          onRetryPersist={onRetryPumpPersist}
+        />
+      ) : null}
+
+      {tx.phase === 'failed' && tx.error ? (
+        <div className="space-y-2">
+          <p
+            className="rounded-[var(--radius-md)] border border-[#b42318]/40 px-4 py-3 font-mono text-[12px] text-[#b42318]"
+            role="alert"
+            data-testid="launch-tx-error"
+          >
+            {tx.error}
+          </p>
+          {tx.txHash ? (
+            <p className="font-mono text-[12px] break-all" data-testid="pump-uncertain-sig">
+              Signature:{' '}
+              <a
+                href={solanaExplorerTxUrl(tx.txHash)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--scoop-green)] underline-offset-2 hover:underline"
+              >
+                {tx.txHash}
+              </a>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {busy && !showSuccess ? (
+        <p
+          className="font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--muted)]"
+          role="status"
+          data-testid="launch-tx-phase"
+        >
+          {pumpLaunchPhaseLabel(tx.phase)}
+        </p>
+      ) : null}
+
+      {!showSuccess ? (
+        <div className="space-y-0 divide-y divide-[var(--divider)] border border-[var(--divider)] rounded-[var(--radius-xl)]">
+          <TicketBlock title="Token">
+            <div className="flex gap-4">
+              {state.image.previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={state.image.previewUrl}
+                  alt=""
+                  className="h-16 w-16 rounded-[var(--radius-md)] object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] font-mono text-[11px] text-[var(--scoop-green-contrast)]">
+                  Scoop
+                </div>
+              )}
+              <div className="min-w-0 space-y-1">
+                <p className="font-mono text-[12px] text-[var(--muted)]">${state.ticker}</p>
+                <p className="text-[17px] font-semibold tracking-tight">{state.name}</p>
+                <p className="line-clamp-3 text-sm text-[var(--muted)]">{state.description}</p>
+              </div>
+            </div>
+          </TicketBlock>
+
+          <TicketBlock title="Pump.fun launch">
+            <dl className="space-y-2 text-sm" data-testid="pump-launch-summary">
+              <Row label="Network" value="Solana" />
+              <Row label="Launch via" value="Pump.fun" />
+              <Row label="Rail" value={launchRailLabel(state.launchRail)} />
+              <Row label="Pair" value="SOL" />
+              <Row label="Initial buy" value="None" />
+              <Row label="Name" value={state.name.trim() || '—'} />
+              <Row label="Ticker" value={state.ticker.trim() || '—'} />
+            </dl>
+          </TicketBlock>
+
+          <TicketBlock title="Creator wallet">
+            <p className="font-mono text-[13px]" data-testid="pump-creator-wallet">
+              {solanaAddress ? truncateAddress(solanaAddress, 6, 4) : 'Connect a Solana wallet'}
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Connected Solana wallet is creator, user, and fee payer.
+            </p>
+          </TicketBlock>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function pumpLaunchPhaseLabel(phase: LaunchTxState['phase']): string {
+  switch (phase) {
+    case 'preparing_artwork':
+      return 'Preparing metadata…';
+    case 'simulating':
+      return 'Building Pump.fun transaction…';
+    case 'awaiting_wallet':
+      return 'Awaiting wallet signature…';
+    case 'submitted':
+      return 'Broadcasting to Solana…';
+    case 'confirming':
+      return 'Confirming launch…';
+    case 'receipt_success':
+      return 'Complete';
+    default:
+      return launchTxStatusLabel(phase);
+  }
+}
+
+function PumpSuccessPanel({
+  result,
+  name,
+  ticker,
+  previewUrl,
+  persistError,
+  onRetryPersist,
+}: {
+  result: LaunchResult;
+  name: string;
+  ticker: string;
+  previewUrl: string | null;
+  persistError?: string | null;
+  onRetryPersist?: () => void;
+}) {
+  const mint = result.assetAddress;
+  const sig = result.txHash;
+
+  return (
+    <div
+      className="rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-4 py-4"
+      data-testid="pump-launch-success"
+    >
+      <div className="flex gap-3">
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt=""
+            className="h-12 w-12 rounded-[var(--radius-sm)] object-cover"
+          />
+        ) : null}
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">
+            {persistError
+              ? 'Coin created — saving to SCOOP failed'
+              : 'Coin created on Pump.fun'}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+            Solana · confirmed
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {persistError
+              ? 'Your Pump transaction is confirmed. Retry saving to open the SCOOP token page — do not launch again.'
+              : 'Saving your SCOOP market and opening the token page…'}
+          </p>
+          <p className="mt-2 font-mono text-[12px]">
+            {name} · ${ticker}
+          </p>
+        </div>
+      </div>
+
+      {persistError ? (
+        <div className="mt-3 space-y-2">
+          <p
+            className="font-mono text-[12px] text-[#b42318]"
+            role="alert"
+            data-testid="pump-persist-error"
+          >
+            {persistError}
+          </p>
+          {onRetryPersist ? (
+            <button
+              type="button"
+              className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+              onClick={onRetryPersist}
+              data-testid="pump-persist-retry"
+            >
+              Retry save →
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {mint ? (
+        <div className="mt-3 space-y-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted-2)]">
+            Mint
+          </p>
+          <ContractCopy address={mint} />
+          <a
+            href={solanaExplorerAddressUrl(mint)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-block font-mono text-[11px] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+          >
+            View mint on explorer →
+          </a>
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap gap-3">
+        {mint ? (
+          <a
+            href={pumpFunCoinUrl(mint)}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+            data-testid="pump-fun-link"
+          >
+            Open on Pump.fun →
+          </a>
+        ) : null}
+        {sig ? (
+          <a
+            href={solanaExplorerTxUrl(sig)}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+            data-testid="pump-explorer-tx"
+          >
+            View transaction →
+          </a>
         ) : null}
       </div>
     </div>

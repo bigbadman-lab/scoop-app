@@ -54,6 +54,17 @@ export function TokenMarketLiveProvider({ initialToken, children }: ProviderProp
 
   useEffect(() => {
     const seed = initialRef.current;
+    if (seed.marketSource === 'pump') {
+      setSnap({
+        token: seed,
+        tradesChronoAsc: [],
+        tradesApply: 'unchanged',
+        appendedTrades: [],
+        tradesStatus: 'empty',
+        tradesError: null,
+      });
+      return;
+    }
     const poll = createTokenMarketLivePoll({
       tokenAddress: seed.tokenAddress,
       initialToken: seed,
@@ -65,7 +76,7 @@ export function TokenMarketLiveProvider({ initialToken, children }: ProviderProp
       poll.stop();
       pollRef.current = null;
     };
-  }, [initialToken.tokenAddress]);
+  }, [initialToken.tokenAddress, initialToken.marketSource]);
 
   const refreshNow = useMemo(
     () => () => {

@@ -10,7 +10,7 @@ import {
   serverDb,
   type TokenDetail,
 } from '@/lib/server/queries';
-import { ValidationError, parseAddress } from '@/lib/server/validate';
+import { parseTokenRouteIdentity } from '@/lib/token/token-route-identity';
 
 export type TokenNewsLore = {
   title: string;
@@ -34,18 +34,44 @@ export type TokenPageLoadResult =
 
 /**
  * Server-only initial load for `/token/[address]`.
- * Renders from indexed TokenDetail — no browser RPC or valuation math.
+ * Resolves EVM (Robinhood) or Solana (Pump) identity — no browser RPC.
  */
 export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadResult> {
-  let address: string;
-  try {
-    address = parseAddress(rawAddress);
-  } catch (error) {
-    if (error instanceof ValidationError) return { status: 'invalid' };
-    return { status: 'invalid' };
-  }
+  const identity = parseTokenRouteIdentity(rawAddress);
+  if (!identity) return { status: 'invalid' };
 
   try {
+    if (identity.kind === 'solana') {
+      const [token, loreRow] = await Promise.all([
+        getToken(serverDb(), identity.chainId, identity.address),
+        getNewsArticleLoreForToken(serverDb(), {
+          chainId: identity.chainId,
+          tokenAddress: identity.address,
+        }).catch(() => null),
+      ]);
+      if (!token) return { status: 'not_found', address: identity.address };
+      if (token.marketSource !== 'pump') {
+        // Solana product chain should only host Pump rows in Gate E.
+        return { status: 'not_found', address: identity.address };
+      }
+      const lore: TokenNewsLore | null = loreRow
+        ? {
+            title: loreRow.title,
+            url: (loreRow.canonicalUrl?.trim() || loreRow.url).trim(),
+            sourceDomain: loreRow.sourceDomain,
+          }
+        : null;
+      return {
+        status: 'ok',
+        token,
+        quoteSymbol: 'SOL',
+        quotePairLabel: 'SOL',
+        quoteImageUrl: null,
+        lore,
+      };
+    }
+
+    const address = identity.address;
     const [token, catalogue, loreRow] = await Promise.all([
       getToken(serverDb(), SCOOP_CHAIN_ID, address),
       loadEnabledQuoteCatalogue({ chainId: SCOOP_CHAIN_ID }),

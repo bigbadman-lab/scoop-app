@@ -76,7 +76,7 @@ describe('absoluteSeoUrl', () => {
     };
     expect(absoluteSeoUrl('/token/0xabc', env)).toBe('https://scoop.fun/token/0xabc');
     expect(absoluteSeoUrl(SEO_DEFAULT_OG_IMAGE_PATH, env)).toBe(
-      'https://scoop.fun/brand/og-home.jpg',
+      'https://scoop.fun/brand/og-home2.jpg',
     );
   });
 });
@@ -108,10 +108,10 @@ describe('buildPageMetadata', () => {
     expect(meta.twitter?.title).toBe(SEO_HOME_TITLE);
     expect(meta.twitter?.description).toBe(SEO_HOME_DESCRIPTION);
     const ogImages = meta.openGraph?.images as Array<Record<string, unknown>>;
-    expect(String(ogImages[0]!.url)).toMatch(/\/brand\/og-home\.jpg$/);
+    expect(String(ogImages[0]!.url)).toMatch(/\/brand\/og-home2\.jpg$/);
   });
 
-  it('uses og-home.jpg as the default social image with dimensions', () => {
+  it('uses og-home2.jpg as the default social image with dimensions', () => {
     const meta = buildPageMetadata({
       title: 'SCOOP',
       description: 'Home',
@@ -121,12 +121,12 @@ describe('buildPageMetadata', () => {
     const ogImages = meta.openGraph?.images;
     expect(Array.isArray(ogImages)).toBe(true);
     const image = (ogImages as Array<Record<string, unknown>>)[0]!;
-    expect(String(image.url)).toMatch(/\/brand\/og-home\.jpg$/);
+    expect(String(image.url)).toMatch(/\/brand\/og-home2\.jpg$/);
     expect(image.width).toBe(1200);
     expect(image.height).toBe(630);
     expect(image.alt).toBe(SEO_DEFAULT_OG_IMAGE_ALT);
     expect(meta.twitter?.images).toEqual([
-      expect.stringMatching(/\/brand\/og-home\.jpg$/),
+      expect.stringMatching(/\/brand\/og-home2\.jpg$/),
     ]);
     expect(SEO_DEFAULT_OG_IMAGE_SIZE).toEqual({ width: 1200, height: 630 });
   });
@@ -144,7 +144,7 @@ describe('buildPageMetadata', () => {
     });
     const ogImages = meta.openGraph?.images as Array<Record<string, unknown>>;
     expect(String(ogImages[0]!.url)).toContain(`/token/${addr}/opengraph-image`);
-    expect(String(ogImages[0]!.url)).not.toContain('/brand/og-home.jpg');
+    expect(String(ogImages[0]!.url)).not.toContain('/brand/og-home2.jpg');
     expect(ogImages[0]!.width).toBe(1200);
     expect(ogImages[0]!.height).toBe(630);
     expect(meta.twitter?.images).toEqual([
@@ -171,12 +171,18 @@ describe('buildPageMetadata', () => {
     });
     expect(meta.title).toEqual({ absolute: 'SCOOP' });
   });
+
+  it('keeps dual-rail homepage description free of Uniswap-only framing', () => {
+    expect(SEO_HOME_DESCRIPTION).toMatch(/Solana via Pump\.fun/);
+    expect(SEO_HOME_DESCRIPTION).toMatch(/Robinhood Chain via Pons/);
+    expect(SEO_HOME_DESCRIPTION).not.toMatch(/Uniswap/i);
+  });
 });
 
 describe('buildDefaultOgImage', () => {
-  it('resolves production default OG to scoop.fun/brand/og-home.jpg', () => {
+  it('resolves production default OG to scoop.fun/brand/og-home2.jpg', () => {
     expect(buildDefaultOgImage({ NODE_ENV: 'production' })).toEqual({
-      url: 'https://scoop.fun/brand/og-home.jpg',
+      url: 'https://scoop.fun/brand/og-home2.jpg',
       width: 1200,
       height: 630,
       alt: SEO_HOME_TITLE,

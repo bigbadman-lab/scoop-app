@@ -83,6 +83,28 @@ export {
   type MarketPhase,
 } from './marketSource.js';
 export {
+  ROBINHOOD_CHAIN_ID,
+  SOLANA_MAINNET_CHAIN_ID,
+  SOLANA_WSOL_MINT,
+  PUMP_PROGRAM_ID,
+  PUMP_DEFAULT_TOTAL_SUPPLY_RAW,
+  PUMP_TOKEN_DECIMALS,
+  isSolanaProductChainId,
+  isRobinhoodProductChainId,
+  chainFamilyForChainId,
+  type ScoopChainFamily,
+  type ScoopLaunchChain,
+  type ScoopLaunchProvider,
+} from './chainIds.js';
+export {
+  normalizeAssetAddress,
+  isEvmAddressShape,
+  isSolanaAddressShape,
+  isSolanaSignatureShape,
+  normalizeSolanaSignature,
+  type AssetChain,
+} from './assetAddress.js';
+export {
   normalizeFeeDistributionArgs,
   isCanonicalDistributionArgs,
   assertDistributionConservation,

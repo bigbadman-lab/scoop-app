@@ -465,6 +465,36 @@ describe('TokenMarketShell', () => {
     expect(screen.queryByTestId('token-pool-id')).toBeNull();
   });
 
+  it('Gate F: Pump markets use Solana / mint terminology without Robinhood labels', () => {
+    const mint = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
+    render(
+      <TokenMarketShell
+        token={baseToken({
+          chainId: 900001,
+          tokenAddress: mint,
+          marketSource: 'pump',
+          marketPhase: null,
+          poolId: null,
+          curveAddress: null,
+          quoteAsset: 'So11111111111111111111111111111111111111112',
+          creatorFeeDistributions: [],
+          buybackFeeDistributions: [],
+          launchTxHash: '5'.repeat(64),
+        })}
+        quoteSymbol="SOL"
+      />,
+    );
+    expect(screen.getByTestId('token-network-badge').textContent).toBe('Solana');
+    expect(screen.getByTestId('token-market-source').textContent).toBe('Pump.fun');
+    expect(screen.getByText('Mint')).toBeTruthy();
+    expect(screen.queryByText('Contract')).toBeNull();
+    expect(screen.queryByText(/Robinhood Chain/i)).toBeNull();
+    expect(screen.queryByText(/Uniswap/i)).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: new RegExp(`copy mint ${mint}`, 'i') }).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('shows unavailable state without stack traces', () => {
     render(
       <TokenMarketUnavailable title="Market not found" message="No indexed market exists." />,

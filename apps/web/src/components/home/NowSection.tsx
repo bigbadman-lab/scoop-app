@@ -32,12 +32,15 @@ export function NowSection({ news, deskSpot }: Props) {
               />
               <HomepageInfrastructureBadges className="w-full min-w-0 lg:w-auto" />
             </div>
-            <p className="mt-2.5 max-w-[22rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-sm md:text-base lg:max-w-md lg:text-lg lg:leading-snug">
-              Turn{' '}
-              <Link href="/news" className="underline-offset-2 hover:underline">
-                news
-              </Link>{' '}
-              into markets. Earn from every trade.
+            <p className="mt-2.5 max-w-[28rem] text-sm tracking-tight text-[var(--fg)] md:mt-2 md:max-w-md md:text-base lg:max-w-lg lg:text-lg lg:leading-snug">
+              Turn what&apos;s happening now into a market.
+              <span className="mt-1 block text-[13px] leading-snug text-[var(--muted)] md:text-sm lg:text-[15px]">
+                Discover{' '}
+                <Link href="/news" className="underline-offset-2 hover:underline">
+                  breaking narratives
+                </Link>{' '}
+                and launch them on Solana via Pump.fun or Robinhood Chain via Pons.
+              </span>
             </p>
             <div className="mt-4 md:hidden">
               <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5 text-white!">

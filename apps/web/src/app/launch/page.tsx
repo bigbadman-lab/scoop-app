@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Launch',
-  description: 'Launch a token market on SCOOP / Robinhood Chain.',
+  description:
+    'Launch a market on SCOOP — Solana via Pump.fun or Robinhood Chain via Pons.',
   path: '/launch',
   indexable: false,
 });

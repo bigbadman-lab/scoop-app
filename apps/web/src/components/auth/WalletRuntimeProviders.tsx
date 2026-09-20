@@ -20,6 +20,7 @@ import {
   scoopAppKitNetworks,
   scoopCustomRpcUrls,
   scoopReownProjectId,
+  scoopSolanaAdapter,
   scoopWagmiAdapter,
   scoopWalletRuntimeConfigured,
 } from '@/lib/auth/wagmi-config';
@@ -28,10 +29,11 @@ let appKitCreated = false;
 
 function ensureAppKit() {
   if (appKitCreated) return;
-  if (!scoopWagmiAdapter || !scoopReownProjectId) return;
+  if (!scoopWagmiAdapter || !scoopSolanaAdapter || !scoopReownProjectId) return;
 
   createAppKit({
-    adapters: [scoopWagmiAdapter],
+    // Wagmi (Robinhood/EVM) + Solana coexist — do not remove Wagmi.
+    adapters: [scoopWagmiAdapter, scoopSolanaAdapter],
     networks: scoopAppKitNetworks,
     defaultNetwork: robinhoodAppKitChain,
     projectId: scoopReownProjectId,

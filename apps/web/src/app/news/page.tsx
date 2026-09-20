@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Live stock news',
   description:
-    'Live stock-news desk on SCOOP. Headlines from third-party sources — read the original story, launch markets on Robinhood Chain.',
+    'Live stock-news desk on SCOOP. Headlines from third-party sources — read the original story, then turn it into a market and choose where to launch.',
   path: '/news',
 });
 

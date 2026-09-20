@@ -63,7 +63,11 @@ export function mapDiscoveryItem(
     row.quote_decimals == null ? quoteDecimals : Number(row.quote_decimals);
 
   const marketSource =
-    row.market_source === 'pons_v2' ? ('pons_v2' as const) : ('scoop' as const);
+    row.market_source === 'pons_v2'
+      ? ('pons_v2' as const)
+      : row.market_source === 'pump'
+        ? ('pump' as const)
+        : ('scoop' as const);
   const marketPhase =
     marketSource !== 'pons_v2'
       ? null
@@ -71,10 +75,11 @@ export function mapDiscoveryItem(
         ? ('graduated_pool' as const)
         : ('curve' as const);
 
-  // Withhold misleading UV4 FDV/USD for Pons curve markets until curve pricing is proven.
-  const safePriceUsd = marketSource === 'pons_v2' ? null : priceUsdX18;
-  const safeFdvUsd = marketSource === 'pons_v2' ? null : fdvUsdX18;
-  const safeVolumeUsd = marketSource === 'pons_v2' ? null : volume24hUsd;
+  // Withhold misleading UV4 FDV/USD for Pons/Pump until native pricing is proven.
+  const withholdUsd = marketSource === 'pons_v2' || marketSource === 'pump';
+  const safePriceUsd = withholdUsd ? null : priceUsdX18;
+  const safeFdvUsd = withholdUsd ? null : fdvUsdX18;
+  const safeVolumeUsd = withholdUsd ? null : volume24hUsd;
 
   return {
     chainId: Number(row.chain_id),

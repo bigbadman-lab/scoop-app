@@ -1,48 +1,58 @@
 import { PlatformBadge } from '@/components/home/PlatformBadge';
-import { MarketsPairIcon } from '@/components/ui/MarketsPairIcon';
 
 type Props = {
   className?: string;
 };
 
-function RhIcon() {
+function BrandIcon({
+  src,
+  testId,
+  contain = false,
+}: {
+  src: string;
+  testId: string;
+  contain?: boolean;
+}) {
   return (
     <span
-      data-testid="platform-badge-rh-icon"
-      className="relative block h-5 w-5 overflow-hidden rounded-[6px] sm:h-7 sm:w-7 sm:rounded-[8px]"
+      data-testid={testId}
+      className={[
+        'relative block h-5 w-5 overflow-hidden rounded-[6px] sm:h-7 sm:w-7 sm:rounded-[8px]',
+        contain ? 'flex items-center justify-center bg-[var(--bg)]' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/rh.svg"
+        src={src}
         alt=""
         width={32}
         height={32}
-        className="h-full w-full object-cover"
+        className={
+          contain
+            ? 'h-4 w-4 object-contain sm:h-5 sm:w-5'
+            : 'h-full w-full object-cover'
+        }
       />
     </span>
   );
 }
 
-function UniIcon() {
+function PonsMonogram() {
   return (
     <span
-      data-testid="platform-badge-uni-icon"
-      className="relative flex h-5 w-5 items-center justify-center sm:h-7 sm:w-7"
+      data-testid="platform-badge-pons-icon"
+      className="flex h-5 w-5 items-center justify-center rounded-[6px] border border-[var(--divider)] bg-[var(--bg)] text-[10px] font-semibold tracking-tight text-[var(--fg)] sm:h-7 sm:w-7 sm:rounded-[8px] sm:text-[12px]"
+      aria-hidden
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/brand/uni.svg"
-        alt=""
-        width={28}
-        height={28}
-        className="h-4 w-4 object-contain sm:h-6 sm:w-6"
-      />
+      P
     </span>
   );
 }
 
 /**
- * Homepage hero infrastructure badges: Robinhood Chain, Uniswap, Stocks + ETH.
+ * Homepage hero infrastructure badges: Solana, Pump.fun, Robinhood Chain, Pons.
  * Always one horizontal row — badges share width and truncate on narrow viewports.
  */
 export function HomepageInfrastructureBadges({ className = '' }: Props) {
@@ -55,19 +65,30 @@ export function HomepageInfrastructureBadges({ className = '' }: Props) {
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label="Platform infrastructure"
+      aria-label="Launch rails"
     >
-      <PlatformBadge icon={<RhIcon />} eyebrow="Built on" value="Robinhood Chain" />
-      <PlatformBadge icon={<UniIcon />} eyebrow="Powered by" value="Uniswap" />
+      <PlatformBadge
+        icon={<BrandIcon src="/brand/solana.svg" testId="platform-badge-solana-icon" />}
+        eyebrow="Built on"
+        value="Solana"
+      />
       <PlatformBadge
         icon={
-          <span className="flex h-5 w-5 items-center justify-center rounded-[6px] border border-[var(--divider)] bg-[var(--bg)] text-[var(--fg)] sm:h-7 sm:w-7 sm:rounded-[8px]">
-            <MarketsPairIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </span>
+          <BrandIcon
+            src="/brand/pump.svg"
+            testId="platform-badge-pump-icon"
+            contain
+          />
         }
-        eyebrow="Markets paired with"
-        value="Stocks + ETH"
+        eyebrow="Launch via"
+        value="Pump.fun"
       />
+      <PlatformBadge
+        icon={<BrandIcon src="/brand/rh.svg" testId="platform-badge-rh-icon" />}
+        eyebrow="Built on"
+        value="Robinhood Chain"
+      />
+      <PlatformBadge icon={<PonsMonogram />} eyebrow="Launch via" value="Pons" />
     </div>
   );
 }

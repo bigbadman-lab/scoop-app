@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Markets',
   description:
-    "Markets for what's happening now. Live SCOOP markets on Robinhood Chain.",
+    "Markets for what's happening now. The live board lists Robinhood Chain markets; Solana / Pump.fun markets open on their token pages after launch.",
   path: '/markets',
 });
 

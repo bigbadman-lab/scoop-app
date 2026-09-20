@@ -78,7 +78,7 @@ export function SiteFooter() {
               className="h-16 w-16 object-contain"
             />
             <p className="mt-6 max-w-xs font-serif text-2xl leading-snug tracking-tight">
-              Markets for what’s happening now.
+              News to markets — Solana or Robinhood Chain.
             </p>
             <div className="mt-5 flex items-center gap-2">
               <a

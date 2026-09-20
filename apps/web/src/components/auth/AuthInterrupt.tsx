@@ -33,8 +33,9 @@ function AuthInterruptShell({
       </h1>
       <p className="text-sm text-[var(--muted)]">
         Launch assist uses paid AI. Sign in with an existing wallet to generate
-        concepts and artwork. Email and social wallets arrive after Robinhood Chain
-        embedded support is confirmed.
+        concepts and artwork. Email and social sign-in are for SCOOP account
+        sessions (Robinhood / EVM). Solana Pump.fun launches use wallet connect
+        and signing only — they are not SIWE sessions.
       </p>
 
       {!configured ? (

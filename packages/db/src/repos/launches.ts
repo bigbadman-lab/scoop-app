@@ -6,7 +6,7 @@ export type CreatorAllocationDestinationOrdinal = 0 | 1;
 /** ScoopFeeTypes.AdditionalFeeDestination ordinals. */
 export type AdditionalFeeDestinationOrdinal = 0 | 1 | 2;
 
-export type LaunchMarketSource = 'scoop' | 'pons_v2';
+export type LaunchMarketSource = 'scoop' | 'pons_v2' | 'pump';
 export type LaunchGraduationStatus = 'curve' | 'graduated';
 
 export interface LaunchRow {

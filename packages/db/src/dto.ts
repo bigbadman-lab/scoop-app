@@ -41,9 +41,9 @@ export interface TokenDiscoveryItem {
    * Explicit market source (Gate 6).
    * `scoop` = ScoopFactory UV4-at-launch; `pons_v2` = Pons bonding curve.
    */
-  marketSource: 'scoop' | 'pons_v2';
+  marketSource: 'scoop' | 'pons_v2' | 'pump';
   /**
-   * Pons-only phase. Null for Scoop markets.
+   * Pons-only phase. Null for Scoop / Pump markets.
    * `curve` pre-graduation; `graduated_pool` after graduation indexing.
    */
   marketPhase: 'curve' | 'graduated_pool' | null;
@@ -159,6 +159,8 @@ export interface TokenDetail extends TokenDiscoveryItem {
    * Empty = no indexed non-zero buyback distributions.
    */
   buybackFeeDistributions: TokenFeeAssetDistribution[];
+  /** Launch transaction hash (EVM) or Solana signature (Pump). */
+  launchTxHash: string | null;
 }
 
 export interface TradeItem {

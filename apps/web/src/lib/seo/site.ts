@@ -9,12 +9,12 @@ export const SEO_HOME_TITLE = 'SCOOP — Trade the News. Launch the Market.';
 
 /** Approved homepage / social launch description. */
 export const SEO_HOME_DESCRIPTION =
-  'Market-moving news, turned into tradable onchain markets. Launch tokens with stock pairing, creator earnings and holder rewards — built on Uniswap v4.';
+  'SCOOP turns breaking news and market narratives into onchain markets. Launch on Solana via Pump.fun or Robinhood Chain via Pons.';
 
 export const SEO_DEFAULT_DESCRIPTION = SEO_HOME_DESCRIPTION;
 
-/** Default branded social preview — `public/brand/og-home.jpg` (1200×630). */
-export const SEO_DEFAULT_OG_IMAGE_PATH = '/brand/og-home.jpg';
+/** Default branded social preview — `public/brand/og-home2.jpg` (1200×630). */
+export const SEO_DEFAULT_OG_IMAGE_PATH = '/brand/og-home2.jpg';
 
 export const SEO_DEFAULT_OG_IMAGE_ALT = SEO_HOME_TITLE;
 
@@ -77,7 +77,7 @@ export function buildPageMetadata(input: {
   /** Absolute title without site template. */
   absoluteTitle?: boolean;
   indexable?: boolean;
-  /** Override default `/brand/og-home.jpg` (e.g. token opengraph-image route). */
+  /** Override default `/brand/og-home2.jpg` (e.g. token opengraph-image route). */
   ogImagePath?: string;
   ogImageAlt?: string;
   /** Optional dimensions for custom OG images (token cards are 1200×630). */

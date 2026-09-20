@@ -6,39 +6,39 @@ import { PlatformBadge } from '@/components/home/PlatformBadge';
 describe('PlatformBadge', () => {
   it('renders eyebrow and value', () => {
     render(
-      <PlatformBadge icon={<span data-testid="icon" />} eyebrow="Built on" value="Robinhood Chain" />,
+      <PlatformBadge icon={<span data-testid="icon" />} eyebrow="Built on" value="Solana" />,
     );
     expect(screen.getByText('Built on')).toBeTruthy();
-    expect(screen.getByText('Robinhood Chain')).toBeTruthy();
+    expect(screen.getByText('Solana')).toBeTruthy();
     expect(screen.getByTestId('icon')).toBeTruthy();
   });
 });
 
 describe('HomepageInfrastructureBadges', () => {
-  it('renders all three badges with exact labels and brand assets', () => {
+  it('renders dual-rail badges with Solana, Pump.fun, Robinhood Chain, and Pons assets', () => {
     render(<HomepageInfrastructureBadges />);
 
     expect(screen.getByTestId('homepage-infrastructure-badges')).toBeTruthy();
-    expect(screen.getByText('Built on')).toBeTruthy();
+    expect(screen.getByText('Solana')).toBeTruthy();
+    expect(screen.getByText('Pump.fun')).toBeTruthy();
     expect(screen.getByText('Robinhood Chain')).toBeTruthy();
-    expect(screen.getByText('Powered by')).toBeTruthy();
-    expect(screen.getByText('Uniswap')).toBeTruthy();
-    expect(screen.getByText('Markets paired with')).toBeTruthy();
-    expect(screen.getByText('Stocks + ETH')).toBeTruthy();
+    expect(screen.getByText('Pons')).toBeTruthy();
+    expect(screen.getAllByText('Built on')).toHaveLength(2);
+    expect(screen.getAllByText('Launch via')).toHaveLength(2);
+
+    const solana = screen.getByTestId('platform-badge-solana-icon');
+    expect(solana.querySelector('img')?.getAttribute('src')).toBe('/brand/solana.svg');
+
+    const pump = screen.getByTestId('platform-badge-pump-icon');
+    expect(pump.querySelector('img')?.getAttribute('src')).toBe('/brand/pump.svg');
+    expect(pump.querySelector('img')?.className).toMatch(/object-contain/);
 
     const rh = screen.getByTestId('platform-badge-rh-icon');
     expect(rh.className).toMatch(/overflow-hidden/);
-    expect(rh.className).toMatch(/rounded-\[6px\]/);
-    expect(rh.className).toMatch(/sm:rounded-\[8px\]/);
-    const rhImg = rh.querySelector('img');
-    expect(rhImg?.getAttribute('src')).toBe('/brand/rh.svg');
+    expect(rh.querySelector('img')?.getAttribute('src')).toBe('/brand/rh.svg');
 
-    const uni = screen.getByTestId('platform-badge-uni-icon');
-    const uniImg = uni.querySelector('img');
-    expect(uniImg?.getAttribute('src')).toBe('/brand/uni.svg');
-    expect(uniImg?.className).toMatch(/object-contain/);
-
-    expect(screen.getAllByTestId('platform-badge')).toHaveLength(3);
+    expect(screen.getByTestId('platform-badge-pons-icon')).toBeTruthy();
+    expect(screen.getAllByTestId('platform-badge')).toHaveLength(4);
   });
 
   it('keeps badges on one non-wrapping row for mobile viewports', () => {

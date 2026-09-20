@@ -20,7 +20,7 @@ describe('ProtocolDocsMarkdown', () => {
     );
 
     expect(html).toContain(
-      'SCOOP is infrastructure for turning what the market is talking about into markets people can trade.',
+      'SCOOP turns what the market is talking about into markets people can trade.',
     );
     expect(html).toContain('0x4B227d5E6199f42ceA4e638875fF8C740757DD3C');
     expect(html).toContain('id="1-protocol-overview"');
@@ -40,7 +40,7 @@ describe('ProtocolDocsNav', () => {
     const sections = extractProtocolDocsSections(loadProtocolDocsMarkdown());
     const html = renderToStaticMarkup(createElement(ProtocolDocsNav, { sections }));
 
-    expect(sections).toHaveLength(22);
+    expect(sections).toHaveLength(23);
     for (const section of sections) {
       expect(html).toContain(`href="#${section.id}"`);
     }

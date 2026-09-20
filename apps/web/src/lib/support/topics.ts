@@ -42,15 +42,15 @@ export const SUPPORT_TOPICS: SupportTopic[] = [
       },
       {
         id: 'what-network',
-        question: 'What network does SCOOP use?',
+        question: 'What networks does SCOOP use?',
         answer: [
           {
             type: 'p',
-            text: 'SCOOP operates on Robinhood Chain.',
+            text: 'SCOOP supports two launch rails: Solana via Pump.fun, and Robinhood Chain via Pons.',
           },
           {
             type: 'p',
-            text: 'Your wallet must be connected to the correct network before you can perform blockchain transactions.',
+            text: 'Your wallet must be connected to the network required by the action you are taking. Solana launches use a Solana wallet; Robinhood launches and SIWE sign-in use Robinhood Chain.',
           },
           {
             type: 'p',
@@ -106,7 +106,7 @@ export const SUPPORT_TOPICS: SupportTopic[] = [
           },
           {
             type: 'p',
-            text: 'Your wallet may ask you to approve the connection and switch to Robinhood Chain.',
+            text: 'Your wallet may ask you to approve the connection. Robinhood Chain actions may prompt a network switch; Solana Pump.fun launches use a Solana wallet without SIWE.',
           },
           {
             type: 'p',

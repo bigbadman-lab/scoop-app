@@ -1,12 +1,15 @@
 # SCOOP Protocol
 
-**SCOOP is infrastructure for turning what the market is talking about into markets people can trade.**
+**SCOOP turns what the market is talking about into markets people can trade.**
 
-News, companies, narratives and ideas can become permissionless onchain markets, paired with ETH, ecosystem assets or supported stock tokens on Robinhood Chain.
+SCOOP is the product layer for discovery, news context, AI launch assistance and market UX. Users choose an execution rail:
 
-Underneath scoop.fun is a non-upgradeable launch protocol built directly around Uniswap v4 — with configurable market economics, creator attribution, holder rewards and permanently locked launch liquidity.
+1. **Solana → Pump.fun** — wallet-connected create on Pump.fun (SOL pair). SCOOP does not run a custom Solana AMM, Solana holder-rewards system, or Pump replacement protocol.
+2. **Robinhood Chain → Pons** — launches on Robinhood Chain via Pons, with Uniswap v4 liquidity and the SCOOP protocol stack documented below.
 
-`scoop.fun` is the first interface built on the protocol.
+The sections that follow are primarily the **Robinhood protocol / legacy infrastructure** reference (Uniswap v4, FeeDistributor, locks, holder rewards, stock-token quotes). Solana / Pump.fun product behaviour is summarised in **§23**.
+
+`scoop.fun` is the first interface on this dual-rail product.
 
 ---
 
@@ -33,11 +36,14 @@ Underneath scoop.fun is a non-upgradeable launch protocol built directly around 
 19. Developer Resources
 20. Protocol Design Principles
 21. Current Implementation Notes
-22. Disclaimer
+22. Risk Disclosure & Disclaimer
+23. Solana / Pump.fun Launches
 
 ---
 
 # 1. Protocol Overview
+
+> **Scope:** This overview describes the **Robinhood Chain → Pons / Uniswap v4** protocol path. For Solana → Pump.fun, see §23.
 
 SCOOP is a permissionless token launch and market protocol built on Uniswap v4 for Robinhood Chain.
 
@@ -1739,3 +1745,32 @@ Nothing in this documentation constitutes financial, investment, legal, tax or o
 The existence of a SCOOP market, creator identity, stock-token pairing, news association or supported quote asset should not be interpreted as endorsement by SCOOP or by any person, company or organisation referenced by that market.
 
 Users are responsible for understanding the transactions they sign and independently evaluating the assets, contracts and risks involved.
+
+---
+
+# 23. Solana / Pump.fun Launches
+
+SCOOP’s Solana rail is a **product integration**, not a SCOOP-owned Solana protocol.
+
+## Product layer
+
+- Connect a Solana wallet (wallet-standard / Reown). SIWE account sessions remain Robinhood/EVM-specific and are not required for Pump creates.
+- Launch UX on scoop.fun prepares and confirms a **create** transaction against Pump.fun.
+- Markets pair with **SOL** on Pump.fun.
+- After confirmation, SCOOP persists the mint and opens `/token/<mint>`.
+
+## What SCOOP does not provide on Solana
+
+- No custom Solana AMM or bonding curve owned by SCOOP
+- No SCOOP Solana holder rewards, fee distributor, or locks
+- No embedded Pump trading UI (trade CTA opens Pump.fun)
+- No create+buy atomic flow in the current public path
+- No claim that scoop.fun indexes Pump candles or trade tape yet
+
+## Market pages
+
+Pump markets render with Solana / Pump.fun terminology (mint, Solana explorer, Trade on Pump.fun). Robinhood markets continue to use Robinhood Chain / Pons / Uniswap context where accurate.
+
+## Trading
+
+Trading for Pump markets happens on **Pump.fun**. SCOOP links out; it does not custody Solana swaps.

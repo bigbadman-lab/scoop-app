@@ -54,6 +54,22 @@ describe('token OG card model', () => {
     expect(model.monogram).toBe('H');
   });
 
+  it('labels Pump markets as Solana', () => {
+    const model = buildTokenOgCardModel({
+      token: {
+        tokenAddress: '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4',
+        name: 'Pump Coin',
+        symbol: 'PUMP',
+        displayImageUrl: null,
+        imageUri: '',
+        marketSource: 'pump',
+      },
+      quotePairLabel: 'SOL',
+    });
+    expect(model.networkLabel).toBe('Solana');
+    expect(model.pairLabel).toBe('SOL');
+  });
+
   it('falls back logo candidate to null when images are missing', () => {
     const model = buildTokenOgCardModel({
       token: {

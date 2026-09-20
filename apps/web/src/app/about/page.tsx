@@ -7,7 +7,7 @@ import { buildPageMetadata } from '@/lib/seo/site';
 export const metadata: Metadata = buildPageMetadata({
   title: 'About',
   description:
-    'SCOOP is an onchain market platform built around stocks, news and tokens on Robinhood Chain.',
+    'SCOOP turns news and market narratives into onchain markets. Launch on Solana via Pump.fun or Robinhood Chain via Pons.',
   path: '/about',
 });
 
@@ -18,11 +18,11 @@ const PILLARS = [
   },
   {
     label: 'Launch',
-    copy: 'Turn stories and narratives into onchain markets.',
+    copy: 'Turn stories into markets on Solana or Robinhood Chain.',
   },
   {
     label: 'Trade',
-    copy: 'Configurable markets paired with stock tokens.',
+    copy: 'Trade on the execution rail you launched with.',
   },
 ] as const;
 
@@ -42,8 +42,8 @@ export default function AboutPage() {
         </h1>
 
         <p className="mt-6 max-w-xl text-base leading-relaxed text-[var(--muted)] md:mt-8 md:text-lg md:leading-relaxed">
-          SCOOP is an onchain market platform built around{' '}
-          <strong className="font-medium text-[var(--fg)]">stocks, news and tokens</strong>.
+          SCOOP is a discovery and market-creation layer for{' '}
+          <strong className="font-medium text-[var(--fg)]">news, narratives and tokens</strong>.
         </p>
       </div>
 
@@ -70,25 +70,25 @@ export default function AboutPage() {
           <div className="max-w-2xl space-y-5 text-[15px] leading-relaxed text-[var(--muted)] md:text-base md:leading-relaxed">
             <p>
               We surface relevant market news through focused feeds, helping users cut through the
-              noise and find the stories worth paying attention to. From there, those stories,
-              companies and narratives can become onchain markets through the SCOOP Protocol.
+              noise and find the stories worth paying attention to. From there, SCOOP AI helps turn
+              those stories and narratives into launch concepts.
             </p>
             <p>
-              SCOOP markets can be paired with supported stock tokens and built with configurable
-              economics, including creator, deployer and holder reward structures.
+              Users then choose an execution rail. Solana launches route through{' '}
+              <strong className="font-medium text-[var(--fg)]">Pump.fun</strong>. Robinhood Chain
+              launches route through <strong className="font-medium text-[var(--fg)]">Pons</strong>,
+              with Uniswap v4 liquidity on that path.
             </p>
             <p>
-              The protocol is developed directly around{' '}
-              <strong className="font-medium text-[var(--fg)]">Uniswap v4 infrastructure</strong>{' '}
-              and built for{' '}
-              <strong className="font-medium text-[var(--fg)]">Robinhood Chain</strong>.
+              SCOOP owns discovery, news context, launch assistance and market UX — not a custom
+              Solana AMM, and not a replacement for Pump.fun or Pons.
             </p>
             <p>
               Our goal is simple: bring{' '}
               <strong className="font-medium text-[var(--fg)]">
                 news discovery, market creation and onchain trading
               </strong>{' '}
-              into one experience.
+              into one experience across both rails.
             </p>
           </div>
         </section>
@@ -116,7 +116,7 @@ export default function AboutPage() {
               We&apos;ve watched crypto evolve from an experimental financial system into
               infrastructure capable of bringing entirely new kinds of markets onchain.
             </p>
-            <p>Now stocks are moving onchain too.</p>
+            <p>Now stocks are moving onchain too — alongside Solana meme markets and news-driven launches.</p>
             <p>
               We believe the next opportunity sits where those worlds meet — combining traditional
               market information with the speed, openness and programmability of crypto.

@@ -51,9 +51,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { token, quoteSymbol } = result;
   const title = `${token.name} (${token.symbol})`;
+  const isPump = token.marketSource === 'pump';
+  const networkLabel = isPump ? 'Solana' : 'Robinhood Chain';
+  const railLabel = isPump ? 'Pump.fun' : token.marketSource === 'pons_v2' ? 'Pons' : 'SCOOP';
   const descriptionParts = [
-    `${token.name} (${token.symbol}) market on SCOOP / Robinhood Chain`,
-    `quoted in ${quoteSymbol}`,
+    `${token.name} (${token.symbol}) market on SCOOP / ${networkLabel} via ${railLabel}`,
+    isPump ? 'quoted in SOL' : `quoted in ${quoteSymbol}`,
     shortenAddress(token.tokenAddress),
   ];
   if (token.description?.trim()) {

@@ -14,7 +14,7 @@ describe('protocol docs source', () => {
     expect(path.endsWith('scoop-protocol-docs.md')).toBe(true);
     const markdown = loadProtocolDocsMarkdown();
     expect(markdown).toContain(
-      'SCOOP is infrastructure for turning what the market is talking about into markets people can trade.',
+      'SCOOP turns what the market is talking about into markets people can trade.',
     );
     expect(markdown).toContain('0x4B227d5E6199f42ceA4e638875fF8C740757DD3C');
     expect(markdown).toContain('Protocol capability');
@@ -23,9 +23,9 @@ describe('protocol docs source', () => {
     expect(markdown).not.toMatch(/buyback/i);
   });
 
-  it('extracts all 22 numbered major sections with stable anchors', () => {
+  it('extracts all 23 numbered major sections with stable anchors', () => {
     const sections = extractProtocolDocsSections(loadProtocolDocsMarkdown());
-    expect(sections).toHaveLength(22);
+    expect(sections).toHaveLength(23);
     expect(sections[0]).toMatchObject({
       number: 1,
       title: 'Protocol Overview',
@@ -35,6 +35,11 @@ describe('protocol docs source', () => {
       number: 22,
       title: 'Risk Disclosure & Disclaimer',
       id: '22-risk-disclosure-and-disclaimer',
+    });
+    expect(sections[22]).toMatchObject({
+      number: 23,
+      title: 'Solana / Pump.fun Launches',
+      id: '23-solana-pump-fun-launches',
     });
     expect(sections.map((s) => s.id)).toEqual([
       '1-protocol-overview',
@@ -59,6 +64,7 @@ describe('protocol docs source', () => {
       '20-protocol-design-principles',
       '21-current-implementation-notes',
       '22-risk-disclosure-and-disclaimer',
+      '23-solana-pump-fun-launches',
     ]);
   });
 

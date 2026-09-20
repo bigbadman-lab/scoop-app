@@ -66,7 +66,8 @@ export type IndexedLaunchSnapshot = {
 export type LaunchTxState = {
   phase: LaunchTxPhase;
   error: string | null;
-  txHash: `0x${string}` | null;
+  /** EVM tx hash (0x…) or Solana signature (base58). */
+  txHash: string | null;
   /** Expected creatorId from LaunchParams (financial check). */
   expectedCreatorId: `0x${string}` | null;
   expectedDeployer: `0x${string}` | null;

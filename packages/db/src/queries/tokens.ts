@@ -17,8 +17,21 @@ import {
   type DiscoverySqlRow,
 } from './_discoverySql.js';
 import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
+import { SOLANA_MAINNET_CHAIN_ID } from '../repos/pump-markets.js';
 
 const NATIVE_ETH_ADDRESS = '0x0000000000000000000000000000000000000000';
+const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function canonicalizeTokenAddress(chainId: number, address: string): string {
+  if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+    const t = address.trim();
+    if (!SOLANA_BASE58_RE.test(t) || t.startsWith('0x')) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
+    return t;
+  }
+  return normalizeAddress(address);
+}
 
 export interface GetTokensOptions {
   chainId: number;
@@ -250,7 +263,7 @@ export async function getToken(
   address: string,
   options?: { newWindowSeconds?: number; soonThresholdBps?: number },
 ): Promise<TokenDetail | null> {
-  const tokenAddress = normalizeAddress(address);
+  const tokenAddress = canonicalizeTokenAddress(chainId, address);
   const newWindow = options?.newWindowSeconds ?? DEFAULT_NEW_WINDOW_SECONDS;
   const soonBps = options?.soonThresholdBps ?? DEFAULT_SOON_THRESHOLD_BPS;
 
@@ -276,6 +289,7 @@ export async function getToken(
       l.fee_distributor_address,
       l.liquidity_locker_address,
       l.pool_id,
+      l.launch_tx_hash,
       COALESCE(l.market_source, 'scoop') AS market_source,
       l.graduation_status,
       l.curve_address,
@@ -369,8 +383,16 @@ export async function getToken(
 
   if (!row) return null;
 
-  const feeResult = await db.query(
-    `
+  const base = mapDiscoveryItem(row);
+  const isPump = base.marketSource === 'pump';
+
+  let creatorFeeDistributions: TokenFeeAssetDistribution[] = [];
+  let buybackFeeDistributions: TokenFeeAssetDistribution[] = [];
+
+  // Pump markets have no Scoop fee_distributions — skip EVM fee aggregation.
+  if (!isPump) {
+    const feeResult = await db.query(
+      `
     SELECT
       g.asset_kind,
       g.asset_address,
@@ -407,16 +429,17 @@ export async function getToken(
     LEFT JOIN tokens tok
       ON tok.chain_id = $1 AND tok.token_address = g.asset_address
     `,
-    [chainId, tokenAddress],
-  );
-
-  const base = mapDiscoveryItem(row);
-  const { creatorFeeDistributions, buybackFeeDistributions } =
-    mapFeeDistributionArrays(
+      [chainId, tokenAddress],
+    );
+    const mapped = mapFeeDistributionArrays(
       feeResult.rows as FeeAssetAggRow[],
       base.quoteAsset,
       tokenAddress,
     );
+    creatorFeeDistributions = mapped.creatorFeeDistributions;
+    buybackFeeDistributions = mapped.buybackFeeDistributions;
+  }
+
   const creatorEth = ethLegFromDistributions(creatorFeeDistributions);
   const buybackEth = ethLegFromDistributions(buybackFeeDistributions);
   const totalSupplyRaw = String(row.total_supply_raw);
@@ -428,6 +451,12 @@ export async function getToken(
     row.tick_spacing == null || row.tick_spacing === ''
       ? null
       : Number(row.tick_spacing);
+
+  const launchTxHash =
+    (row as { launch_tx_hash?: string | null }).launch_tx_hash == null ||
+    (row as { launch_tx_hash?: string | null }).launch_tx_hash === ''
+      ? null
+      : String((row as { launch_tx_hash?: string | null }).launch_tx_hash);
 
   return {
     ...base,
@@ -449,10 +478,15 @@ export async function getToken(
       row.liquidity_locker_address == null || row.liquidity_locker_address === ''
         ? null
         : String(row.liquidity_locker_address),
+    launchTxHash,
     sqrtPriceX96: row.sqrt_price_x96 == null ? null : String(row.sqrt_price_x96),
     tick: row.tick == null ? null : Number(row.tick),
     liquidityRaw: row.liquidity_raw == null ? null : String(row.liquidity_raw),
-    quoteUsdX18: row.quote_usd_x18 == null ? null : String(row.quote_usd_x18),
+    quoteUsdX18: isPump
+      ? null
+      : row.quote_usd_x18 == null
+        ? null
+        : String(row.quote_usd_x18),
     quoteVolumeAllTimeRaw:
       row.quote_volume_all_time_raw == null ? null : String(row.quote_volume_all_time_raw),
     tokenVolumeAllTimeRaw:

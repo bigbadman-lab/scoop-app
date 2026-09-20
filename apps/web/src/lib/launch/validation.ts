@@ -1,6 +1,9 @@
 import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
 import { parseDevBuyAmount } from '@/lib/launch/dev-buy';
 import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
+import { isPumpRail } from '@/lib/launch/launch-rail';
+import { PUMP_FIELD_LIMITS } from '@/lib/launch/adapters/pump/types';
+import { parseSolanaPublicKey } from '@/lib/solana/pubkey';
 import {
   readImageFileDimensions,
   squareDimensionError,
@@ -57,6 +60,35 @@ export function compatibleAssistWebsite(raw: string | null | undefined): string 
   return site;
 }
 
+/**
+ * Pump-only name/ticker caps layered on top of shared token validation.
+ * Does not mutate Robinhood META_LIMITS.
+ */
+export function validatePumpTokenLimits(state: LaunchFormState): FieldErrors {
+  const errors: FieldErrors = {};
+  const name = state.name.trim();
+  if (name && [...name].length > PUMP_FIELD_LIMITS.nameMax) {
+    errors.name = `Pump.fun supports names up to ${PUMP_FIELD_LIMITS.nameMax} characters.`;
+  }
+  const ticker = normalizeTicker(state.ticker);
+  if (ticker && [...ticker].length > PUMP_FIELD_LIMITS.symbolMax) {
+    errors.ticker = `Pump.fun supports tickers up to ${PUMP_FIELD_LIMITS.symbolMax} characters.`;
+  }
+  return errors;
+}
+
+/** Step 2 — Solana wallet required for Pump CREATE ONLY path. */
+export function validatePumpRouteStep(
+  _state: LaunchFormState,
+  solanaAddress?: string | null,
+): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!solanaAddress || !parseSolanaPublicKey(solanaAddress)) {
+    errors.wallet = 'Connect a Solana wallet to launch on Pump.fun.';
+  }
+  return errors;
+}
+
 export function validateTokenStep(state: LaunchFormState): FieldErrors {
   const errors: FieldErrors = {};
   const name = state.name.trim();
@@ -69,6 +101,10 @@ export function validateTokenStep(state: LaunchFormState): FieldErrors {
   if (!ticker) errors.ticker = 'Ticker is required.';
   else if (!TICKER_RE.test(ticker)) {
     errors.ticker = 'Ticker must be 2–10 characters (A–Z, 0–9).';
+  }
+
+  if (isPumpRail(state.launchRail)) {
+    Object.assign(errors, validatePumpTokenLimits(state));
   }
 
   const description = state.description.trim();

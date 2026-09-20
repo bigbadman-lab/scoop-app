@@ -1,6 +1,20 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress } from '../hex.js';
+import { SOLANA_MAINNET_CHAIN_ID } from './pump-markets.js';
 import { linkNewsArticleMarket, resolveArticleFromDraft } from './news-article-markets.js';
+
+const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function canonicalizeMarketTokenAddress(chainId: number, address: string): string {
+  if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+    const t = address.trim();
+    if (!SOLANA_BASE58_RE.test(t) || t.startsWith('0x')) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
+    return t;
+  }
+  return normalizeAddress(address);
+}
 
 export type NewsArticleMarketIntentStatus = 'pending' | 'done' | 'failed' | 'expired';
 
@@ -375,7 +389,10 @@ export async function getNewsArticleLoreForToken(
   canonicalUrl: string | null;
   sourceDomain: string;
 } | null> {
-  const tokenAddress = normalizeAddress(args.tokenAddress);
+  const tokenAddress = canonicalizeMarketTokenAddress(
+    args.chainId,
+    args.tokenAddress,
+  );
   const result = await db.query<{
     provider: string;
     provider_article_id: string;

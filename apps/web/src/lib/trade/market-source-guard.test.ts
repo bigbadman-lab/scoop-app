@@ -45,6 +45,19 @@ describe('market-source trade guard (Gate 6)', () => {
     ).toBe(false);
   });
 
+  it('blocks Pump markets (no Scoop UV4 path)', () => {
+    expect(
+      canUseScoopUv4TradePath({
+        marketSource: 'pump',
+        currency0: null,
+        currency1: null,
+        poolFee: null,
+        tickSpacing: null,
+        hooks: null,
+      }),
+    ).toBe(false);
+  });
+
   it('exposes safe disabled copy', () => {
     expect(PONS_TRADE_DISABLED_COPY.toLowerCase()).toContain('pons');
   });

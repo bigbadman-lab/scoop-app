@@ -184,6 +184,11 @@ export {
   type TokenRow,
 } from './repos/tokens.js';
 export {
+  upsertPumpMarket,
+  type PumpMarketPersistInput,
+  type PumpMarketPersistResult,
+} from './repos/pump-markets.js';
+export {
   upsertTokenDisplayFinalizeIntent,
   bindDisplayFinalizeIntentToToken,
   bindAwaitingDisplayFinalizeIntents,

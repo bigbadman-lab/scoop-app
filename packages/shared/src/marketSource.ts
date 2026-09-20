@@ -1,19 +1,27 @@
 /**
- * Market source discriminator (Gate 6).
+ * Market source discriminator (Gate 6 / Gate E).
  * Explicit column preferred over fragile factory-address comparisons.
+ *
+ * Meaning:
+ * - scoop   — ScoopFactory UV4-at-launch on Robinhood
+ * - pons_v2 — Pons bonding curve on Robinhood
+ * - pump    — Pump.fun create_v2 on Solana
+ *
+ * Distinct from chain_id / chain_family (network identity).
  */
-export const MARKET_SOURCES = ['scoop', 'pons_v2'] as const;
+export const MARKET_SOURCES = ['scoop', 'pons_v2', 'pump'] as const;
 export type MarketSource = (typeof MARKET_SOURCES)[number];
 
 export const MARKET_PHASES = ['curve', 'graduated_pool'] as const;
 export type MarketPhase = (typeof MARKET_PHASES)[number];
 
 export function isMarketSource(value: unknown): value is MarketSource {
-  return value === 'scoop' || value === 'pons_v2';
+  return value === 'scoop' || value === 'pons_v2' || value === 'pump';
 }
 
 export function normalizeMarketSource(value: unknown): MarketSource {
   if (value === 'pons_v2') return 'pons_v2';
+  if (value === 'pump') return 'pump';
   return 'scoop';
 }
 

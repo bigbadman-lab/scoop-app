@@ -6,6 +6,12 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: [
+    '@pump-fun/pump-sdk',
+    '@coral-xyz/anchor',
+    '@pump-fun/pump-swap-sdk',
+    '@pump-fun/agent-payments-sdk',
+  ],
   transpilePackages: [
     '@scoop/db',
     '@scoop/news',
@@ -13,6 +19,7 @@ const nextConfig: NextConfig = {
     'geist',
     '@reown/appkit',
     '@reown/appkit-adapter-wagmi',
+    '@reown/appkit-adapter-solana',
   ],
   outputFileTracingRoot: path.join(configDir, '../..'),
   // Relative to apps/web — absolute paths break Vercel NFT tracing under rootDirectory.
@@ -23,7 +30,7 @@ const nextConfig: NextConfig = {
   },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@x402/evm': false,
@@ -33,6 +40,14 @@ const nextConfig: NextConfig = {
       '@x402/svm/exact/client': false,
     };
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    if (isServer) {
+      config.externals.push({
+        '@pump-fun/pump-sdk': 'commonjs @pump-fun/pump-sdk',
+        '@pump-fun/pump-swap-sdk': 'commonjs @pump-fun/pump-swap-sdk',
+        '@pump-fun/agent-payments-sdk': 'commonjs @pump-fun/agent-payments-sdk',
+        '@coral-xyz/anchor': 'commonjs @coral-xyz/anchor',
+      });
+    }
     return config;
   },
 };

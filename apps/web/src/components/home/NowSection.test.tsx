@@ -128,15 +128,17 @@ describe('NowSection news lead', () => {
     );
 
     expect(screen.getByTestId('homepage-infrastructure-badges')).toBeTruthy();
-    expect(screen.getByText('Built on')).toBeTruthy();
+    expect(screen.getByText('Solana')).toBeTruthy();
+    expect(screen.getByText('Pump.fun')).toBeTruthy();
     expect(screen.getByText('Robinhood Chain')).toBeTruthy();
-    expect(screen.getByText('Powered by')).toBeTruthy();
-    expect(screen.getByText('Uniswap')).toBeTruthy();
-    expect(screen.getByText('Markets paired with')).toBeTruthy();
-    expect(screen.getByText('Stocks + ETH')).toBeTruthy();
-    expect(screen.getByText(/Turn/i)).toBeTruthy();
-    expect(screen.getByText(/into markets\. Earn from every trade\./i)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /^news$/i }).getAttribute('href')).toBe('/news');
+    expect(screen.getByText('Pons')).toBeTruthy();
+    expect(screen.getByText(/Turn what's happening now into a market/i)).toBeTruthy();
+    expect(
+      screen.getByText(/Solana via Pump\.fun or Robinhood Chain via Pons/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: /breaking narratives/i }).getAttribute('href'),
+    ).toBe('/news');
 
     const launches = screen.getAllByRole('link', { name: /^launch$/i });
     expect(launches.length).toBeGreaterThan(0);

@@ -1,9 +1,9 @@
 /**
- * Trading path safety (Gate 6).
- * Never send a Pons curve market through Scoop UV4 swap encoding.
+ * Trading path safety (Gate 6 / Gate E).
+ * Never send a Pons curve or Pump market through Scoop UV4 swap encoding.
  */
 
-export type TradeableMarketSource = 'scoop' | 'pons_v2';
+export type TradeableMarketSource = 'scoop' | 'pons_v2' | 'pump';
 
 export function canUseScoopUv4TradePath(args: {
   marketSource: TradeableMarketSource | string | null | undefined;
@@ -15,9 +15,7 @@ export function canUseScoopUv4TradePath(args: {
   hooks?: string | null;
 }): boolean {
   const source = args.marketSource ?? 'scoop';
-  if (source === 'pons_v2') {
-    // Pre-graduation curve markets must never use Scoop UV4 swap.
-    // Graduated pools may gain a trade path later — still blocked until implemented.
+  if (source === 'pons_v2' || source === 'pump') {
     return false;
   }
   if (
@@ -34,3 +32,6 @@ export function canUseScoopUv4TradePath(args: {
 
 export const PONS_TRADE_DISABLED_COPY =
   'Trading integration for this Pons market is not enabled yet.';
+
+export const PUMP_TRADE_EXTERNAL_COPY =
+  'Trade this coin on Pump.fun — SCOOP Solana trading lands in a later gate.';

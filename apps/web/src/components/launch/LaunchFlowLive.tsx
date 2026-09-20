@@ -16,6 +16,7 @@ import {
   compatibleAssistWebsite,
   isArtworkBlockingLaunch,
   validateDevBuyStep,
+  validatePumpRouteStep,
   validateTokenStep,
 } from '@/lib/launch/validation';
 import { LAUNCH_WRITE_ENABLED } from '@/lib/launch/execute';
@@ -25,6 +26,8 @@ import {
   resumePublicPonsLaunch,
   runPublicPonsLaunch,
 } from '@/lib/launch/run-public-pons-launch';
+import { runPublicPumpLaunch } from '@/lib/launch/run-public-pump-launch';
+import { completePublicPumpLaunch } from '@/lib/launch/complete-public-pump-launch';
 import { runLaunchCompletion } from '@/lib/launch/complete-launch';
 import { activateNewsArticleMarket } from '@/lib/news/activate-article-market';
 import {
@@ -33,6 +36,7 @@ import {
   savePendingLaunchCompletion,
 } from '@/lib/launch/pending-completion';
 import { saveFreshLaunchHandoff } from '@/lib/launch/fresh-launch-handoff';
+import { savePumpSuccessHandoff } from '@/lib/launch/pump-success-handoff';
 import { canShowViewMarket } from '@/lib/launch/completion-panel-copy';
 import {
   INITIAL_LAUNCH_TX_STATE,
@@ -46,10 +50,14 @@ import {
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { consumeAssistedLaunchHandoff } from '@/lib/launch-assist/handoff';
 import type { LaunchAssistArticle } from '@/lib/launch-assist/types';
+import { isPumpRail, type LaunchRail } from '@/lib/launch/launch-rail';
+import type { LaunchResult } from '@/lib/launch/launch-result';
 import { LaunchProgress } from '@/components/launch/LaunchProgress';
 import { LaunchNav } from '@/components/launch/LaunchNav';
+import { LaunchRailSelector } from '@/components/launch/LaunchRailSelector';
 import { TokenStep } from '@/components/launch/steps/TokenStep';
 import { DevBuyStep } from '@/components/launch/steps/DevBuyStep';
+import { PumpRouteStep } from '@/components/launch/PumpRouteStep';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
 import {
   isLaunchCommitted,
@@ -61,6 +69,8 @@ import {
   resolveDevSupplyPolicy,
 } from '@/lib/launch/dev-supply-policy';
 import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import type { Provider as SolanaProvider } from '@reown/appkit-adapter-solana/react';
 
 type Props = {
   catalogue: PublicQuoteCatalogueItem[];
@@ -240,8 +250,14 @@ function LaunchFlowInner({ catalogue }: Props) {
   const publicClient = usePublicClient({ chainId: ROBINHOOD_CHAIN_ID });
   const { data: walletClient } = useWalletClient({ chainId: ROBINHOOD_CHAIN_ID });
   const { switchChainAsync } = useSwitchChain();
+  const solanaAccount = useAppKitAccount({ namespace: 'solana' });
+  const { walletProvider: solanaWalletProvider } =
+    useAppKitProvider<SolanaProvider>('solana');
+  const solanaAddress = solanaAccount.address ?? null;
   const applied = useRef(false);
   const launchInFlight = useRef(false);
+  const pumpAttemptIdRef = useRef<string | null>(null);
+  const pumpSignatureRef = useRef<string | null>(null);
   const completionAbortRef = useRef<AbortController | null>(null);
   const completionKeyRef = useRef<string | null>(null);
   const resumeTriedRef = useRef(false);
@@ -272,6 +288,9 @@ function LaunchFlowInner({ catalogue }: Props) {
   const [schemaReady, setSchemaReady] = useState<boolean | null>(null);
   const [ponsDraftId, setPonsDraftId] = useState<string | null>(null);
   const ponsDraftIdRef = useRef<string | null>(null);
+  const [pumpResult, setPumpResult] = useState<LaunchResult | null>(null);
+  const [pumpPersistError, setPumpPersistError] = useState<string | null>(null);
+  const pumpRail = isPumpRail(state.launchRail);
 
   imageSourceRef.current.source = state.image.source;
   stepRef.current = state.step;
@@ -316,7 +335,7 @@ function LaunchFlowInner({ catalogue }: Props) {
     savePendingLaunchCompletion({
       chainId: ROBINHOOD_CHAIN_ID,
       tokenAddress: base.decoded.token,
-      txHash: base.txHash,
+      txHash: base.txHash as `0x${string}`,
       expectedCreatorId: base.expectedCreatorId,
       expectedDeployer: base.expectedDeployer,
       decoded: base.decoded,
@@ -327,7 +346,7 @@ function LaunchFlowInner({ catalogue }: Props) {
     saveFreshLaunchHandoff({
       chainId: ROBINHOOD_CHAIN_ID,
       tokenAddress: base.decoded.token,
-      txHash: base.txHash,
+      txHash: base.txHash as `0x${string}`,
       name: base.decoded.name,
       symbol: base.decoded.symbol,
       quoteAsset: base.decoded.quoteAsset,
@@ -336,7 +355,7 @@ function LaunchFlowInner({ catalogue }: Props) {
     void runLaunchCompletion({
       chainId: ROBINHOOD_CHAIN_ID,
       tokenAddress: base.decoded.token,
-      txHash: base.txHash,
+      txHash: base.txHash as `0x${string}`,
       decoded: base.decoded,
       expectedCreatorId: base.expectedCreatorId,
       expectedDeployer: base.expectedDeployer,
@@ -395,7 +414,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       saveFreshLaunchHandoff({
         chainId: ROBINHOOD_CHAIN_ID,
         tokenAddress: tx.decoded.token,
-        txHash: tx.txHash,
+        txHash: tx.txHash as `0x${string}`,
         name: tx.indexedLaunch?.name ?? tx.decoded.name,
         symbol: tx.indexedLaunch?.symbol ?? tx.decoded.symbol,
         quoteAsset: (tx.indexedLaunch?.quoteAsset ?? tx.decoded.quoteAsset) as `0x${string}`,
@@ -662,9 +681,13 @@ function LaunchFlowInner({ catalogue }: Props) {
   const stepErrors = useMemo(() => {
     if (!attempted) return {} as FieldErrors;
     if (state.step === 1) return validateTokenStep(state);
-    if (state.step === 2) return validateDevBuyStep(state);
+    if (state.step === 2) {
+      return pumpRail
+        ? validatePumpRouteStep(state, solanaAddress)
+        : validateDevBuyStep(state);
+    }
     return {};
-  }, [attempted, state]);
+  }, [attempted, state, pumpRail, solanaAddress]);
 
   const visibleErrors = attempted ? { ...errors, ...stepErrors } : errors;
   const artworkBlockingLaunch = isArtworkBlockingLaunch(state);
@@ -687,6 +710,14 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
     if (state.step === 2) {
+      if (pumpRail) {
+        const next = validatePumpRouteStep(state, solanaAddress);
+        setErrors(next);
+        if (Object.keys(next).length) return;
+        dispatch({ type: 'SET_STEP', step: 3 });
+        setAttempted(false);
+        return;
+      }
       const next = validateDevBuyStep(state);
       setErrors(next);
       if (Object.keys(next).length) return;
@@ -697,6 +728,24 @@ function LaunchFlowInner({ catalogue }: Props) {
       dispatch({ type: 'SET_STEP', step: 3 });
       setAttempted(false);
     }
+  }
+
+  function onLaunchRailChange(rail: LaunchRail) {
+    if (
+      rail.chain === state.launchRail.chain &&
+      rail.provider === state.launchRail.provider
+    ) {
+      return;
+    }
+    // Changing rail invalidates route-specific progress / pump attempt.
+    setPumpResult(null);
+    setPumpPersistError(null);
+    pumpAttemptIdRef.current = null;
+    pumpSignatureRef.current = null;
+    setTx(INITIAL_LAUNCH_TX_STATE);
+    setErrors({});
+    setAttempted(false);
+    dispatch({ type: 'PATCH', patch: { launchRail: rail } });
   }
 
   function viewImageFromNotice() {
@@ -792,35 +841,195 @@ function LaunchFlowInner({ catalogue }: Props) {
     state.step === 3
       ? artworkBlockingLaunch
         ? 'Finishing your token image…'
-        : isPostBroadcastRelaunchBlocked(tx.phase) && tx.phase !== 'lock_required'
-          ? isMarketLivePhase(tx.phase)
-            ? 'Market is live'
-            : tx.phase === 'indexing_timeout'
-              ? 'Launch confirmed — indexing delayed'
-              : tx.phase === 'index_mismatch'
-                ? 'Indexed launch mismatch'
-                : isLaunchTxBusy(tx.phase)
-                  ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
-                  : 'Launch transaction already submitted'
-          : isLaunchTxBusy(tx.phase)
-            ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
-            : !LAUNCH_WRITE_ENABLED
-              ? 'Launch submission is disabled.'
-              : schemaReady === false
-                ? PONS_SCHEMA_BLOCKED_MESSAGE
-                : schemaReady == null
-                  ? 'Checking Pons indexing schema…'
-                  : !connectedAddress
-                    ? 'Connect a wallet to launch'
-                    : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
-                      ? 'Switch to Robinhood Chain (4663)'
-                      : undefined
+        : pumpRail && pumpResult
+          ? 'Pump launch complete'
+          : pumpRail && pumpSignatureRef.current
+            ? 'Transaction already submitted — check explorer before a fresh launch'
+            : isPostBroadcastRelaunchBlocked(tx.phase) && tx.phase !== 'lock_required'
+              ? isMarketLivePhase(tx.phase)
+                ? 'Market is live'
+                : tx.phase === 'indexing_timeout'
+                  ? 'Launch confirmed — indexing delayed'
+                  : tx.phase === 'index_mismatch'
+                    ? 'Indexed launch mismatch'
+                    : isLaunchTxBusy(tx.phase)
+                      ? launchTxBusyReason(tx.phase, state.devSupplyPolicy, pumpRail)
+                      : 'Launch transaction already submitted'
+              : isLaunchTxBusy(tx.phase)
+                ? launchTxBusyReason(tx.phase, state.devSupplyPolicy, pumpRail)
+                : !LAUNCH_WRITE_ENABLED
+                  ? 'Launch submission is disabled.'
+                  : pumpRail
+                    ? !solanaAddress
+                      ? 'Connect a Solana wallet to launch'
+                      : !solanaWalletProvider
+                        ? 'Solana wallet provider not ready'
+                        : undefined
+                    : schemaReady === false
+                      ? PONS_SCHEMA_BLOCKED_MESSAGE
+                      : schemaReady == null
+                        ? 'Checking Pons indexing schema…'
+                        : !connectedAddress
+                          ? 'Connect a wallet to launch'
+                          : accountChainId != null && accountChainId !== ROBINHOOD_CHAIN_ID
+                            ? 'Switch to Robinhood Chain (4663)'
+                            : undefined
       : undefined;
+
+  async function submitPumpLaunch() {
+    if (!solanaAddress || !solanaWalletProvider) {
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'failed',
+        error: 'Connect a Solana wallet to launch.',
+      });
+      return;
+    }
+    if (pumpSignatureRef.current) {
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'failed',
+        txHash: pumpSignatureRef.current,
+        error: `A Pump transaction was already submitted. Check the explorer before starting a fresh launch.`,
+      });
+      return;
+    }
+
+    launchInFlight.current = true;
+    setTx({ ...INITIAL_LAUNCH_TX_STATE, phase: 'preparing_artwork' });
+    try {
+      const outcome = await runPublicPumpLaunch({
+        state,
+        walletAddress: solanaAddress,
+        walletProvider: solanaWalletProvider,
+        priorAttemptId: pumpAttemptIdRef.current,
+        priorSignature: pumpSignatureRef.current,
+        onPhase: (phase) => {
+          setTx((prev) => ({ ...prev, phase, error: null }));
+        },
+        onImagePinned: (image) => {
+          dispatch({ type: 'SET_IMAGE', image });
+        },
+        onMintAttempt: (attemptId) => {
+          pumpAttemptIdRef.current = attemptId;
+        },
+      });
+
+      if (!outcome.ok) {
+        if (outcome.signature) {
+          pumpSignatureRef.current = outcome.signature;
+        }
+        if (outcome.attemptId) {
+          pumpAttemptIdRef.current = outcome.attemptId;
+        }
+        setTx({
+          ...INITIAL_LAUNCH_TX_STATE,
+          phase: 'failed',
+          txHash: outcome.signature ?? null,
+          error: outcome.error,
+        });
+        return;
+      }
+
+      pumpSignatureRef.current = outcome.signature;
+      setPumpResult(outcome.result);
+      savePumpSuccessHandoff({
+        result: outcome.result,
+        name: state.name.trim(),
+        symbol: state.ticker.trim(),
+        description: state.description.trim(),
+        imageIpfsUri: state.image.ipfsUri,
+        sourceProvider: state.sourceProvider,
+        sourceProviderArticleId: state.sourceProviderArticleId,
+        sourceDraftId: state.sourceDraftId,
+      });
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'waiting_for_indexer',
+        txHash: outcome.signature,
+      });
+
+      const persisted = await completePublicPumpLaunch({
+        result: outcome.result,
+        state,
+        creatorWallet: solanaAddress,
+      });
+      if (!persisted.ok) {
+        setPumpPersistError(persisted.error);
+        setTx({
+          ...INITIAL_LAUNCH_TX_STATE,
+          phase: 'failed',
+          txHash: outcome.signature,
+          error: `Launch confirmed on Solana, but SCOOP could not save the market yet: ${persisted.error}`,
+        });
+        return;
+      }
+
+      setPumpPersistError(null);
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'market_live',
+        txHash: outcome.signature,
+      });
+      router.replace(persisted.tokenPath);
+    } finally {
+      launchInFlight.current = false;
+    }
+  }
+
+  async function retryPumpPersist() {
+    if (!pumpResult || !solanaAddress) return;
+    if (launchInFlight.current) return;
+    launchInFlight.current = true;
+    setPumpPersistError(null);
+    setTx((prev) => ({
+      ...prev,
+      phase: 'waiting_for_indexer',
+      error: null,
+    }));
+    try {
+      const persisted = await completePublicPumpLaunch({
+        result: pumpResult,
+        state,
+        creatorWallet: solanaAddress,
+      });
+      if (!persisted.ok) {
+        setPumpPersistError(persisted.error);
+        setTx({
+          ...INITIAL_LAUNCH_TX_STATE,
+          phase: 'failed',
+          txHash: pumpResult.txHash,
+          error: `Launch confirmed on Solana, but SCOOP could not save the market yet: ${persisted.error}`,
+        });
+        return;
+      }
+      setPumpPersistError(null);
+      setTx({
+        ...INITIAL_LAUNCH_TX_STATE,
+        phase: 'market_live',
+        txHash: pumpResult.txHash,
+      });
+      router.replace(persisted.tokenPath);
+    } finally {
+      launchInFlight.current = false;
+    }
+  }
 
   async function submitLaunch() {
     if (state.step !== 3) return;
     if (launchInFlight.current || isLaunchTxBusy(tx.phase)) return;
     if (artworkBlockingLaunch) return;
+
+    if (pumpRail) {
+      if (pumpResult && pumpPersistError) {
+        await retryPumpPersist();
+        return;
+      }
+      if (pumpResult) return;
+      await submitPumpLaunch();
+      return;
+    }
+
     if (tx.phase === 'lock_required') {
       await resumeLock();
       return;
@@ -946,15 +1155,30 @@ function LaunchFlowInner({ catalogue }: Props) {
       <header className="mb-5 md:mb-6">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Launch something new</h1>
         <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)] md:text-base">
-          {isBurnDevSupplyPolicy(state.devSupplyPolicy)
-            ? 'Create a Pons V2 token with an ETH dev buy. Your full dev allocation is burned after launch.'
-            : state.devSupplyPolicy === 'lock_6m'
-              ? 'Create a Pons V2 token with an ETH dev buy. Your allocation locks for 6 months via HoodLock.'
-              : `Create a Pons V2 token with an ETH dev buy. ${devSupplyOption(state.devSupplyPolicy).helper}`}
+          {pumpRail
+            ? 'Create a coin on Pump.fun (Solana). No initial buy in this release.'
+            : isBurnDevSupplyPolicy(state.devSupplyPolicy)
+              ? 'Create a Pons token with an ETH dev buy. Your full dev allocation is burned after launch.'
+              : state.devSupplyPolicy === 'lock_6m'
+                ? 'Create a Pons token with an ETH dev buy. Your allocation locks for 6 months via HoodLock.'
+                : `Create a Pons token with an ETH dev buy. ${devSupplyOption(state.devSupplyPolicy).helper}`}
         </p>
       </header>
 
-      {quoteWarning ? (
+      <div className="mb-5 md:mb-6">
+        <LaunchRailSelector
+          value={state.launchRail}
+          onChange={onLaunchRailChange}
+          disabled={
+            isLaunchTxBusy(tx.phase) ||
+            isLaunchCompletionActive(tx.phase) ||
+            Boolean(pumpResult) ||
+            Boolean(pumpSignatureRef.current)
+          }
+        />
+      </div>
+
+      {quoteWarning && !pumpRail ? (
         <p
           className="mb-4 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--muted)]"
           role="status"
@@ -964,7 +1188,7 @@ function LaunchFlowInner({ catalogue }: Props) {
         </p>
       ) : null}
 
-      <LaunchProgress step={state.step} />
+      <LaunchProgress step={state.step} launchRail={state.launchRail} />
 
       {artworkNotice && state.step !== 1 ? (
         <ArtworkFlowNotice
@@ -990,20 +1214,30 @@ function LaunchFlowInner({ catalogue }: Props) {
       ) : null}
 
       {state.step === 2 ? (
-        <DevBuyStep
-          state={state}
-          errors={visibleErrors}
-          policyLocked={Boolean(tx.txHash) || isLaunchCompletionActive(tx.phase)}
-          onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
-        />
+        pumpRail ? (
+          <PumpRouteStep errors={visibleErrors} />
+        ) : (
+          <DevBuyStep
+            state={state}
+            errors={visibleErrors}
+            policyLocked={Boolean(tx.txHash) || isLaunchCompletionActive(tx.phase)}
+            onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
+          />
+        )
       ) : null}
 
       {state.step === 3 ? (
         <ReviewStep
           state={state}
           connectedAddress={connectedAddress}
+          solanaAddress={solanaAddress}
           tx={tx}
-          schemaBlocked={schemaReady === false}
+          schemaBlocked={!pumpRail && schemaReady === false}
+          pumpResult={pumpResult}
+          pumpPersistError={pumpPersistError}
+          onRetryPumpPersist={() => {
+            void retryPumpPersist();
+          }}
           onRetryIndex={retryIndexCheck}
           onRetryNews={() => {
             void retryNewsLink();
@@ -1017,64 +1251,84 @@ function LaunchFlowInner({ catalogue }: Props) {
 
       <LaunchNav
         onBack={
-          state.step > 1 && !isLaunchTxBusy(tx.phase) && !isLaunchCompletionActive(tx.phase)
+          state.step > 1 &&
+          !isLaunchTxBusy(tx.phase) &&
+          !isLaunchCompletionActive(tx.phase) &&
+          !pumpResult
             ? goBack
             : undefined
         }
         onContinue={
           state.step < 3
             ? goContinue
-            : canShowViewMarket(
-                  tx.phase,
-                  tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                    ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
-                    : null,
-                )
-              ? viewMarket
-              : tx.phase === 'lock_required'
-                ? () => {
-                    void resumeLock();
-                  }
-                : () => {
-                    void submitLaunch();
-                  }
+            : pumpRail
+              ? () => {
+                  if (pumpResult) return;
+                  void submitLaunch();
+                }
+              : canShowViewMarket(
+                    tx.phase,
+                    tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                      ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
+                      : null,
+                  )
+                ? viewMarket
+                : tx.phase === 'lock_required'
+                  ? () => {
+                      void resumeLock();
+                    }
+                  : () => {
+                      void submitLaunch();
+                    }
         }
         continueLabel={
           state.step === 2
             ? 'Review →'
             : state.step === 3
-              ? canShowViewMarket(
-                  tx.phase,
-                  tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                    ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
-                    : null,
-                )
-                ? 'View token →'
-                : tx.phase === 'lock_required'
-                  ? isBurnDevSupplyPolicy(state.devSupplyPolicy)
-                    ? 'Resume burn →'
-                    : 'Resume locking →'
-                  : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
-                    ? isLaunchTxBusy(tx.phase)
-                      ? launchTxBusyReason(tx.phase, state.devSupplyPolicy)
-                      : 'Confirmed'
-                    : 'Launch token →'
+              ? pumpRail
+                ? pumpResult && !pumpPersistError
+                  ? 'Opening market…'
+                  : pumpPersistError
+                    ? 'Retry save →'
+                    : isLaunchTxBusy(tx.phase)
+                      ? launchTxBusyReason(tx.phase, state.devSupplyPolicy, true)
+                      : 'Launch on Pump.fun →'
+                : canShowViewMarket(
+                      tx.phase,
+                      tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                        ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
+                        : null,
+                    )
+                  ? 'View token →'
+                  : tx.phase === 'lock_required'
+                    ? isBurnDevSupplyPolicy(state.devSupplyPolicy)
+                      ? 'Resume burn →'
+                      : 'Resume locking →'
+                    : isLaunchCompletionActive(tx.phase) || isLaunchTxBusy(tx.phase)
+                      ? isLaunchTxBusy(tx.phase)
+                        ? launchTxBusyReason(tx.phase, state.devSupplyPolicy, false)
+                        : 'Confirmed'
+                      : 'Launch token →'
               : 'Continue →'
         }
         continueDisabled={
           state.step === 3 &&
-          tx.phase !== 'lock_required' &&
-          (Boolean(launchDisabledReason) ||
-            (!canShowViewMarket(
-              tx.phase,
-              tx.indexedLaunch?.tokenAddress || tx.decoded?.token
-                ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
-                : null,
-            ) &&
-              (isLaunchTxBusy(tx.phase) || isLaunchCompletionActive(tx.phase))))
+          (pumpRail
+            ? Boolean(launchDisabledReason) ||
+              (Boolean(pumpResult) && !pumpPersistError) ||
+              isLaunchTxBusy(tx.phase)
+            : tx.phase !== 'lock_required' &&
+              (Boolean(launchDisabledReason) ||
+                (!canShowViewMarket(
+                  tx.phase,
+                  tx.indexedLaunch?.tokenAddress || tx.decoded?.token
+                    ? tokenMarketPath(tx.indexedLaunch?.tokenAddress ?? tx.decoded!.token)
+                    : null,
+                ) &&
+                  (isLaunchTxBusy(tx.phase) || isLaunchCompletionActive(tx.phase)))))
         }
         continueDisabledReason={
-          tx.phase === 'lock_required' ? undefined : launchDisabledReason
+          pumpRail || tx.phase === 'lock_required' ? (pumpRail ? launchDisabledReason : undefined) : launchDisabledReason
         }
       />
     </div>
@@ -1084,7 +1338,24 @@ function LaunchFlowInner({ catalogue }: Props) {
 function launchTxBusyReason(
   phase: LaunchTxState['phase'],
   policy: ReturnType<typeof resolveDevSupplyPolicy> = 'lock_6m',
+  pump = false,
 ): string {
+  if (pump) {
+    switch (phase) {
+      case 'preparing_artwork':
+        return 'Preparing metadata…';
+      case 'simulating':
+        return 'Building Pump.fun transaction…';
+      case 'awaiting_wallet':
+        return 'Confirm in wallet…';
+      case 'submitted':
+        return 'Broadcasting to Solana…';
+      case 'confirming':
+        return 'Confirming launch…';
+      default:
+        return 'Launch in progress…';
+    }
+  }
   const burn = isBurnDevSupplyPolicy(policy);
   switch (phase) {
     case 'preparing_artwork':
