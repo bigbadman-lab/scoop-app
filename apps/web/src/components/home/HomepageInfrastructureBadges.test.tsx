@@ -37,7 +37,11 @@ describe('HomepageInfrastructureBadges', () => {
     expect(rh.className).toMatch(/overflow-hidden/);
     expect(rh.querySelector('img')?.getAttribute('src')).toBe('/brand/rh.svg');
 
-    expect(screen.getByTestId('platform-badge-pons-icon')).toBeTruthy();
+    const pons = screen.getByTestId('platform-badge-pons-icon');
+    const ponsImg = pons.querySelector('img');
+    expect(ponsImg?.getAttribute('src')).toBe('/brand/pons.png');
+    expect(ponsImg?.getAttribute('alt')).toBe('Pons');
+    expect(ponsImg?.className).toMatch(/object-contain/);
     expect(screen.getAllByTestId('platform-badge')).toHaveLength(4);
   });
 

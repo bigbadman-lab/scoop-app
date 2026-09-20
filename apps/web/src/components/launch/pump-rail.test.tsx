@@ -15,7 +15,7 @@ const MINT = 'So11111111111111111111111111111111111111112';
 const SIG = '5'.repeat(64);
 
 describe('LaunchRailSelector', () => {
-  it('renders both rails and marks the selected provider', () => {
+  it('renders both rails with icons and marks the selected provider', () => {
     const onChange = vi.fn();
     render(
       <LaunchRailSelector
@@ -23,12 +23,16 @@ describe('LaunchRailSelector', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByTestId('launch-rail-pons').getAttribute('aria-pressed')).toBe(
-      'true',
-    );
-    expect(screen.getByTestId('launch-rail-pump').getAttribute('aria-pressed')).toBe(
-      'false',
-    );
+    const pons = screen.getByTestId('launch-rail-pons');
+    const pump = screen.getByTestId('launch-rail-pump');
+    expect(pons.getAttribute('aria-pressed')).toBe('true');
+    expect(pump.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByText('Robinhood Chain')).toBeTruthy();
+    expect(screen.getByText('Launch via Pons')).toBeTruthy();
+    expect(screen.getByText('Solana')).toBeTruthy();
+    expect(screen.getByText('Launch via Pump.fun')).toBeTruthy();
+    expect(pons.querySelector('img')?.getAttribute('src')).toBe('/brand/rh.svg');
+    expect(pump.querySelector('img')?.getAttribute('src')).toBe('/brand/solana.svg');
   });
 });
 

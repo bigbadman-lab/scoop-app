@@ -8,10 +8,12 @@ function BrandIcon({
   src,
   testId,
   contain = false,
+  alt = '',
 }: {
   src: string;
   testId: string;
   contain?: boolean;
+  alt?: string;
 }) {
   return (
     <span
@@ -26,7 +28,7 @@ function BrandIcon({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
-        alt=""
+        alt={alt}
         width={32}
         height={32}
         className={
@@ -35,18 +37,6 @@ function BrandIcon({
             : 'h-full w-full object-cover'
         }
       />
-    </span>
-  );
-}
-
-function PonsMonogram() {
-  return (
-    <span
-      data-testid="platform-badge-pons-icon"
-      className="flex h-5 w-5 items-center justify-center rounded-[6px] border border-[var(--divider)] bg-[var(--bg)] text-[10px] font-semibold tracking-tight text-[var(--fg)] sm:h-7 sm:w-7 sm:rounded-[8px] sm:text-[12px]"
-      aria-hidden
-    >
-      P
     </span>
   );
 }
@@ -88,7 +78,18 @@ export function HomepageInfrastructureBadges({ className = '' }: Props) {
         eyebrow="Built on"
         value="Robinhood Chain"
       />
-      <PlatformBadge icon={<PonsMonogram />} eyebrow="Launch via" value="Pons" />
+      <PlatformBadge
+        icon={
+          <BrandIcon
+            src="/brand/pons.png"
+            testId="platform-badge-pons-icon"
+            contain
+            alt="Pons"
+          />
+        }
+        eyebrow="Launch via"
+        value="Pons"
+      />
     </div>
   );
 }
