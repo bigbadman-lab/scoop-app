@@ -340,7 +340,7 @@ export class PumpPortalTradeProvider implements PumpTradeProvider {
         const classified = classifyPumpPortalProviderError(errText);
         if (classified.status === 'ok') {
           logJson('info', 'pumpportal provider ack', {
-            message: errText.slice(0, 120),
+            ack: errText.slice(0, 120),
             subscribedMintCount: this.subscribed.size,
           });
           this.status = this.subscribed.size > 0 ? 'subscribed' : 'connected';
