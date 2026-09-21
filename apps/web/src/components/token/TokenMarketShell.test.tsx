@@ -488,6 +488,12 @@ describe('TokenMarketShell', () => {
     expect(
       screen.getByTestId('network-badge-solana').querySelector('img')?.getAttribute('src'),
     ).toBe('/brand/solana.svg');
+    expect(
+      screen.getAllByTestId('quote-asset-badge').some((el) => /SOL/.test(el.textContent ?? '')),
+    ).toBe(true);
+    const solIcons = screen.getAllByTestId('quote-asset-solana-icon');
+    expect(solIcons.length).toBeGreaterThanOrEqual(1);
+    expect(solIcons[0]!.getAttribute('src')).toBe('/brand/solana.svg');
     expect(screen.getByTestId('token-market-source').textContent).toBe('Pump.fun');
     expect(screen.getByText('Mint')).toBeTruthy();
     expect(screen.queryByText('Contract')).toBeNull();

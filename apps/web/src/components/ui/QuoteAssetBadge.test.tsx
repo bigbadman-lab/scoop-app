@@ -24,4 +24,13 @@ describe('QuoteAssetBadge', () => {
     fireEvent.error(logo!);
     expect(screen.getByTestId('quote-asset-monogram').textContent).toBe('N');
   });
+
+  it('uses branded Solana icon for SOL when no catalogue image', () => {
+    render(<QuoteAssetBadge symbol="SOL" imageUrl={null} />);
+    expect(screen.getByTestId('quote-asset-badge').textContent).toMatch(/SOL/);
+    expect(screen.getByTestId('quote-asset-solana-icon').getAttribute('src')).toBe(
+      '/brand/solana.svg',
+    );
+    expect(screen.queryByTestId('quote-asset-monogram')).toBeNull();
+  });
 });

@@ -8,16 +8,27 @@ type Props = {
   className?: string;
 };
 
+/** Branded Solana mark for native SOL / WSOL quote badges. */
+const SOLANA_BRAND_ICON = '/brand/solana.svg';
+
+function resolveQuoteIcon(symbol: string, imageUrl: string | null): string | null {
+  if (imageUrl) return imageUrl;
+  // Native SOL quote (Pump / Solana) — use brand mark, not monogram.
+  if (symbol.trim().toUpperCase() === 'SOL') return SOLANA_BRAND_ICON;
+  return null;
+}
+
 /**
  * Compact quote-asset identity for discovery cards.
- * Uses catalogue imageUrl when present; otherwise a deterministic ticker monogram.
- * Never fetches third-party logos ad hoc.
+ * Uses catalogue imageUrl when present; SOL falls back to branded Solana icon;
+ * otherwise a deterministic ticker monogram. Never fetches third-party logos ad hoc.
  */
 export function QuoteAssetBadge({ symbol, imageUrl = null, className = '' }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
   const label = symbol.trim() || '?';
   const monogram = label.slice(0, 3).toUpperCase();
-  const showImage = Boolean(imageUrl && !imgFailed);
+  const resolvedImage = resolveQuoteIcon(label, imageUrl);
+  const showImage = Boolean(resolvedImage && !imgFailed);
 
   return (
     <span
@@ -32,9 +43,9 @@ export function QuoteAssetBadge({ symbol, imageUrl = null, className = '' }: Pro
       title={`Quoted in ${label}`}
     >
       {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- catalogue CDN/storage URLs
+        // eslint-disable-next-line @next/next/no-img-element -- catalogue CDN/storage or brand asset
         <img
-          src={imageUrl!}
+          src={resolvedImage!}
           alt=""
           width={14}
           height={14}
@@ -42,6 +53,9 @@ export function QuoteAssetBadge({ symbol, imageUrl = null, className = '' }: Pro
           loading="lazy"
           decoding="async"
           onError={() => setImgFailed(true)}
+          data-testid={
+            resolvedImage === SOLANA_BRAND_ICON ? 'quote-asset-solana-icon' : undefined
+          }
         />
       ) : (
         <span
