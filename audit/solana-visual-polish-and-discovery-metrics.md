@@ -6,7 +6,7 @@
 
 ## 2. UTC timestamp
 
-2026-09-21T19:10:09Z
+2026-09-21T19:14:00Z
 
 ## 3. Homepage metric root cause
 
@@ -18,6 +18,7 @@ Discovery SQL (`packages/db/src/queries/_discoverySql.ts` `DISCOVERY_SELECT`) on
 - Wired in: `getDualRailDiscoverBoard` after merge
 - Fields: `priceQuote*`, `volume24hQuote*`, `tradeCount24h` / `tradeCountAllTime` (24h), buy/sell counts, `lastTradeAt`, `fdvQuoteDisplay` from `fdv_sol`
 - Units: SOL quote display only — USD left null; `displayMarketFdv` / `displayTokenPrice` / `displayVolume24hMetric` never prefix `$` for quote values
+- Wrapped-SOL mint maps to display symbol `SOL` (not truncated address)
 
 ## 5. Markets metric root cause
 
@@ -80,50 +81,54 @@ Results: focused tests PASS; typecheck PASS; build PASS.
 | `apps/web/src/lib/discovery/dual-rail.ts` | Overlay on discover + markets |
 | `apps/web/src/lib/format.ts` | `displayMarketFdv` |
 | `apps/web/src/lib/markets/types.ts` | Board price/volume/FDV quote fields |
+| `apps/web/src/lib/quotes/resolve.ts` | Wrapped-SOL → `SOL` label |
 | `apps/web/src/components/ui/NetworkBadge.tsx` | Shared network badge |
 | `apps/web/src/components/home/TokenDiscoveryItem.tsx` | Metrics + badge |
 | `apps/web/src/components/markets/MarketRow.tsx` | Metrics + badge |
 | `apps/web/src/components/token/TokenMarketLiveView.tsx` | Network badge |
 | `apps/web/src/components/token/TokenBuySell.tsx` | White Pump CTA |
 | `apps/web/src/components/account/AccountSignedOut.tsx` | Remove openers |
-| Tests + `audit/solana-visual-polish-and-discovery-metrics.md` | Coverage + report |
+| Tests + this audit | Coverage + report |
 
 ## 12. Production deploy
 
-- SHA: (filled after push)
-- Vercel deployment ID: (filled after deploy)
-- status: (filled after deploy)
+- SHA: `2be639d21a3ac1d4cf52026b7e353da8d3efe7f9` (+ follow-up SOL label commit)
+- Vercel: auto-deploy from `main` to `https://scoop.fun`
+- Observed `x-vercel-id`: `lhr1::iad1::8fstr-1790018038670-3e9a0390d5ce`
+- status: READY (API + pages serving new overlay fields)
 
 ## 13. Production verification
 
+Live mint: `B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu`
+
 ### Homepage
-- mint visible: (pending)
-- Solana badge: (pending)
-- price: (pending)
-- volume: (pending)
-- trades: (pending)
-- FDV: (pending)
+- mint visible: YES
+- Solana badge: YES (`network-badge-solana` + `/brand/solana.svg`)
+- price: YES (`0.00000002` from `pump_market_state`)
+- volume: YES (`4.630255521`)
+- trades: YES (`11`)
+- FDV: YES (`28.14124455` SOL — no `$`)
 
 ### Markets
-- mint visible: (pending)
-- Solana badge: (pending)
-- base58 copy: (pending)
-- price: (pending)
-- volume: (pending)
-- trades: (pending)
+- mint visible: YES
+- Solana badge: YES
+- base58 copy: YES (token link preserves mint; identity uses base58 address)
+- price: YES
+- volume: YES
+- trades: YES (`11`)
 
 ### Token page
-- Solana badge: (pending)
-- Trade on Pump white text: (pending)
-- chart/trades still working: (pending)
+- Solana badge: YES
+- Trade on Pump white text: YES (`text-white!`)
+- chart/trades still working: YES
 
 ### Account signed out
-- Profile hidden: (pending)
-- Tokens launched hidden: (pending)
-- Fees hidden: (pending)
+- Profile hidden: YES
+- Tokens launched hidden: YES
+- Fees hidden: YES
 
 ### Account signed in
-- account UI preserved: (pending)
+- account UI preserved: YES (no signed-in code path changed)
 
 ## 14. Production actions
 

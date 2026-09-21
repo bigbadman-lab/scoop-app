@@ -1,11 +1,16 @@
 import type { PublicQuoteCatalogueItem } from '@/lib/quotes/catalogue';
 
+/** Canonical wrapped-SOL mint used as Pump quote asset. */
+const SOLANA_WRAPPED_SOL_MINT = 'So11111111111111111111111111111111111111112';
+
 /** Map a token quoteAsset address to catalogue display symbol. */
 export function quoteDisplaySymbol(
   quoteAsset: string,
   catalogue: readonly PublicQuoteCatalogueItem[],
 ): string {
-  const key = quoteAsset.trim().toLowerCase();
+  const trimmed = quoteAsset.trim();
+  if (trimmed === SOLANA_WRAPPED_SOL_MINT) return 'SOL';
+  const key = trimmed.toLowerCase();
   const hit = catalogue.find((q) => q.quoteAsset.toLowerCase() === key);
   if (hit?.displaySymbol) return hit.displaySymbol;
   if (hit?.symbol) return hit.symbol;
@@ -32,7 +37,9 @@ export function quotePairLabel(
   quoteAsset: string,
   catalogue: readonly PublicQuoteCatalogueItem[],
 ): string {
-  const key = quoteAsset.trim().toLowerCase();
+  const trimmed = quoteAsset.trim();
+  if (trimmed === SOLANA_WRAPPED_SOL_MINT) return 'SOL';
+  const key = trimmed.toLowerCase();
   const hit = catalogue.find((q) => q.quoteAsset.toLowerCase() === key);
   if (!hit) return truncateShort(quoteAsset);
   const sym = (hit.displaySymbol || hit.symbol || '').trim();
