@@ -149,8 +149,8 @@ pnpm --filter @scoop/web run build      → (recorded with commit)
 
 ## 13. Production deploy
 
-- SHA: _(filled after push)_
-- Vercel deployment ID: _(await Vercel)_
+- SHA: `46541089b5e8e4c6f4e5b2fa403280a9b18b14dc`
+- Vercel deployment ID: _(await Vercel production deploy)_
 - status: pending human verification on `https://scoop.fun`
 
 ---
