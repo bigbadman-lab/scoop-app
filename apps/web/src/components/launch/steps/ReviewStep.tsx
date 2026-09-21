@@ -30,7 +30,6 @@ import {
 import { isPumpRail, launchRailLabel } from '@/lib/launch/launch-rail';
 import type { LaunchResult } from '@/lib/launch/launch-result';
 import {
-  pumpFunCoinUrl,
   solanaExplorerAddressUrl,
   solanaExplorerTxUrl,
 } from '@/lib/solana/explorer';
@@ -317,10 +316,17 @@ function PumpReview({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
+        <h2 className="text-xl font-semibold tracking-tight">
+          {showSuccess ? 'Launch complete' : 'Review & launch'}
+        </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Create a coin on Pump.fun (Solana). Confirm one wallet transaction for
-          create{state.devBuyAmount.trim() && state.devBuyAmount.trim() !== '0' ? ' and DEV BUY' : ''}.
+          {showSuccess
+            ? 'Your market is live on-chain, preparing your page now'
+            : `Create a coin on Pump.fun (Solana). Confirm one wallet transaction for create${
+                state.devBuyAmount.trim() && state.devBuyAmount.trim() !== '0'
+                  ? ' and DEV BUY'
+                  : ''
+              }.`}
         </p>
       </div>
 
@@ -483,15 +489,15 @@ function PumpSuccessPanel({
           <p className="text-sm font-semibold">
             {persistError
               ? 'Coin created — saving to SCOOP failed'
-              : 'Coin created on Pump.fun'}
+              : 'Market created'}
           </p>
           <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
             Solana · confirmed
           </p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
+          <p className="mt-1 text-sm text-[var(--muted)]" data-testid="pump-launch-success-status">
             {persistError
               ? 'Your Pump transaction is confirmed. Retry saving to open the SCOOP token page — do not launch again.'
-              : 'Saving your SCOOP market and opening the token page…'}
+              : 'Your market is live on-chain, preparing your page now'}
           </p>
           <p className="mt-2 font-mono text-[12px]">
             {name} · ${ticker}
@@ -539,17 +545,6 @@ function PumpSuccessPanel({
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-3">
-        {mint ? (
-          <a
-            href={pumpFunCoinUrl(mint)}
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
-            data-testid="pump-fun-link"
-          >
-            Open on Pump.fun →
-          </a>
-        ) : null}
         {sig ? (
           <a
             href={solanaExplorerTxUrl(sig)}

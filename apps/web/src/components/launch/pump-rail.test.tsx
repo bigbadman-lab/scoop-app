@@ -7,7 +7,6 @@ import { createInitialLaunchState } from '@/lib/launch/types';
 import { INITIAL_LAUNCH_TX_STATE } from '@/lib/launch/tx-state';
 import { pumpLaunchResult } from '@/lib/launch/launch-result';
 import {
-  pumpFunCoinUrl,
   solanaExplorerTxUrl,
 } from '@/lib/solana/explorer';
 import {
@@ -175,7 +174,7 @@ describe('ReviewStep Pump rail', () => {
     expect(screen.getByTestId('pump-creator-wallet').textContent).toMatch(/2Q3bW/);
   });
 
-  it('shows temporary Pump success with mint + explorer + pump.fun links', () => {
+  it('shows temporary Pump success with preparing-page copy and no Pump.fun link', () => {
     const state = createInitialLaunchState({
       launchRail: { chain: 'solana', provider: 'pump' },
       name: 'Gate D Coin',
@@ -192,9 +191,11 @@ describe('ReviewStep Pump rail', () => {
       />,
     );
     expect(screen.getByTestId('pump-launch-success')).toBeTruthy();
-    expect(screen.getByTestId('pump-fun-link').getAttribute('href')).toBe(
-      pumpFunCoinUrl(MINT),
+    expect(screen.getByTestId('pump-launch-success-status').textContent).toBe(
+      'Your market is live on-chain, preparing your page now',
     );
+    expect(screen.queryByTestId('pump-fun-link')).toBeNull();
+    expect(screen.queryByRole('link', { name: /pump\.fun/i })).toBeNull();
     expect(screen.getByTestId('pump-explorer-tx').getAttribute('href')).toBe(
       solanaExplorerTxUrl(SIG),
     );
