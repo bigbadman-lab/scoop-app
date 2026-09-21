@@ -56,7 +56,10 @@ export function loadPumpSdk(): PumpSdkModule {
     }
     const detail =
       err instanceof Error
-        ? err.message.replace(/(?:\/[\w.@+-]+)+/g, '[path]').slice(0, 120)
+        ? err.message
+            // Preserve package names like @pump-fun/pump-sdk; strip only absolute paths.
+            .replace(/\/(?:Users|home|var|tmp)\/[^\s:]+/g, '[path]')
+            .slice(0, 180)
         : 'unknown';
     throw new Error(`${PUMP_SDK_UNAVAILABLE}:${detail}`);
   }

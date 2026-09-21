@@ -6,14 +6,9 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: [
-    // Keep Pump SDK out of serverExternalPackages so Next webpack bundles it.
-    // Externalizing left a runtime require that Vercel could not resolve
-    // (MODULE_NOT_FOUND) despite NFT including the package files.
-    '@coral-xyz/anchor',
-    '@pump-fun/pump-swap-sdk',
-    '@pump-fun/agent-payments-sdk',
-  ],
+  // Do not put @pump-fun/* or @coral-xyz/anchor in serverExternalPackages.
+  // Externalizing them left runtime requires that fail MODULE_NOT_FOUND on Vercel
+  // funded prepare even when NFT traced the files. Webpack must bundle that graph.
   transpilePackages: [
     '@scoop/db',
     '@scoop/news',
@@ -29,22 +24,10 @@ const nextConfig: NextConfig = {
     '/docs': ['../../scoop-protocol-docs.md'],
     // opengraph-image readFile()'s the template — must be traced into the serverless bundle.
     '/token/[address]/opengraph-image': ['./public/brand/token-template2.png'],
-    // Pump prepare/confirm/dev probes load @pump-fun/pump-sdk via Node require.
-    // Explicit includes keep the pnpm store entry in the Vercel function.
-    '/api/launch/pump/prepare': [
-      './node_modules/@pump-fun/pump-sdk/**/*',
-      '../../node_modules/@pump-fun/pump-sdk/**/*',
-      '../../node_modules/.pnpm/@pump-fun+pump-sdk@*/node_modules/@pump-fun/pump-sdk/**/*',
-    ],
-    '/api/launch/pump/confirm': [
-      './node_modules/@pump-fun/pump-sdk/**/*',
-      '../../node_modules/@pump-fun/pump-sdk/**/*',
-      '../../node_modules/.pnpm/@pump-fun+pump-sdk@*/node_modules/@pump-fun/pump-sdk/**/*',
-    ],
   },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@x402/evm': false,
@@ -54,15 +37,6 @@ const nextConfig: NextConfig = {
       '@x402/svm/exact/client': false,
     };
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
-    if (isServer) {
-      config.externals.push({
-        // Do not externalize @pump-fun/pump-sdk — must be webpack-bundled for
-        // Vercel serverless resolution (see prepare 502 MODULE_NOT_FOUND).
-        '@pump-fun/pump-swap-sdk': 'commonjs @pump-fun/pump-swap-sdk',
-        '@pump-fun/agent-payments-sdk': 'commonjs @pump-fun/agent-payments-sdk',
-        '@coral-xyz/anchor': 'commonjs @coral-xyz/anchor',
-      });
-    }
     return config;
   },
 };
