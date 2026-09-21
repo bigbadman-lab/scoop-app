@@ -14,6 +14,8 @@ export async function GET(request: Request) {
     userId: session.userId,
     address: session.address,
     chainId: session.chainId,
+    namespace: session.namespace,
+    authMethod: session.authMethod,
     expiresAt: new Date(session.expiresAt).toISOString(),
   });
 }

@@ -23,10 +23,13 @@ import {
   type ScoopAuthEvent,
 } from '@/lib/auth/scoop-auth-machine';
 import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
+import { requestSiwsSession } from '@/lib/auth/siws-session-client';
 import {
   clearAuthoritativeWalletNamespace,
   setAuthoritativeWalletNamespace,
 } from '@/lib/auth/wallet-session';
+import { useAppKitProvider } from '@reown/appkit/react';
+import type { Provider as SolanaProvider } from '@reown/appkit-adapter-solana/react';
 
 type Props = {
   open: boolean;
@@ -103,6 +106,8 @@ export function ScoopAuthSheet({
 }: Props) {
   const titleId = useId();
   const descId = useId();
+  const { walletProvider: solanaWalletProvider } =
+    useAppKitProvider<SolanaProvider>('solana');
   const [state, dispatch] = useReducer(reduceScoopAuth, INITIAL_SCOOP_AUTH_STATE);
   const panelRef = useRef<HTMLDivElement | null>(null);
   /** May switch Join entry → solana without reopening the sheet. */
@@ -195,7 +200,7 @@ export function ScoopAuthSheet({
   const subtitle = isSolana
     ? openedAsSolana
       ? 'Choose a Solana wallet for Pump.fun launches. Ethereum wallets are not used on this rail.'
-      : 'Connect Phantom or another Solana wallet. This does not create a SCOOP email/Ethereum session.'
+      : 'Connect Phantom or another Solana wallet, then approve the SCOOP sign-in request.'
     : state.phase === 'entry' || state.phase === 'email_enter'
       ? 'Sign in with email or an Ethereum wallet. Solana wallets connect separately.'
       : state.phase === 'otp_enter' || state.phase === 'otp_verifying'
@@ -300,14 +305,48 @@ export function ScoopAuthSheet({
               onConnecting={() => send({ type: 'WALLET_CONNECT_START' })}
               onConnected={(address, connectedNamespace) => {
                 const ns = connectedNamespace ?? activeNamespace;
-                setAuthoritativeWalletNamespace(ns);
-                setScoopConnectNamespace(ns);
-                setActiveNamespace(ns);
-                send({ type: 'WALLET_CONNECT_OK' });
                 if (ns === 'solana') {
-                  close('completed');
+                  send({ type: 'SIWE_START' });
+                  void requestSiwsSession({
+                    address,
+                    provider: (solanaWalletProvider ?? {}) as {
+                      signMessage?: (
+                        message: Uint8Array,
+                      ) => Promise<Uint8Array | { signature: Uint8Array }>;
+                      signIn?: (input: {
+                        domain: string;
+                        address: string;
+                        statement: string;
+                        uri: string;
+                        version: string;
+                        chainId: string;
+                        nonce: string;
+                        issuedAt: string;
+                        expirationTime: string;
+                      }) => Promise<{
+                        signedMessage: Uint8Array;
+                        signature: Uint8Array;
+                      }>;
+                    },
+                  }).then((result) => {
+                    if (!result.ok) {
+                      clearAuthoritativeWalletNamespace();
+                      send({
+                        type: 'WALLET_CONNECT_FAIL',
+                        message: result.message,
+                      });
+                      return;
+                    }
+                    setScoopConnectNamespace('solana');
+                    setActiveNamespace('solana');
+                    close('completed');
+                  });
                   return;
                 }
+                setAuthoritativeWalletNamespace('eip155');
+                setScoopConnectNamespace('eip155');
+                setActiveNamespace('eip155');
+                send({ type: 'WALLET_CONNECT_OK' });
                 onWalletReady?.(address as `0x${string}`);
                 send({ type: 'SIWE_START' });
                 close('completed');

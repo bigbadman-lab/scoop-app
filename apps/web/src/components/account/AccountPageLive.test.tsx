@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import {
   clearAuthoritativeWalletNamespace,
+  clearScoopAuthSnapshot,
   setAuthoritativeWalletNamespace,
+  setScoopAuthSnapshot,
 } from '@/lib/auth/wallet-session';
 
 const SOL = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
+const USER = '11111111-1111-4111-8111-111111111111';
 
 const { useAccount, fetchScoopAuthStatus, signOutScoopSession } = vi.hoisted(
   () => ({
@@ -53,9 +56,10 @@ vi.mock('@reown/appkit-controllers', () => ({
 
 import { AccountPageLive } from '@/components/account/AccountPageLive';
 
-describe('AccountPageLive Solana session', () => {
+describe('AccountPageLive Solana SIWS session', () => {
   beforeEach(() => {
     clearAuthoritativeWalletNamespace();
+    clearScoopAuthSnapshot();
     useAccount.mockReset();
     fetchScoopAuthStatus.mockReset();
     signOutScoopSession.mockReset();
@@ -70,23 +74,39 @@ describe('AccountPageLive Solana session', () => {
     });
   });
 
-  it('renders Solana public key and network label without EVM crash', async () => {
+  it('renders the shared account layout with the Solana public key', () => {
+    const userId = USER;
     setAuthoritativeWalletNamespace('solana');
+    setScoopAuthSnapshot({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId,
+    });
     render(<AccountPageLive />);
-    expect(await screen.findByTestId('solana-account-session')).toBeTruthy();
-    expect(screen.getByTestId('solana-account-address').textContent).toBe(SOL);
-    expect(screen.getByText(/^Solana$/)).toBeTruthy();
-    expect(screen.getByTestId('solana-account-evm-unavailable').textContent).toMatch(
-      /Not available for this wallet/i,
+    expect(screen.getByText('Your SCOOP profile')).toBeTruthy();
+    expect(screen.getByText('SCOOP account')).toBeTruthy();
+    expect(screen.getByText('Connected wallet')).toBeTruthy();
+    expect(screen.getByTestId('account-wallet-address').textContent).toBe(SOL);
+    expect(screen.getByText(/External wallet · Solana/)).toBeTruthy();
+    expect(screen.getByText('Sign out of SCOOP')).toBeTruthy();
+    expect(screen.getByTestId('solana-modules-unavailable').textContent).toMatch(
+      /Not available on Solana yet/i,
     );
-    expect(screen.getByTestId('solana-account-sign-out')).toBeTruthy();
+    expect(screen.queryByText(/Could not load account/i)).toBeNull();
   });
 
-  it('signs out and clears the Solana session surface', async () => {
-    setAuthoritativeWalletNamespace('solana');
+  it('signs out from the shared account action', async () => {
+    setScoopAuthSnapshot({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId: USER,
+    });
     render(<AccountPageLive />);
-    await screen.findByTestId('solana-account-sign-out');
-    screen.getByTestId('solana-account-sign-out').click();
+    screen.getByRole('button', { name: /sign out of scoop/i }).click();
     await waitFor(() => {
       expect(signOutScoopSession).toHaveBeenCalled();
     });

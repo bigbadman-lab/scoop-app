@@ -15,6 +15,26 @@ export type ScoopWalletSession = {
   providerReady: boolean;
 };
 
+export type ScoopAuthMethod = 'siwe' | 'siws';
+
+export type ScoopAuthSnapshot = {
+  authenticated: boolean;
+  namespace: ScoopWalletNamespace | null;
+  address: string | null;
+  authMethod: ScoopAuthMethod | null;
+  userId: string | null;
+};
+
+const EMPTY_AUTH: ScoopAuthSnapshot = {
+  authenticated: false,
+  namespace: null,
+  address: null,
+  authMethod: null,
+  userId: null,
+};
+
+let authSnapshot: ScoopAuthSnapshot = EMPTY_AUTH;
+
 type Listener = () => void;
 
 let authoritative: ScoopWalletNamespace | null = null;
@@ -66,6 +86,19 @@ export function setAuthoritativeWalletNamespace(
 
 export function clearAuthoritativeWalletNamespace(): void {
   setAuthoritativeWalletNamespace(null);
+}
+
+export function getScoopAuthSnapshot(): ScoopAuthSnapshot {
+  return authSnapshot;
+}
+
+export function setScoopAuthSnapshot(next: ScoopAuthSnapshot): void {
+  authSnapshot = next;
+  for (const listener of listeners) listener();
+}
+
+export function clearScoopAuthSnapshot(): void {
+  setScoopAuthSnapshot(EMPTY_AUTH);
 }
 
 export function resolveScoopWalletSession(input: {

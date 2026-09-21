@@ -74,7 +74,6 @@ vi.mock('@/lib/auth/scoop-auth-events', () => ({
 import { WalletSlotLive } from '@/components/shell/WalletSlotLive';
 import {
   clearAuthoritativeWalletNamespace,
-  setAuthoritativeWalletNamespace,
 } from '@/lib/auth/wallet-session';
 
 const A = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
@@ -815,22 +814,27 @@ describe('WalletSlotLive Solana session chrome', () => {
     });
   });
 
-  it('renders a clickable account control that links to /account', async () => {
-    setAuthoritativeWalletNamespace('solana');
-    render(<WalletSlotLive variant="mobile" initialIntent={null} />);
-    const link = await screen.findByRole('link', {
-      name: /open scoop account for solana/i,
+  it('renders the shared account control after SIWS', async () => {
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      userId: '11111111-1111-4111-8111-111111111111',
+      address: SOL,
+      chainId: 101,
+      namespace: 'solana',
+      authMethod: 'siws',
     });
+    render(<WalletSlotLive variant="mobile" initialIntent={null} />);
+    const link = await screen.findByRole('link', { name: /open scoop account/i });
     expect(link.getAttribute('href')).toBe('/account');
-    expect(link.getAttribute('data-scoop-wallet-namespace')).toBe('solana');
-    expect(link.getAttribute('data-wallet-address')).toBe(SOL);
+    expect(link.textContent).toMatch(/Solana/);
+    expect(link.textContent).toMatch(/2Q3bW/);
   });
 
-  it('returns to Sign In when the Solana provider is not connected', () => {
-    setAuthoritativeWalletNamespace('solana');
-    solanaAppKitAccount = { address: undefined, isConnected: false };
+  it('stays on Sign In when Solana is connected but not SIWS-authenticated', () => {
+    solanaAppKitAccount = { address: SOL, isConnected: true };
+    fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
     render(<WalletSlotLive variant="mobile" initialIntent={null} />);
-    expect(screen.queryByRole('link', { name: /solana/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /open scoop account/i })).toBeNull();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeTruthy();
   });
 });

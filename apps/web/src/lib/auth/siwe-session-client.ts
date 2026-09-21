@@ -2,14 +2,17 @@ import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { addressesEqual, sessionAddress } from '@/lib/auth/address';
 import { notifyScoopAuthChanged } from '@/lib/auth/scoop-auth-events';
 import { buildSiweMessage } from '@/lib/auth/siwe-client';
+import { setScoopAuthSnapshot } from '@/lib/auth/wallet-session';
 
 export type ScoopAuthStatus =
   | { authenticated: false }
   | {
       authenticated: true;
       userId: string;
-      address: `0x${string}`;
+      address: string;
       chainId: number;
+      namespace: 'eip155' | 'solana';
+      authMethod: 'siwe' | 'siws';
       expiresAt?: string;
     };
 
@@ -347,23 +350,73 @@ export async function fetchScoopAuthStatus(): Promise<ScoopAuthStatus> {
       userId?: unknown;
       address?: unknown;
       chainId?: unknown;
+      namespace?: unknown;
+      authMethod?: unknown;
       expiresAt?: unknown;
     };
     if (data.authenticated !== true || typeof data.address !== 'string') {
+      setScoopAuthSnapshot({
+        authenticated: false,
+        namespace: null,
+        address: null,
+        authMethod: null,
+        userId: null,
+      });
       return { authenticated: false };
     }
     if (typeof data.userId !== 'string' || !data.userId.trim()) {
       return { authenticated: false };
     }
+
+    const namespace = data.namespace === 'solana' ? 'solana' : 'eip155';
+    const authMethod =
+      data.authMethod === 'siws' || data.authMethod === 'siwe'
+        ? data.authMethod
+        : namespace === 'solana'
+          ? 'siws'
+          : 'siwe';
+
+    if (namespace === 'solana') {
+      if (authMethod !== 'siws') return { authenticated: false };
+      const address = data.address.trim();
+      const status: ScoopAuthStatus = {
+        authenticated: true,
+        userId: data.userId.toLowerCase(),
+        address,
+        chainId: typeof data.chainId === 'number' ? data.chainId : 101,
+        namespace: 'solana',
+        authMethod: 'siws',
+        expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : undefined,
+      };
+      setScoopAuthSnapshot({
+        authenticated: true,
+        namespace: 'solana',
+        address,
+        authMethod: 'siws',
+        userId: status.userId,
+      });
+      return status;
+    }
+
     const address = sessionAddress(data.address);
     if (!address) return { authenticated: false };
-    return {
+    const status: ScoopAuthStatus = {
       authenticated: true,
       userId: data.userId.toLowerCase(),
       address,
       chainId: typeof data.chainId === 'number' ? data.chainId : ROBINHOOD_CHAIN_ID,
+      namespace: 'eip155',
+      authMethod: 'siwe',
       expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : undefined,
     };
+    setScoopAuthSnapshot({
+      authenticated: true,
+      namespace: 'eip155',
+      address,
+      authMethod: 'siwe',
+      userId: status.userId,
+    });
+    return status;
   } catch {
     return { authenticated: false };
   }

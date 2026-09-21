@@ -26,7 +26,7 @@ export type PublicAccountResponse = {
     walletType: 'external' | 'embedded';
     provider: string | null;
     chainId: number;
-    chainLabel: 'Robinhood Chain';
+    chainLabel: 'Robinhood Chain' | 'Solana';
   };
   auth: {
     scoopSession: true;

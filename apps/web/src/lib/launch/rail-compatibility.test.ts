@@ -11,12 +11,18 @@ const SOL = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
 const EVM = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 
 describe('getLaunchRailCompatibility', () => {
+  const signedOut = {
+    authenticated: false,
+    walletNamespace: null,
+    authMethod: null,
+    providerReady: false,
+  } as const;
+
   it('requires sign-in for both rails when disconnected', () => {
     for (const selectedRail of ['pons', 'pump'] as const) {
       const result = getLaunchRailCompatibility({
         selectedRail,
-        walletNamespace: null,
-        connected: false,
+        ...signedOut,
       });
       expect(result.status).toBe('requires_sign_in');
       expect(result.canLaunch).toBe(false);
@@ -24,39 +30,59 @@ describe('getLaunchRailCompatibility', () => {
     }
   });
 
-  it('allows PONS and blocks Pump for an EVM session', () => {
+  it('allows PONS and blocks Pump for an EVM SIWE session', () => {
     expect(
       getLaunchRailCompatibility({
         selectedRail: 'pons',
+        authenticated: true,
         walletNamespace: 'eip155',
-        connected: true,
+        authMethod: 'siwe',
+        providerReady: true,
       }).canLaunch,
     ).toBe(true);
     const pump = getLaunchRailCompatibility({
       selectedRail: 'pump',
+      authenticated: true,
       walletNamespace: 'eip155',
-      connected: true,
+      authMethod: 'siwe',
+      providerReady: true,
     });
     expect(pump.status).toBe('incompatible_namespace');
     expect(pump.canLaunch).toBe(false);
     expect(pump.message).toBe(EVM_ON_PUMP_MESSAGE);
   });
 
-  it('allows Pump and blocks PONS for a Solana session', () => {
+  it('allows Pump and blocks PONS for a Solana SIWS session', () => {
     expect(
       getLaunchRailCompatibility({
         selectedRail: 'pump',
+        authenticated: true,
         walletNamespace: 'solana',
-        connected: true,
+        authMethod: 'siws',
+        providerReady: true,
       }).canLaunch,
     ).toBe(true);
     const pons = getLaunchRailCompatibility({
       selectedRail: 'pons',
+      authenticated: true,
       walletNamespace: 'solana',
-      connected: true,
+      authMethod: 'siws',
+      providerReady: true,
     });
     expect(pons.canLaunch).toBe(false);
     expect(pons.message).toBe(SOLANA_ON_PONS_MESSAGE);
+  });
+
+  it('does not allow Pump from a connected Solana wallet that has not completed SIWS', () => {
+    const pump = getLaunchRailCompatibility({
+      selectedRail: 'pump',
+      authenticated: false,
+      walletNamespace: 'solana',
+      authMethod: null,
+      providerReady: true,
+    });
+    expect(pump.canLaunch).toBe(false);
+    expect(pump.status).toBe('requires_sign_in');
   });
 });
 

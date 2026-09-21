@@ -296,8 +296,10 @@ function LaunchFlowInner({ catalogue }: Props) {
   const pumpRail = isPumpRail(state.launchRail);
   const railCompatibility = getLaunchRailCompatibility({
     selectedRail: pumpRail ? 'pump' : 'pons',
+    authenticated: walletSession.authenticated,
     walletNamespace: walletSession.namespace,
-    connected: walletSession.connected,
+    authMethod: walletSession.authMethod,
+    providerReady: walletSession.providerReady,
   });
 
   imageSourceRef.current.source = state.image.source;
@@ -880,7 +882,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       : undefined;
 
   async function submitPumpLaunch() {
-    if (!railCompatibility.canLaunch || walletSession.namespace !== 'solana') {
+    if (!railCompatibility.canLaunch || walletSession.authMethod !== 'siws') {
       setTx({
         ...INITIAL_LAUNCH_TX_STATE,
         phase: 'failed',
@@ -1041,7 +1043,7 @@ function LaunchFlowInner({ catalogue }: Props) {
       return;
     }
 
-    if (!railCompatibility.canLaunch || walletSession.namespace !== 'eip155') {
+    if (!railCompatibility.canLaunch || walletSession.authMethod !== 'siwe') {
       setTx({
         ...INITIAL_LAUNCH_TX_STATE,
         phase: 'failed',

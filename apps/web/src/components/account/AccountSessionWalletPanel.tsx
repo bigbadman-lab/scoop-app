@@ -127,7 +127,9 @@ export function AccountSessionWalletPanel({
           </div>
         ) : (
           <div className="space-y-2 text-sm">
-            <p className="font-mono text-[13px]">{walletAddress}</p>
+            <p className="font-mono text-[13px]" data-testid="account-wallet-address">
+              {walletAddress}
+            </p>
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
               External wallet · {chainLabel}
             </p>

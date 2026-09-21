@@ -1,11 +1,14 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { sessionAddress } from '@/lib/auth/address';
+import { isSolanaPublicKey } from '@/lib/auth/siws-address';
 
 export { normalizeAddress, sessionAddress } from '@/lib/auth/address';
 
 export const SESSION_COOKIE = 'scoop_session';
 export const NONCE_COOKIE = 'scoop_siwe_nonce';
+/** Numeric marker stored on SIWS sessions. Not an EVM chain id. */
+export const SOLANA_SESSION_CHAIN_ID = 101;
 
 /** Session lifetime — 7 days. */
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -16,11 +19,16 @@ export const NONCE_TTL_MS = 10 * 60 * 1000;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export type ScoopAuthNamespace = 'eip155' | 'solana';
+export type ScoopAuthMethod = 'siwe' | 'siws';
+
 export type ScoopAuthSession = {
-  /** Canonical scoop_users.id — server/DB only; never from the client. */
+  /** Canonical scoop_users.id for SIWE. Deterministic id for SIWS (no DB row). */
   userId: string;
-  address: `0x${string}`;
+  address: string;
   chainId: number;
+  namespace: ScoopAuthNamespace;
+  authMethod: ScoopAuthMethod;
   issuedAt: number;
   expiresAt: number;
 };
@@ -116,6 +124,38 @@ export function createSession(
     userId: userId.toLowerCase(),
     address: normalized,
     chainId,
+    namespace: 'eip155',
+    authMethod: 'siwe',
+    issuedAt: now,
+    expiresAt: now + SESSION_TTL_MS,
+  };
+}
+
+/** Stable cookie user id for a verified Solana public key. Not a database row. */
+export function solanaSessionUserId(address: string): string {
+  const hash = createHash('sha256').update(`scoop-siws-v1:${address}`).digest();
+  const bytes = Buffer.from(hash.subarray(0, 16));
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** Issue a SIWS session. Identity is the verified public key, not an EVM user row. */
+export function createSiwsSession(
+  address: string,
+  now = Date.now(),
+): ScoopAuthSession | null {
+  const pubkey = address.trim();
+  if (!isSolanaPublicKey(pubkey)) return null;
+  const userId = solanaSessionUserId(pubkey);
+  if (!isUuid(userId)) return null;
+  return {
+    userId,
+    address: pubkey,
+    chainId: SOLANA_SESSION_CHAIN_ID,
+    namespace: 'solana',
+    authMethod: 'siws',
     issuedAt: now,
     expiresAt: now + SESSION_TTL_MS,
   };
@@ -129,7 +169,11 @@ export function getAuthenticatedWallet(
   request: Request,
   env?: NodeJS.ProcessEnv,
 ): `0x${string}` | null {
-  return readSessionFromRequest(request, env)?.address ?? null;
+  const session = readSessionFromRequest(request, env);
+  if (!session || session.namespace !== 'eip155' || session.authMethod !== 'siwe') {
+    return null;
+  }
+  return sessionAddress(session.address);
 }
 
 /**
@@ -140,10 +184,14 @@ export function getAuthenticatedScoopUser(
   env?: NodeJS.ProcessEnv,
 ): AuthenticatedScoopUser | null {
   const session = readSessionFromRequest(request, env);
-  if (!session) return null;
+  if (!session || session.namespace !== 'eip155' || session.authMethod !== 'siwe') {
+    return null;
+  }
+  const address = sessionAddress(session.address);
+  if (!address) return null;
   return {
     userId: session.userId,
-    address: session.address,
+    address,
     chainId: session.chainId,
   };
 }
@@ -181,14 +229,40 @@ export function unsealSession(
     ) {
       return null;
     }
+    if (now > parsed.expiresAt) return null;
+
+    const namespace = parsed.namespace === 'solana' ? 'solana' : 'eip155';
+    const authMethod =
+      parsed.authMethod === 'siws' || parsed.authMethod === 'siwe'
+        ? parsed.authMethod
+        : namespace === 'solana'
+          ? 'siws'
+          : 'siwe';
+
+    if (namespace === 'solana' || authMethod === 'siws') {
+      if (authMethod !== 'siws' || namespace !== 'solana') return null;
+      if (!isSolanaPublicKey(parsed.address)) return null;
+      if (parsed.chainId !== SOLANA_SESSION_CHAIN_ID) return null;
+      return {
+        userId: parsed.userId.toLowerCase(),
+        address: parsed.address.trim(),
+        chainId: SOLANA_SESSION_CHAIN_ID,
+        namespace: 'solana',
+        authMethod: 'siws',
+        issuedAt: parsed.issuedAt,
+        expiresAt: parsed.expiresAt,
+      };
+    }
+
     if (parsed.chainId !== ROBINHOOD_CHAIN_ID) return null;
     const address = sessionAddress(parsed.address);
     if (!address) return null;
-    if (now > parsed.expiresAt) return null;
     return {
       userId: parsed.userId.toLowerCase(),
       address,
       chainId: parsed.chainId,
+      namespace: 'eip155',
+      authMethod: 'siwe',
       issuedAt: parsed.issuedAt,
       expiresAt: parsed.expiresAt,
     };

@@ -102,7 +102,7 @@ describe('PumpRouteStep global session', () => {
       /Ethereum wallet/i,
     );
     expect(screen.getByTestId('launch-wallet-notice').textContent).toMatch(
-      /top-right/i,
+      /your account/i,
     );
     expect(screen.queryByTestId('pump-connect-solana')).toBeNull();
     expect(screen.queryByTestId('launch-switch-wallet')).toBeNull();

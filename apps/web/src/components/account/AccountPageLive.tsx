@@ -20,6 +20,7 @@ import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop
 import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
+import { resolveAvatarUrl } from '@/lib/account/avatar';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
 import { accountLaunchStatusLabel } from '@/lib/account/launch-status';
@@ -90,6 +91,7 @@ function AccountReady({
   onRefresh,
   onWalletDisconnected,
   onSignOutRequest,
+  namespace = 'eip155',
 }: {
   account: PublicAccountResponse;
   sessionOnly: boolean;
@@ -98,6 +100,8 @@ function AccountReady({
   onWalletDisconnected: () => void;
   /** Full sign-out may replace the page; allow a deliberate loading transition. */
   onSignOutRequest: () => void;
+  /** Solana SIWS sessions share this layout; EVM-only modules stay unavailable. */
+  namespace?: 'eip155' | 'solana';
 }) {
   const { open } = useAppKit();
   const { disconnect } = useDisconnect();
@@ -223,6 +227,14 @@ function AccountReady({
   async function signOutScoop() {
     setError(null);
     try {
+      if (namespace === 'solana') {
+        try {
+          const { ConnectionController } = await import('@reown/appkit-controllers');
+          await ConnectionController.disconnect();
+        } catch {
+          /* session clear still runs */
+        }
+      }
       const ok = await signOutScoopSession();
       if (!ok) {
         setError('Could not sign out');
@@ -280,7 +292,7 @@ function AccountReady({
             />
             <button
               type="button"
-              disabled={uploading}
+              disabled={uploading || namespace === 'solana'}
               onClick={() => fileRef.current?.click()}
               className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--fg)] disabled:opacity-40"
             >
@@ -301,17 +313,23 @@ function AccountReady({
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={48}
                 placeholder="Display name"
-                className="min-h-11 flex-1 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 text-sm"
+                disabled={namespace === 'solana'}
+                className="min-h-11 flex-1 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 text-sm disabled:opacity-60"
               />
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || namespace === 'solana'}
                 onClick={() => void saveDisplayName()}
                 className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] disabled:opacity-40"
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
+            {namespace === 'solana' ? (
+              <p className="font-mono text-[11px] text-[var(--muted)]" data-testid="solana-profile-unavailable">
+                Not available on Solana yet
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -379,16 +397,32 @@ function AccountReady({
           )}
         </section>
 
-        <FeesSection
-          deployerAssets={account.fees.deployer.assets}
-          creatorAssets={account.fees.creator.assets}
-          sessionOnly={sessionOnly}
-        />
+        {namespace === 'solana' ? (
+          <section className="mt-10 space-y-2 border-t border-[var(--divider)] pt-8">
+            <h2 className="text-lg font-semibold tracking-tight">Fees</h2>
+            <p className="text-sm text-[var(--muted)]" data-testid="solana-modules-unavailable">
+              Not available on Solana yet
+            </p>
+          </section>
+        ) : (
+          <FeesSection
+            deployerAssets={account.fees.deployer.assets}
+            creatorAssets={account.fees.creator.assets}
+            sessionOnly={sessionOnly}
+          />
+        )}
 
-        <HolderRewardsLane
-          sessionOnly={sessionOnly}
-          mayBroadcastOnChain={account.auth.onChain.mayBroadcastOnChain}
-        />
+        {namespace === 'solana' ? (
+          <section className="mt-10 space-y-2 border-t border-[var(--divider)] pt-8">
+            <h2 className="text-lg font-semibold tracking-tight">Holder rewards</h2>
+            <p className="text-sm text-[var(--muted)]">Not available on Solana yet</p>
+          </section>
+        ) : (
+          <HolderRewardsLane
+            sessionOnly={sessionOnly}
+            mayBroadcastOnChain={account.auth.onChain.mayBroadcastOnChain}
+          />
+        )}
     </AccountShell>
   );
 }
@@ -398,9 +432,6 @@ export function AccountPageLive() {
   const walletSession = useScoopWalletSession();
   const { address, isConnected, status } = useAccount();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
-  const [solanaBusy, setSolanaBusy] = useState(false);
-  const [solanaError, setSolanaError] = useState<string | null>(null);
-  const [solanaMessage, setSolanaMessage] = useState<string | null>(null);
   const refreshGen = useRef(0);
 
   const refresh = useCallback(async (opts?: { forceBlank?: boolean }) => {
@@ -457,16 +488,15 @@ export function AccountPageLive() {
   }, [address, isConnected, status]);
 
   useEffect(() => {
-    // Solana wallet sessions have no SIWE cookie — skip EVM account fetch.
     if (
-      walletSession.connected &&
-      walletSession.namespace === 'solana' &&
-      walletSession.address
+      walletSession.authenticated &&
+      walletSession.authMethod === 'siws' &&
+      walletSession.namespace === 'solana'
     ) {
       return;
     }
     void refresh();
-  }, [refresh, walletSession.address, walletSession.connected, walletSession.namespace]);
+  }, [refresh, walletSession.authenticated, walletSession.authMethod, walletSession.namespace]);
 
   // Immediate panel update when wagmi drops the wallet (incl. AppKit disconnect).
   useEffect(() => {
@@ -490,107 +520,53 @@ export function AccountPageLive() {
     });
   }, [address, isConnected, status]);
 
-  async function signOutSolanaSession() {
-    setSolanaBusy(true);
-    setSolanaError(null);
-    try {
-      try {
-        const { ConnectionController } = await import('@reown/appkit-controllers');
-        await ConnectionController.disconnect();
-      } catch {
-        /* namespace clear below still runs */
-      }
-      await signOutScoopSession();
-      setSolanaMessage(null);
-      setState({ kind: 'signed_out' });
-    } catch {
-      setSolanaError('Could not sign out');
-    } finally {
-      setSolanaBusy(false);
-    }
-  }
-
-  async function copySolanaAddress(addr: string) {
-    try {
-      await navigator.clipboard.writeText(addr);
-      setSolanaMessage('Address copied');
-    } catch {
-      setSolanaError('Could not copy address');
-    }
-  }
-
   if (
-    walletSession.connected &&
+    walletSession.authenticated &&
+    walletSession.authMethod === 'siws' &&
     walletSession.namespace === 'solana' &&
-    walletSession.address
+    walletSession.address &&
+    walletSession.userId
   ) {
-    const addr = walletSession.address;
+    const solanaAccount: PublicAccountResponse = {
+      authenticated: true,
+      user: {
+        id: walletSession.userId,
+        joinedAt: new Date().toISOString(),
+        profile: {
+          displayName: null,
+          avatarUrl: resolveAvatarUrl({ userId: walletSession.userId }),
+        },
+      },
+      wallet: {
+        address: walletSession.address,
+        walletType: 'external',
+        provider: 'injected',
+        chainId: 101,
+        chainLabel: 'Solana',
+      },
+      auth: {
+        scoopSession: true,
+        onChain: {
+          mayBroadcastOnChain: false,
+          reason: 'unsigned',
+          message: 'Not available on Solana yet',
+        },
+      },
+      tokensLaunched: [],
+      fees: {
+        deployer: { assets: [], empty: true },
+        creator: { assets: [], empty: true },
+      },
+    };
     return (
-      <AccountShell>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-          Your SCOOP wallet
-        </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Solana session from the top-right Sign In. Profile, fees, and
-          holder rewards stay on Ethereum accounts for now.
-        </p>
-
-        <section
-          className="mt-10 space-y-4 border-t border-[var(--divider)] pt-8"
-          data-testid="solana-account-session"
-        >
-          <h2 className="text-lg font-semibold tracking-tight">
-            Connected wallet
-          </h2>
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)]">
-            Solana
-          </p>
-          <p
-            className="break-all font-mono text-[13px] text-[var(--fg)]"
-            data-testid="solana-account-address"
-          >
-            {addr}
-          </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted)]">
-            {walletSession.providerReady ? 'Provider ready' : 'Provider connecting…'}
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void copySolanaAddress(addr)}
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)]"
-            >
-              Copy address
-            </button>
-            <button
-              type="button"
-              disabled={solanaBusy}
-              data-testid="solana-account-sign-out"
-              onClick={() => void signOutSolanaSession()}
-              className="inline-flex min-h-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-5 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--scoop-green-contrast)] disabled:opacity-40"
-            >
-              {solanaBusy ? 'Signing out…' : 'Sign out'}
-            </button>
-          </div>
-          {solanaMessage ? (
-            <p className="font-mono text-[11px] text-[var(--muted)]" role="status">
-              {solanaMessage}
-            </p>
-          ) : null}
-          {solanaError ? (
-            <p className="font-mono text-[11px] text-[#b42318]" role="alert">
-              {solanaError}
-            </p>
-          ) : null}
-        </section>
-
-        <section className="mt-10 space-y-2 border-t border-[var(--divider)] pt-8">
-          <h2 className="text-lg font-semibold tracking-tight">Profile & fees</h2>
-          <p className="text-sm text-[var(--muted)]" data-testid="solana-account-evm-unavailable">
-            Not available for this wallet/network.
-          </p>
-        </section>
-      </AccountShell>
+      <AccountReady
+        account={solanaAccount}
+        sessionOnly={false}
+        namespace="solana"
+        onRefresh={() => undefined}
+        onWalletDisconnected={() => undefined}
+        onSignOutRequest={() => setState({ kind: 'signed_out' })}
+      />
     );
   }
 
