@@ -115,7 +115,10 @@ All listed vitest suites PASS; web typecheck + build PASS.
 
 ## 15. Production deploy
 
-Pending commit/push of this change set (SHA recorded after push). Indexer Render deploy needed for forward PONS launches; DB rows for A/B images + Token A USD already repaired in production.
+- SHA: `1f3e1bedbb1276bf4cbb08102f7e9e4e68bde2b2` (`1f3e1be`) pushed to `main`
+- Vercel: auto-deploy from `main` (scoop-app)
+- Render indexer: needs redeploy to pick up `normalizePonsLaunch` / `processBlock` USD + reserve-price path for future launches
+- DB backfills already applied in production (images A/B; Token A USD/FDV)
 
 ## 16. Production verification
 
