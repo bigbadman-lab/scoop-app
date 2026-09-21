@@ -6,6 +6,7 @@
  * Never opens one socket per mint. Never subscribes to global new-token feed.
  */
 
+import WebSocket from 'ws';
 import { logJson } from '../log.js';
 import {
   classifyPumpPortalProviderError,
@@ -53,32 +54,31 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Node runtime uses the `ws` package — globalThis.WebSocket is not available on Render Node 20. */
 function defaultConnectSocket(
   url: string,
   handlers: PumpPortalSocketHandlers,
 ): PumpPortalSocketHandle {
-  const WS = (globalThis as { WebSocket?: new (u: string) => WebSocket }).WebSocket;
-  if (!WS) {
-    throw new Error('WebSocket is not available in this runtime');
-  }
-  const ws = new WS(url);
-  ws.addEventListener('open', () => handlers.onOpen());
-  ws.addEventListener('message', (ev: Event) => {
-    const dataUnknown = (ev as { data?: unknown }).data;
-    const data =
-      typeof dataUnknown === 'string'
-        ? dataUnknown
-        : typeof Buffer !== 'undefined' && Buffer.isBuffer(dataUnknown)
-          ? dataUnknown.toString('utf8')
-          : String(dataUnknown);
-    handlers.onMessage(data);
+  const ws = new WebSocket(url);
+  ws.on('open', () => handlers.onOpen());
+  ws.on('message', (data) => {
+    const text =
+      typeof data === 'string'
+        ? data
+        : Buffer.isBuffer(data)
+          ? data.toString('utf8')
+          : Array.isArray(data)
+            ? Buffer.concat(data).toString('utf8')
+            : Buffer.from(data as ArrayBuffer).toString('utf8');
+    handlers.onMessage(text);
   });
-  ws.addEventListener('error', () => {
-    handlers.onError(new Error('PumpPortal WebSocket error'));
+  ws.on('error', (err) => {
+    handlers.onError(
+      err instanceof Error ? err : new Error('PumpPortal WebSocket error'),
+    );
   });
-  ws.addEventListener('close', (ev: Event) => {
-    const closeEv = ev as { code?: number; reason?: string };
-    handlers.onClose(closeEv.code, closeEv.reason);
+  ws.on('close', (code, reason) => {
+    handlers.onClose(code, reason?.toString());
   });
   return {
     send: (data) => ws.send(data),
