@@ -110,9 +110,10 @@ pnpm --filter @scoop/web run build → ok
 
 ## 14. Deploy
 
-- SHA: `d1d6ab4ac696f7fbf4c2fdd87957d62dfdb92d57`
-- Vercel: production deploy via push to `main`
-- status: pushed; confirm Vercel production Ready
+- SHA: `82a4bd6` (`d1d6ab4` repair + docs SHA note)
+- Push: `main` @ `82a4bd6` → `origin/main`
+- Vercel: GitHub auto-deploy expected for `main`; local `vercel --prod` CLI did not return a URL in this session
+- status: code on `main`; confirm Vercel production Ready for `82a4bd6`
 
 ## 15. Production verification
 
