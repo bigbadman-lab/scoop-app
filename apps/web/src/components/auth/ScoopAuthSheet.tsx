@@ -6,12 +6,14 @@ import {
   useId,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from 'react';
 import { ScoopEmailAuth } from '@/components/auth/ScoopEmailAuth';
 import { ScoopWalletConnect } from '@/components/auth/ScoopWalletConnect';
 import {
   closeScoopAuthSheet,
+  setScoopConnectNamespace,
   type ScoopConnectNamespace,
   type ScoopConnectOutcome,
 } from '@/lib/auth/open-scoop-auth';
@@ -20,6 +22,7 @@ import {
   reduceScoopAuth,
   type ScoopAuthEvent,
 } from '@/lib/auth/scoop-auth-machine';
+import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
 
 type Props = {
   open: boolean;
@@ -86,7 +89,7 @@ function SheetChrome({
 /**
  * SCOOP-native auth surface (email + wallet). No Reown modal chrome.
  * Mobile: bottom sheet. Desktop: centered card.
- * Solana namespace: wallet chooser only (Pump launch).
+ * Solana namespace: wallet chooser only (Pump launch or Join → Connect Solana).
  */
 export function ScoopAuthSheet({
   open,
@@ -98,10 +101,15 @@ export function ScoopAuthSheet({
   const descId = useId();
   const [state, dispatch] = useReducer(reduceScoopAuth, INITIAL_SCOOP_AUTH_STATE);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const isSolana = namespace === 'solana';
+  /** May switch Join entry → solana without reopening the sheet. */
+  const [activeNamespace, setActiveNamespace] =
+    useState<ScoopConnectNamespace>(namespace);
+  const openedAsSolana = namespace === 'solana';
+  const isSolana = activeNamespace === 'solana';
 
   useEffect(() => {
     if (open) {
+      setActiveNamespace(namespace);
       dispatch({ type: 'OPEN', namespace });
     } else {
       dispatch({ type: 'CLOSE' });
@@ -115,6 +123,24 @@ export function ScoopAuthSheet({
     },
     [onClose],
   );
+
+  const chooseSolanaWallet = useCallback(() => {
+    dispatch({ type: 'CHOOSE_SOLANA_WALLET' });
+    setScoopConnectNamespace('solana');
+    setActiveNamespace('solana');
+    void ensureActiveWalletNamespace('solana');
+  }, []);
+
+  const backToEntry = useCallback(() => {
+    if (openedAsSolana) {
+      close('cancelled');
+      return;
+    }
+    setScoopConnectNamespace('eip155');
+    setActiveNamespace('eip155');
+    void ensureActiveWalletNamespace('eip155');
+    dispatch({ type: 'BACK_TO_ENTRY' });
+  }, [close, openedAsSolana]);
 
   useEffect(() => {
     if (!open) return;
@@ -163,9 +189,11 @@ export function ScoopAuthSheet({
             : 'Join SCOOP';
 
   const subtitle = isSolana
-    ? 'Choose a Solana wallet for Pump.fun launches. Ethereum wallets are not used on this rail.'
+    ? openedAsSolana
+      ? 'Choose a Solana wallet for Pump.fun launches. Ethereum wallets are not used on this rail.'
+      : 'Connect Phantom or another Solana wallet. This does not create a SCOOP email/Ethereum session.'
     : state.phase === 'entry' || state.phase === 'email_enter'
-      ? 'Sign in with email or connect an external wallet.'
+      ? 'Sign in with email or an Ethereum wallet. Solana wallets connect separately.'
       : state.phase === 'otp_enter' || state.phase === 'otp_verifying'
         ? `We sent a code to ${state.email || 'your email'}`
         : state.phase === 'device_approving'
@@ -173,7 +201,7 @@ export function ScoopAuthSheet({
           : state.phase === 'siwe_signing' || state.phase === 'session_creating'
             ? 'Approve the sign-in message to finish.'
             : state.phase === 'wallet_select'
-              ? 'Choose a wallet to continue.'
+              ? 'Choose an Ethereum wallet to continue.'
               : null;
 
   return (
@@ -194,7 +222,7 @@ export function ScoopAuthSheet({
         aria-labelledby={titleId}
         aria-describedby={subtitle ? descId : undefined}
         className="relative z-[1] w-full max-w-[420px] px-0 sm:w-auto sm:px-0"
-        data-scoop-connect-namespace={namespace}
+        data-scoop-connect-namespace={activeNamespace}
       >
         <SheetChrome
           title={title}
@@ -203,7 +231,7 @@ export function ScoopAuthSheet({
           labelledBy={titleId}
           describedBy={subtitle ? descId : undefined}
         >
-          {!isSolana && state.phase === 'entry' ? (
+          {state.phase === 'entry' ? (
             <div className="space-y-4">
               <button
                 type="button"
@@ -224,7 +252,15 @@ export function ScoopAuthSheet({
                 onClick={() => send({ type: 'CHOOSE_WALLET' })}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
               >
-                Connect Wallet
+                Connect Ethereum wallet
+              </button>
+              <button
+                type="button"
+                data-testid="scoop-join-connect-solana"
+                onClick={chooseSolanaWallet}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg)] px-6 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+              >
+                Connect Solana wallet
               </button>
             </div>
           ) : null}
@@ -254,21 +290,15 @@ export function ScoopAuthSheet({
           {state.phase === 'wallet_select' ||
           state.phase === 'wallet_connecting' ? (
             <ScoopWalletConnect
-              namespace={namespace}
+              namespace={activeNamespace}
               connecting={state.phase === 'wallet_connecting'}
               error={state.error}
-              onBack={() => {
-                if (isSolana) {
-                  close('cancelled');
-                  return;
-                }
-                send({ type: 'BACK_TO_ENTRY' });
-              }}
+              onBack={backToEntry}
               onConnecting={() => send({ type: 'WALLET_CONNECT_START' })}
               onConnected={(address) => {
                 send({ type: 'WALLET_CONNECT_OK' });
                 if (isSolana) {
-                  // Pump rail: Solana public key only — no SIWE / Join session.
+                  // Solana public key only — no SIWE / Join session.
                   close('completed');
                   return;
                 }

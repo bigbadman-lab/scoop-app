@@ -2,6 +2,7 @@
 
 import { useAppKit, useAppKitAccount, useAppKitState } from '@reown/appkit/react';
 import {
+  getScoopConnectNamespace,
   requestScoopConnect,
   subscribeScoopConnectRequest,
 } from '@/lib/auth/open-scoop-auth';
@@ -506,9 +507,22 @@ export function WalletSlotLive({
   }, [modalOpen, connectingWallet, joinPhase, isConnected, status, address]);
 
   // SCOOP custom auth sheet dismissed without completing auth → clear Connecting….
+  // Solana wallet attach (Join → Connect Solana) completes without SIWE — also clear.
   useEffect(() => {
     return subscribeScoopConnectRequest((event) => {
       if (event.type !== 'settled') return;
+
+      if (
+        event.outcome === 'completed' &&
+        getScoopConnectNamespace() === 'solana'
+      ) {
+        joinIntentRef.current = false;
+        autoSiweAddressRef.current = null;
+        setJoinPhase('idle');
+        setJoinError(null);
+        return;
+      }
+
       const walletConnecting =
         status === 'connecting' || status === 'reconnecting';
       const walletConnected =

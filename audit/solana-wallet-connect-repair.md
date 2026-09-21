@@ -110,9 +110,22 @@ Operator: on Pump rail → Connect Solana → Phantom should request a **Solana*
 
 ---
 
-## 13. Exact next step
+## Exact next step
 
-Retry Phantom connect on live `https://scoop.fun/launch` (Solana/Pump rail). After Solana address connects, operator can proceed to one SCOOP SOL canary — do not enable the Pump worker in this gate.
+Hard-refresh → Sign in / Join SCOOP → **Connect Solana wallet** → Phantom.
+
+Note: Solana connect attaches a wallet for Pump; it does **not** create a SCOOP SIWE session (email/Ethereum Join still required for account auth).
+
+---
+
+## Join entry (follow-up)
+
+Main Join sheet now offers:
+- Continue with email
+- Connect Ethereum wallet (SIWE)
+- Connect Solana wallet (Phantom / Solana-only; no SIWE)
+
+Join chrome clears “Connecting…” after Solana attach completes.
 
 ---
 

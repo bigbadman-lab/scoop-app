@@ -7,6 +7,7 @@ import {
   isScoopConnectRequestPending,
   openScoopAuthSheet,
   requestScoopConnect,
+  setScoopConnectNamespace,
   settleScoopConnectRequest,
   subscribeScoopAuthSheet,
   subscribeScoopConnectRequest,
@@ -94,6 +95,20 @@ describe('requestScoopConnect', () => {
     else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
   });
 
+  it('setScoopConnectNamespace switches mid-sheet for Join → Solana', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = '1';
+    closeScoopAuthSheet();
+    requestScoopConnect(() => undefined);
+    expect(getScoopConnectNamespace()).toBe('eip155');
+    setScoopConnectNamespace('solana');
+    expect(getScoopConnectNamespace()).toBe('solana');
+    closeScoopAuthSheet({ outcome: 'completed' });
+    expect(getScoopConnectNamespace()).toBe('eip155');
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+
   it('passes through to AppKit open when flag off even for solana namespace', () => {
     const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
     delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
@@ -145,6 +160,12 @@ describe('reduceScoopAuth', () => {
   it('opens to entry for default eip155 Join', () => {
     const state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
     expect(state.phase).toBe('entry');
+  });
+
+  it('CHOOSE_SOLANA_WALLET goes to wallet_select from entry', () => {
+    let state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
+    state = reduceScoopAuth(state, { type: 'CHOOSE_SOLANA_WALLET' });
+    expect(state.phase).toBe('wallet_select');
   });
 
   it('email -> OTP', () => {

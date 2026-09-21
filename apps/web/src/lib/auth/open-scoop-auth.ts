@@ -75,6 +75,16 @@ export function getScoopConnectNamespace(): ScoopConnectNamespace {
   return connectNamespace;
 }
 
+/**
+ * Update namespace mid-sheet (e.g. Join entry → Connect Solana).
+ * Call before wallet_select so settle listeners and WalletConnect see solana.
+ */
+export function setScoopConnectNamespace(
+  namespace: ScoopConnectNamespace,
+): void {
+  connectNamespace = namespace;
+}
+
 export function openScoopAuthSheet(): void {
   sheetOpen = true;
   notifySheet();

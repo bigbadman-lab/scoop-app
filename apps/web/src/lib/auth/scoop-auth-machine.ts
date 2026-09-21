@@ -34,6 +34,8 @@ export type ScoopAuthEvent =
   | { type: 'CLOSE' }
   | { type: 'CHOOSE_EMAIL' }
   | { type: 'CHOOSE_WALLET' }
+  /** Join entry → Solana wallet list (Phantom); no SIWE. */
+  | { type: 'CHOOSE_SOLANA_WALLET' }
   | { type: 'BACK_TO_ENTRY' }
   | { type: 'BACK_TO_EMAIL' }
   | { type: 'EMAIL_CHANGE'; email: string }
@@ -105,6 +107,14 @@ export function reduceScoopAuth(
         otp: '',
       };
     case 'CHOOSE_WALLET':
+      if (state.phase !== 'entry' && state.phase !== 'error') return state;
+      return {
+        ...state,
+        phase: 'wallet_select',
+        error: null,
+        errorReturnPhase: null,
+      };
+    case 'CHOOSE_SOLANA_WALLET':
       if (state.phase !== 'entry' && state.phase !== 'error') return state;
       return {
         ...state,
