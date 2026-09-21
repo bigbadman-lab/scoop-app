@@ -21,6 +21,8 @@ const EMPTY: DeskInstrument[] = [
   { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
 ];
 
+const X18 = BigInt(10) ** BigInt(18);
+
 /** Stable empty snapshot for SSR / failed feeds — keeps pill slots reserved. */
 export function emptySpotPayload(): SpotPayload {
   return {
@@ -39,9 +41,34 @@ function changeFromClose(price: number | null, previous: number | null): number 
   return ((price - previous) / previous) * 100;
 }
 
-async function fetchCrypto(): Promise<Pick<Record<DeskInstrumentId, DeskInstrument>, 'eth' | 'btc'>> {
+/**
+ * Convert a positive USD spot number to x18 without fabricating zero.
+ * Uses fixed decimal string path (not float×1e18).
+ */
+export function usdNumberToX18(usd: number | null | undefined): bigint | null {
+  if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
+  const fixed = usd.toFixed(12);
+  const [wholePart, fracPart = ''] = fixed.split('.');
+  const whole = BigInt(wholePart || '0');
+  const fracPadded = (fracPart + '0'.repeat(18)).slice(0, 18);
+  const raw = whole * X18 + BigInt(fracPadded || '0');
+  return raw > BigInt(0) ? raw : null;
+}
+
+type CryptoSpot = {
+  eth: DeskInstrument;
+  btc: DeskInstrument;
+  /** SOL/USD from the same CoinGecko request — desk UI does not show SOL yet. */
+  solUsd: number | null;
+};
+
+/**
+ * Single CoinGecko simple/price call for ETH, BTC, and SOL.
+ * Shared by the desk ticker and Solana USD market conversion.
+ */
+async function fetchCrypto(): Promise<CryptoSpot> {
   const response = await fetch(
-    'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd&include_24hr_change=true',
+    'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,solana&vs_currencies=usd&include_24hr_change=true',
     {
       headers: { Accept: 'application/json' },
       next: { revalidate: 20 },
@@ -53,6 +80,7 @@ async function fetchCrypto(): Promise<Pick<Record<DeskInstrumentId, DeskInstrume
   const data = (await response.json()) as {
     ethereum?: { usd?: number; usd_24h_change?: number };
     bitcoin?: { usd?: number; usd_24h_change?: number };
+    solana?: { usd?: number; usd_24h_change?: number };
   };
   return {
     eth: {
@@ -67,7 +95,21 @@ async function fetchCrypto(): Promise<Pick<Record<DeskInstrumentId, DeskInstrume
       price: finiteOrNull(data.bitcoin?.usd),
       changePct: finiteOrNull(data.bitcoin?.usd_24h_change),
     },
+    solUsd: finiteOrNull(data.solana?.usd),
   };
+}
+
+/**
+ * Server-side SOL/USD as x18 for Pump market USD derivation.
+ * Reuses the desk CoinGecko fetch/cache; null when unavailable (never fake 0).
+ */
+export async function getSolUsdX18(): Promise<bigint | null> {
+  try {
+    const crypto = await fetchCrypto();
+    return usdNumberToX18(crypto.solUsd);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchYahooIndex(

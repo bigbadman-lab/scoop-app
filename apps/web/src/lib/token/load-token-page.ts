@@ -11,6 +11,7 @@ import {
   serverDb,
   type TokenDetail,
 } from '@/lib/server/queries';
+import { getSolUsdX18 } from '@/lib/market/spot';
 import { parseTokenRouteIdentity } from '@/lib/token/token-route-identity';
 
 export type TokenNewsLore = {
@@ -55,7 +56,12 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
         // Solana product chain should only host Pump rows in Gate E.
         return { status: 'not_found', address: identity.address };
       }
-      const tokenWithMarket = await getTokenWithPumpMarketState(serverDb(), token);
+      const solUsdX18 = await getSolUsdX18();
+      const tokenWithMarket = await getTokenWithPumpMarketState(
+        serverDb(),
+        token,
+        solUsdX18,
+      );
       const lore: TokenNewsLore | null = loreRow
         ? {
             title: loreRow.title,

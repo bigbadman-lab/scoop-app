@@ -121,7 +121,8 @@ function TokenMarketLiveBody({
   const isPump = token.marketSource === 'pump';
   const fdvUsd = displayCompactUsdMarketValue(token.fdvUsdDisplay);
   const fdvPumpSol = isPump ? formatPumpFdvSol(token) : null;
-  const fdv = isPump ? fdvPumpSol : fdvUsd;
+  // Prefer canonical USD FDV when SOL→USD is available; keep SOL as fallback.
+  const fdv = isPump ? fdvUsd ?? fdvPumpSol : fdvUsd;
   const volume = displayVolume24hMetric({
     volume24hUsdDisplay: token.volume24hUsdDisplay,
     volume24hQuoteDisplay: token.volume24hQuoteDisplay,

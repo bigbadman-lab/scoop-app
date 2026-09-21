@@ -7,6 +7,7 @@ import {
   getTokenWithPumpMarketState,
   serverDb,
 } from '@/lib/server/queries';
+import { getSolUsdX18 } from '@/lib/market/spot';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -33,7 +34,8 @@ export async function GET(
       if (!canonical || canonical.marketSource !== 'pump') {
         return NextResponse.json({ error: 'Token not found' }, { status: 404 });
       }
-      const token = await getTokenWithPumpMarketState(db, canonical);
+      const solUsdX18 = await getSolUsdX18();
+      const token = await getTokenWithPumpMarketState(db, canonical, solUsdX18);
       assertNoSecretLeakage(token);
       return NextResponse.json({ token });
     }

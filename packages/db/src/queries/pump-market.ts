@@ -20,6 +20,10 @@ import {
 } from '../repos/pump-market-state.js';
 import { PUMP_MARKET_CHAIN_ID } from '../repos/pump-trades.js';
 import type { PumpCandleInterval } from '../repos/pump-candles.js';
+import {
+  notionalUsdX18FromQuoteAmount,
+  priceUsdX18FromQuote,
+} from '@scoop/shared';
 
 const SOL_DECIMALS = 9;
 const X18 = 10n ** 18n;
@@ -198,35 +202,70 @@ export async function getPumpCandles(
 
 /**
  * Overlay Pump market state onto discovery / detail quote/volume fields.
- * Leaves USD null. Never invents zero price when state is empty.
- * FDV stays quote-denominated (SOL) via fdvQuoteDisplay — never `$`.
+ * When `solUsdX18` is provided, derive canonical USD fields via shared x18 math.
+ * Never invents zero price when state is empty; never fabricates USD without SOL/USD.
  */
 export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
   token: T,
   state: PumpMarketStateRow | null,
+  solUsdX18: bigint | null = null,
 ): T {
   if (!state || state.priceSol == null) {
     return token;
   }
   const priceX18 = solDecimalToX18(state.priceSol);
   const volLamports = solToLamports(state.volume24hSol);
+  const fdvSolX18 =
+    state.fdvSol == null ? null : solDecimalToX18(state.fdvSol);
   const fdvQuoteDisplay =
-    state.fdvSol == null
-      ? null
-      : (formatX18(solDecimalToX18(state.fdvSol)) ?? state.fdvSol);
+    fdvSolX18 == null ? null : (formatX18(fdvSolX18) ?? state.fdvSol);
+
+  let priceUsdX18: string | null = null;
+  let priceUsdDisplay: string | null = null;
+  let fdvUsdX18: string | null = null;
+  let fdvUsdDisplay: string | null = null;
+  let volume24hUsdX18: string | null = null;
+  let volume24hUsdDisplay: string | null = null;
+
+  if (solUsdX18 != null && solUsdX18 > 0n) {
+    const priceUsd = priceUsdX18FromQuote({
+      priceQuoteX18: BigInt(priceX18),
+      quoteUsdX18: solUsdX18,
+    });
+    priceUsdX18 = priceUsd.toString();
+    priceUsdDisplay = formatX18(priceUsdX18);
+
+    if (fdvSolX18 != null) {
+      const fdvUsd = priceUsdX18FromQuote({
+        priceQuoteX18: BigInt(fdvSolX18),
+        quoteUsdX18: solUsdX18,
+      });
+      fdvUsdX18 = fdvUsd.toString();
+      fdvUsdDisplay = formatX18(fdvUsdX18);
+    }
+
+    const volUsd = notionalUsdX18FromQuoteAmount({
+      quoteAmountRaw: BigInt(volLamports),
+      quoteUsdX18: solUsdX18,
+      quoteDecimals: SOL_DECIMALS,
+    });
+    volume24hUsdX18 = volUsd.toString();
+    volume24hUsdDisplay = formatX18(volume24hUsdX18);
+  }
+
   return {
     ...token,
     priceQuoteX18: priceX18,
     priceQuoteDisplay: formatX18(priceX18) ?? state.priceSol,
-    priceUsdX18: null,
-    priceUsdDisplay: null,
-    fdvUsdX18: null,
-    fdvUsdDisplay: null,
+    priceUsdX18,
+    priceUsdDisplay,
+    fdvUsdX18,
+    fdvUsdDisplay,
     fdvQuoteDisplay,
     volume24hQuoteRaw: volLamports,
     volume24hQuoteDisplay: formatRawAmount(volLamports, SOL_DECIMALS),
-    volume24hUsdX18: null,
-    volume24hUsdDisplay: null,
+    volume24hUsdX18,
+    volume24hUsdDisplay,
     tradeCount24h: state.tradeCount24h,
     // Markets board ranks/shows tradeCountAllTime; Pump has no TMS lifetime — use 24h.
     tradeCountAllTime: state.tradeCount24h,
@@ -241,18 +280,20 @@ export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
 export async function getTokenWithPumpMarketState(
   db: Queryable,
   token: TokenDetail,
+  solUsdX18: bigint | null = null,
 ): Promise<TokenDetail> {
   if (token.chainId !== PUMP_MARKET_CHAIN_ID || token.marketSource !== 'pump') {
     return token;
   }
   const state = await getPumpMarketState(db, token.tokenAddress);
-  return applyPumpMarketStateToTokenDetail(token, state);
+  return applyPumpMarketStateToTokenDetail(token, state, solUsdX18);
 }
 
 /** Overlay pump_market_state onto Pump discovery rows (homepage / markets). */
 export async function applyPumpMarketStateToDiscoveryItems(
   db: Queryable,
   items: readonly TokenDiscoveryItem[],
+  solUsdX18: bigint | null = null,
 ): Promise<TokenDiscoveryItem[]> {
   const pumpMints = items
     .filter(
@@ -268,6 +309,7 @@ export async function applyPumpMarketStateToDiscoveryItems(
     return applyPumpMarketStateToTokenDetail(
       item,
       states.get(item.tokenAddress) ?? null,
+      solUsdX18,
     );
   });
 }

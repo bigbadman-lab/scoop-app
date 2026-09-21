@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenDiscoveryItem } from '@scoop/db';
-import { mergeDiscoveryByLaunchedAt } from '@/lib/discovery/dual-rail';
+import {
+  mergeDiscoveryByLaunchedAt,
+  rankDiscoverTrending,
+} from '@/lib/discovery/dual-rail';
 
 const MINT = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
 
@@ -85,5 +88,59 @@ describe('mergeDiscoveryByLaunchedAt', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0]!.name).toBe('B');
     expect(merged[0]!.tokenAddress).toBe(MINT);
+  });
+});
+
+describe('rankDiscoverTrending', () => {
+  it('includes Solana when USD volume and trade count qualify', () => {
+    const ranked = rankDiscoverTrending(
+      [
+        item({
+          chainId: 4663,
+          tokenAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          launchedAt: 1,
+          symbol: 'RHC',
+          tradeCount24h: 5,
+          buyCount24h: 3,
+          volume24hUsdX18: '1000000000000000000',
+        }),
+        item({
+          chainId: 900001,
+          tokenAddress: MINT,
+          launchedAt: 2,
+          symbol: 'SCPY',
+          marketSource: 'pump',
+          tradeCount24h: 11,
+          buyCount24h: 7,
+          volume24hUsdX18: '500000000000000000000',
+        }),
+        item({
+          chainId: 900001,
+          tokenAddress: 'LowVolume1111111111111111111111111111111',
+          launchedAt: 3,
+          symbol: 'LOW',
+          marketSource: 'pump',
+          tradeCount24h: 11,
+          volume24hUsdX18: null,
+        }),
+      ],
+      { minTrades24h: 3 },
+    );
+    expect(ranked.map((t) => t.symbol)).toEqual(['SCPY', 'RHC']);
+    expect(ranked[0]!.tokenAddress).toBe(MINT);
+  });
+
+  it('excludes rows below min trades even with USD volume', () => {
+    const ranked = rankDiscoverTrending([
+      item({
+        chainId: 900001,
+        tokenAddress: MINT,
+        launchedAt: 1,
+        symbol: 'SCPY',
+        tradeCount24h: 2,
+        volume24hUsdX18: '100000000000000000000',
+      }),
+    ]);
+    expect(ranked).toHaveLength(0);
   });
 });

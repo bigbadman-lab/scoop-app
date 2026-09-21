@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { emptySpotPayload, loadDeskSpot, loadDeskSpotSafe } from '@/lib/market/spot';
+import {
+  emptySpotPayload,
+  getSolUsdX18,
+  loadDeskSpot,
+  loadDeskSpotSafe,
+  usdNumberToX18,
+} from '@/lib/market/spot';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -13,9 +19,11 @@ describe('loadDeskSpot', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.includes('coingecko')) {
+          expect(url).toContain('solana');
           return Response.json({
             ethereum: { usd: 2500, usd_24h_change: 1.25 },
             bitcoin: { usd: 80000, usd_24h_change: -0.5 },
+            solana: { usd: 148.25, usd_24h_change: 2.1 },
           });
         }
         if (url.includes('%5EGSPC') || url.includes('^GSPC')) {
@@ -60,6 +68,7 @@ describe('loadDeskSpot', () => {
           return Response.json({
             ethereum: { usd: 2500, usd_24h_change: 0 },
             bitcoin: { usd: 80000, usd_24h_change: 0 },
+            solana: { usd: 140, usd_24h_change: 0 },
           });
         }
         return new Response('blocked', { status: 403 });
@@ -92,5 +101,50 @@ describe('loadDeskSpot', () => {
     expect(spot.source).toBe('unavailable');
     expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
     expect(spot.instruments.every((i) => i.price == null)).toBe(true);
+  });
+});
+
+describe('getSolUsdX18', () => {
+  it('returns x18 from CoinGecko solana usd', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        expect(url).toContain('ids=ethereum,bitcoin,solana');
+        return Response.json({
+          ethereum: { usd: 2500 },
+          bitcoin: { usd: 80000 },
+          solana: { usd: 148.25 },
+        });
+      }),
+    );
+    const x18 = await getSolUsdX18();
+    expect(x18).toBe(usdNumberToX18(148.25));
+    expect(x18).toBeGreaterThan(0n);
+  });
+
+  it('returns null when CoinGecko fails or SOL missing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('nope', { status: 500 })),
+    );
+    expect(await getSolUsdX18()).toBeNull();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          ethereum: { usd: 2500 },
+          bitcoin: { usd: 80000 },
+        }),
+      ),
+    );
+    expect(await getSolUsdX18()).toBeNull();
+  });
+
+  it('usdNumberToX18 rejects non-positive', () => {
+    expect(usdNumberToX18(null)).toBeNull();
+    expect(usdNumberToX18(0)).toBeNull();
+    expect(usdNumberToX18(-1)).toBeNull();
   });
 });
