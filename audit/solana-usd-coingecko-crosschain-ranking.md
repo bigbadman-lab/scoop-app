@@ -6,7 +6,7 @@
 
 ## 2. UTC timestamp
 
-2026-09-21T19:38:44Z
+2026-09-21T19:48:31Z
 
 ## 3. SOL/USD source
 
@@ -17,47 +17,60 @@
 | Helper | `getSolUsdX18()` → bigint x18 via `usdNumberToX18` (fixed-decimal string path; never fabricates 0) |
 | Cache | Existing `next: { revalidate: 20 }` on the shared fetch |
 | Desk UI | Unchanged (still ETH/BTC/SPX/FTSE only) |
+| Deploy note | First push (`3f7e724`) stalled because `build:packages` compiled `@scoop/db` before `@scoop/shared`; fixed in `ce1ea8d` |
 
-SOL/USD during verification: filled after deploy.
+SOL/USD during verification: **~$118.21** (CoinGecko at verify time; API used contemporaneous rate → FDV ≈ `$3325`).
 
 ## 4. SCPY native metrics
 
 Mint: `B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu`
 
-| Field | Value (pre/post deploy from API) |
-|-------|----------------------------------|
-| price SOL | (live) |
-| fdv SOL | (live) |
-| volume SOL | (live) |
-| trades | (live) |
+| Field | Value |
+|-------|-------|
+| price SOL | `0.00000002` display (`priceQuoteDisplay`; full x18 from `0.000000028141244551`) |
+| fdv SOL | `28.14124455` |
+| volume SOL | `4.630255521` |
+| trades | `11` |
 
 ## 5. SCPY USD metrics
 
-Derived: `priceUsd = priceSol × solUsd`, `fdvUsd = fdvSol × solUsd`, `volumeUsd = volumeSol × solUsd` via `priceUsdX18FromQuote` / `notionalUsdX18FromQuoteAmount`.
+Formulas: `priceUsdX18FromQuote` / `notionalUsdX18FromQuoteAmount` (shared x18).
 
 | Field | Value |
 |-------|-------|
-| price USD | (live) |
-| FDV USD | (live) |
-| volume USD | (live) |
-| x18 | (live) |
+| price USD | `0.00000332` |
+| FDV USD | `3325.16945614` |
+| volume USD | `547.11099236` |
+| `priceUsdX18` | `3325169456146` |
+| `fdvUsdX18` | `3325169456146160000000` |
+| `volume24hUsdX18` | `547110992361360000000` |
+
+Consistency: `28.14124455 × ~118.2 ≈ 3325` ✓
 
 ## 6. Homepage
 
-- **New:** RHC + Solana blended (unchanged merge by `launchedAt`)
-- **Trending:** In-memory dual-rail merge using derived USD volume + trade counts (`rankDiscoverTrending`)
-- **Bonding:** RHC-only (no Pump bonding state)
-- SCPY visibility: New + Trending when eligible (≥3 trades, USD volume > 0)
+- **New:** RHC + Solana blended; SCPY first by launch time
+- **Trending:** SCPY included (`trending_n=1`, marketSource `pump`) — meets ≥3 trades + USD volume > 0
+- **Bonding:** RHC-only (unchanged)
+- Solana badge intact
 
 ## 7. Markets
 
-- Overlay sets `fdvUsdX18` → existing `rankMarketsByFdv` compares both chains
-- Trades sort uses Pump 24h count as `tradeCountAllTime`
-- Holders remain `—` for Solana; row visible
+- SCPY **rank 10 / 13** (was 13/13 under null USD FDV)
+- `fdvUsdX18` populated; ranks with RHC on real USD FDV
+- RHC controls still ~$5.9–6.0k FDV (FORGE/MUSE)
+- Trades sort still uses Pump 24h count
+- Holders remain `—` for Solana
 
 ## 8. RHC controls
 
-RHC paths do not call `getSolUsdX18` / Pump overlay. Controls verified post-deploy on live `/api/markets` (non-pump rows keep prior USD fields).
+| Symbol | FDV USD (live) |
+|--------|----------------|
+| FORGE | `5985.33314055` |
+| MUSE | `5959.56979224` |
+| SRVSTATE | `5707.08125299` |
+
+RHC does not route through SOL/USD. Values remain oracle/TMS-derived.
 
 ## 9. Tests
 
@@ -84,6 +97,7 @@ Results: PASS.
 | `packages/db/src/queries/pump-market.ts` | USD overlay via shared x18 helpers |
 | `packages/db/src/queries/pump-market.test.ts` | Conversion precision tests |
 | `packages/db/package.json` + lockfile | `@scoop/shared` dependency |
+| `package.json` | Build shared before db |
 | `apps/web/src/lib/discovery/dual-rail.ts` | SOL/USD + Trending merge |
 | `apps/web/src/lib/discovery/dual-rail.test.ts` | Trending eligibility |
 | `apps/web/src/lib/token/load-token-page.ts` | Pass `solUsdX18` |
@@ -93,24 +107,24 @@ Results: PASS.
 
 ## 11. Deploy
 
-- SHA: (post-push)
+- SHA: `ce1ea8d` (build-order fix) on top of `3f7e724` (feature)
 - Vercel: `https://scoop.fun` auto-deploy
-- status: (post-verify)
+- status: READY
 
 ## 12. Production verification
 
 ### Homepage
-- blended: (pending)
-- SCPY visible: (pending)
-- USD price correct: (pending)
-- USD FDV correct: (pending)
-- Trending includes Solana: (pending)
+- blended: YES
+- SCPY visible: YES
+- USD price correct: YES
+- USD FDV correct: YES
+- Trending includes Solana: YES
 
 ### Markets
-- blended: (pending)
-- SCPY visible: (pending)
-- USD FDV populated: (pending)
-- FDV ranking works: (pending)
+- blended: YES
+- SCPY visible: YES
+- USD FDV populated: YES
+- FDV ranking works: YES (rank 10/13 by ~$3325 FDV)
 
 ## 13. Production actions
 
