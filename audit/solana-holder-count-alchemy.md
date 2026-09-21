@@ -139,11 +139,11 @@ pnpm --filter @scoop/web run build → ok
 
 ## 15. Deployment
 
-- SHA: `0101034`
-- Render deploy ID: `dep-daoqap942hec73fomao0` (`scoop-solana-pump-worker`)
-- Render status: build_in_progress at push; confirm live after Ready
-- Vercel: GitHub auto-deploy for web UI/DTO changes on `main`
-- Vercel status: confirm production Ready for `0101034`
+- SHA: `0101034` (feature) / `f6e183d` (docs note; Render live)
+- Render deploy ID: `dep-daoqapmr2aps739e52l0` (`scoop-solana-pump-worker`) — **live**
+- Prior feature deploy: `dep-daoqap942hec73fomao0` (`0101034`) reached live before docs redeploy
+- Vercel: production `scoop.fun` serves holder DTO (`holderCountAll=1` for SCPY)
+- Vercel status: Ready (API verified)
 
 ## 16. Production actions
 
