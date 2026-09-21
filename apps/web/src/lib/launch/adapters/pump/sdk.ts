@@ -3,38 +3,77 @@
  *
  * The package is webpack-bundled into the Next server build (not externalized)
  * so Vercel does not need a runtime Node resolve of `@pump-fun/pump-sdk`.
- * Earlier createRequire / free-require paths became `(void 0)(...)` or
- * MODULE_NOT_FOUND stubs in the serverless bundle.
  */
-import type { PublicKey, TransactionInstruction } from '@solana/web3.js';
+import type { Connection, PublicKey, TransactionInstruction } from '@solana/web3.js';
 
 export const PUMP_SDK_UNAVAILABLE = 'pump_sdk_unavailable';
 export const PUMP_SDK_EXPORT_MISSING = 'pump_sdk_export_missing';
 
-type PumpSdkModule = {
-  PUMP_SDK: {
-    createV2Instruction: (args: {
-      mint: PublicKey;
-      name: string;
-      symbol: string;
-      uri: string;
-      creator: PublicKey;
-      user: PublicKey;
-      mayhemMode: boolean;
-      cashback?: boolean;
-      holderReward?: boolean;
-    }) => Promise<TransactionInstruction>;
-  };
-  PUMP_PROGRAM_ID: PublicKey;
+/** Minimal BN surface used by create+buy sizing. */
+export type PumpBn = {
+  toString: (base?: number) => string;
 };
 
+type PumpSdkApi = {
+  createV2Instruction: (args: {
+    mint: PublicKey;
+    name: string;
+    symbol: string;
+    uri: string;
+    creator: PublicKey;
+    user: PublicKey;
+    mayhemMode: boolean;
+    cashback?: boolean;
+    holderReward?: boolean;
+  }) => Promise<TransactionInstruction>;
+  createV2AndBuyInstructions: (args: {
+    global: unknown;
+    mint: PublicKey;
+    name: string;
+    symbol: string;
+    uri: string;
+    creator: PublicKey;
+    user: PublicKey;
+    amount: PumpBn;
+    solAmount: PumpBn;
+    mayhemMode: boolean;
+    cashback?: boolean;
+    holderReward?: boolean;
+  }) => Promise<TransactionInstruction[]>;
+};
+
+type OnlinePumpSdkCtor = new (connection: Connection) => {
+  fetchGlobal: () => Promise<unknown>;
+  fetchFeeConfig: () => Promise<unknown>;
+};
+
+type PumpSdkModule = {
+  PUMP_SDK: PumpSdkApi;
+  PUMP_PROGRAM_ID: PublicKey;
+  OnlinePumpSdk: OnlinePumpSdkCtor;
+  getBuyTokenAmountFromSolAmount: (args: {
+    global: unknown;
+    feeConfig: unknown;
+    mintSupply: null;
+    bondingCurve: null;
+    amount: PumpBn;
+    quoteMint: PublicKey;
+  }) => PumpBn;
+};
+
+type BnCtor = new (n: string | number | bigint, base?: number) => PumpBn;
+
 let cached: PumpSdkModule | null = null;
+let cachedBn: BnCtor | null = null;
 
 function assertPumpSdkModule(mod: unknown): PumpSdkModule {
   const candidate = mod as Partial<PumpSdkModule> | null | undefined;
   if (
     !candidate?.PUMP_SDK ||
     typeof candidate.PUMP_SDK.createV2Instruction !== 'function' ||
+    typeof candidate.PUMP_SDK.createV2AndBuyInstructions !== 'function' ||
+    typeof candidate.OnlinePumpSdk !== 'function' ||
+    typeof candidate.getBuyTokenAmountFromSolAmount !== 'function' ||
     !candidate.PUMP_PROGRAM_ID
   ) {
     throw new Error(PUMP_SDK_EXPORT_MISSING);
@@ -65,9 +104,25 @@ export function loadPumpSdk(): PumpSdkModule {
   }
 }
 
+/** bn.js via pump-sdk dependency tree (server-only). */
+export function loadPumpBn(): BnCtor {
+  if (cachedBn) return cachedBn;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const BN = require('bn.js');
+    if (typeof BN !== 'function') throw new Error(PUMP_SDK_EXPORT_MISSING);
+    cachedBn = BN as BnCtor;
+    return cachedBn;
+  } catch (err) {
+    if (err instanceof Error && err.message === PUMP_SDK_EXPORT_MISSING) throw err;
+    throw new Error(PUMP_SDK_UNAVAILABLE);
+  }
+}
+
 /** Test helper — clears the module cache between cases. */
 export function resetPumpSdkCacheForTests(): void {
   cached = null;
+  cachedBn = null;
 }
 
 export function getPumpSdkApi() {
@@ -77,3 +132,17 @@ export function getPumpSdkApi() {
 export function getPumpProgramId() {
   return loadPumpSdk().PUMP_PROGRAM_ID;
 }
+
+export function getOnlinePumpSdk(connection: Connection) {
+  const { OnlinePumpSdk } = loadPumpSdk();
+  return new OnlinePumpSdk(connection);
+}
+
+export function getBuyTokenAmountFromSolAmount(
+  args: Parameters<PumpSdkModule['getBuyTokenAmountFromSolAmount']>[0],
+) {
+  return loadPumpSdk().getBuyTokenAmountFromSolAmount(args);
+}
+
+/** WSOL mint — SOL-paired Pump create+buy. */
+export const PUMP_NATIVE_MINT = 'So11111111111111111111111111111111111111112';

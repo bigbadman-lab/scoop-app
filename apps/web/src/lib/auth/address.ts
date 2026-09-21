@@ -28,3 +28,16 @@ export function addressesEqual(a: string, b: string): boolean {
   const right = sessionAddress(b);
   return left != null && right != null && left === right;
 }
+
+/**
+ * Session vs live wallet identity: EVM checksum-insensitive, Solana exact base58.
+ */
+export function walletIdentitiesEqual(a: string, b: string): boolean {
+  if (addressesEqual(a, b)) return true;
+  const left = a.trim();
+  const right = b.trim();
+  if (!left || !right) return false;
+  // Non-EVM (e.g. Solana base58) — case-sensitive exact match.
+  if (left.startsWith('0x') || right.startsWith('0x')) return false;
+  return left === right;
+}

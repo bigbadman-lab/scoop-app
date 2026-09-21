@@ -1,4 +1,4 @@
-import { addressesEqual } from '@/lib/auth/address';
+import { walletIdentitiesEqual } from '@/lib/auth/address';
 
 export type ScoopAuthReconciliationState =
   | 'signed_out'
@@ -34,8 +34,8 @@ export function resolveScoopAuthState(
   if (hasSession && !hasWallet) return 'session_only';
   if (!hasSession && hasWallet) return 'connected_unsigned';
 
-  // Both present — compare case-insensitively.
-  if (addressesEqual(input.sessionAddress!, input.connectedAddress!)) {
+  // Both present — EVM checksum-insensitive or Solana exact base58.
+  if (walletIdentitiesEqual(input.sessionAddress!, input.connectedAddress!)) {
     return 'authenticated_match';
   }
   return 'wallet_mismatch';
@@ -71,6 +71,9 @@ export function launchAssistAuthTitle(
   if (state === 'wallet_mismatch') {
     return 'Different wallet connected';
   }
+  if (state === 'signed_out') {
+    return 'Sign in to create a market';
+  }
   return 'Connect a wallet to make a market';
 }
 
@@ -82,6 +85,9 @@ export function launchAssistAuthMessage(
   }
   if (state === 'wallet_mismatch') {
     return 'Sign in with this wallet to switch your active SCOOP profile.';
+  }
+  if (state === 'signed_out') {
+    return 'Sign in from the top-right to create a market from this story.';
   }
   return 'Sign in with your wallet to use launch assist.';
 }

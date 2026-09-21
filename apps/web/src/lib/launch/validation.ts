@@ -1,5 +1,6 @@
 import { META_LIMITS, type FieldErrors, type LaunchFormState, type TokenImageState } from '@/lib/launch/types';
 import { parseDevBuyAmount } from '@/lib/launch/dev-buy';
+import { parseSolDevBuyLamports } from '@/lib/launch/pump-dev-buy';
 import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
 import { isPumpRail } from '@/lib/launch/launch-rail';
 import { PUMP_FIELD_LIMITS } from '@/lib/launch/adapters/pump/types';
@@ -77,14 +78,18 @@ export function validatePumpTokenLimits(state: LaunchFormState): FieldErrors {
   return errors;
 }
 
-/** Step 2 — Solana wallet required for Pump CREATE ONLY path. */
+/** Step 2 — Solana wallet + optional SOL DEV BUY for Pump. */
 export function validatePumpRouteStep(
-  _state: LaunchFormState,
+  state: LaunchFormState,
   solanaAddress?: string | null,
 ): FieldErrors {
   const errors: FieldErrors = {};
   if (!solanaAddress || !parseSolanaPublicKey(solanaAddress)) {
     errors.wallet = 'Connect a Solana wallet to launch on Pump.fun.';
+  }
+  const buy = parseSolDevBuyLamports(state.devBuyAmount);
+  if (!buy.ok) {
+    errors.devBuyAmount = buy.error;
   }
   return errors;
 }

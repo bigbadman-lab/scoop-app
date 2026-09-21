@@ -19,6 +19,18 @@ const mockConnectedAddress = vi.fn(
     '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
 );
 
+const mockSolanaAddress = vi.fn((): string | undefined => undefined);
+
+const mockWalletSession = vi.fn(() => ({
+  connected: true,
+  authenticated: false,
+  namespace: null as 'eip155' | 'solana' | null,
+  address: null as string | null,
+  providerReady: false,
+  authMethod: null as 'siwe' | 'siws' | null,
+  userId: null as string | null,
+}));
+
 vi.mock('wagmi', () => ({
   useAccount: () => ({
     address: mockConnectedAddress(),
@@ -34,10 +46,20 @@ vi.mock('wagmi', () => ({
 vi.mock('@reown/appkit/react', () => ({
   useAppKit: () => ({ open: vi.fn() }),
   useAppKitAccount: () => ({
-    address: undefined,
-    isConnected: false,
+    address: mockSolanaAddress(),
+    isConnected: Boolean(mockSolanaAddress()),
   }),
-  useAppKitProvider: () => ({ walletProvider: undefined }),
+  useAppKitProvider: () => ({
+    walletProvider: mockSolanaAddress() ? {} : undefined,
+  }),
+}));
+
+vi.mock('@reown/appkit-adapter-solana/react', () => ({
+  useAppKitConnection: () => ({ connection: null }),
+}));
+
+vi.mock('@/lib/auth/use-scoop-wallet-session', () => ({
+  useScoopWalletSession: () => mockWalletSession(),
 }));
 
 vi.mock('@/lib/auth/open-scoop-auth', () => ({
@@ -152,6 +174,16 @@ describe('LaunchFlowLive', () => {
     mockConnectedAddress.mockReturnValue(
       '0x35AFfbCcC92ADd3FaB6b515326Da1433DcA7Cf9C',
     );
+    mockSolanaAddress.mockReturnValue(undefined);
+    mockWalletSession.mockReturnValue({
+      connected: true,
+      authenticated: false,
+      namespace: null,
+      address: null,
+      providerReady: false,
+      authMethod: null,
+      userId: null,
+    });
     global.fetch = vi.fn(async (url: string) => {
       if (String(url).includes('/api/launch/pons-schema-ready')) {
         return {
@@ -214,6 +246,89 @@ describe('LaunchFlowLive', () => {
       'https://signed.example/1.png',
     );
     expect(sessionStorage.getItem(ASSISTED_LAUNCH_HANDOFF_KEY)).toBeNull();
+  });
+
+  it('assist + SIWE session auto-selects PONS and locks the rail selector', async () => {
+    searchParams.set('assist', '1');
+    seedAssistHandoff();
+    mockWalletSession.mockReturnValue({
+      connected: true,
+      authenticated: true,
+      namespace: 'eip155',
+      address: '0x35affbccc92add3fab6b515326da1433dca7cf9c',
+      providerReady: true,
+      authMethod: 'siwe',
+      userId: 'u-evm',
+    });
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
+    });
+    const pons = screen.getByTestId('launch-rail-pons');
+    const pump = screen.getByTestId('launch-rail-pump');
+    expect(pons.getAttribute('aria-pressed')).toBe('true');
+    expect(pump.getAttribute('aria-pressed')).toBe('false');
+    expect((pons as HTMLButtonElement).disabled).toBe(true);
+    expect((pump as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('assist + SIWS session auto-selects Pump over stale DEFAULT PONS', async () => {
+    searchParams.set('assist', '1');
+    seedAssistHandoff();
+    mockConnectedAddress.mockReturnValue(undefined);
+    mockSolanaAddress.mockReturnValue('B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu');
+    mockWalletSession.mockReturnValue({
+      connected: true,
+      authenticated: true,
+      namespace: 'solana',
+      address: 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu',
+      providerReady: true,
+      authMethod: 'siws',
+      userId: 'u-sol',
+    });
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('launch-rail-pump').getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    });
+    expect(screen.getByTestId('launch-rail-pons').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(screen.getByText(/Create a coin on Pump.fun/i)).toBeTruthy();
+    // Prefill must not require EVM address fields.
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
+  });
+
+  it('assist signed-out does not invent a Solana rail from AppKit alone', async () => {
+    searchParams.set('assist', '1');
+    seedAssistHandoff();
+    mockConnectedAddress.mockReturnValue(undefined);
+    mockSolanaAddress.mockReturnValue('B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu');
+    mockWalletSession.mockReturnValue({
+      connected: true,
+      authenticated: false,
+      namespace: null,
+      address: null,
+      providerReady: false,
+      authMethod: null,
+      userId: null,
+    });
+    render(<LaunchFlowLive catalogue={[eth, nvda]} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Rate Spike');
+    });
+    // Without an authenticated SCOOP session, resolveNewsLaunchRail is requires_sign_in
+    // and DEFAULT PONS is left in place — AppKit connection must not force Pump.
+    expect(screen.getByTestId('launch-rail-pons').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByTestId('launch-rail-pump').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 
   it('leaves Website blank when Assist article URL is incompatible', async () => {

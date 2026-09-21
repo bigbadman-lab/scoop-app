@@ -1,20 +1,7 @@
 import type { Queryable } from '../types.js';
-import { normalizeAddress } from '../hex.js';
 import { SOLANA_MAINNET_CHAIN_ID } from './pump-markets.js';
 import { linkNewsArticleMarket, resolveArticleFromDraft } from './news-article-markets.js';
-
-const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-function canonicalizeMarketTokenAddress(chainId: number, address: string): string {
-  if (chainId === SOLANA_MAINNET_CHAIN_ID) {
-    const t = address.trim();
-    if (!SOLANA_BASE58_RE.test(t) || t.startsWith('0x')) {
-      throw new Error(`Invalid Solana address: ${address}`);
-    }
-    return t;
-  }
-  return normalizeAddress(address);
-}
+import { canonicalizeTokenAddressForWrite } from './tokens.js';
 
 export type NewsArticleMarketIntentStatus = 'pending' | 'done' | 'failed' | 'expired';
 
@@ -47,10 +34,11 @@ type IntentRow = {
 };
 
 function mapIntent(row: IntentRow): NewsArticleMarketIntent {
+  const chainId = Number(row.chain_id);
   return {
     id: row.id,
-    chainId: Number(row.chain_id),
-    tokenAddress: normalizeAddress(row.token_address),
+    chainId,
+    tokenAddress: canonicalizeTokenAddressForWrite(chainId, row.token_address),
     provider: row.provider,
     providerArticleId: row.provider_article_id,
     draftId: row.draft_id,
@@ -83,7 +71,12 @@ export async function upsertNewsArticleMarketIntentAndLink(
   input: UpsertNewsArticleMarketIntentInput,
 ): Promise<UpsertNewsArticleMarketIntentResult> {
   const chainId = input.chainId;
-  const tokenAddress = normalizeAddress(input.tokenAddress);
+  let tokenAddress: string;
+  try {
+    tokenAddress = canonicalizeTokenAddressForWrite(chainId, input.tokenAddress);
+  } catch {
+    return { ok: false, reason: 'invalid_input' };
+  }
   const draftId = input.draftId?.trim() || null;
   let provider = input.provider?.trim() || '';
   let providerArticleId = input.providerArticleId?.trim() || '';
@@ -362,19 +355,28 @@ export async function listDoneDisplayIntentsMissingNewsLink(
        AND NOT EXISTS (
          SELECT 1 FROM news_article_market_intents i
          WHERE i.chain_id = f.chain_id
-           AND lower(i.token_address) = lower(f.token_address)
+           AND (
+             (f.chain_id = $3 AND i.token_address = f.token_address)
+             OR (
+               f.chain_id <> $3
+               AND lower(i.token_address) = lower(f.token_address)
+             )
+           )
        )
      ORDER BY f.updated_at ASC
      LIMIT $2`,
-    [String(lookbackSeconds), limit],
+    [String(lookbackSeconds), limit, SOLANA_MAINNET_CHAIN_ID],
   );
 
-  return result.rows.map((row) => ({
-    displayIntentId: row.id,
-    chainId: Number(row.chain_id),
-    tokenAddress: normalizeAddress(row.token_address),
-    draftId: row.draft_id,
-  }));
+  return result.rows.map((row) => {
+    const chainId = Number(row.chain_id);
+    return {
+      displayIntentId: row.id,
+      chainId,
+      tokenAddress: canonicalizeTokenAddressForWrite(chainId, row.token_address),
+      draftId: row.draft_id,
+    };
+  });
 }
 
 /** Originating article for token Lore (durable link only). */
@@ -389,7 +391,7 @@ export async function getNewsArticleLoreForToken(
   canonicalUrl: string | null;
   sourceDomain: string;
 } | null> {
-  const tokenAddress = canonicalizeMarketTokenAddress(
+  const tokenAddress = canonicalizeTokenAddressForWrite(
     args.chainId,
     args.tokenAddress,
   );

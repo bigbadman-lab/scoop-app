@@ -21,6 +21,7 @@ export type PumpCompleteOutcome = PumpCompleteOk | PumpCompleteErr;
 /**
  * Persist a confirmed Pump launch to SCOOP, then return the token route.
  * Safe to retry — never relaunches / never generates a new mint.
+ * Passes news draftId when present so lore links via the shared EVM schema.
  */
 export async function completePublicPumpLaunch(args: {
   result: LaunchResult;
@@ -28,6 +29,7 @@ export async function completePublicPumpLaunch(args: {
   creatorWallet: string;
 }): Promise<PumpCompleteOutcome> {
   try {
+    const draftId = args.state.sourceDraftId?.trim() || null;
     const res = await fetch('/api/launch/pump/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,6 +45,7 @@ export async function completePublicPumpLaunch(args: {
         twitter: args.state.twitter.trim(),
         telegram: args.state.telegram.trim(),
         website: args.state.website.trim(),
+        ...(draftId ? { draftId } : {}),
       }),
     });
     const json = (await res.json()) as {

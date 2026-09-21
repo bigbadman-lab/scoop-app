@@ -535,4 +535,108 @@ describe('ensureNewsArticleMarketFromTrustedDraft', () => {
     });
     expect(result).toEqual({ ok: false, reason: 'token_already_linked' });
   });
+
+  it('Solana mint: news draft creates nam link and lore with base58 preserved', async () => {
+    const { ensureNewsArticleMarketFromTrustedDraft, getNewsArticleLoreForToken } =
+      await import('./news-article-market-intents.js');
+    const SOL_MINT = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    const SOLANA_CHAIN = 900001;
+    const HEADLINE = 'Markets react to rate decision';
+    const SOURCE = 'reuters.com';
+    const URL = 'https://reuters.com/a';
+    const intentRow = {
+      id: 'intent-sol',
+      chain_id: SOLANA_CHAIN,
+      token_address: SOL_MINT,
+      provider: PROVIDER,
+      provider_article_id: ARTICLE,
+      draft_id: DRAFT,
+      status: 'pending' as const,
+      attempts: 0,
+      last_error: null,
+      created_at: new Date('2026-09-21T00:00:00Z'),
+      updated_at: new Date('2026-09-21T00:00:00Z'),
+    };
+    let namInserted = false;
+    let intentStatus = 'pending';
+    const db = mockDb((sql, params) => {
+      if (sql.includes('FROM launch_drafts')) {
+        return {
+          rows: [
+            {
+              source_type: 'news',
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+            },
+          ],
+        };
+      }
+      if (sql.includes('FROM provider_news_articles') && sql.includes('SELECT 1')) {
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('FROM news_article_markets') && sql.includes('SELECT provider')) {
+        return { rows: namInserted ? [{ provider: PROVIDER, provider_article_id: ARTICLE }] : [] };
+      }
+      if (sql.includes('INSERT INTO news_article_market_intents')) {
+        expect(params[0]).toBe(SOLANA_CHAIN);
+        expect(params[1]).toBe(SOL_MINT);
+        return { rows: [{ ...intentRow, status: intentStatus }] };
+      }
+      if (sql.includes('FROM launches') && sql.includes('SELECT 1')) {
+        expect(params[1]).toBe(SOL_MINT);
+        return { rows: [{ '?column?': 1 }] };
+      }
+      if (sql.includes('INSERT INTO news_article_markets')) {
+        expect(params[2]).toBe(SOLANA_CHAIN);
+        expect(params[3]).toBe(SOL_MINT);
+        namInserted = true;
+        return { rows: [], rowCount: 1 };
+      }
+      if (sql.includes('UPDATE news_article_market_intents') && sql.includes("status = $2")) {
+        intentStatus = 'done';
+        return { rows: [{ ...intentRow, status: 'done' }] };
+      }
+      if (sql.includes('FROM news_article_markets nam')) {
+        expect(params[0]).toBe(SOLANA_CHAIN);
+        expect(params[1]).toBe(SOL_MINT);
+        return {
+          rows: [
+            {
+              provider: PROVIDER,
+              provider_article_id: ARTICLE,
+              title: HEADLINE,
+              url: URL,
+              canonical_url: URL,
+              source_domain: SOURCE,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const ensured = await ensureNewsArticleMarketFromTrustedDraft(db, {
+      chainId: SOLANA_CHAIN,
+      tokenAddress: SOL_MINT,
+      draftId: DRAFT,
+    });
+    expect(ensured.ok).toBe(true);
+    if (ensured.ok && !ensured.skipped) {
+      expect(ensured.linked).toBe(true);
+      expect(ensured.intent.tokenAddress).toBe(SOL_MINT);
+    }
+
+    const lore = await getNewsArticleLoreForToken(db, {
+      chainId: SOLANA_CHAIN,
+      tokenAddress: SOL_MINT,
+    });
+    expect(lore).toEqual({
+      provider: PROVIDER,
+      providerArticleId: ARTICLE,
+      title: HEADLINE,
+      url: URL,
+      canonicalUrl: URL,
+      sourceDomain: SOURCE,
+    });
+  });
 });

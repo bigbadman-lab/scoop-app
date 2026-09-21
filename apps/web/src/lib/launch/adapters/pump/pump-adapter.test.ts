@@ -163,8 +163,10 @@ describe('Launch result shape', () => {
 });
 
 describe('Initial buy recommendation', () => {
-  it('recommends CREATE ONLY for MVP canary', () => {
-    expect(PUMP_INITIAL_BUY_FEASIBILITY.recommendation).toBe('CREATE_ONLY');
+  it('recommends CREATE_OR_CREATE_AND_BUY via official atomic helper', () => {
+    expect(PUMP_INITIAL_BUY_FEASIBILITY.recommendation).toBe(
+      'CREATE_OR_CREATE_AND_BUY',
+    );
     expect(PUMP_INITIAL_BUY_FEASIBILITY.officialAtomicHelper).toBe(
       'createV2AndBuyInstructions',
     );

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import { buildPumpCreateInstruction } from '@/lib/launch/adapters/pump/build-create';
+import { buildPumpCreateAndBuyInstructions } from '@/lib/launch/adapters/pump/build-create-and-buy';
 import {
   PUMP_SDK_EXPORT_MISSING,
   PUMP_SDK_UNAVAILABLE,
@@ -11,7 +12,14 @@ import {
   createSolanaConnection,
   SolanaRpcConfigError,
 } from '@/lib/solana/rpc';
-import { PUMP_MIN_SOL_LAMPORTS } from '@/lib/launch/pump-constants';
+import {
+  INSUFFICIENT_SOL_FOR_LAUNCH_AND_DEV_BUY,
+  PUMP_MIN_SOL_LAMPORTS,
+} from '@/lib/launch/pump-constants';
+import {
+  parseSolDevBuyLamports,
+  requiredSolForPumpLaunch,
+} from '@/lib/launch/pump-dev-buy';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +30,10 @@ type Body = {
   creator?: string;
   user?: string;
   mint?: string;
+  /** Human SOL string or integer lamports string — server prefers `devBuySol`. */
+  devBuySol?: string | number | null;
+  /** Canonical lamports when client already converted (integer string). */
+  devBuyLamports?: string | number | null;
 };
 
 export type PumpPrepareStage =
@@ -41,6 +53,7 @@ export type PumpPrepareErrorCode =
   | 'solana_rpc_unavailable'
   | 'solana_rpc_balance_failed'
   | 'insufficient_sol'
+  | typeof INSUFFICIENT_SOL_FOR_LAUNCH_AND_DEV_BUY
   | 'solana_rpc_blockhash_failed'
   | 'pump_sdk_unavailable'
   | 'pump_sdk_export_missing'
@@ -66,6 +79,8 @@ type PrepareOk = {
     mayhemMode: boolean;
     holderReward: boolean;
     cashback: boolean;
+    mode: 'create' | 'create_and_buy';
+    solAmountLamports: string;
   };
   requestId: string;
   elapsedMs: number;
@@ -81,6 +96,24 @@ type PrepareErr = {
   requestId: string;
   elapsedMs: number;
 };
+
+function parseDevBuyLamportsFromBody(body: Body):
+  | { ok: true; lamports: bigint }
+  | { ok: false; error: string } {
+  if (body.devBuyLamports != null && body.devBuyLamports !== '') {
+    const raw = String(body.devBuyLamports).trim();
+    if (!/^\d+$/.test(raw)) {
+      return { ok: false, error: 'devBuyLamports must be a non-negative integer.' };
+    }
+    return { ok: true, lamports: BigInt(raw) };
+  }
+  if (body.devBuySol == null || body.devBuySol === '') {
+    return { ok: true, lamports: BigInt(0) };
+  }
+  const parsed = parseSolDevBuyLamports(String(body.devBuySol));
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+  return { ok: true, lamports: parsed.lamports };
+}
 
 function classifyPrepareError(err: unknown): {
   code: PumpPrepareErrorCode;
@@ -123,6 +156,7 @@ function logPrepare(event: {
   creator?: string;
   mint?: string;
   elapsedMs: number;
+  mode?: string;
 }): void {
   console.info(
     JSON.stringify({
@@ -133,14 +167,15 @@ function logPrepare(event: {
       error: event.error ?? null,
       creator: event.creator ?? null,
       mint: event.mint ?? null,
+      mode: event.mode ?? null,
       elapsedMs: event.elapsedMs,
     }),
   );
 }
 
 /**
- * Public Pump prepare — builds unsigned create_v2 tx (mint pubkey only).
- * Client partial-signs mint + wallet signs/broadcasts. Never accepts mint secret.
+ * Public Pump prepare — builds unsigned create_v2 (or create+buy) tx.
+ * Mint pubkey only; client partial-signs mint + wallet signs/broadcasts.
  */
 export async function POST(request: Request) {
   const started = Date.now();
@@ -183,7 +218,13 @@ export async function POST(request: Request) {
   creator = input.creator;
   mint = input.mint;
 
-  const errors = validatePumpCreateInput(input);
+  const errors: Record<string, string> = {
+    ...validatePumpCreateInput(input),
+  };
+  const buyParsed = parseDevBuyLamportsFromBody(body);
+  if (!buyParsed.ok) {
+    errors.devBuySol = buyParsed.error;
+  }
   if (Object.keys(errors).length) {
     const elapsedMs = Date.now() - started;
     logPrepare({
@@ -206,6 +247,9 @@ export async function POST(request: Request) {
     return NextResponse.json(err, { status: 400 });
   }
 
+  const solAmountLamports = buyParsed.ok ? buyParsed.lamports : BigInt(0);
+  const mode = solAmountLamports > BigInt(0) ? 'create_and_buy' : 'create';
+
   try {
     stage = 'rpc_connect';
     const connection = createSolanaConnection();
@@ -220,22 +264,33 @@ export async function POST(request: Request) {
     }
 
     stage = 'balance_gate';
-    if (BigInt(bal) < PUMP_MIN_SOL_LAMPORTS) {
+    const required =
+      solAmountLamports > BigInt(0)
+        ? requiredSolForPumpLaunch(solAmountLamports)
+        : PUMP_MIN_SOL_LAMPORTS;
+    if (BigInt(bal) < required) {
       const elapsedMs = Date.now() - started;
+      const errorCode =
+        solAmountLamports > BigInt(0)
+          ? INSUFFICIENT_SOL_FOR_LAUNCH_AND_DEV_BUY
+          : 'insufficient_sol';
       logPrepare({
         requestId,
         stage,
         ok: false,
-        error: 'insufficient_sol',
+        error: errorCode,
         creator,
         mint,
         elapsedMs,
+        mode,
       });
       const err: PrepareErr = {
         ok: false,
-        error: 'insufficient_sol',
+        error: errorCode,
         message:
-          'Insufficient SOL for Pump create (need ~0.015 SOL for rent and fees).',
+          solAmountLamports > BigInt(0)
+            ? 'Insufficient SOL for Pump create and DEV BUY.'
+            : 'Insufficient SOL for Pump create (need ~0.015 SOL for rent and fees).',
         lamports: bal,
         stage,
         requestId,
@@ -255,15 +310,58 @@ export async function POST(request: Request) {
     }
 
     stage = 'pump_sdk_build';
-    const prepared = await buildPumpCreateInstruction(input);
+    let preparedMeta: PrepareOk['prepared'];
+    let instructions: import('@solana/web3.js').TransactionInstruction[];
+
+    if (solAmountLamports > BigInt(0)) {
+      const prepared = await buildPumpCreateAndBuyInstructions({
+        connection,
+        input,
+        solAmountLamports,
+      });
+      instructions = prepared.instructions;
+      preparedMeta = {
+        mint: prepared.mint,
+        creator: prepared.creator,
+        user: prepared.user,
+        name: prepared.name,
+        symbol: prepared.symbol,
+        uri: prepared.uri,
+        programId: prepared.programId,
+        pair: prepared.pair,
+        mayhemMode: prepared.mayhemMode,
+        holderReward: prepared.holderReward,
+        cashback: prepared.cashback,
+        mode: 'create_and_buy',
+        solAmountLamports: prepared.solAmountLamports,
+      };
+    } else {
+      const prepared = await buildPumpCreateInstruction(input);
+      instructions = [prepared.instruction];
+      preparedMeta = {
+        mint: prepared.mint,
+        creator: prepared.creator,
+        user: prepared.user,
+        name: prepared.name,
+        symbol: prepared.symbol,
+        uri: prepared.uri,
+        programId: prepared.programId,
+        pair: prepared.pair,
+        mayhemMode: prepared.mayhemMode,
+        holderReward: prepared.holderReward,
+        cashback: prepared.cashback,
+        mode: 'create',
+        solAmountLamports: '0',
+      };
+    }
 
     stage = 'serialize';
     let transactionBase64: string;
     try {
       const tx = new Transaction();
-      tx.feePayer = new PublicKey(prepared.user);
+      tx.feePayer = new PublicKey(preparedMeta.user);
       tx.recentBlockhash = blockhash;
-      tx.add(prepared.instruction);
+      for (const ix of instructions) tx.add(ix);
       const serialized = tx.serialize({
         requireAllSignatures: false,
         verifySignatures: false,
@@ -280,8 +378,9 @@ export async function POST(request: Request) {
       stage,
       ok: true,
       creator,
-      mint: prepared.mint,
+      mint: preparedMeta.mint,
       elapsedMs,
+      mode,
     });
 
     const ok: PrepareOk = {
@@ -290,19 +389,7 @@ export async function POST(request: Request) {
       recentBlockhash: blockhash,
       lastValidBlockHeight,
       creatorLamports: bal,
-      prepared: {
-        mint: prepared.mint,
-        creator: prepared.creator,
-        user: prepared.user,
-        name: prepared.name,
-        symbol: prepared.symbol,
-        uri: prepared.uri,
-        programId: prepared.programId,
-        pair: prepared.pair,
-        mayhemMode: prepared.mayhemMode,
-        holderReward: prepared.holderReward,
-        cashback: prepared.cashback,
-      },
+      prepared: preparedMeta,
       requestId,
       elapsedMs,
     };
@@ -318,6 +405,7 @@ export async function POST(request: Request) {
       creator,
       mint,
       elapsedMs,
+      mode,
     });
     const body: PrepareErr = {
       ok: false,

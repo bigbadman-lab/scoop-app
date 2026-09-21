@@ -62,9 +62,19 @@ describe('PumpRouteStep global session', () => {
     message: SIGN_IN_TO_LAUNCH_MESSAGE,
     canLaunch: false,
   };
+  const blankState = createInitialLaunchState({
+    launchRail: { chain: 'solana', provider: 'pump' },
+  });
+  const onPatch = vi.fn();
 
   it('shows passive Sign In copy and no local connect / switch controls', () => {
-    render(<PumpRouteStep compatibility={signedOut} />);
+    render(
+      <PumpRouteStep
+        state={blankState}
+        compatibility={signedOut}
+        onPatch={onPatch}
+      />,
+    );
     expect(screen.getByTestId('launch-wallet-notice').textContent).toMatch(
       /Sign in from the top-right/i,
     );
@@ -75,11 +85,28 @@ describe('PumpRouteStep global session', () => {
     expect(screen.queryByRole('button', { name: /sign in/i })).toBeNull();
   });
 
+  it('shows DEV BUY SOL input', () => {
+    render(
+      <PumpRouteStep
+        state={blankState}
+        compatibility={signedOut}
+        onPatch={onPatch}
+      />,
+    );
+    expect(screen.getByTestId('pump-dev-buy-amount')).toBeTruthy();
+    expect(screen.getByText(/^SOL$/i)).toBeTruthy();
+    expect(screen.getByTestId('pump-dev-buy-helper').textContent).toMatch(
+      /Optional initial buy/i,
+    );
+  });
+
   it('shows the Solana address when the global session is compatible', () => {
     render(
       <PumpRouteStep
+        state={blankState}
         compatibility={{ status: 'compatible', message: null, canLaunch: true }}
         solanaAddress={SOL}
+        onPatch={onPatch}
       />,
     );
     expect(screen.getByTestId('pump-solana-address').textContent).toMatch(
@@ -91,11 +118,13 @@ describe('PumpRouteStep global session', () => {
   it('blocks an Ethereum session with passive copy and no switch button', () => {
     render(
       <PumpRouteStep
+        state={blankState}
         compatibility={{
           status: 'incompatible_namespace',
           message: EVM_ON_PUMP_MESSAGE,
           canLaunch: false,
         }}
+        onPatch={onPatch}
       />,
     );
     expect(screen.getByTestId('launch-wallet-notice').textContent).toMatch(
@@ -139,7 +168,7 @@ describe('ReviewStep Pump rail', () => {
       /Pump\.fun/,
     );
     expect(screen.getByTestId('pump-launch-summary').textContent).toMatch(
-      /Initial buy.*None/s,
+      /Dev Buy.*None/s,
     );
     expect(screen.queryByTestId('pons-launch-summary')).toBeNull();
     expect(screen.queryByTestId('dev-supply-summary')).toBeNull();

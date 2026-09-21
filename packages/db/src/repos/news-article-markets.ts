@@ -1,5 +1,5 @@
 import type { Queryable } from '../types.js';
-import { normalizeAddress } from '../hex.js';
+import { canonicalizeTokenAddressForWrite } from './tokens.js';
 
 export type NewsArticleMarketLink = {
   provider: string;
@@ -12,6 +12,7 @@ export type NewsArticleMarketLink = {
 /**
  * Idempotent article→market link. Requires the token already exists in `launches`
  * (canonical indexed market). Never invents provenance.
+ * Supports EVM (0x) and Solana (base58) token addresses via chainId.
  */
 export async function linkNewsArticleMarket(
   db: Queryable,
@@ -19,7 +20,15 @@ export async function linkNewsArticleMarket(
 ): Promise<{ linked: boolean; reason?: string }> {
   const provider = input.provider.trim();
   const providerArticleId = input.providerArticleId.trim();
-  const tokenAddress = normalizeAddress(input.tokenAddress);
+  let tokenAddress: string;
+  try {
+    tokenAddress = canonicalizeTokenAddressForWrite(
+      input.chainId,
+      input.tokenAddress,
+    );
+  } catch {
+    return { linked: false, reason: 'invalid_input' };
+  }
   if (!provider || !providerArticleId || !tokenAddress) {
     return { linked: false, reason: 'invalid_input' };
   }

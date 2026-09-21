@@ -1,7 +1,7 @@
 import type { Queryable } from '../types.js';
 import { formatX18 } from '../decimal.js';
-import { normalizeAddress } from '../hex.js';
 import { HIDDEN_PRODUCTION_CANARY_SQL } from './hidden-production-canaries.js';
+import { canonicalizeTokenAddressForWrite } from '../repos/tokens.js';
 
 export type NewsArticleMarketSummary = {
   chainId: number;
@@ -44,12 +44,13 @@ function mapRow(row: SqlRow): NewsArticleMarketSummary {
   const priceUsdX18 = row.price_usd_x18;
   const fdvUsdX18 = row.fdv_usd_x18;
   const volume24hUsdX18 = row.volume_24h_usd_x18;
+  const chainId = Number(row.chain_id);
   return {
-    chainId: Number(row.chain_id),
-    tokenAddress: normalizeAddress(row.token_address),
+    chainId,
+    tokenAddress: canonicalizeTokenAddressForWrite(chainId, row.token_address),
     symbol: row.symbol,
     name: row.name,
-    quoteAsset: normalizeAddress(row.quote_asset),
+    quoteAsset: canonicalizeTokenAddressForWrite(chainId, row.quote_asset),
     launchedAt: Number(row.launched_at),
     ageSeconds: Number(row.age_seconds),
     priceUsdX18,

@@ -4,12 +4,19 @@ import { AssistAuthGateLive } from '@/components/auth/AssistAuthGateLive';
 
 const A = '0x2e7a710bf18ebe437f6f2df867e346917e2b274c';
 const B = '0x1111111111111111111111111111111111111111';
+const SOL = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+const SOL_OTHER = 'So11111111111111111111111111111111111111112';
 
 const useAccount = vi.fn();
+const useAppKitAccount = vi.fn();
 const fetchScoopAuthStatus = vi.fn();
 
 vi.mock('wagmi', () => ({
   useAccount: () => useAccount(),
+}));
+
+vi.mock('@reown/appkit/react', () => ({
+  useAppKitAccount: (opts?: { namespace?: string }) => useAppKitAccount(opts),
 }));
 
 vi.mock('@/lib/auth/siwe-session-client', () => ({
@@ -37,6 +44,10 @@ vi.mock('@/components/auth/AuthInterruptLive', () => ({
 describe('AssistAuthGateLive', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useAppKitAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+    });
   });
 
   it('calls onReady for authenticated_match without SIWE', async () => {
@@ -49,6 +60,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     render(
@@ -62,6 +75,101 @@ describe('AssistAuthGateLive', () => {
     expect(screen.queryByTestId('assist-gate-blocked')).toBeNull();
   });
 
+  it('calls onReady for SIWS solana authenticated_match', async () => {
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    useAppKitAccount.mockReturnValue({
+      address: SOL,
+      isConnected: true,
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: SOL,
+      userId: 'u1',
+      namespace: 'solana',
+      authMethod: 'siws',
+      chainId: 101,
+    });
+    const onReady = vi.fn();
+    render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('assist-gate-blocked')).toBeNull();
+  });
+
+  it('blocks SIWS session when only EVM wallet is connected', async () => {
+    useAccount.mockReturnValue({
+      address: A,
+      isConnected: true,
+      status: 'connected',
+    });
+    useAppKitAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: SOL,
+      userId: 'u1',
+      namespace: 'solana',
+      authMethod: 'siws',
+      chainId: 101,
+    });
+    const onReady = vi.fn();
+    render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
+    });
+    expect(screen.getByText(/connect a wallet to continue/i)).toBeTruthy();
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('blocks SIWS when a different Solana wallet is connected', async () => {
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+    });
+    useAppKitAccount.mockReturnValue({
+      address: SOL_OTHER,
+      isConnected: true,
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      address: SOL,
+      userId: 'u1',
+      namespace: 'solana',
+      authMethod: 'siws',
+      chainId: 101,
+    });
+    const onReady = vi.fn();
+    render(
+      <AssistAuthGateLive
+        resumePath="/news/1/launch"
+        onReady={onReady}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('mismatch')).toBeTruthy();
+    });
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
   it('blocks session_only with connect-wallet copy and does not call onReady', async () => {
     useAccount.mockReturnValue({
       address: undefined,
@@ -72,6 +180,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     render(
@@ -99,6 +209,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     render(
@@ -137,7 +249,7 @@ describe('AssistAuthGateLive', () => {
     expect(onReady).not.toHaveBeenCalled();
   });
 
-  it('blocks signed_out without calling onReady', async () => {
+  it('blocks signed_out with top-right sign-in copy and does not call onReady', async () => {
     useAccount.mockReturnValue({
       address: undefined,
       isConnected: false,
@@ -155,6 +267,11 @@ describe('AssistAuthGateLive', () => {
     await waitFor(() => {
       expect(screen.getByTestId('assist-gate-blocked')).toBeTruthy();
     });
+    expect(
+      screen.getByText(
+        /sign in from the top-right to create a market from this story/i,
+      ),
+    ).toBeTruthy();
     expect(onReady).not.toHaveBeenCalled();
   });
 
@@ -168,6 +285,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     const { rerender } = render(
@@ -208,6 +327,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     const { rerender } = render(
@@ -249,6 +370,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     const onBlocked = vi.fn();
@@ -290,6 +413,8 @@ describe('AssistAuthGateLive', () => {
       authenticated: true,
       address: A,
       userId: 'u1',
+      namespace: 'eip155',
+      authMethod: 'siwe',
     });
     const onReady = vi.fn();
     const onBlocked = vi.fn();

@@ -114,9 +114,9 @@ export function PumpLaunchProbeLive() {
       <p className="mt-3 text-sm text-[var(--muted)]">
         Build / Simulate only. No broadcast. Mint secret never leaves the browser.
         Initial buy:{' '}
-        {PUMP_INITIAL_BUY_FEASIBILITY.recommendation === 'CREATE_ONLY'
-          ? 'none (recommended)'
-          : 'optional'}
+        {PUMP_INITIAL_BUY_FEASIBILITY.recommendation === 'CREATE_OR_CREATE_AND_BUY'
+          ? 'optional SOL DEV BUY (create+buy when > 0)'
+          : 'none'}
         .
       </p>
 

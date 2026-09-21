@@ -2,7 +2,8 @@
  * Official SDK supports create+buy via createV2AndBuyInstructions (needs
  * fetchGlobal + BN token amount from getBuyTokenAmountFromSolAmount).
  *
- * Gate C MVP recommendation stays CREATE ONLY for canary reliability.
+ * Public flow: DEV BUY = 0 → create_v2 only; DEV BUY > 0 → createV2AndBuyInstructions
+ * in one transaction (SDK-fixed 1% slippage on max SOL spend).
  */
 export const PUMP_INITIAL_BUY_FEASIBILITY = {
   officialAtomicHelper: 'createV2AndBuyInstructions' as const,
@@ -12,9 +13,8 @@ export const PUMP_INITIAL_BUY_FEASIBILITY = {
     'amount (token base units, 6 decimals) via getBuyTokenAmountFromSolAmount',
     'same mint keypair + user wallet signers as create',
   ],
-  recommendation: 'CREATE_ONLY' as const,
+  recommendation: 'CREATE_OR_CREATE_AND_BUY' as const,
   reason:
-    'Official create+buy exists and is one transaction, but needs live global state, ' +
-    'curve math helpers, and slippage/solAmount sizing. First canary should prove ' +
-    'create_v2 alone; add createV2AndBuyInstructions in a later gate once create is green.',
+    'Official create+buy is one transaction. Zero DEV BUY keeps create_v2; ' +
+    'positive SOL uses createV2AndBuyInstructions with live global + fee config.',
 };

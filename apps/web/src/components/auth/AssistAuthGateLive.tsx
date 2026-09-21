@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAccount } from 'wagmi';
+import { useAppKitAccount } from '@reown/appkit/react';
 import { AuthInterruptLive } from '@/components/auth/AuthInterruptLive';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import {
@@ -14,11 +15,9 @@ import {
 import type { AssistAuthGateProps } from '@/components/auth/AssistAuthGate';
 
 /**
- * Heavy reconciler — wagmi account + scoop_session.
+ * Heavy reconciler — authenticated SCOOP session + matching live wallet.
+ * EVM sessions reconcile against wagmi; Solana sessions against AppKit solana.
  * Launch-assist proceeds only on authenticated_match.
- * session_only → connect wallet (session stays valid; no AI until connected).
- * Same-wallet reconnect → ready without SIWE.
- * Different wallet → require SIWE before assist proceeds.
  */
 export function AssistAuthGateLive({
   resumePath,
@@ -27,20 +26,53 @@ export function AssistAuthGateLive({
   onBlocked,
   visible = true,
 }: AssistAuthGateProps) {
-  const { address, isConnected, status } = useAccount();
+  const {
+    address: evmAddress,
+    isConnected: evmIsConnected,
+    status: evmStatus,
+  } = useAccount();
+  const solanaAccount = useAppKitAccount({ namespace: 'solana' });
   const [phase, setPhase] = useState<'checking' | 'blocked' | 'ready'>('checking');
-  const [authState, setAuthState] = useState<ScoopAuthReconciliationState | null>(null);
+  const [authState, setAuthState] = useState<ScoopAuthReconciliationState | null>(
+    null,
+  );
   const readyOnce = useRef(false);
 
   const refresh = useCallback(async () => {
     const session = await fetchScoopAuthStatus();
-    const connected =
-      status === 'connected' && isConnected && typeof address === 'string';
+
+    const solConnected =
+      Boolean(solanaAccount.isConnected) &&
+      typeof solanaAccount.address === 'string' &&
+      solanaAccount.address.length > 0;
+    const evmConnected =
+      evmStatus === 'connected' &&
+      evmIsConnected &&
+      typeof evmAddress === 'string' &&
+      evmAddress.length > 0;
+
+    let connected = false;
+    let connectedAddress: string | null = null;
+
+    if (session.authenticated && session.namespace === 'solana') {
+      connected = solConnected;
+      connectedAddress = solConnected ? solanaAccount.address! : null;
+    } else if (session.authenticated && session.namespace === 'eip155') {
+      connected = evmConnected;
+      connectedAddress = evmConnected ? evmAddress! : null;
+    } else if (solConnected) {
+      connected = true;
+      connectedAddress = solanaAccount.address!;
+    } else if (evmConnected) {
+      connected = true;
+      connectedAddress = evmAddress!;
+    }
+
     const next = resolveScoopAuthState({
       sessionAuthenticated: session.authenticated,
       sessionAddress: session.authenticated ? session.address : null,
       connected,
-      connectedAddress: connected ? address : null,
+      connectedAddress,
     });
     setAuthState(next);
 
@@ -58,7 +90,15 @@ export function AssistAuthGateLive({
       readyOnce.current = true;
       onReady();
     }
-  }, [address, isConnected, status, onReady, onBlocked]);
+  }, [
+    evmAddress,
+    evmIsConnected,
+    evmStatus,
+    solanaAccount.address,
+    solanaAccount.isConnected,
+    onReady,
+    onBlocked,
+  ]);
 
   useEffect(() => {
     void refresh();

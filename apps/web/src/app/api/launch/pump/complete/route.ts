@@ -5,7 +5,10 @@ import {
   normalizeAssetAddress,
   normalizeSolanaSignature,
 } from '@scoop/shared';
-import { upsertPumpMarket } from '@scoop/db';
+import {
+  ensureNewsArticleMarketFromTrustedDraft,
+  upsertPumpMarket,
+} from '@scoop/db';
 import { serverDb } from '@/lib/server/queries';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +27,8 @@ type Body = {
   website?: string;
   launchedAt?: number;
   launchSlot?: number | null;
+  /** News assist draft — durable lore via shared news_article_markets. */
+  draftId?: string | null;
 };
 
 function assertSolanaPubkey(label: string, raw: string): string {
@@ -80,6 +85,37 @@ export async function POST(request: Request) {
       launchedAt: body.launchedAt,
       launchSlot: body.launchSlot,
     });
+
+    // Best-effort news lore (same schema as EVM) — do not fail complete if link fails.
+    const draftId = typeof body.draftId === 'string' ? body.draftId.trim() : '';
+    if (draftId) {
+      try {
+        const lore = await ensureNewsArticleMarketFromTrustedDraft(serverDb(), {
+          chainId: SOLANA_MAINNET_CHAIN_ID,
+          tokenAddress: mint,
+          draftId,
+        });
+        if (!lore.ok) {
+          console.warn(
+            JSON.stringify({
+              scope: 'pump_complete_news_lore',
+              mint,
+              ok: false,
+              reason: lore.reason,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            scope: 'pump_complete_news_lore',
+            mint,
+            ok: false,
+            reason: err instanceof Error ? err.message : 'news_lore_failed',
+          }),
+        );
+      }
+    }
 
     // Best-effort SCOOP-managed display image (do not fail complete if mirror fails).
     let displayImageUrl: string | null = null;

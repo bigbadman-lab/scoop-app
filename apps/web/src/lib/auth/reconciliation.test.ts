@@ -77,6 +77,28 @@ describe('resolveScoopAuthState', () => {
       }),
     ).toBe('wallet_mismatch');
   });
+  it('authenticated_match for same Solana base58 wallet', () => {
+    const sol = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    expect(
+      resolveScoopAuthState({
+        sessionAuthenticated: true,
+        sessionAddress: sol,
+        connected: true,
+        connectedAddress: sol,
+      }),
+    ).toBe('authenticated_match');
+  });
+
+  it('wallet_mismatch for different Solana wallets', () => {
+    expect(
+      resolveScoopAuthState({
+        sessionAuthenticated: true,
+        sessionAddress: 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu',
+        connected: true,
+        connectedAddress: 'So11111111111111111111111111111111111111112',
+      }),
+    ).toBe('wallet_mismatch');
+  });
 });
 
 describe('launch-assist policy', () => {
@@ -107,5 +129,12 @@ describe('launch-assist policy', () => {
   it('uses mismatch copy for wallet_mismatch', () => {
     expect(launchAssistAuthTitle('wallet_mismatch')).toMatch(/different wallet connected/i);
     expect(launchAssistAuthMessage('wallet_mismatch')).toMatch(/switch your active scoop profile/i);
+  });
+
+  it('uses top-right sign-in copy for signed_out on news create market', () => {
+    expect(launchAssistAuthTitle('signed_out')).toMatch(/sign in to create a market/i);
+    expect(launchAssistAuthMessage('signed_out')).toBe(
+      'Sign in from the top-right to create a market from this story.',
+    );
   });
 });

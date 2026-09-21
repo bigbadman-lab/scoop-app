@@ -72,10 +72,10 @@ type ConfirmResponse = {
 };
 
 /**
- * Public Pump create flow (CREATE ONLY):
+ * Public Pump create flow:
  * 1) Pin artwork / reuse SCOOP ipfs:// URI
  * 2) Client mint attempt (secret never leaves browser)
- * 3) Server prepares unsigned create_v2 (mint pubkey only) + SOL balance check
+ * 3) Server prepares unsigned create_v2 or create+buy (mint pubkey only) + SOL balance check
  * 4) Client partial-signs mint
  * 5) Wallet signTransaction, then web3.js sendRawTransaction (signature string)
  * 6) Server confirms signature → LaunchResult
@@ -171,6 +171,7 @@ export async function runPublicPumpLaunch(
         creator: walletAddress,
         user: walletAddress,
         mint: handle.mintPublicKey,
+        devBuySol: state.devBuyAmount.trim() || '0',
       }),
     });
     prepareJson = (await res.json()) as PrepareResponse;

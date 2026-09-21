@@ -51,6 +51,7 @@ import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { consumeAssistedLaunchHandoff } from '@/lib/launch-assist/handoff';
 import type { LaunchAssistArticle } from '@/lib/launch-assist/types';
 import { isPumpRail, type LaunchRail } from '@/lib/launch/launch-rail';
+import { resolveNewsLaunchRail } from '@/lib/launch/resolve-news-launch-rail';
 import type { LaunchResult } from '@/lib/launch/launch-result';
 import { LaunchProgress } from '@/components/launch/LaunchProgress';
 import { LaunchNav } from '@/components/launch/LaunchNav';
@@ -445,6 +446,26 @@ function LaunchFlowInner({ catalogue }: Props) {
     setProvenance(story);
     setQuoteWarning(warning);
   }, [assist]);
+
+  /**
+   * News assist: authenticated SCOOP session is authoritative for the launch rail.
+   * Overrides DEFAULT_LAUNCH_RAIL and any stale prior selection (PONS↔Pump).
+   */
+  useEffect(() => {
+    if (!assist) return;
+    const resolved = resolveNewsLaunchRail({
+      authenticated: walletSession.authenticated,
+      namespace: walletSession.namespace,
+      authMethod: walletSession.authMethod,
+    });
+    if (resolved.kind === 'requires_sign_in') return;
+    dispatch({ type: 'PATCH', patch: { launchRail: resolved.rail } });
+  }, [
+    assist,
+    walletSession.authenticated,
+    walletSession.namespace,
+    walletSession.authMethod,
+  ]);
 
   /** Schema readiness — fail closed until Gate 6 migration is applied. */
   useEffect(() => {
@@ -1183,7 +1204,7 @@ function LaunchFlowInner({ catalogue }: Props) {
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Launch something new</h1>
         <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)] md:text-base">
           {pumpRail
-            ? 'Create a coin on Pump.fun (Solana). No initial buy in this release.'
+            ? 'Create a coin on Pump.fun (Solana). Optional SOL DEV BUY uses one wallet signature.'
             : isBurnDevSupplyPolicy(state.devSupplyPolicy)
               ? 'Create a Pons token with an ETH dev buy. Your full dev allocation is burned after launch.'
               : state.devSupplyPolicy === 'lock_6m'
@@ -1197,6 +1218,8 @@ function LaunchFlowInner({ catalogue }: Props) {
           value={state.launchRail}
           onChange={onLaunchRailChange}
           disabled={
+            // News assist locks rail to the authenticated session (no chain chooser).
+            assist ||
             isLaunchTxBusy(tx.phase) ||
             isLaunchCompletionActive(tx.phase) ||
             Boolean(pumpResult) ||
@@ -1253,11 +1276,13 @@ function LaunchFlowInner({ catalogue }: Props) {
       {state.step === 2 ? (
         pumpRail ? (
           <PumpRouteStep
+            state={state}
             errors={visibleErrors}
             compatibility={railCompatibility}
             solanaAddress={
               walletSession.namespace === 'solana' ? walletSession.address : null
             }
+            onPatch={(patch) => dispatch({ type: 'PATCH', patch })}
           />
         ) : (
           <DevBuyStep

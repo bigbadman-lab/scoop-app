@@ -13,6 +13,7 @@ import { canShowViewMarket, completionPanelCopy } from '@/lib/launch/completion-
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_CHAIN_LABEL } from '@/lib/brand';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
 import { formatEthWei, parseEthDevBuyWei } from '@/lib/launch/dev-buy';
+import { formatSolDevBuySummary } from '@/lib/launch/pump-dev-buy';
 import { truncateAddress } from '@/lib/format';
 import { ContractCopy } from '@/components/ui/ContractCopy';
 import { PONS_DEV_BUY_SLIPPAGE_BPS } from '@/lib/launch/adapters/pons/constants';
@@ -318,8 +319,8 @@ function PumpReview({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Review & launch</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Create a coin on Pump.fun (Solana). No initial buy in this release — you
-          confirm one wallet transaction.
+          Create a coin on Pump.fun (Solana). Confirm one wallet transaction for
+          create{state.devBuyAmount.trim() && state.devBuyAmount.trim() !== '0' ? ' and DEV BUY' : ''}.
         </p>
       </div>
 
@@ -407,7 +408,7 @@ function PumpReview({
               <Row label="Launch via" value="Pump.fun" />
               <Row label="Rail" value={launchRailLabel(state.launchRail)} />
               <Row label="Pair" value="SOL" />
-              <Row label="Initial buy" value="None" />
+              <Row label="Dev Buy" value={formatSolDevBuySummary(state.devBuyAmount)} />
               <Row label="Name" value={state.name.trim() || '—'} />
               <Row label="Ticker" value={state.ticker.trim() || '—'} />
             </dl>
