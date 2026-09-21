@@ -6,7 +6,7 @@
 
 ## 2. UTC timestamp
 
-2026-09-21T17:30:00Z (approx; finalize after deploy)
+2026-09-21T17:33:00Z
 
 ## 3. Existing mint
 
@@ -89,38 +89,39 @@ pnpm --filter @scoop/web run build
 
 ## 14. Production deploy
 
-- SHA: _(fill after push)_
-- Vercel deployment ID: _(fill after deploy)_
-- status: _(fill)_
+- SHA: `0c04921f7996c1c267f4df9daa2251f5e5f7364e`
+- GitHub deployment ID: `6574269043`
+- Vercel deployment ID: `dpl_DBZReKG2RDqmw3iEE5xuTnv5EKEL`
+- status: **success** (Production)
 
 ## 15. Production verification
 
 ### Token page
-- image visible: YES (managed Supabase URL after backfill; UI deploy hardens no-ipfs fallback)
-- raw ipfs request: NO (when managed URL present)
-- 403 image error: NO
+- image visible: **YES**
+- raw ipfs request: **NO**
+- 403 image error: **NO**
 
 ### Homepage
-- mint visible: _(after dual-rail deploy)_
-- image visible: _(after)_
-- link correct: `/token/B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu`
+- mint visible: **YES**
+- image visible: **YES** (Supabase `token-image` CID path in HTML)
+- link correct: **YES** (`/token/B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu`)
 
 ### Markets
-- mint visible: _(after dual-rail deploy)_
-- image visible: _(after)_
-- base58 handled: YES (code)
-- null metrics graceful: YES (code + tests)
+- mint visible: **YES**
+- image visible: **YES** (`displayImageUrl` on `/api/markets`)
+- base58 handled: **YES**
+- null metrics graceful: **YES** (`fdvUsdDisplay` / `priceUsdDisplay` null)
 
 ## 16. Production actions
 
-- token relaunched: NO
-- new mint created: NO
-- onchain metadata changed: NO
-- existing token image backfilled: YES
-- Pump worker enabled: NO
-- Render changed: NO
-- RHC changed: NO
-- dev buy added: NO
+- token relaunched: **NO**
+- new mint created: **NO**
+- onchain metadata changed: **NO**
+- existing token image backfilled: **YES**
+- Pump worker enabled: **NO**
+- Render changed: **NO**
+- RHC changed: **NO**
+- dev buy added: **NO**
 
 ## 17. Exact next step
 
