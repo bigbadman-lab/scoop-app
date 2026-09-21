@@ -69,8 +69,12 @@ describe('applyPumpMarketStateToTokenDetail', () => {
     });
     expect(out.priceQuoteX18).toBe(solDecimalToX18('0.002'));
     expect(out.tradeCount24h).toBe(3);
+    expect(out.tradeCountAllTime).toBe(3);
     expect(out.buyCount24h).toBe(2);
     expect(out.sellCount24h).toBe(1);
     expect(out.priceUsdX18).toBeNull();
+    expect(out.fdvUsdDisplay).toBeNull();
+    expect(out.fdvQuoteDisplay).toBeTruthy();
+    expect(out.fdvQuoteDisplay).not.toMatch(/^\$/);
   });
 });

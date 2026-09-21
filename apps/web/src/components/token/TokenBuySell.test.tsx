@@ -66,6 +66,20 @@ describe('TokenBuySell shell', () => {
     expect(screen.getByText(/not configured/i)).toBeTruthy();
     expect(shellState.ensureRuntime).not.toHaveBeenCalled();
   });
+
+  it('Pump CTA uses forced white text', () => {
+    render(
+      <TokenBuySell
+        {...baseProps}
+        marketSource="pump"
+        pumpTradeUrl="https://pump.fun/coin/B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu"
+      />,
+    );
+    const link = screen.getByTestId('token-trade-pump-link');
+    expect(link.textContent).toMatch(/Trade on Pump/i);
+    expect(link.className).toContain('text-white!');
+    expect(shellState.ensureRuntime).not.toHaveBeenCalled();
+  });
 });
 
 describe('TokenBuySellLive', () => {

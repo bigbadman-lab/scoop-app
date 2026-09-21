@@ -4,11 +4,18 @@
  */
 
 import type { Queryable } from '../types.js';
-import type { CandleItem, CandleInterval, TokenDetail, TradeItem } from '../dto.js';
+import type {
+  CandleItem,
+  CandleInterval,
+  TokenDetail,
+  TokenDiscoveryItem,
+  TradeItem,
+} from '../dto.js';
 import { formatRawAmount, formatX18 } from '../decimal.js';
 import { clampLimit, clampOffset } from '../decimal.js';
 import {
   getPumpMarketState,
+  getPumpMarketStates,
   type PumpMarketStateRow,
 } from '../repos/pump-market-state.js';
 import { PUMP_MARKET_CHAIN_ID } from '../repos/pump-trades.js';
@@ -190,18 +197,23 @@ export async function getPumpCandles(
 }
 
 /**
- * Overlay Pump market state onto TokenDetail quote/volume fields.
+ * Overlay Pump market state onto discovery / detail quote/volume fields.
  * Leaves USD null. Never invents zero price when state is empty.
+ * FDV stays quote-denominated (SOL) via fdvQuoteDisplay — never `$`.
  */
-export function applyPumpMarketStateToTokenDetail(
-  token: TokenDetail,
+export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
+  token: T,
   state: PumpMarketStateRow | null,
-): TokenDetail {
+): T {
   if (!state || state.priceSol == null) {
     return token;
   }
   const priceX18 = solDecimalToX18(state.priceSol);
   const volLamports = solToLamports(state.volume24hSol);
+  const fdvQuoteDisplay =
+    state.fdvSol == null
+      ? null
+      : (formatX18(solDecimalToX18(state.fdvSol)) ?? state.fdvSol);
   return {
     ...token,
     priceQuoteX18: priceX18,
@@ -210,11 +222,14 @@ export function applyPumpMarketStateToTokenDetail(
     priceUsdDisplay: null,
     fdvUsdX18: null,
     fdvUsdDisplay: null,
+    fdvQuoteDisplay,
     volume24hQuoteRaw: volLamports,
     volume24hQuoteDisplay: formatRawAmount(volLamports, SOL_DECIMALS),
     volume24hUsdX18: null,
     volume24hUsdDisplay: null,
     tradeCount24h: state.tradeCount24h,
+    // Markets board ranks/shows tradeCountAllTime; Pump has no TMS lifetime — use 24h.
+    tradeCountAllTime: state.tradeCount24h,
     buyCount24h: state.buyCount24h,
     sellCount24h: state.sellCount24h,
     lastTradeAt: state.lastTradeAt
@@ -232,6 +247,29 @@ export async function getTokenWithPumpMarketState(
   }
   const state = await getPumpMarketState(db, token.tokenAddress);
   return applyPumpMarketStateToTokenDetail(token, state);
+}
+
+/** Overlay pump_market_state onto Pump discovery rows (homepage / markets). */
+export async function applyPumpMarketStateToDiscoveryItems(
+  db: Queryable,
+  items: readonly TokenDiscoveryItem[],
+): Promise<TokenDiscoveryItem[]> {
+  const pumpMints = items
+    .filter(
+      (t) => t.chainId === PUMP_MARKET_CHAIN_ID && t.marketSource === 'pump',
+    )
+    .map((t) => t.tokenAddress);
+  if (pumpMints.length === 0) return [...items];
+  const states = await getPumpMarketStates(db, pumpMints);
+  return items.map((item) => {
+    if (item.chainId !== PUMP_MARKET_CHAIN_ID || item.marketSource !== 'pump') {
+      return item;
+    }
+    return applyPumpMarketStateToTokenDetail(
+      item,
+      states.get(item.tokenAddress) ?? null,
+    );
+  });
 }
 
 /** Compute FDV SOL = price_sol * (totalSupplyRaw / 10^decimals). Null if unsafe. */
@@ -257,5 +295,5 @@ export function computePumpFdvSol(args: {
   }
 }
 
-export { getPumpMarketState };
+export { getPumpMarketState, getPumpMarketStates };
 export type { PumpMarketStateRow };

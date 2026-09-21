@@ -107,6 +107,7 @@ export {
   getPumpMarketState,
   getTokenWithPumpMarketState,
   applyPumpMarketStateToTokenDetail,
+  applyPumpMarketStateToDiscoveryItems,
   computePumpFdvSol,
   solDecimalToX18,
   type GetPumpTradesOptions,

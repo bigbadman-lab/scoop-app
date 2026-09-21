@@ -1,6 +1,10 @@
 import { SCOOP_CHAIN_ID, SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 import type { TokenDiscoveryItem, DiscoverBoardRows, Queryable } from '@scoop/db';
-import { getActiveMarkets, getDiscoverBoard } from '@scoop/db';
+import {
+  applyPumpMarketStateToDiscoveryItems,
+  getActiveMarkets,
+  getDiscoverBoard,
+} from '@scoop/db';
 
 /** Merge discovery NEW slices by launchedAt desc; RHC + Pump, base58-safe. */
 export function mergeDiscoveryByLaunchedAt(
@@ -22,7 +26,7 @@ export function mergeDiscoveryByLaunchedAt(
 /**
  * Homepage Discover board across RHC + Solana/Pump.
  * Bonding/trending stay RHC-only until Pump market-state exists.
- * NEW includes Pump launches even when TMS is absent.
+ * NEW includes Pump launches; metrics overlay from pump_market_state.
  */
 export async function getDualRailDiscoverBoard(
   db: Queryable,
@@ -35,14 +39,15 @@ export async function getDualRailDiscoverBoard(
       trending: [] as TokenDiscoveryItem[],
     })),
   ]);
+  const mergedNew = mergeDiscoveryByLaunchedAt(rhc.new, solana.new);
   return {
-    new: mergeDiscoveryByLaunchedAt(rhc.new, solana.new),
+    new: await applyPumpMarketStateToDiscoveryItems(db, mergedNew),
     bonding: rhc.bonding,
     trending: rhc.trending,
   };
 }
 
-/** `/markets` active set: RHC + Pump/Solana launches. */
+/** `/markets` active set: RHC + Pump/Solana launches with Pump metrics overlay. */
 export async function getDualRailActiveMarkets(
   db: Queryable,
 ): Promise<TokenDiscoveryItem[]> {
@@ -52,5 +57,6 @@ export async function getDualRailActiveMarkets(
       () => [] as TokenDiscoveryItem[],
     ),
   ]);
-  return mergeDiscoveryByLaunchedAt(rhc, solana);
+  const merged = mergeDiscoveryByLaunchedAt(rhc, solana);
+  return applyPumpMarketStateToDiscoveryItems(db, merged);
 }

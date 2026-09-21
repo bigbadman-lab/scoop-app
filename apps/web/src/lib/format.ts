@@ -79,6 +79,23 @@ export function displayFdv(fdvUsdDisplay: string | null | undefined): string | n
 }
 
 /**
+ * Prefer compact USD FDV; else quote-denominated FDV (e.g. SOL) without `$`.
+ * Never invents zeros from null.
+ */
+export function displayMarketFdv(args: {
+  fdvUsdDisplay: string | null | undefined;
+  fdvQuoteDisplay?: string | null | undefined;
+  quoteSymbol?: string;
+}): string | null {
+  const usd = displayCompactUsdMarketValue(args.fdvUsdDisplay);
+  if (usd) return usd;
+  const quote = displayFdv(args.fdvQuoteDisplay);
+  if (!quote) return null;
+  const symbol = args.quoteSymbol?.trim();
+  return symbol ? `${quote} ${symbol}` : quote;
+}
+
+/**
  * Compact USD market totals (FDV, 24h USD volume). Not for token unit price.
  * Examples: $5.00K, $1.25M, $0.0048
  */

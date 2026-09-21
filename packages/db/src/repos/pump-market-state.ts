@@ -63,6 +63,26 @@ export async function getPumpMarketState(
   return row ? mapState(row) : null;
 }
 
+/** Batch read pump_market_state for discovery / markets overlay. */
+export async function getPumpMarketStates(
+  db: Queryable,
+  mints: readonly string[],
+): Promise<Map<string, PumpMarketStateRow>> {
+  const unique = [...new Set(mints.map((m) => m.trim()).filter(Boolean))];
+  const out = new Map<string, PumpMarketStateRow>();
+  if (unique.length === 0) return out;
+  const result = await db.query(
+    `SELECT * FROM pump_market_state
+     WHERE chain_id = $1 AND mint = ANY($2::text[])`,
+    [PUMP_MARKET_CHAIN_ID, unique],
+  );
+  for (const raw of result.rows as Record<string, unknown>[]) {
+    const row = mapState(raw);
+    out.set(row.mint, row);
+  }
+  return out;
+}
+
 /**
  * Recompute 24h aggregates from indexed trades and upsert tip fields.
  */

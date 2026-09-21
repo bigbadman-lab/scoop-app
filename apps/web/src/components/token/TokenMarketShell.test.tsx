@@ -484,7 +484,10 @@ describe('TokenMarketShell', () => {
         quoteSymbol="SOL"
       />,
     );
-    expect(screen.getByTestId('token-network-badge').textContent).toBe('Solana');
+    expect(screen.getByTestId('token-network-badge').textContent).toMatch(/SOLANA/);
+    expect(
+      screen.getByTestId('network-badge-solana').querySelector('img')?.getAttribute('src'),
+    ).toBe('/brand/solana.svg');
     expect(screen.getByTestId('token-market-source').textContent).toBe('Pump.fun');
     expect(screen.getByText('Mint')).toBeTruthy();
     expect(screen.queryByText('Contract')).toBeNull();

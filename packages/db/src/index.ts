@@ -96,6 +96,7 @@ export {
   getPumpMarketState,
   getTokenWithPumpMarketState,
   applyPumpMarketStateToTokenDetail,
+  applyPumpMarketStateToDiscoveryItems,
   computePumpFdvSol,
   solDecimalToX18,
   type GetPumpTradesOptions,
@@ -222,6 +223,7 @@ export {
 } from './repos/pump-candles.js';
 export {
   getPumpMarketState as getPumpMarketStateRow,
+  getPumpMarketStates as getPumpMarketStatesRow,
   refreshPumpMarketStateFromTrades,
   type PumpMarketStateRow as PumpMarketStateRepoRow,
   type RefreshPumpMarketStateInput,

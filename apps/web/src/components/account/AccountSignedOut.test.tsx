@@ -33,8 +33,9 @@ describe('AccountSignedOut', () => {
       'disabled',
       true,
     );
-    expect(screen.getByText('Profile')).toBeTruthy();
-    expect(screen.getByText('Tokens launched')).toBeTruthy();
+    expect(screen.queryByText('Profile')).toBeNull();
+    expect(screen.queryByText('Tokens launched')).toBeNull();
+    expect(screen.queryByText('Fees')).toBeNull();
     expect(
       screen.getByRole('link', { name: /back to markets/i }).getAttribute('href'),
     ).toBe('/');

@@ -240,6 +240,42 @@ describe('TokenImage fallback', () => {
     expect(img.getAttribute('src')?.includes('token-image')).toBe(true);
     expect(img.getAttribute('src')?.includes('ipfs.io')).toBe(false);
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('network-badge-solana').textContent).toMatch(/SOLANA/);
+    expect(
+      screen.getByTestId('network-badge-solana').querySelector('img')?.getAttribute('src'),
+    ).toBe('/brand/solana.svg');
+  });
+
+  it('shows Pump metrics from pump_market_state overlay without USD $', () => {
+    const mint = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    render(
+      <TokenDiscoveryItemCard
+        token={baseToken({
+          chainId: 900001,
+          marketSource: 'pump',
+          tokenAddress: mint,
+          name: 'Scoopys',
+          symbol: 'SCPY',
+          priceUsdDisplay: null,
+          priceQuoteDisplay: '0.000000028141244551',
+          fdvUsdDisplay: null,
+          fdvQuoteDisplay: '28.141244551',
+          volume24hUsdDisplay: null,
+          volume24hQuoteDisplay: '4.630255521',
+          tradeCount24h: 11,
+          holderCountAll: null,
+          holderCountRetail: null,
+        })}
+        quoteSymbol="SOL"
+      />,
+    );
+    expect(screen.getByTestId('token-discovery-price').textContent).toMatch(/SOL/);
+    expect(screen.getByTestId('token-discovery-price').textContent).not.toMatch(/\$/);
+    expect(screen.getByTestId('token-discovery-fdv').textContent).toMatch(/28\.141/);
+    expect(screen.getByTestId('token-discovery-fdv').textContent).not.toMatch(/\$/);
+    expect(screen.getByTestId('token-discovery-volume').textContent).toMatch(/4\.630/);
+    expect(screen.getByTestId('token-discovery-meta').textContent).toMatch(/11 trades/);
+    expect(screen.getByTestId('network-badge-solana')).toBeTruthy();
   });
 
   it('prefers SCOOP displayImageUrl over IPFS for HELLO card', () => {

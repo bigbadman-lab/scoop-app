@@ -66,6 +66,11 @@ export interface TokenDiscoveryItem {
   priceUsdDisplay: string | null;
   fdvUsdX18: string | null;
   fdvUsdDisplay: string | null;
+  /**
+   * Quote-denominated FDV display (e.g. SOL for Pump). Never prefixed with `$`.
+   * Null when unavailable — do not invent zero.
+   */
+  fdvQuoteDisplay?: string | null;
   volume24hQuoteRaw: string | null;
   volume24hQuoteDisplay: string | null;
   volume24hUsdX18: string | null;

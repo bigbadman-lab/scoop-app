@@ -114,6 +114,7 @@ export function mapDiscoveryItem(
     priceUsdDisplay: formatX18(safePriceUsd),
     fdvUsdX18: safeFdvUsd,
     fdvUsdDisplay: formatX18(safeFdvUsd),
+    fdvQuoteDisplay: null,
     volume24hQuoteRaw: volume24h,
     volume24hQuoteDisplay:
       volume24h == null ? null : formatRawAmount(volume24h, resolvedQuoteDecimals),

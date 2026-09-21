@@ -19,6 +19,10 @@ import { PROTOCOL_FEE_SPLIT } from '@/lib/launch/types';
 import { ContractCopy } from '@/components/ui/ContractCopy';
 import { CopyMarketLinkButton } from '@/components/ui/CopyMarketLinkButton';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
+import {
+  NetworkBadge,
+  networkBadgeIdForToken,
+} from '@/components/ui/NetworkBadge';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
 import { TokenBuySell } from '@/components/token/TokenBuySell';
@@ -521,8 +525,17 @@ function TokenMarketLiveBody({
                   />
                 </DetailRow>
                 <DetailRow label="Network">
-                  <span data-testid="token-network-badge">
-                    {isPump ? 'Solana' : 'Robinhood Chain'}
+                  <span data-testid="token-network-badge" className="inline-flex justify-end">
+                    {(() => {
+                      const networkId = networkBadgeIdForToken({
+                        chainId: token.chainId,
+                        marketSource: token.marketSource,
+                      });
+                      if (networkId) {
+                        return <NetworkBadge network={networkId} />;
+                      }
+                      return isPump ? 'Solana' : 'Robinhood Chain';
+                    })()}
                   </span>
                 </DetailRow>
                 <DetailRow label="Source">

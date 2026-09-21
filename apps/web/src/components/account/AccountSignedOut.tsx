@@ -9,21 +9,6 @@ import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { requestSiweSession } from '@/lib/auth/siwe-session-client';
 import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
 
-const ACCOUNT_OPENERS = [
-  {
-    label: 'Profile',
-    detail: 'Display name and avatar for your SCOOP identity.',
-  },
-  {
-    label: 'Tokens launched',
-    detail: 'Markets you have deployed, in one place.',
-  },
-  {
-    label: 'Fees',
-    detail: 'Deployers earn 4%. Creators earn 70%. Two separate fee streams.',
-  },
-] as const;
-
 function AccountSignedOutFrame({
   primary,
   error,
@@ -70,22 +55,6 @@ function AccountSignedOutFrame({
           </Link>
         </div>
       </div>
-
-      <ul className="mt-5 max-w-xl divide-y divide-[var(--divider)] border-t border-[var(--divider)]">
-        {ACCOUNT_OPENERS.map((item) => (
-          <li
-            key={item.label}
-            className="flex flex-col gap-0.5 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
-          >
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--fg)]">
-              {item.label}
-            </p>
-            <p className="text-sm text-[var(--muted)] sm:max-w-sm sm:text-right">
-              {item.detail}
-            </p>
-          </li>
-        ))}
-      </ul>
     </main>
   );
 }

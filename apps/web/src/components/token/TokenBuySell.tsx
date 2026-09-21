@@ -89,7 +89,7 @@ export function TokenBuySell(props: TokenBuySellProps) {
                 href={props.pumpTradeUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green-contrast)]"
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-white!"
                 data-testid="token-trade-pump-link"
               >
                 Trade on Pump.fun →

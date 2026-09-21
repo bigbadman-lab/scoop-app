@@ -98,6 +98,7 @@ function liveDiscoveryItem(tip: LiveTokenTip, nowSec: number): TokenDiscoveryIte
     priceUsdDisplay: formatX18(tip.priceUsdX18),
     fdvUsdX18: tip.fdvUsdX18,
     fdvUsdDisplay: formatX18(tip.fdvUsdX18),
+    fdvQuoteDisplay: null,
     volume24hQuoteRaw: volumeQuote,
     volume24hQuoteDisplay: volumeQuote == null ? null : formatRawAmount(volumeQuote, 18),
     volume24hUsdX18: tip.volume24hUsdX18,

@@ -4,6 +4,7 @@ import {
   displayFdv,
   displayHolderCount,
   displayLifetimeEthFee,
+  displayMarketFdv,
   displayMarketVolume24h,
   displayPriceChangeBps,
   displayTokenPrice,
@@ -133,6 +134,22 @@ describe('format helpers', () => {
     expect(formatCompactUsdMarketValue('5000.9484848484')).toBe('$5.00K');
     expect(displayCompactUsdMarketValue(null)).toBeNull();
     expect(displayCompactUsdMarketValue('')).toBeNull();
+  });
+
+  it('displayMarketFdv prefers USD compact then quote without $', () => {
+    expect(
+      displayMarketFdv({ fdvUsdDisplay: '1842.5', fdvQuoteDisplay: '28.1', quoteSymbol: 'SOL' }),
+    ).toMatch(/^\$/);
+    expect(
+      displayMarketFdv({
+        fdvUsdDisplay: null,
+        fdvQuoteDisplay: '28.141244551',
+        quoteSymbol: 'SOL',
+      }),
+    ).toBe('28.141244551 SOL');
+    expect(
+      displayMarketFdv({ fdvUsdDisplay: null, fdvQuoteDisplay: null, quoteSymbol: 'SOL' }),
+    ).toBeNull();
   });
 
   it('prefers USD volume then quote fallback for market volume', () => {

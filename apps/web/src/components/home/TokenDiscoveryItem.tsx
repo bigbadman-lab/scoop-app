@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { TokenDiscoveryItem } from '@/lib/server/queries';
 import {
-  displayCompactUsdMarketValue,
+  displayMarketFdv,
   displayFdv,
   displayHolderCount,
   displayPriceChangeBps,
@@ -13,6 +13,10 @@ import {
 } from '@/lib/format';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
+import {
+  NetworkBadge,
+  networkBadgeIdForToken,
+} from '@/components/ui/NetworkBadge';
 import { toDiscoverTokenImageThumb } from '@/lib/media/discover-token-image-thumb';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 
@@ -35,7 +39,11 @@ export function TokenDiscoveryItemCard({
     quoteSymbol,
   });
   const change = displayPriceChangeBps(token.priceChange24hBps);
-  const fdv = displayCompactUsdMarketValue(token.fdvUsdDisplay);
+  const fdv = displayMarketFdv({
+    fdvUsdDisplay: token.fdvUsdDisplay,
+    fdvQuoteDisplay: token.fdvQuoteDisplay,
+    quoteSymbol,
+  });
   const volume = displayVolume24hMetric({
     volume24hUsdDisplay: token.volume24hUsdDisplay,
     volume24hQuoteDisplay: token.volume24hQuoteDisplay,
@@ -43,6 +51,16 @@ export function TokenDiscoveryItemCard({
   });
   const holders = displayHolderCount(token.holderCountRetail, token.holderCountAll);
   const age = formatCompactAge(token.ageSeconds);
+  const trades =
+    token.tradeCount24h != null && Number.isFinite(token.tradeCount24h)
+      ? `${Math.max(0, Math.floor(token.tradeCount24h))} trade${
+          token.tradeCount24h === 1 ? '' : 's'
+        }`
+      : null;
+  const networkId = networkBadgeIdForToken({
+    chainId: token.chainId,
+    marketSource: token.marketSource,
+  });
 
   const changeTone =
     token.priceChange24hBps == null
@@ -74,8 +92,9 @@ export function TokenDiscoveryItemCard({
             className="h-full w-full rounded-none"
             size={320}
           />
-          <div className="pointer-events-none absolute left-2 top-2 z-10">
+          <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
             <QuoteAssetBadge symbol={quoteSymbol} imageUrl={quoteImageUrl} />
+            {networkId ? <NetworkBadge network={networkId} /> : null}
           </div>
         </div>
 
@@ -90,7 +109,10 @@ export function TokenDiscoveryItemCard({
           </div>
 
           <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-            <p className="tabular text-[15px] font-semibold tracking-tight text-[var(--fg)]">
+            <p
+              className="tabular text-[15px] font-semibold tracking-tight text-[var(--fg)]"
+              data-testid="token-discovery-price"
+            >
               {price ?? '—'}
             </p>
             <p
@@ -105,7 +127,7 @@ export function TokenDiscoveryItemCard({
 
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
             {fdv ? (
-              <p className="tabular text-[13px] text-[var(--muted)]">
+              <p className="tabular text-[13px] text-[var(--muted)]" data-testid="token-discovery-fdv">
                 <span className="font-semibold text-[var(--fg)]">{fdv}</span>{' '}
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                   FDV
@@ -117,7 +139,10 @@ export function TokenDiscoveryItemCard({
               </p>
             )}
             {volume ? (
-              <p className="tabular text-[13px] text-[var(--muted)]">
+              <p
+                className="tabular text-[13px] text-[var(--muted)]"
+                data-testid="token-discovery-volume"
+              >
                 <span className="font-semibold text-[var(--fg)]">{volume}</span>{' '}
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
                   VOL
@@ -126,8 +151,11 @@ export function TokenDiscoveryItemCard({
             ) : null}
           </div>
 
-          <p className="font-mono text-[11px] tracking-wide text-[var(--muted-2)]">
-            {[holders, age].filter(Boolean).join(' · ') || '—'}
+          <p
+            className="font-mono text-[11px] tracking-wide text-[var(--muted-2)]"
+            data-testid="token-discovery-meta"
+          >
+            {[trades, holders, age].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
       </Link>
@@ -137,7 +165,7 @@ export function TokenDiscoveryItemCard({
 
 /** Exported for tests — confirms FDV is never mislabeled as market cap. */
 export function tokenCardFdvLabel(fdvUsdDisplay: string | null | undefined): string {
-  return displayCompactUsdMarketValue(fdvUsdDisplay) || displayFdv(fdvUsdDisplay)
+  return displayMarketFdv({ fdvUsdDisplay }) || displayFdv(fdvUsdDisplay)
     ? 'FDV'
     : 'FDV unavailable';
 }

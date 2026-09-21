@@ -62,6 +62,11 @@ function market(
     ageSeconds: 100,
     fdvUsdX18: '1000',
     fdvUsdDisplay: '1000',
+    fdvQuoteDisplay: null,
+    priceUsdDisplay: null,
+    priceQuoteDisplay: null,
+    volume24hUsdDisplay: null,
+    volume24hQuoteDisplay: null,
     tradeCountAllTime: 42,
     tradeCount24h: 4,
     holderCountAll: 20,
@@ -138,6 +143,42 @@ describe('MarketsBoard UI', () => {
     expect(rows[0]!.querySelector('[data-testid="market-leader-flame"]')).toBeTruthy();
     expect(rows[1]!.getAttribute('data-leader')).toBe('false');
     expect(rows[1]!.querySelector('[data-testid="market-leader-flame"]')).toBeNull();
+  });
+
+  it('shows Pump Solana badge and SOL metrics without $', () => {
+    const mint = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    renderBoard([
+      market({
+        tokenAddress: mint,
+        chainId: 900001,
+        marketSource: 'pump',
+        name: 'Scoopys',
+        symbol: 'SCPY',
+        quoteSymbol: 'SOL',
+        quoteImageUrl: null,
+        fdvUsdX18: null,
+        fdvUsdDisplay: null,
+        fdvQuoteDisplay: '28.141244551',
+        priceUsdDisplay: null,
+        priceQuoteDisplay: '0.000000028141244551',
+        volume24hUsdDisplay: null,
+        volume24hQuoteDisplay: '4.630255521',
+        tradeCountAllTime: 11,
+        holderCountAll: null,
+        holderCountRetail: null,
+      }),
+    ]);
+    const row = screen.getByTestId('market-row');
+    expect(row.getAttribute('data-token')).toBe(mint);
+    const badges = screen.getAllByTestId('network-badge-solana');
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+    expect(badges[0]!.textContent).toMatch(/SOLANA/);
+    expect(badges[0]!.querySelector('img')?.getAttribute('src')).toBe('/brand/solana.svg');
+    expect(screen.getByTestId('market-fdv').textContent).toMatch(/28\.141/);
+    expect(screen.getByTestId('market-fdv').textContent).not.toMatch(/\$/);
+    expect(screen.getByTestId('market-trades').textContent).toBe('11');
+    expect(screen.getByTestId('market-price-volume').textContent).toMatch(/SOL/);
+    expect(screen.getByTestId('market-price-volume').textContent).not.toMatch(/\$/);
   });
 
   it('SSR Updated label is stable against wall-clock drift past snapshot.updatedAt', () => {

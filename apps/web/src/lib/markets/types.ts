@@ -22,6 +22,12 @@ export type MarketsBoardItem = {
   ageSeconds: number;
   fdvUsdX18: string | null;
   fdvUsdDisplay: string | null;
+  /** Quote-denominated FDV (SOL for Pump) — never `$`. */
+  fdvQuoteDisplay: string | null;
+  priceUsdDisplay: string | null;
+  priceQuoteDisplay: string | null;
+  volume24hUsdDisplay: string | null;
+  volume24hQuoteDisplay: string | null;
   /** Lifetime trades — token_market_state.trade_count_all_time */
   tradeCountAllTime: number | null;
   /** Preserved 24h window; not shown on the Phase-1 board. */
@@ -66,6 +72,11 @@ export function toMarketsBoardItem(
     ageSeconds: token.ageSeconds,
     fdvUsdX18: token.fdvUsdX18,
     fdvUsdDisplay: token.fdvUsdDisplay,
+    fdvQuoteDisplay: token.fdvQuoteDisplay ?? null,
+    priceUsdDisplay: token.priceUsdDisplay,
+    priceQuoteDisplay: token.priceQuoteDisplay,
+    volume24hUsdDisplay: token.volume24hUsdDisplay,
+    volume24hQuoteDisplay: token.volume24hQuoteDisplay,
     tradeCountAllTime: token.tradeCountAllTime,
     tradeCount24h: token.tradeCount24h,
     holderCountAll: token.holderCountAll,

@@ -4,12 +4,18 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { MarketsBoardItem } from '@/lib/markets/types';
 import {
-  displayCompactUsdMarketValue,
+  displayMarketFdv,
+  displayTokenPrice,
+  displayVolume24hMetric,
   formatLaunchAge,
   resolveHolderCount,
 } from '@/lib/format';
 import { TokenImage } from '@/components/ui/TokenImage';
 import { QuoteAssetBadge } from '@/components/ui/QuoteAssetBadge';
+import {
+  NetworkBadge,
+  networkBadgeIdForToken,
+} from '@/components/ui/NetworkBadge';
 import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import {
   MARKETS_DESKTOP_ROW_GRID,
@@ -81,13 +87,33 @@ export function MarketRow({
   leaderPulse = false,
 }: Props) {
   const href = `/token/${market.tokenAddress}`;
-  const fdv = displayCompactUsdMarketValue(market.fdvUsdDisplay) ?? '—';
+  const fdv =
+    displayMarketFdv({
+      fdvUsdDisplay: market.fdvUsdDisplay,
+      fdvQuoteDisplay: market.fdvQuoteDisplay,
+      quoteSymbol: market.quoteSymbol,
+    }) ?? '—';
   const trades = formatTradeCount(market.tradeCountAllTime);
   const holders = formatHolders(market.holderCountRetail, market.holderCountAll);
   const age = formatLaunchAge(market.launchedAt, nowMs);
   const imageSrc = pickTokenImageSrc(market.displayImageUrl, market.imageUri);
   const isLeader = rank === 1;
   const loreTitle = market.loreTitle?.trim() || null;
+  const price = displayTokenPrice({
+    priceUsdDisplay: market.priceUsdDisplay,
+    priceQuoteDisplay: market.priceQuoteDisplay,
+    quoteSymbol: market.quoteSymbol,
+  });
+  const volume = displayVolume24hMetric({
+    volume24hUsdDisplay: market.volume24hUsdDisplay,
+    volume24hQuoteDisplay: market.volume24hQuoteDisplay,
+    quoteSymbol: market.quoteSymbol,
+  });
+  const networkId = networkBadgeIdForToken({
+    chainId: market.chainId,
+    marketSource: market.marketSource,
+  });
+  const metricsLine = [price, volume].filter(Boolean).join(' · ');
 
   return (
     <li
@@ -170,6 +196,12 @@ export function MarketRow({
                 imageUrl={market.quoteImageUrl}
                 className="shrink-0 align-middle !py-0 !text-[10px]"
               />
+              {networkId ? (
+                <NetworkBadge
+                  network={networkId}
+                  className="shrink-0 align-middle !py-0 !text-[10px]"
+                />
+              ) : null}
               <span className="min-w-0 truncate text-[12px] text-[var(--muted)]">
                 {market.name}
               </span>
@@ -197,6 +229,9 @@ export function MarketRow({
                   imageUrl={market.quoteImageUrl}
                   className="shrink-0 align-middle"
                 />
+                {networkId ? (
+                  <NetworkBadge network={networkId} className="shrink-0 align-middle" />
+                ) : null}
                 <span className="min-w-0 truncate text-[13px] font-medium tracking-tight text-[var(--fg)]">
                   {market.name}
                 </span>
@@ -207,6 +242,14 @@ export function MarketRow({
                   · {age}
                 </span>
               </span>
+              {metricsLine ? (
+                <span
+                  className="mt-0.5 block min-w-0 truncate font-mono text-[11px] leading-tight text-[var(--muted)]"
+                  data-testid="market-price-volume"
+                >
+                  {metricsLine}
+                </span>
+              ) : null}
               {loreTitle ? (
                 <span
                   className="mt-0.5 block min-w-0 truncate text-[12px] leading-tight text-[var(--muted)]"
