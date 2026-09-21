@@ -109,9 +109,10 @@ Focused suites: **47 passed**. Typecheck + build: run in ship step.
 
 ## 12. Deploy
 
-- SHA: _(filled after push)_
+- SHA: `e1471118fb7c91ced3bc8cab9b2705cd39e754c8` (`e147111`) pushed to `main`
 - Vercel: auto from `main`
 - Workers unchanged
+- status: shipped
 
 ## 13. Production actions
 
