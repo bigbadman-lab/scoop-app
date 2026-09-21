@@ -23,7 +23,10 @@ import {
   type ScoopAuthEvent,
 } from '@/lib/auth/scoop-auth-machine';
 import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
-import { setAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
+import {
+  clearAuthoritativeWalletNamespace,
+  setAuthoritativeWalletNamespace,
+} from '@/lib/auth/wallet-session';
 
 type Props = {
   open: boolean;
@@ -313,10 +316,14 @@ export function ScoopAuthSheet({
                 setScoopConnectNamespace(ns);
                 setActiveNamespace(ns);
               }}
-              onCancelled={() => send({ type: 'WALLET_CONNECT_CANCEL' })}
-              onFailed={(message) =>
-                send({ type: 'WALLET_CONNECT_FAIL', message })
-              }
+              onCancelled={() => {
+                clearAuthoritativeWalletNamespace();
+                send({ type: 'WALLET_CONNECT_CANCEL' });
+              }}
+              onFailed={(message) => {
+                clearAuthoritativeWalletNamespace();
+                send({ type: 'WALLET_CONNECT_FAIL', message });
+              }}
             />
           ) : null}
 

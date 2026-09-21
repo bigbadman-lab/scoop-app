@@ -19,13 +19,14 @@ export type RailCompatibility = {
   canLaunch: boolean;
 };
 
+export const SIGN_IN_TO_LAUNCH_MESSAGE =
+  'Sign in from the top-right to launch.';
+
 export const EVM_ON_PUMP_MESSAGE =
-  'You’re signed in with an Ethereum wallet. Solana launches require a Solana wallet such as Phantom. Sign out and reconnect with a Solana wallet to continue.';
+  'You’re signed in with an Ethereum wallet. Solana launches require a Solana wallet such as Phantom. Sign out from the top-right and reconnect with a Solana wallet to continue.';
 
 export const SOLANA_ON_PONS_MESSAGE =
-  'You’re signed in with a Solana wallet. Robinhood launches require an EVM wallet. Sign out and reconnect with an Ethereum-compatible wallet to continue.';
-
-export const SIGN_IN_TO_LAUNCH_MESSAGE = 'Sign in to launch.';
+  'You’re signed in with a Solana wallet. Robinhood launches require an EVM wallet. Sign out from the top-right and reconnect with an Ethereum-compatible wallet to continue.';
 
 export function getLaunchRailCompatibility(input: {
   selectedRail: LaunchRailKind;

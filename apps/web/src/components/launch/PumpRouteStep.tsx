@@ -8,22 +8,16 @@ type Props = {
   /** Global session compatibility for the Pump rail. */
   compatibility: RailCompatibility;
   solanaAddress?: string | null;
-  /** Opens the site-wide Sign In sheet. Does not start a launch-local connect. */
-  onSignIn: () => void;
-  /** Clears the global wallet session, then opens Sign In. */
-  onSwitchWallet: () => void;
 };
 
 /**
- * Pump step 2 — shows the global wallet session.
- * Wallet connection happens only through top-right / shared Sign In.
+ * Pump step 2 — read-only global wallet status.
+ * Sign-in / switch happens only via top-right Sign In (no local CTAs).
  */
 export function PumpRouteStep({
   errors = {},
   compatibility,
   solanaAddress = null,
-  onSignIn,
-  onSwitchWallet,
 }: Props) {
   const compatible =
     compatibility.status === 'compatible' && Boolean(solanaAddress);
@@ -33,8 +27,8 @@ export function PumpRouteStep({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Wallet & network</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Uses the wallet from Sign In. This launch creates the coin on Pump.fun
-          — no initial buy in this MVP.
+          Uses the wallet from the top-right Sign In. This launch creates the
+          coin on Pump.fun — no initial buy in this MVP.
         </p>
       </div>
 
@@ -51,33 +45,13 @@ export function PumpRouteStep({
           </p>
         ) : (
           <p
-            className="text-sm text-[var(--fg)]"
+            className="text-sm text-[var(--muted)]"
             data-testid="launch-wallet-notice"
             role="status"
           >
             {compatibility.message}
           </p>
         )}
-        {compatibility.status === 'requires_sign_in' ? (
-          <button
-            type="button"
-            data-testid="launch-global-sign-in"
-            onClick={onSignIn}
-            className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--fg)] bg-[var(--fg)] px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--bg)]"
-          >
-            Sign in
-          </button>
-        ) : null}
-        {compatibility.status === 'incompatible_namespace' ? (
-          <button
-            type="button"
-            data-testid="launch-switch-wallet"
-            onClick={onSwitchWallet}
-            className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]"
-          >
-            Sign out & switch wallet
-          </button>
-        ) : null}
         {errors.wallet ? (
           <p className="text-xs text-[#b42318]" role="alert">
             {errors.wallet}

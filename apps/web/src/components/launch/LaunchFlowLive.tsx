@@ -69,11 +69,9 @@ import {
   resolveDevSupplyPolicy,
 } from '@/lib/launch/dev-supply-policy';
 import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import type { Provider as SolanaProvider } from '@reown/appkit-adapter-solana/react';
-import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
-import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 import { getLaunchRailCompatibility } from '@/lib/launch/rail-compatibility';
 
 type Props = {
@@ -259,22 +257,6 @@ function LaunchFlowInner({ catalogue }: Props) {
     useAppKitProvider<SolanaProvider>('solana');
   const solanaAddress = solanaAccount.address ?? null;
   const walletSession = useScoopWalletSession();
-  const { open: openAppKit } = useAppKit();
-
-  function openGlobalSignIn() {
-    requestScoopConnect(() => void openAppKit({ view: 'Connect' }));
-  }
-
-  async function switchGlobalWallet() {
-    clearAuthoritativeWalletNamespace();
-    try {
-      const { ConnectionController } = await import('@reown/appkit-controllers');
-      await ConnectionController.disconnect();
-    } catch {
-      /* session flag is already cleared */
-    }
-    openGlobalSignIn();
-  }
   const applied = useRef(false);
   const launchInFlight = useRef(false);
   const pumpAttemptIdRef = useRef<string | null>(null);
@@ -1232,31 +1214,11 @@ function LaunchFlowInner({ catalogue }: Props) {
 
       {!railCompatibility.canLaunch && (state.step === 3 || !pumpRail) ? (
         <div
-          className="mb-4 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--fg)]"
+          className="mb-4 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--muted)]"
           role="status"
           data-testid="launch-rail-compatibility"
         >
           <p>{railCompatibility.message}</p>
-          {railCompatibility.status === 'requires_sign_in' ? (
-            <button
-              type="button"
-              data-testid="launch-global-sign-in"
-              onClick={openGlobalSignIn}
-              className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)] underline"
-            >
-              Sign in
-            </button>
-          ) : null}
-          {railCompatibility.status === 'incompatible_namespace' ? (
-            <button
-              type="button"
-              data-testid="launch-switch-wallet"
-              onClick={() => void switchGlobalWallet()}
-              className="mt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)] underline"
-            >
-              Sign out & switch wallet
-            </button>
-          ) : null}
         </div>
       ) : null}
 
@@ -1291,10 +1253,6 @@ function LaunchFlowInner({ catalogue }: Props) {
             solanaAddress={
               walletSession.namespace === 'solana' ? walletSession.address : null
             }
-            onSignIn={openGlobalSignIn}
-            onSwitchWallet={() => {
-              void switchGlobalWallet();
-            }}
           />
         ) : (
           <DevBuyStep

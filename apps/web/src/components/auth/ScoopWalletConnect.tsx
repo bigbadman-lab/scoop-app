@@ -20,7 +20,7 @@ import {
   preferredConnectNamespace,
   type ScoopWalletNamespace,
 } from '@/lib/auth/wallet-namespace';
-import { setAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
+import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 
 type WalletLike = {
   id?: string;
@@ -198,7 +198,6 @@ export function ScoopWalletConnect({
     const nextNamespace = preferredConnectNamespace(wallet, namespace);
     setConnectNamespace(nextNamespace);
     onNamespaceChange?.(nextNamespace);
-    setAuthoritativeWalletNamespace(nextNamespace);
     onConnecting();
     try {
       await ensureActiveWalletNamespace(nextNamespace);
@@ -218,6 +217,7 @@ export function ScoopWalletConnect({
         },
       });
     } catch (error) {
+      clearAuthoritativeWalletNamespace();
       const message =
         error instanceof Error && /reject|denied|cancel/i.test(error.message)
           ? 'Connection cancelled.'

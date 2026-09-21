@@ -19,6 +19,10 @@ let appKitState = {
   open: false,
   connectingWallet: undefined as undefined | { id: string },
 };
+let solanaAppKitAccount = {
+  address: undefined as string | undefined,
+  isConnected: false,
+};
 const authHandlers: Array<(detail: {
   reason?: string;
   profile?: {
@@ -31,8 +35,11 @@ const authHandlers: Array<(detail: {
 vi.mock('@reown/appkit/react', () => ({
   useAppKit: () => ({ open }),
   useAppKitState: () => appKitState,
-  useAppKitAccount: () => ({ embeddedWalletInfo: undefined }),
-  useAppKitProvider: () => ({ walletProvider: undefined }),
+  useAppKitAccount: (opts?: { namespace?: string }) => {
+    if (opts?.namespace === 'solana') return solanaAppKitAccount;
+    return { embeddedWalletInfo: undefined };
+  },
+  useAppKitProvider: () => ({ walletProvider: solanaAppKitAccount.isConnected ? {} : undefined }),
 }));
 
 vi.mock('wagmi', () => ({
@@ -65,10 +72,14 @@ vi.mock('@/lib/auth/scoop-auth-events', () => ({
 }));
 
 import { WalletSlotLive } from '@/components/shell/WalletSlotLive';
-import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
+import {
+  clearAuthoritativeWalletNamespace,
+  setAuthoritativeWalletNamespace,
+} from '@/lib/auth/wallet-session';
 
 const A = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 const B = '0x1111111111111111111111111111111111111111';
+const SOL = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
 const USER_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const connector = { id: 'mock' };
@@ -83,6 +94,7 @@ describe('WalletSlotLive Join one-flow', () => {
     requestSiweSession.mockReset();
     authHandlers.length = 0;
     appKitState = { open: false, connectingWallet: undefined };
+    solanaAppKitAccount = { address: undefined, isConnected: false };
     fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
     requestSiweSession.mockResolvedValue({
       ok: true,
@@ -778,5 +790,47 @@ describe('WalletSlotLive AppKit cancel resets Join', () => {
       expect(screen.getByRole('link', { name: /open scoop account/i })).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: /^sign in$/i })).toBeNull();
+  });
+});
+
+describe('WalletSlotLive Solana session chrome', () => {
+  beforeEach(() => {
+    clearAuthoritativeWalletNamespace();
+    open.mockReset();
+    useAccount.mockReset();
+    fetchScoopAuthStatus.mockReset();
+    authHandlers.length = 0;
+    appKitState = { open: false, connectingWallet: undefined };
+    solanaAppKitAccount = { address: SOL, isConnected: true };
+    fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
+    useAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+      status: 'disconnected',
+      connector: undefined,
+    });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+  });
+
+  it('renders a clickable account control that links to /account', async () => {
+    setAuthoritativeWalletNamespace('solana');
+    render(<WalletSlotLive variant="mobile" initialIntent={null} />);
+    const link = await screen.findByRole('link', {
+      name: /open scoop account for solana/i,
+    });
+    expect(link.getAttribute('href')).toBe('/account');
+    expect(link.getAttribute('data-scoop-wallet-namespace')).toBe('solana');
+    expect(link.getAttribute('data-wallet-address')).toBe(SOL);
+  });
+
+  it('returns to Sign In when the Solana provider is not connected', () => {
+    setAuthoritativeWalletNamespace('solana');
+    solanaAppKitAccount = { address: undefined, isConnected: false };
+    render(<WalletSlotLive variant="mobile" initialIntent={null} />);
+    expect(screen.queryByRole('link', { name: /solana/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeTruthy();
   });
 });

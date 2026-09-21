@@ -665,16 +665,30 @@ export function WalletSlotLive({
 
     if (solanaLive && solanaLabel) {
       return (
-        <button
-          type="button"
+        <Link
+          href="/account"
           data-scoop-wallet-namespace="solana"
           data-wallet-address={walletSession.address ?? undefined}
-          className="inline-flex min-h-10 max-w-[12rem] items-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]"
-          title="Solana wallet connected"
-          aria-label={`Solana wallet ${solanaLabel}`}
+          data-wallet-connected="true"
+          data-wallet-runtime="ready"
+          data-scoop-authed="false"
+          className="inline-flex min-h-10 max-w-[14rem] items-center gap-2 rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:border-[var(--fg)]"
+          title="Open SCOOP account"
+          aria-label={`Open SCOOP account for Solana wallet ${solanaLabel}`}
         >
-          {solanaLabel}
-        </button>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--divider)] bg-[var(--bg)] font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--fg)]">
+            SOL
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]">
+              {solanaLabel}
+            </span>
+            <span className="mt-0.5 block truncate font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--muted)]">
+              Solana
+            </span>
+          </span>
+          <ChevronAffordance className="h-3.5 w-3.5 shrink-0 text-[var(--muted)]" />
+        </Link>
       );
     }
 
@@ -737,16 +751,27 @@ export function WalletSlotLive({
 
   if (solanaLive && solanaLabel) {
     return (
-      <button
-        type="button"
-        data-scoop-wallet-namespace="solana"
-        data-wallet-address={walletSession.address ?? undefined}
-        className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--divider)] font-mono text-[9px] text-[var(--fg)]"
-        title={`Solana wallet ${solanaLabel}`}
-        aria-label={`Solana wallet ${solanaLabel}`}
-      >
-        {solanaLabel.slice(0, 4)}
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <Link
+          href="/account"
+          data-scoop-wallet-namespace="solana"
+          data-wallet-address={walletSession.address ?? undefined}
+          data-wallet-connected="true"
+          data-wallet-runtime="ready"
+          data-scoop-authed="false"
+          className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--divider)] bg-transparent font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
+          title="Open SCOOP account"
+          aria-label={`Open SCOOP account for Solana wallet ${solanaLabel}`}
+        >
+          {solanaLabel.slice(0, 4)}
+          <span className="absolute bottom-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--bg)] text-[var(--muted)] ring-1 ring-[var(--divider)]">
+            <ChevronAffordance className="h-2.5 w-2.5" />
+          </span>
+        </Link>
+        <span className="max-w-[4.5rem] truncate font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--muted)]">
+          Solana
+        </span>
+      </div>
     );
   }
 
