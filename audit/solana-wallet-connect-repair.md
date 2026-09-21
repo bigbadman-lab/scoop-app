@@ -84,7 +84,12 @@ PONS/EVM Join path remains default `eip155`. No Pons/RHC/indexer changes.
 
 ## 10. Production deploy
 
-See latest commit / Vercel deployment after this follow-up push.
+| Field | Value |
+|-------|-------|
+| Commit SHA | `ea4b2ce` |
+| GitHub Deployment ID | `6568202401` |
+| Vercel | Production success (`scoop-c1qxfpjas-cope2.vercel.app`) |
+| Production URL | `https://scoop.fun/launch` |
 
 ---
 
