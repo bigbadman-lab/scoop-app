@@ -95,8 +95,9 @@ Covered:
 ## 10. Production deploy
 
 - Repair SHA: `58ddbdb9ec66eb1851f68cb77e9a374f74d4daff`
-- Vercel deployment: pending push of this commit to `main`
-- status: not yet deployed at report write time
+- Deployed SHA: `189e07536061438322c9fdc74796291ed7cc06e6` (`main`)
+- Vercel deployment: `6572704242` — https://vercel.com/cope2/scoop-web/HQQUKVQ3AQjqAemSyqfpRVoswCEJ
+- status: success (`Deployment has completed`)
 
 ## 11. Production actions
 
