@@ -7,6 +7,7 @@ import {
 import {
   getNewsArticleLoreForToken,
   getToken,
+  getTokenWithPumpMarketState,
   serverDb,
   type TokenDetail,
 } from '@/lib/server/queries';
@@ -54,6 +55,7 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
         // Solana product chain should only host Pump rows in Gate E.
         return { status: 'not_found', address: identity.address };
       }
+      const tokenWithMarket = await getTokenWithPumpMarketState(serverDb(), token);
       const lore: TokenNewsLore | null = loreRow
         ? {
             title: loreRow.title,
@@ -63,7 +65,7 @@ export async function loadTokenPage(rawAddress: string): Promise<TokenPageLoadRe
         : null;
       return {
         status: 'ok',
-        token,
+        token: tokenWithMarket,
         quoteSymbol: 'SOL',
         quotePairLabel: 'SOL',
         quoteImageUrl: null,
