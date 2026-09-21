@@ -13,6 +13,8 @@ import {
   resolveScoopWalletImageSrc,
   scoopWalletMonogram,
 } from '@/lib/auth/resolve-wallet-image';
+import { connectScoopWallet } from '@/lib/auth/connect-scoop-wallet';
+import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
 import {
   filterWalletsByNamespace,
   type ScoopWalletNamespace,
@@ -99,6 +101,11 @@ export function ScoopWalletConnect({
     setIsMobile(isScoopMobileAuthViewport());
   }, []);
 
+  // Pin AppKit activeChain before WC URI / connect so Solana never pairs as eip155.
+  useEffect(() => {
+    void ensureActiveWalletNamespace(namespace);
+  }, [namespace]);
+
   const wallets = (walletsApi.wallets ?? []) as WalletLike[];
   const wcWallets = (walletsApi.wcWallets ?? []) as WalletLike[];
   const isInitialized = Boolean(walletsApi.isInitialized);
@@ -178,6 +185,7 @@ export function ScoopWalletConnect({
     }
     onConnecting();
     try {
+      await ensureActiveWalletNamespace(namespace);
       // Reown mobile deeplink requires a WC URI already present (onConnectMobile
       // no-ops without it). Prefetch on the same user gesture before connect().
       if (
@@ -186,7 +194,13 @@ export function ScoopWalletConnect({
       ) {
         await walletsApi.getWcUri();
       }
-      await walletsApi.connect(wallet as never, namespace);
+      await connectScoopWallet({
+        wallet,
+        namespace,
+        connect: async (w, ns) => {
+          await walletsApi.connect(w as never, ns);
+        },
+      });
     } catch (error) {
       const message =
         error instanceof Error && /reject|denied|cancel/i.test(error.message)

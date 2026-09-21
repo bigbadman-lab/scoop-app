@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ScoopWalletConnect } from '@/components/auth/ScoopWalletConnect';
+import {
+  ConnectorController,
+  ConnectorControllerUtil,
+} from '@reown/appkit-controllers';
 
 const useAppKitWallets = vi.fn();
 const useAccount = vi.fn();
@@ -13,6 +17,22 @@ vi.mock('@reown/appkit/react', () => ({
 
 vi.mock('wagmi', () => ({
   useAccount: () => useAccount(),
+}));
+
+vi.mock('@reown/appkit-controllers', () => ({
+  ChainController: {
+    state: { activeChain: 'eip155' },
+    switchActiveNamespace: vi.fn(async () => undefined),
+    setActiveNamespace: vi.fn(),
+  },
+  ConnectorController: {
+    setFilterByNamespace: vi.fn(),
+    getConnectors: vi.fn(() => []),
+    getConnector: vi.fn(() => undefined),
+  },
+  ConnectorControllerUtil: {
+    connectExternal: vi.fn(async () => undefined),
+  },
 }));
 
 vi.mock('@/components/auth/ScoopWcQr', () => ({
@@ -32,6 +52,9 @@ describe('ScoopWalletConnect', () => {
       address: undefined,
       isConnected: false,
     });
+    vi.mocked(ConnectorController.getConnectors).mockReturnValue([]);
+    vi.mocked(ConnectorController.getConnector).mockReturnValue(undefined);
+    vi.mocked(ConnectorControllerUtil.connectExternal).mockClear();
   });
 
   it('shows safe empty/not-enabled state when headless wallets unavailable', () => {
@@ -106,10 +129,12 @@ describe('ScoopWalletConnect', () => {
     expect(screen.getByText('ME')).toBeTruthy();
     expect(screen.getByAltText('')).toBeTruthy();
     screen.getByText('MetaMask').closest('button')?.click();
-    expect(connect).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'metamask' }),
-      'eip155',
-    );
+    await waitFor(() => {
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'metamask' }),
+        'eip155',
+      );
+    });
   });
 
   it('filters out EVM-only wallets and connects with solana namespace', async () => {
@@ -159,10 +184,69 @@ describe('ScoopWalletConnect', () => {
     expect(screen.getByText('Phantom')).toBeTruthy();
     expect(screen.queryByText(/Loading Solana wallets/i)).toBeNull();
     screen.getByText('Phantom').closest('button')?.click();
-    expect(connect).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'phantom' }),
-      'solana',
+    await waitFor(() => {
+      expect(connect).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'phantom' }),
+        'solana',
+      );
+    });
+  });
+
+  it('connects Phantom via Solana WalletStandard connector, not Ethereum WC', async () => {
+    const connect = vi.fn(async () => undefined);
+    const phantomSolana = {
+      id: 'Phantom',
+      chain: 'solana',
+      name: 'Phantom',
+      type: 'ANNOUNCED',
+    };
+    vi.mocked(ConnectorController.getConnectors).mockReturnValue([
+      phantomSolana,
+    ] as never);
+    useAppKitWallets.mockReturnValue({
+      wallets: [
+        {
+          id: 'phantom',
+          name: 'Phantom',
+          isInjected: true,
+          // Common failure mode: list only mapped the EVM injector
+          connectors: [{ id: 'phantom', chain: 'eip155' }],
+        },
+      ],
+      wcWallets: [],
+      isFetchingWallets: false,
+      isFetchingWcUri: false,
+      isInitialized: true,
+      wcUri: undefined,
+      connectingWallet: undefined,
+      connect,
+      getWcUri: vi.fn(),
+      fetchWallets: vi.fn(),
+      resetWcUri: vi.fn(),
+      resetConnectingWallet: vi.fn(),
+    });
+
+    render(
+      <ScoopWalletConnect
+        namespace="solana"
+        connecting={false}
+        error={null}
+        onBack={() => undefined}
+        onConnecting={() => undefined}
+        onConnected={() => undefined}
+        onCancelled={() => undefined}
+        onFailed={() => undefined}
+      />,
     );
+
+    expect(screen.getByText('Phantom')).toBeTruthy();
+    screen.getByText('Phantom').closest('button')?.click();
+    await waitFor(() => {
+      expect(ConnectorControllerUtil.connectExternal).toHaveBeenCalledWith(
+        phantomSolana,
+      );
+    });
+    expect(connect).not.toHaveBeenCalled();
   });
 
   it('settles on Solana AppKit account, not wagmi EVM address', () => {

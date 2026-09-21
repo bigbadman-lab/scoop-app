@@ -31,19 +31,47 @@ describe('walletSupportsNamespace', () => {
     ).toBe(false);
   });
 
-  it('accepts remote WC wallets without connectors for either namespace', () => {
+  it('rejects anonymous remote WC wallets for solana without a Solana hint', () => {
     expect(
       walletSupportsNamespace(
         { id: 'wc', isInjected: false, connectors: [] },
         'solana',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       walletSupportsNamespace(
         { id: 'wc', isInjected: false, connectors: [] },
         'eip155',
       ),
     ).toBe(true);
+  });
+
+  it('accepts Phantom even when only eip155 injector is listed', () => {
+    expect(
+      walletSupportsNamespace(
+        {
+          id: 'phantom',
+          name: 'Phantom',
+          isInjected: true,
+          connectors: [{ id: 'phantom', chain: 'eip155' }],
+        },
+        'solana',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects MetaMask for solana', () => {
+    expect(
+      walletSupportsNamespace(
+        {
+          id: 'metamask',
+          name: 'MetaMask',
+          isInjected: false,
+          connectors: [],
+        },
+        'solana',
+      ),
+    ).toBe(false);
   });
 
   it('uses supportedNamespaces when present', () => {
@@ -67,18 +95,26 @@ describe('filterWalletsByNamespace', () => {
       [
         {
           id: 'mm',
+          name: 'MetaMask',
           isInjected: true,
           connectors: [{ id: 'mm', chain: 'eip155' }],
         },
         {
           id: 'ph',
+          name: 'Phantom',
           isInjected: true,
           connectors: [{ id: 'ph', chain: 'solana' }],
         },
-        { id: 'wc', isInjected: false, connectors: [] },
+        { id: 'wc', name: 'Random WC', isInjected: false, connectors: [] },
+        {
+          id: 'sf',
+          name: 'Solflare',
+          isInjected: false,
+          connectors: [],
+        },
       ],
       'solana',
     );
-    expect(list.map((w) => w.id)).toEqual(['ph', 'wc']);
+    expect(list.map((w) => w.id)).toEqual(['ph', 'sf']);
   });
 });
