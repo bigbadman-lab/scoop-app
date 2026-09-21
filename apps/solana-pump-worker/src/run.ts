@@ -136,12 +136,24 @@ export async function runPumpMarketDataWorker(
       }
       if (!result.inserted) {
         health.duplicatesSkipped += 1;
+        logJson('info', 'pump trade duplicate skipped', {
+          mint: event.mint,
+          signature: event.signature,
+          eventIndex: event.eventIndex,
+        });
         return;
       }
       health.eventsPersisted += 1;
       health.lastPersistedAt = event.blockTime.toISOString();
       health.currentError = null;
       health.checkpointStatus = event.signature;
+      logJson('info', 'pump trade persisted', {
+        mint: event.mint,
+        signature: event.signature,
+        side: event.side,
+        solAmount: event.solAmount,
+        eventIndex: event.eventIndex,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       health.currentError = message;
@@ -192,6 +204,20 @@ export async function runPumpMarketDataWorker(
       if (stopped) break;
       try {
         await refreshWatchlist();
+        syncProviderHealth(health, provider);
+        logJson('info', 'pump worker heartbeat', {
+          providerStatus: health.providerStatus,
+          watchlistSize: health.watchlistSize,
+          subscribedMintCount: health.subscribedMintCount,
+          messagesReceived: health.messagesReceived,
+          eventsNormalized: health.eventsNormalized,
+          eventsPersisted: health.eventsPersisted,
+          duplicatesSkipped: health.duplicatesSkipped,
+          invalidEvents: health.invalidEvents,
+          reconnectCount: health.reconnectCount,
+          lastMessageAt: health.lastMessageAt,
+          currentError: health.currentError,
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         health.currentError = message;

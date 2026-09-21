@@ -324,6 +324,10 @@ export class PumpPortalTradeProvider implements PumpTradeProvider {
       parsed = JSON.parse(raw);
     } catch {
       this.invalidEvents += 1;
+      logJson('warn', 'pumpportal non-json message', {
+        bytes: raw.length,
+        preview: raw.slice(0, 80),
+      });
       return;
     }
 
@@ -359,24 +363,47 @@ export class PumpPortalTradeProvider implements PumpTradeProvider {
 
     const items = Array.isArray(parsed) ? parsed : [parsed];
     for (const item of items) {
+      const fieldKeys =
+        item && typeof item === 'object' && !Array.isArray(item)
+          ? Object.keys(item as object).slice(0, 20)
+          : [];
       const result = normalizePumpPortalTrade(item, { receivedAt: this.now() });
       if (!result.ok) {
-        // Quietly ignore non-trade control messages; count hard invalids.
+        // Quietly ignore known non-trade control shapes; log other rejects.
         if (
           result.error.startsWith('ignored') ||
           result.error === 'missing txType' ||
           result.error === 'not an object'
         ) {
+          if (result.error === 'missing txType' && fieldKeys.length > 0) {
+            logJson('warn', 'pumpportal message skipped', {
+              reason: result.error,
+              fieldKeys,
+            });
+          }
           continue;
         }
         this.invalidEvents += 1;
+        logJson('warn', 'pumpportal trade normalize failed', {
+          reason: result.error,
+          fieldKeys,
+        });
         continue;
       }
       if (!this.watched.has(result.event.mint)) {
-        // Not in SCOOP watchlist — drop (defense in depth).
+        logJson('warn', 'pumpportal trade dropped not on watchlist', {
+          mint: result.event.mint,
+          signature: result.event.signature,
+        });
         continue;
       }
       this.normalizedEvents += 1;
+      logJson('info', 'pumpportal trade normalized', {
+        mint: result.event.mint,
+        signature: result.event.signature,
+        side: result.event.side,
+        solAmount: result.event.solAmount,
+      });
       for (const handler of this.handlers) {
         await handler(result.event);
       }
