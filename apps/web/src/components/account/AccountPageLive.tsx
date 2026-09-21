@@ -20,7 +20,6 @@ import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop
 import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
-import { resolveAvatarUrl } from '@/lib/account/avatar';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
 import { accountLaunchStatusLabel } from '@/lib/account/launch-status';
@@ -366,7 +365,7 @@ function AccountReady({
         <section className="mt-12 space-y-4 border-t border-[var(--divider)] pt-8">
           <h2 className="text-lg font-semibold tracking-tight">Tokens launched</h2>
           {account.tokensLaunched.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No tokens launched yet.</p>
+            <p className="text-sm text-[var(--muted)]">No markets launched yet.</p>
           ) : (
             <ul className="divide-y divide-[var(--divider)]">
               {account.tokensLaunched.map((token) => (
@@ -383,6 +382,8 @@ function AccountReady({
                       ${token.symbol}
                       <span className="text-[var(--muted-2)]"> · </span>
                       {accountLaunchStatusLabel(token.launchComplete)}
+                      <span className="text-[var(--muted-2)]"> · </span>
+                      {token.network}
                     </p>
                   </div>
                   <Link
@@ -445,14 +446,28 @@ export function AccountPageLive() {
     const session = await fetchScoopAuthStatus();
     if (gen !== refreshGen.current) return;
 
-    const connected =
-      status === 'connected' && isConnected && typeof address === 'string';
-    const reconciliation = resolveScoopAuthState({
-      sessionAuthenticated: session.authenticated,
-      sessionAddress: session.authenticated ? session.address : null,
-      connected,
-      connectedAddress: connected ? address : null,
-    });
+    let reconciliation: ReturnType<typeof resolveScoopAuthState>;
+    if (session.authenticated && session.namespace === 'solana') {
+      const solConnected =
+        walletSession.connected &&
+        walletSession.namespace === 'solana' &&
+        typeof walletSession.address === 'string';
+      reconciliation = resolveScoopAuthState({
+        sessionAuthenticated: true,
+        sessionAddress: session.address,
+        connected: solConnected,
+        connectedAddress: solConnected ? walletSession.address : null,
+      });
+    } else {
+      const connected =
+        status === 'connected' && isConnected && typeof address === 'string';
+      reconciliation = resolveScoopAuthState({
+        sessionAuthenticated: session.authenticated,
+        sessionAddress: session.authenticated ? session.address : null,
+        connected,
+        connectedAddress: connected ? address : null,
+      });
+    }
 
     if (reconciliation === 'signed_out' || reconciliation === 'connected_unsigned') {
       setState({ kind: 'signed_out' });
@@ -485,18 +500,18 @@ export function AccountPageLive() {
       account,
       sessionOnly: reconciliation === 'session_only',
     });
-  }, [address, isConnected, status]);
+  }, [
+    address,
+    isConnected,
+    status,
+    walletSession.address,
+    walletSession.connected,
+    walletSession.namespace,
+  ]);
 
   useEffect(() => {
-    if (
-      walletSession.authenticated &&
-      walletSession.authMethod === 'siws' &&
-      walletSession.namespace === 'solana'
-    ) {
-      return;
-    }
     void refresh();
-  }, [refresh, walletSession.authenticated, walletSession.authMethod, walletSession.namespace]);
+  }, [refresh]);
 
   // Immediate panel update when wagmi drops the wallet (incl. AppKit disconnect).
   useEffect(() => {
@@ -505,6 +520,7 @@ export function AccountPageLive() {
     const connectedAddress = connected ? address : null;
     setState((prev) => {
       if (prev.kind !== 'ready') return prev;
+      if (prev.account.wallet.chainLabel === 'Solana') return prev;
       if (!connected && !prev.sessionOnly) {
         return { ...prev, sessionOnly: true };
       }
@@ -519,56 +535,6 @@ export function AccountPageLive() {
       return prev;
     });
   }, [address, isConnected, status]);
-
-  if (
-    walletSession.authenticated &&
-    walletSession.authMethod === 'siws' &&
-    walletSession.namespace === 'solana' &&
-    walletSession.address &&
-    walletSession.userId
-  ) {
-    const solanaAccount: PublicAccountResponse = {
-      authenticated: true,
-      user: {
-        id: walletSession.userId,
-        joinedAt: new Date().toISOString(),
-        profile: {
-          displayName: null,
-          avatarUrl: resolveAvatarUrl({ userId: walletSession.userId }),
-        },
-      },
-      wallet: {
-        address: walletSession.address,
-        walletType: 'external',
-        provider: 'injected',
-        chainId: 101,
-        chainLabel: 'Solana',
-      },
-      auth: {
-        scoopSession: true,
-        onChain: {
-          mayBroadcastOnChain: false,
-          reason: 'unsigned',
-          message: 'Not available on Solana yet',
-        },
-      },
-      tokensLaunched: [],
-      fees: {
-        deployer: { assets: [], empty: true },
-        creator: { assets: [], empty: true },
-      },
-    };
-    return (
-      <AccountReady
-        account={solanaAccount}
-        sessionOnly={false}
-        namespace="solana"
-        onRefresh={() => undefined}
-        onWalletDisconnected={() => undefined}
-        onSignOutRequest={() => setState({ kind: 'signed_out' })}
-      />
-    );
-  }
 
   if (state.kind === 'loading') {
     return <AccountPagePending />;
@@ -611,10 +577,14 @@ export function AccountPageLive() {
     );
   }
 
+  const namespace =
+    state.account.wallet.chainLabel === 'Solana' ? 'solana' : 'eip155';
+
   return (
     <AccountReady
       account={state.account}
       sessionOnly={state.sessionOnly}
+      namespace={namespace}
       onRefresh={() => void refresh()}
       onWalletDisconnected={() => {
         setState((prev) =>

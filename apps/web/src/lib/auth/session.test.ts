@@ -3,6 +3,8 @@ import {
   SESSION_COOKIE,
   createNonce,
   createSession,
+  createSiwsSession,
+  getAuthenticatedAccountIdentity,
   getAuthenticatedScoopUser,
   getAuthenticatedWallet,
   sealNonce,
@@ -20,6 +22,7 @@ const env = {
 const SAMPLE_ADDRESS = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 const SAMPLE_ADDRESS_LOWER = '0xd8da6bf26964af9d7eed9e03e53415d37aa96045';
 const SAMPLE_USER_ID = '11111111-1111-4111-8111-111111111111';
+const SOL_ADDRESS = 'GJRBYe1nDVszvBDYDjT3Q7DW7fTkdHxaJbL4NvHPqF3p';
 
 describe('auth session cookies', () => {
   it('seals and unseals a session with canonical userId', () => {
@@ -50,6 +53,7 @@ describe('auth session cookies', () => {
     const request = new Request('http://localhost/api/auth/session');
     expect(getAuthenticatedWallet(request, env)).toBeNull();
     expect(getAuthenticatedScoopUser(request, env)).toBeNull();
+    expect(getAuthenticatedAccountIdentity(request, env)).toBeNull();
   });
 
   it('replaces prior session payload when a new session is sealed for the same wallet', () => {
@@ -76,6 +80,32 @@ describe('auth session cookies', () => {
       address: SAMPLE_ADDRESS_LOWER,
       chainId: 4663,
     });
+    expect(getAuthenticatedAccountIdentity(request, env)).toMatchObject({
+      namespace: 'eip155',
+      authMethod: 'siwe',
+      userId: SAMPLE_USER_ID.toLowerCase(),
+      address: SAMPLE_ADDRESS_LOWER,
+      chainId: 4663,
+    });
+  });
+
+  it('resolves SIWS account identity with exact base58 and product chain 900001', () => {
+    const session = createSiwsSession(SOL_ADDRESS)!;
+    const sealed = sealSession(session, env);
+    const request = new Request('http://localhost/api/auth/session', {
+      headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(sealed)}` },
+    });
+    expect(getAuthenticatedScoopUser(request, env)).toBeNull();
+    const identity = getAuthenticatedAccountIdentity(request, env);
+    expect(identity).toEqual({
+      namespace: 'solana',
+      authMethod: 'siws',
+      userId: session.userId,
+      address: SOL_ADDRESS,
+      chainId: 900001,
+      issuedAt: session.issuedAt,
+    });
+    expect(identity?.address).not.toBe(SOL_ADDRESS.toLowerCase());
   });
 
   it('rejects non-Robinhood chain sessions', () => {

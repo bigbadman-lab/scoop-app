@@ -8,6 +8,7 @@ import {
 } from '@/lib/auth/wallet-session';
 
 const SOL = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
+const MINT = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
 const USER = '11111111-1111-4111-8111-111111111111';
 
 const { useAccount, fetchScoopAuthStatus, signOutScoopSession } = vi.hoisted(
@@ -56,6 +57,40 @@ vi.mock('@reown/appkit-controllers', () => ({
 
 import { AccountPageLive } from '@/components/account/AccountPageLive';
 
+function solanaAccountResponse(tokensLaunched: unknown[] = []) {
+  return {
+    authenticated: true,
+    user: {
+      id: USER,
+      joinedAt: '2026-03-20T00:00:00.000Z',
+      profile: {
+        displayName: null,
+        avatarUrl: 'data:image/svg+xml;base64,abc',
+      },
+    },
+    wallet: {
+      address: SOL,
+      walletType: 'external',
+      provider: null,
+      chainId: 900001,
+      chainLabel: 'Solana',
+    },
+    auth: {
+      scoopSession: true,
+      onChain: {
+        mayBroadcastOnChain: false,
+        reason: 'unsigned',
+        message: 'Not available on Solana yet',
+      },
+    },
+    tokensLaunched,
+    fees: {
+      deployer: { assets: [], empty: true },
+      creator: { assets: [], empty: true },
+    },
+  };
+}
+
 describe('AccountPageLive Solana SIWS session', () => {
   beforeEach(() => {
     clearAuthoritativeWalletNamespace();
@@ -64,7 +99,6 @@ describe('AccountPageLive Solana SIWS session', () => {
     fetchScoopAuthStatus.mockReset();
     signOutScoopSession.mockReset();
     solanaAppKitAccount = { address: SOL, isConnected: true };
-    fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
     signOutScoopSession.mockResolvedValue(true);
     useAccount.mockReturnValue({
       address: undefined,
@@ -72,29 +106,98 @@ describe('AccountPageLive Solana SIWS session', () => {
       status: 'disconnected',
       connector: undefined,
     });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(solanaAccountResponse()),
+      ),
+    );
   });
 
-  it('renders the shared account layout with the Solana public key', () => {
-    const userId = USER;
+  it('loads /api/account and renders the Solana public key', async () => {
     setAuthoritativeWalletNamespace('solana');
     setScoopAuthSnapshot({
       authenticated: true,
       namespace: 'solana',
       address: SOL,
       authMethod: 'siws',
-      userId,
+      userId: USER,
     });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId: USER,
+      chainId: 101,
+    });
+
     render(<AccountPageLive />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('account-wallet-address').textContent).toBe(SOL);
+    });
     expect(screen.getByText('Your SCOOP profile')).toBeTruthy();
-    expect(screen.getByText('SCOOP account')).toBeTruthy();
-    expect(screen.getByText('Connected wallet')).toBeTruthy();
-    expect(screen.getByTestId('account-wallet-address').textContent).toBe(SOL);
     expect(screen.getByText(/External wallet · Solana/)).toBeTruthy();
-    expect(screen.getByText('Sign out of SCOOP')).toBeTruthy();
     expect(screen.getByTestId('solana-modules-unavailable').textContent).toMatch(
       /Not available on Solana yet/i,
     );
-    expect(screen.queryByText(/Could not load account/i)).toBeNull();
+    expect(screen.getByText('No markets launched yet.')).toBeTruthy();
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/account',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('renders Pump launches returned for the SIWS session', async () => {
+    setScoopAuthSnapshot({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId: USER,
+    });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId: USER,
+      chainId: 101,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          solanaAccountResponse([
+            {
+              tokenAddress: MINT,
+              name: 'Scoop Pump Canary',
+              symbol: 'SCPY',
+              imageUri: null,
+              displayImageUrl: 'https://cdn.example/scpy.png',
+              quoteAsset: 'So11111111111111111111111111111111111111112',
+              launchedAt: '2026-03-20T12:00:00.000Z',
+              launchComplete: false,
+              href: `/token/${MINT}`,
+              chainId: 900001,
+              network: 'Solana',
+            },
+          ]),
+        ),
+      ),
+    );
+
+    render(<AccountPageLive />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scoop Pump Canary')).toBeTruthy();
+    });
+    expect(screen.getByText(/\$SCPY/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /view/i }).getAttribute('href')).toBe(
+      `/token/${MINT}`,
+    );
+    expect(screen.queryByText('No markets launched yet.')).toBeNull();
   });
 
   it('signs out from the shared account action', async () => {
@@ -105,7 +208,19 @@ describe('AccountPageLive Solana SIWS session', () => {
       authMethod: 'siws',
       userId: USER,
     });
+    fetchScoopAuthStatus.mockResolvedValue({
+      authenticated: true,
+      namespace: 'solana',
+      address: SOL,
+      authMethod: 'siws',
+      userId: USER,
+      chainId: 101,
+    });
+
     render(<AccountPageLive />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sign out of scoop/i })).toBeTruthy();
+    });
     screen.getByRole('button', { name: /sign out of scoop/i }).click();
     await waitFor(() => {
       expect(signOutScoopSession).toHaveBeenCalled();

@@ -230,7 +230,73 @@ export async function listLaunchesForScoopUser(
     [userId, chainId],
   );
 
-  return result.rows.map((row) => ({
+  return result.rows.map(mapLaunchRow);
+}
+
+/**
+ * Tokens launched by an exact deployer address on a product chain.
+ * Used for Solana SIWS (no scoop_wallets row). Never lowercases addresses —
+ * callers must pass the canonical deployer string (EVM lower / Solana base58).
+ */
+export async function listLaunchesForDeployerAddress(
+  db: Queryable,
+  deployerAddress: string,
+  chainId: number,
+): Promise<ScoopAccountLaunch[]> {
+  const address = deployerAddress.trim();
+  if (!address) return [];
+
+  const result = await db.query<{
+    chain_id: number;
+    token_address: string;
+    name: string;
+    symbol: string;
+    image_uri: string | null;
+    display_image_url: string | null;
+    quote_asset: string;
+    launched_at: string | number;
+    launch_complete: boolean | null;
+    creator_id: string;
+  }>(
+    `SELECT
+       l.chain_id,
+       l.token_address,
+       t.name,
+       t.symbol,
+       t.image_uri,
+       t.display_image_url,
+       l.quote_asset,
+       l.launched_at,
+       COALESCE(m.launch_complete, FALSE) AS launch_complete,
+       l.creator_id
+     FROM launches l
+     INNER JOIN tokens t
+       ON t.chain_id = l.chain_id AND t.token_address = l.token_address
+     LEFT JOIN token_market_state m
+       ON m.chain_id = l.chain_id AND m.token_address = l.token_address
+     WHERE l.chain_id = $1
+       AND l.deployer_address = $2
+     ORDER BY l.launched_at DESC
+     LIMIT 100`,
+    [chainId, address],
+  );
+
+  return result.rows.map(mapLaunchRow);
+}
+
+function mapLaunchRow(row: {
+  chain_id: number;
+  token_address: string;
+  name: string;
+  symbol: string;
+  image_uri: string | null;
+  display_image_url: string | null;
+  quote_asset: string;
+  launched_at: string | number;
+  launch_complete: boolean | null;
+  creator_id: string;
+}): ScoopAccountLaunch {
+  return {
     chainId: Number(row.chain_id),
     tokenAddress: String(row.token_address),
     name: String(row.name),
@@ -244,7 +310,7 @@ export async function listLaunchesForScoopUser(
     launchedAt: Number(row.launched_at),
     launchComplete: Boolean(row.launch_complete),
     creatorId: String(row.creator_id),
-  }));
+  };
 }
 
 export interface ScoopDeployerFeeBreakdownLine extends ScoopFeeAssetLine {

@@ -1,5 +1,5 @@
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
-import { getAuthenticatedScoopUser } from '@/lib/auth/session';
+import { getAuthenticatedAccountIdentity } from '@/lib/auth/session';
 import {
   createSupabaseProfileAvatarStorage,
 } from '@/lib/account/avatar-storage';
@@ -8,8 +8,10 @@ import { resolveOnChainWalletCapability } from '@/lib/account/onchain-policy';
 import { getServerPool } from '@/lib/server/db';
 import {
   getScoopAccountBundle,
+  listLaunchesForDeployerAddress,
   type ScoopAccountBundle,
 } from '@scoop/db';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 
 export type PublicAccountResponse = {
   authenticated: true;
@@ -42,6 +44,8 @@ export type PublicAccountResponse = {
     launchedAt: string;
     launchComplete: boolean;
     href: string;
+    chainId: number;
+    network: 'Robinhood Chain' | 'Solana';
   }>;
   fees: {
     deployer: {
@@ -71,11 +75,160 @@ async function resolveSignedAvatar(
   }
 }
 
+function mapLaunches(
+  launches: ScoopAccountBundle['tokensLaunched'],
+  network: 'Robinhood Chain' | 'Solana',
+): PublicAccountResponse['tokensLaunched'] {
+  return launches.map((t) => ({
+    tokenAddress: t.tokenAddress,
+    name: t.name,
+    symbol: t.symbol,
+    imageUri: t.imageUri,
+    displayImageUrl: t.displayImageUrl,
+    quoteAsset: t.quoteAsset,
+    launchedAt: new Date(t.launchedAt * 1000).toISOString(),
+    launchComplete: t.launchComplete,
+    href: `/token/${t.tokenAddress}`,
+    chainId: t.chainId,
+    network,
+  }));
+}
+
+async function loadEip155Account(
+  identity: Extract<
+    NonNullable<ReturnType<typeof getAuthenticatedAccountIdentity>>,
+    { namespace: 'eip155' }
+  >,
+): Promise<AccountLoaderResult> {
+  const pool = getServerPool();
+  const bundle = await getScoopAccountBundle(
+    pool,
+    identity.userId,
+    ROBINHOOD_CHAIN_ID,
+    identity.address,
+  );
+  if (!bundle) {
+    return {
+      ok: false,
+      status: 404,
+      code: 'ACCOUNT_NOT_FOUND',
+      error: 'Account not found',
+    };
+  }
+
+  // Stale session / wrong wallet row must not surface another user's profile.
+  if (bundle.user.userId.toLowerCase() !== identity.userId.toLowerCase()) {
+    return {
+      ok: false,
+      status: 401,
+      code: 'SESSION_MISMATCH',
+      error: 'Session does not match account',
+    };
+  }
+
+  const signedAvatarUrl = await resolveSignedAvatar(bundle.user.avatarPath);
+  const onChain = resolveOnChainWalletCapability({
+    authenticated: true,
+    walletType: bundle.wallet.walletType,
+  });
+
+  return {
+    ok: true,
+    account: {
+      authenticated: true,
+      user: {
+        id: bundle.user.userId,
+        joinedAt: bundle.user.joinedAt,
+        profile: {
+          displayName: bundle.user.displayName,
+          avatarUrl: resolveAvatarUrl({
+            userId: bundle.user.userId,
+            displayName: bundle.user.displayName,
+            signedAvatarUrl,
+          }),
+        },
+      },
+      wallet: {
+        address: bundle.wallet.address,
+        walletType: bundle.wallet.walletType,
+        provider: bundle.wallet.provider,
+        chainId: ROBINHOOD_CHAIN_ID,
+        chainLabel: 'Robinhood Chain',
+      },
+      auth: {
+        scoopSession: true,
+        onChain,
+      },
+      tokensLaunched: mapLaunches(bundle.tokensLaunched, 'Robinhood Chain'),
+      fees: {
+        deployer: {
+          assets: bundle.fees.deployer.assets,
+          empty: bundle.fees.deployer.assets.length === 0,
+        },
+        creator: {
+          assets: bundle.fees.creator.assets,
+          empty: bundle.fees.creator.assets.length === 0,
+        },
+      },
+    },
+  };
+}
+
+async function loadSolanaAccount(
+  identity: Extract<
+    NonNullable<ReturnType<typeof getAuthenticatedAccountIdentity>>,
+    { namespace: 'solana' }
+  >,
+): Promise<AccountLoaderResult> {
+  const pool = getServerPool();
+  // SIWS has no scoop_users / scoop_wallets row — ownership is deployer_address exact match.
+  const launches = await listLaunchesForDeployerAddress(
+    pool,
+    identity.address,
+    SOLANA_MAINNET_CHAIN_ID,
+  );
+
+  return {
+    ok: true,
+    account: {
+      authenticated: true,
+      user: {
+        id: identity.userId,
+        joinedAt: new Date(identity.issuedAt).toISOString(),
+        profile: {
+          displayName: null,
+          avatarUrl: resolveAvatarUrl({ userId: identity.userId }),
+        },
+      },
+      wallet: {
+        address: identity.address,
+        walletType: 'external',
+        provider: null,
+        chainId: SOLANA_MAINNET_CHAIN_ID,
+        chainLabel: 'Solana',
+      },
+      auth: {
+        scoopSession: true,
+        onChain: {
+          mayBroadcastOnChain: false,
+          reason: 'unsigned',
+          message: 'Not available on Solana yet',
+        },
+      },
+      tokensLaunched: mapLaunches(launches, 'Solana'),
+      fees: {
+        deployer: { assets: [], empty: true },
+        creator: { assets: [], empty: true },
+      },
+    },
+  };
+}
+
 export async function loadAuthenticatedAccount(
   request: Request,
 ): Promise<AccountLoaderResult> {
-  const session = getAuthenticatedScoopUser(request);
-  if (!session) {
+  const identity = getAuthenticatedAccountIdentity(request);
+  if (!identity) {
     return {
       ok: false,
       status: 401,
@@ -85,88 +238,10 @@ export async function loadAuthenticatedAccount(
   }
 
   try {
-    const pool = getServerPool();
-    const bundle = await getScoopAccountBundle(
-      pool,
-      session.userId,
-      ROBINHOOD_CHAIN_ID,
-      session.address,
-    );
-    if (!bundle) {
-      return {
-        ok: false,
-        status: 404,
-        code: 'ACCOUNT_NOT_FOUND',
-        error: 'Account not found',
-      };
+    if (identity.namespace === 'solana') {
+      return await loadSolanaAccount(identity);
     }
-
-    // Stale session / wrong wallet row must not surface another user's profile.
-    if (bundle.user.userId.toLowerCase() !== session.userId.toLowerCase()) {
-      return {
-        ok: false,
-        status: 401,
-        code: 'SESSION_MISMATCH',
-        error: 'Session does not match account',
-      };
-    }
-
-    const signedAvatarUrl = await resolveSignedAvatar(bundle.user.avatarPath);
-    const onChain = resolveOnChainWalletCapability({
-      authenticated: true,
-      walletType: bundle.wallet.walletType,
-    });
-
-    return {
-      ok: true,
-      account: {
-        authenticated: true,
-        user: {
-          id: bundle.user.userId,
-          joinedAt: bundle.user.joinedAt,
-          profile: {
-            displayName: bundle.user.displayName,
-            avatarUrl: resolveAvatarUrl({
-              userId: bundle.user.userId,
-              displayName: bundle.user.displayName,
-              signedAvatarUrl,
-            }),
-          },
-        },
-        wallet: {
-          address: bundle.wallet.address,
-          walletType: bundle.wallet.walletType,
-          provider: bundle.wallet.provider,
-          chainId: ROBINHOOD_CHAIN_ID,
-          chainLabel: 'Robinhood Chain',
-        },
-        auth: {
-          scoopSession: true,
-          onChain,
-        },
-        tokensLaunched: bundle.tokensLaunched.map((t) => ({
-          tokenAddress: t.tokenAddress,
-          name: t.name,
-          symbol: t.symbol,
-          imageUri: t.imageUri,
-          displayImageUrl: t.displayImageUrl,
-          quoteAsset: t.quoteAsset,
-          launchedAt: new Date(t.launchedAt * 1000).toISOString(),
-          launchComplete: t.launchComplete,
-          href: `/token/${t.tokenAddress}`,
-        })),
-        fees: {
-          deployer: {
-            assets: bundle.fees.deployer.assets,
-            empty: bundle.fees.deployer.assets.length === 0,
-          },
-          creator: {
-            assets: bundle.fees.creator.assets,
-            empty: bundle.fees.creator.assets.length === 0,
-          },
-        },
-      },
-    };
+    return await loadEip155Account(identity);
   } catch (error) {
     console.error('[account] load failed', error);
     return {

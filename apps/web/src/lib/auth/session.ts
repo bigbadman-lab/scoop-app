@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { ROBINHOOD_CHAIN_ID } from '@/lib/brand';
 import { sessionAddress } from '@/lib/auth/address';
 import { isSolanaPublicKey } from '@/lib/auth/siws-address';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 
 export { normalizeAddress, sessionAddress } from '@/lib/auth/address';
 
@@ -38,6 +39,31 @@ export type AuthenticatedScoopUser = {
   address: `0x${string}`;
   chainId: number;
 };
+
+/**
+ * Verified session identity for `/account` (and other namespace-aware reads).
+ * Solana uses product chain id 900001 for launch ownership queries — not session marker 101.
+ */
+export type AuthenticatedAccountIdentity =
+  | {
+      namespace: 'eip155';
+      authMethod: 'siwe';
+      userId: string;
+      address: `0x${string}`;
+      /** Robinhood Chain product id (4663). */
+      chainId: number;
+      issuedAt: number;
+    }
+  | {
+      namespace: 'solana';
+      authMethod: 'siws';
+      userId: string;
+      /** Exact base58 pubkey — never lowercased. */
+      address: string;
+      /** Solana product chain id (900001). */
+      chainId: number;
+      issuedAt: number;
+    };
 
 function sessionSecret(env: NodeJS.ProcessEnv = process.env): string {
   const secret = (env.SCOOP_SESSION_SECRET ?? '').trim();
@@ -194,6 +220,47 @@ export function getAuthenticatedScoopUser(
     address,
     chainId: session.chainId,
   };
+}
+
+/**
+ * Session-derived account identity for both SIWE and SIWS.
+ * Ownership queries must key off this — never client-supplied addresses.
+ */
+export function getAuthenticatedAccountIdentity(
+  request: Request,
+  env?: NodeJS.ProcessEnv,
+): AuthenticatedAccountIdentity | null {
+  const session = readSessionFromRequest(request, env);
+  if (!session) return null;
+
+  if (session.namespace === 'eip155' && session.authMethod === 'siwe') {
+    const address = sessionAddress(session.address);
+    if (!address) return null;
+    return {
+      namespace: 'eip155',
+      authMethod: 'siwe',
+      userId: session.userId,
+      address,
+      chainId: ROBINHOOD_CHAIN_ID,
+      issuedAt: session.issuedAt,
+    };
+  }
+
+  if (session.namespace === 'solana' && session.authMethod === 'siws') {
+    const address = session.address.trim();
+    if (!isSolanaPublicKey(address)) return null;
+    // Product chain for Pump launches (not SOLANA_SESSION_CHAIN_ID = 101).
+    return {
+      namespace: 'solana',
+      authMethod: 'siws',
+      userId: session.userId,
+      address,
+      chainId: SOLANA_MAINNET_CHAIN_ID,
+      issuedAt: session.issuedAt,
+    };
+  }
+
+  return null;
 }
 
 export function sealSession(

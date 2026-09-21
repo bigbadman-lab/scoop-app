@@ -45,6 +45,7 @@ export {
   updateScoopDisplayName,
   updateScoopAvatarPath,
   listLaunchesForScoopUser,
+  listLaunchesForDeployerAddress,
   getDeployerFeeTotalsForScoopUser,
   getCreatorFeeTotalsForScoopUser,
   type ScoopAccountBundle,

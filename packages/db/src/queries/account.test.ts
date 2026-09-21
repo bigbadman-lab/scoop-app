@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getCreatorFeeTotalsForScoopUser,
   getDeployerFeeTotalsForScoopUser,
+  listLaunchesForDeployerAddress,
   listLaunchesForScoopUser,
   updateScoopDisplayName,
 } from './account.js';
@@ -9,6 +10,9 @@ import type { Queryable } from '../types.js';
 
 const USER_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const SOL_CREATOR = 'GJRBYe1nDVszvBDYDjT3Q7DW7fTkdHxaJbL4NvHPqF3p';
+const SOL_OTHER = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
+const PUMP_MINT = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
 
 function mockDb(rowsByCall: unknown[][]): Queryable {
   let i = 0;
@@ -48,6 +52,49 @@ describe('account attribution', () => {
     expect(sql).toMatch(/w\.user_id = \$1/);
     expect(sql).toMatch(/t\.display_image_url/);
     expect(sql).not.toMatch(/creator_id = \$1/);
+  });
+
+  it('lists Solana launches by exact deployer_address + product chain id', async () => {
+    const db = mockDb([
+      [
+        {
+          chain_id: 900001,
+          token_address: PUMP_MINT,
+          name: 'Scoop Pump Canary',
+          symbol: 'SCPY',
+          image_uri: null,
+          display_image_url: 'https://cdn.example/scpy.png',
+          quote_asset: 'So11111111111111111111111111111111111111112',
+          launched_at: 1_700_000_100,
+          launch_complete: false,
+          creator_id: SOL_CREATOR,
+        },
+      ],
+    ]);
+    const launches = await listLaunchesForDeployerAddress(db, SOL_CREATOR, 900001);
+    expect(launches).toHaveLength(1);
+    expect(launches[0]?.tokenAddress).toBe(PUMP_MINT);
+    expect(launches[0]?.symbol).toBe('SCPY');
+    expect(launches[0]?.displayImageUrl).toBe('https://cdn.example/scpy.png');
+
+    const call = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    const sql = String(call[0]);
+    const params = call[1] as unknown[];
+    expect(sql).toMatch(/l\.deployer_address = \$2/);
+    expect(sql).toMatch(/l\.chain_id = \$1/);
+    expect(sql).not.toMatch(/scoop_wallets/);
+    expect(params[0]).toBe(900001);
+    expect(params[1]).toBe(SOL_CREATOR);
+    // Never lowercase Solana base58.
+    expect(params[1]).not.toBe(SOL_CREATOR.toLowerCase());
+  });
+
+  it('does not return Solana launches for a different deployer pubkey', async () => {
+    const db = mockDb([[]]);
+    const launches = await listLaunchesForDeployerAddress(db, SOL_OTHER, 900001);
+    expect(launches).toHaveLength(0);
+    const params = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]![1] as unknown[];
+    expect(params[1]).toBe(SOL_OTHER);
   });
 
   it('keeps deployer fee totals separate from creator claimables', async () => {
