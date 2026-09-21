@@ -139,4 +139,10 @@ describe('classifyPumpPortalProviderError', () => {
       'blocked_funding',
     );
   });
+
+  it('treats subscribe success ack as ok', () => {
+    expect(classifyPumpPortalProviderError('Successfully subscribed to keys.').status).toBe(
+      'ok',
+    );
+  });
 });

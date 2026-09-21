@@ -283,10 +283,17 @@ export function normalizePumpPortalTrade(
 
 /** Classify provider control / error text into health status. */
 export function classifyPumpPortalProviderError(text: string): {
-  status: 'blocked_auth' | 'blocked_funding' | 'error';
-  error: string;
+  status: 'blocked_auth' | 'blocked_funding' | 'error' | 'ok';
+  error: string | null;
 } {
   const t = text.toLowerCase();
+  if (
+    t.includes('successfully subscribed') ||
+    t.includes('subscribed to keys') ||
+    t.includes('subscription successful')
+  ) {
+    return { status: 'ok', error: null };
+  }
   if (
     t.includes('invalid api') ||
     t.includes('unauthorized') ||

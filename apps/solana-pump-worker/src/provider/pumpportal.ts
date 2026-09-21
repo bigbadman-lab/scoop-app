@@ -236,6 +236,10 @@ export class PumpPortalTradeProvider implements PumpTradeProvider {
           onError: (err) => {
             this.error = err.message;
             const classified = classifyPumpPortalProviderError(err.message);
+            if (classified.status === 'ok') {
+              this.error = null;
+              return;
+            }
             this.status = classified.status;
             this.error = classified.error;
             logJson('error', 'pumpportal socket error', {
@@ -334,6 +338,15 @@ export class PumpPortalTradeProvider implements PumpTradeProvider {
             : null;
       if (errText && obj.txType == null && obj.signature == null) {
         const classified = classifyPumpPortalProviderError(errText);
+        if (classified.status === 'ok') {
+          logJson('info', 'pumpportal provider ack', {
+            message: errText.slice(0, 120),
+            subscribedMintCount: this.subscribed.size,
+          });
+          this.status = this.subscribed.size > 0 ? 'subscribed' : 'connected';
+          this.error = null;
+          return;
+        }
         this.status = classified.status;
         this.error = classified.error;
         logJson('error', 'pumpportal provider message', {
