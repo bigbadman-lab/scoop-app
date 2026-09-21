@@ -677,7 +677,7 @@ export async function processBlock(
       sqrtPriceX96After: BigInt(0),
       tickAfter: 0,
       liquidityAfterRaw: BigInt(0),
-      fee: Number(ev.args.fee > BigInt(2_000_000_000) ? BigInt(0) : ev.args.fee),
+      fee: ev.args.fee,
       executionPriceQuoteX18: exec,
       quoteUsdX18: null,
       executionPriceUsdX18: null,

@@ -23,7 +23,11 @@ export interface TradeRow {
   sqrtPriceX96After: string | bigint;
   tickAfter: number;
   liquidityAfterRaw: string | bigint;
-  fee: number;
+  /**
+   * UV4 pool fee tier (e.g. 10000) or Pons curve fee in quote wei.
+   * Stored as Postgres bigint — never truncate wei into int32.
+   */
+  fee: number | bigint | string;
   executionPriceQuoteX18: string | bigint;
   quoteUsdX18?: string | bigint | null;
   executionPriceUsdX18?: string | bigint | null;
@@ -89,7 +93,7 @@ export async function upsertTrade(db: Queryable, row: TradeRow): Promise<void> {
       toNumericString(row.sqrtPriceX96After),
       row.tickAfter,
       toNumericString(row.liquidityAfterRaw),
-      row.fee,
+      toNumericString(row.fee),
       toNumericString(row.executionPriceQuoteX18),
       row.quoteUsdX18 == null ? null : toNumericString(row.quoteUsdX18),
       row.executionPriceUsdX18 == null ? null : toNumericString(row.executionPriceUsdX18),
