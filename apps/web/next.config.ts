@@ -27,6 +27,18 @@ const nextConfig: NextConfig = {
     '/docs': ['../../scoop-protocol-docs.md'],
     // opengraph-image readFile()'s the template — must be traced into the serverless bundle.
     '/token/[address]/opengraph-image': ['./public/brand/token-template2.png'],
+    // Pump prepare/confirm/dev probes load @pump-fun/pump-sdk via Node require.
+    // Explicit includes keep the pnpm store entry in the Vercel function.
+    '/api/launch/pump/prepare': [
+      './node_modules/@pump-fun/pump-sdk/**/*',
+      '../../node_modules/@pump-fun/pump-sdk/**/*',
+      '../../node_modules/.pnpm/@pump-fun+pump-sdk@*/node_modules/@pump-fun/pump-sdk/**/*',
+    ],
+    '/api/launch/pump/confirm': [
+      './node_modules/@pump-fun/pump-sdk/**/*',
+      '../../node_modules/@pump-fun/pump-sdk/**/*',
+      '../../node_modules/.pnpm/@pump-fun+pump-sdk@*/node_modules/@pump-fun/pump-sdk/**/*',
+    ],
   },
   // Wagmi/AppKit pulls Coinbase Base Account → optional @x402 peers we do not use.
   // Stub so production builds succeed without installing payment SDK extras.

@@ -1,15 +1,17 @@
 /**
  * Lazy CJS load of official Pump SDK (server/test only).
  *
- * IMPORTANT: use a string-literal `require('@pump-fun/pump-sdk')` so Next's
- * webpack externals (`serverExternalPackages` + commonjs external) keep a real
- * Node require in the serverless bundle.
+ * Do not import `createRequire` from `node:module` and do not rely on a free
+ * `require` inside the Next webpack server chunk. Both get rewritten:
+ * - `createRequire(cwd/package.json)` → `(void 0)("@pump-fun/pump-sdk")`
+ * - `typeof require === "function" ? require : webpackStub` → stub that always
+ *   throws MODULE_NOT_FOUND when the free `require` is absent
  *
- * `createRequire(path.join(process.cwd(), 'package.json'))` is rewritten to
- * `(void 0)("@pump-fun/pump-sdk")` in `.next/server`, which throws
- * `(void 0) is not a function` on the first funded prepare (after getBalance).
+ * Use `process.getBuiltinModule("module")` so Node's real createRequire is used
+ * without a static webpack import of `node:module`.
  */
 import type { PublicKey, TransactionInstruction } from '@solana/web3.js';
+import path from 'node:path';
 
 export const PUMP_SDK_UNAVAILABLE = 'pump_sdk_unavailable';
 export const PUMP_SDK_EXPORT_MISSING = 'pump_sdk_export_missing';
@@ -31,6 +33,10 @@ type PumpSdkModule = {
   PUMP_PROGRAM_ID: PublicKey;
 };
 
+type NodeModuleBuiltin = {
+  createRequire: (filename: string) => NodeRequire;
+};
+
 let cached: PumpSdkModule | null = null;
 
 function assertPumpSdkModule(mod: unknown): PumpSdkModule {
@@ -45,19 +51,68 @@ function assertPumpSdkModule(mod: unknown): PumpSdkModule {
   return candidate as PumpSdkModule;
 }
 
+function sanitizeLoadError(err: unknown): string {
+  if (!err || typeof err !== 'object') return 'unknown';
+  const code =
+    'code' in err && err.code != null ? String(err.code) : '';
+  const message =
+    err instanceof Error
+      ? err.message.replace(/(?:\/[\w.@+-]+)+/g, '[path]').slice(0, 160)
+      : 'unknown';
+  if (code === 'MODULE_NOT_FOUND') return 'MODULE_NOT_FOUND';
+  if (/void 0|is not a function/i.test(message)) return 'undefined_require';
+  return code ? `${code}:${message}` : message;
+}
+
+function resolvePumpSdkRequire(): NodeRequire {
+  const getBuiltin = (
+    process as NodeJS.Process & {
+      getBuiltinModule?: (id: string) => unknown;
+    }
+  ).getBuiltinModule;
+  const builtin =
+    typeof getBuiltin === 'function'
+      ? (getBuiltin('module') as NodeModuleBuiltin | undefined)
+      : undefined;
+  if (!builtin || typeof builtin.createRequire !== 'function') {
+    throw new Error(`${PUMP_SDK_UNAVAILABLE}:builtin_module_unavailable`);
+  }
+
+  const anchors = [
+    path.join(process.cwd(), 'package.json'),
+    path.join(process.cwd(), 'apps/web/package.json'),
+  ];
+  const errors: string[] = [];
+  for (const anchor of anchors) {
+    try {
+      const req = builtin.createRequire(anchor);
+      // Probe resolution before returning so we can try the next anchor.
+      req.resolve('@pump-fun/pump-sdk');
+      return req;
+    } catch (err) {
+      errors.push(sanitizeLoadError(err));
+    }
+  }
+  throw new Error(
+    `${PUMP_SDK_UNAVAILABLE}:${errors[0] ?? 'resolve_failed'}`,
+  );
+}
+
 export function loadPumpSdk(): PumpSdkModule {
   if (cached) return cached;
   try {
-    // String literal — do not wrap with createRequire/dynamic path.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('@pump-fun/pump-sdk');
-    cached = assertPumpSdkModule(mod);
+    const req = resolvePumpSdkRequire();
+    cached = assertPumpSdkModule(req('@pump-fun/pump-sdk'));
     return cached;
   } catch (err) {
-    if (err instanceof Error && err.message === PUMP_SDK_EXPORT_MISSING) {
+    if (
+      err instanceof Error &&
+      (err.message === PUMP_SDK_EXPORT_MISSING ||
+        err.message.startsWith(`${PUMP_SDK_UNAVAILABLE}:`))
+    ) {
       throw err;
     }
-    throw new Error(PUMP_SDK_UNAVAILABLE);
+    throw new Error(`${PUMP_SDK_UNAVAILABLE}:${sanitizeLoadError(err)}`);
   }
 }
 

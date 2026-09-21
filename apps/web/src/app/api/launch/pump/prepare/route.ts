@@ -91,7 +91,10 @@ function classifyPrepareError(err: unknown): {
   if (err instanceof SolanaRpcConfigError || message === 'solana_rpc_unavailable') {
     return { code: 'solana_rpc_unavailable', status: 503, message };
   }
-  if (message === PUMP_SDK_UNAVAILABLE) {
+  if (
+    message === PUMP_SDK_UNAVAILABLE ||
+    message.startsWith(`${PUMP_SDK_UNAVAILABLE}:`)
+  ) {
     return { code: 'pump_sdk_unavailable', status: 502, message };
   }
   if (message === PUMP_SDK_EXPORT_MISSING) {
