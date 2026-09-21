@@ -139,10 +139,11 @@ pnpm --filter @scoop/web run build → ok
 
 ## 15. Deployment
 
-- SHA: (filled after push)
-- Render: `scoop-solana-pump-worker` (`srv-daogv4egekts73c8b3mg`) redeploy
-- Vercel: production for web DTO/UI wiring
-- status: pending at write time
+- SHA: `0101034`
+- Render deploy ID: `dep-daoqap942hec73fomao0` (`scoop-solana-pump-worker`)
+- Render status: build_in_progress at push; confirm live after Ready
+- Vercel: GitHub auto-deploy for web UI/DTO changes on `main`
+- Vercel status: confirm production Ready for `0101034`
 
 ## 16. Production actions
 
