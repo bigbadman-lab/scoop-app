@@ -120,10 +120,10 @@ Root cause of missed canary: **not proven as a parser bug** — strongest eviden
 
 ## 14. Deploy
 
-- SHA: _(fill after push)_
-- Render deploy ID: _(fill after worker deploy)_
-- status: observability deploy only; **does not synthesize canary PASS**
-
+- SHA: `8156d11`
+- Render deploy ID: `dep-daon3mss728c73b3pjs0` (live 2026-09-21T18:07:02Z)
+- status: **live** — observability only; **does not synthesize canary PASS**
+- Note: missed canary cannot be replayed from PumpPortal; second human trade required.
 ## 15. Production actions
 
 - extra trade placed by Cursor: **NO**
