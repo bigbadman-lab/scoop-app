@@ -1,9 +1,10 @@
 /**
- * Enabled worker loop: watchlist refresh + mock / PumpPortal provider fan-in.
+ * Enabled worker loop: watchlist refresh + Alchemy (or mock) provider fan-in.
  */
 
 import {
   createPool,
+  getPumpWorkerCheckpoint,
   listPumpWatchlist,
   type Pool,
   type PumpWatchlistItem,
@@ -13,8 +14,8 @@ import { publicConfigView } from './config.js';
 import { createHealthState, type WorkerHealthState } from './health.js';
 import { ingestNormalizedPumpTrade } from './ingest.js';
 import { logJson } from './log.js';
+import { AlchemyTradeProvider } from './provider/alchemy.js';
 import { MockPumpTradeProvider } from './provider/mock.js';
-import { PumpPortalTradeProvider } from './provider/pumpportal.js';
 import type { NormalizedPumpTradeEvent, PumpTradeProvider } from './provider/types.js';
 
 export type RunWorkerOptions = {
@@ -39,18 +40,24 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function createProvider(config: SolanaPumpWorkerConfig): PumpTradeProvider {
+function createProvider(config: SolanaPumpWorkerConfig, pool: Pool): PumpTradeProvider {
   if (config.tradeProvider === 'mock') {
     return new MockPumpTradeProvider();
   }
-  if (config.tradeProvider === 'pumpportal') {
-    if (!config.pumpPortalApiKey) {
-      throw new Error('PUMPPORTAL_API_KEY required');
+  if (config.tradeProvider === 'alchemy') {
+    if (!config.solanaRpcUrl) {
+      throw new Error('SOLANA_RPC_URL required');
     }
-    return new PumpPortalTradeProvider({
-      apiKey: config.pumpPortalApiKey,
+    return new AlchemyTradeProvider({
+      rpcUrl: config.solanaRpcUrl,
       reconnectBackoffMs: config.reconnectBackoffMs,
       maxReconnectBackoffMs: config.maxReconnectBackoffMs,
+      reconcileIntervalMs: config.reconcileIntervalMs,
+      reconcileLimit: config.reconcileLimit,
+      getCheckpointSignature: async (mint) => {
+        const row = await getPumpWorkerCheckpoint(pool, mint);
+        return row?.lastSignature ?? null;
+      },
     });
   }
   throw new Error(`Unsupported trade provider: ${String(config.tradeProvider)}`);
@@ -81,7 +88,7 @@ export async function runPumpMarketDataWorker(
 
   const health = createHealthState(true, config.tradeProvider);
   const pool = opts.pool ?? createPool(config.databaseUrl!);
-  const provider = opts.provider ?? createProvider(config);
+  const provider = opts.provider ?? createProvider(config, pool);
   const sleep = opts.sleep ?? defaultSleep;
   const ownPool = !opts.pool;
 
@@ -147,7 +154,7 @@ export async function runPumpMarketDataWorker(
       health.lastPersistedAt = event.blockTime.toISOString();
       health.currentError = null;
       health.checkpointStatus = event.signature;
-      logJson('info', 'pump trade persisted', {
+      logJson('info', 'solana trade persisted', {
         mint: event.mint,
         signature: event.signature,
         side: event.side,
@@ -167,7 +174,7 @@ export async function runPumpMarketDataWorker(
 
   logJson('info', 'solana-pump-worker starting', {
     config: publicConfigView(config),
-    liveTradeSource: 'PUMPPORTAL_DATA_API',
+    liveTradeSource: 'ALCHEMY_SOLANA_RPC',
   });
 
   health.providerStatus = 'connecting';

@@ -2,24 +2,26 @@
  * Solana / Pump market-data worker config.
  * Default: SCOOP_SOLANA_PUMP_INDEXING_ENABLED=false — idle, zero RPC/DB.
  *
- * Live trade source (Phase 6): PumpPortal Data API.
+ * Live trade source: Alchemy via SOLANA_RPC_URL.
  */
 
 import { z } from 'zod';
 import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 
-export type PumpTradeProviderKind = 'mock' | 'pumpportal';
+export type PumpTradeProviderKind = 'mock' | 'alchemy';
 
 export type SolanaPumpWorkerConfig = {
   indexingEnabled: boolean;
   chainId: typeof SOLANA_MAINNET_CHAIN_ID;
   databaseUrl: string | null;
   tradeProvider: PumpTradeProviderKind;
-  /** Present only for pumpportal — never logged via publicConfigView. */
-  pumpPortalApiKey: string | null;
+  /** Alchemy / Solana HTTPS RPC — never logged via publicConfigView. */
+  solanaRpcUrl: string | null;
   watchlistRefreshMs: number;
   reconnectBackoffMs: number;
   maxReconnectBackoffMs: number;
+  reconcileIntervalMs: number;
+  reconcileLimit: number;
 };
 
 export type PublicSolanaPumpWorkerConfig = {
@@ -28,7 +30,8 @@ export type PublicSolanaPumpWorkerConfig = {
   tradeProvider: PumpTradeProviderKind;
   watchlistRefreshMs: number;
   hasDatabaseUrl: boolean;
-  hasPumpPortalApiKey: boolean;
+  hasSolanaRpcUrl: boolean;
+  solanaRpcProvider: 'alchemy' | 'other' | null;
 };
 
 function parseBool(raw: string | undefined, defaultValue: boolean): boolean {
@@ -48,7 +51,16 @@ function parsePositiveInt(raw: string | undefined, fallback: number, name: strin
   return n;
 }
 
-const providerSchema = z.enum(['mock', 'pumpportal']);
+const providerSchema = z.enum(['mock', 'alchemy']);
+
+function classifyRpcProvider(rpcUrl: string | null): 'alchemy' | 'other' | null {
+  if (!rpcUrl) return null;
+  try {
+    return new URL(rpcUrl).hostname.toLowerCase().includes('alchemy') ? 'alchemy' : 'other';
+  } catch {
+    return 'other';
+  }
+}
 
 export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -62,9 +74,9 @@ export function loadConfig(
     throw new Error('DATABASE_URL is required when SCOOP_SOLANA_PUMP_INDEXING_ENABLED=true');
   }
 
-  const pumpPortalApiKey = env.PUMPPORTAL_API_KEY?.trim() || null;
-  if (indexingEnabled && tradeProvider === 'pumpportal' && !pumpPortalApiKey) {
-    throw new Error('PUMPPORTAL_API_KEY is required when trade provider is pumpportal');
+  const solanaRpcUrl = env.SOLANA_RPC_URL?.trim() || null;
+  if (indexingEnabled && tradeProvider === 'alchemy' && !solanaRpcUrl) {
+    throw new Error('SOLANA_RPC_URL is required when trade provider is alchemy');
   }
 
   return {
@@ -72,7 +84,7 @@ export function loadConfig(
     chainId: SOLANA_MAINNET_CHAIN_ID,
     databaseUrl,
     tradeProvider,
-    pumpPortalApiKey,
+    solanaRpcUrl,
     watchlistRefreshMs: parsePositiveInt(
       env.SCOOP_SOLANA_PUMP_WATCHLIST_REFRESH_MS,
       45_000,
@@ -88,6 +100,16 @@ export function loadConfig(
       60_000,
       'SCOOP_SOLANA_PUMP_MAX_RECONNECT_BACKOFF_MS',
     ),
+    reconcileIntervalMs: parsePositiveInt(
+      env.SCOOP_SOLANA_PUMP_RECONCILE_INTERVAL_MS,
+      60_000,
+      'SCOOP_SOLANA_PUMP_RECONCILE_INTERVAL_MS',
+    ),
+    reconcileLimit: parsePositiveInt(
+      env.SCOOP_SOLANA_PUMP_RECONCILE_LIMIT,
+      80,
+      'SCOOP_SOLANA_PUMP_RECONCILE_LIMIT',
+    ),
   };
 }
 
@@ -98,6 +120,7 @@ export function publicConfigView(config: SolanaPumpWorkerConfig): PublicSolanaPu
     tradeProvider: config.tradeProvider,
     watchlistRefreshMs: config.watchlistRefreshMs,
     hasDatabaseUrl: Boolean(config.databaseUrl),
-    hasPumpPortalApiKey: Boolean(config.pumpPortalApiKey),
+    hasSolanaRpcUrl: Boolean(config.solanaRpcUrl),
+    solanaRpcProvider: classifyRpcProvider(config.solanaRpcUrl),
   };
 }

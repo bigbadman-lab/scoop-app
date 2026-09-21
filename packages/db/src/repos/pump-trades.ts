@@ -26,7 +26,7 @@ export type PumpTradeRow = {
   solAmountLamports: string | number | bigint;
   solAmount: string;
   priceSol: string;
-  source?: 'pump' | 'pumpportal';
+  source?: 'pump' | 'pumpportal' | 'alchemy';
   curveAddress?: string | null;
 };
 

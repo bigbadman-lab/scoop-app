@@ -1,7 +1,7 @@
 /**
  * Production entry (`dist/index.js`).
  * SCOOP_SOLANA_PUMP_INDEXING_ENABLED=false → idle heartbeat (default).
- * Live source: PumpPortal Data API (when enabled + configured).
+ * Live source: Alchemy Solana RPC / WebSocket (when enabled + configured).
  */
 
 import { loadConfig, publicConfigView } from './config.js';
@@ -21,7 +21,7 @@ async function main() {
       provider: health.provider,
       providerStatus: health.providerStatus,
     },
-    liveTradeSource: 'PUMPPORTAL_DATA_API',
+    liveTradeSource: 'ALCHEMY_SOLANA_RPC',
   });
 
   if (!config.indexingEnabled) {

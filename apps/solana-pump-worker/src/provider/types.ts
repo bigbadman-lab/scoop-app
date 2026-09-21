@@ -1,9 +1,9 @@
 /**
  * Pump trade source adapter boundary.
- * Live source (Phase 6): PumpPortal Data API.
+ * Live source: Alchemy Solana RPC / WebSocket (SOLANA_RPC_URL).
  */
 
-export type PumpTradeSource = 'pump' | 'pumpportal';
+export type PumpTradeSource = 'pump' | 'pumpportal' | 'alchemy';
 
 export type NormalizedPumpTradeEvent = {
   mint: string;
@@ -41,7 +41,7 @@ export type PumpProviderStatus =
 export type PumpTradeProviderHealth = {
   status: PumpProviderStatus;
   error?: string | null;
-  provider?: 'mock' | 'pumpportal';
+  provider?: 'mock' | 'alchemy' | 'pumpportal';
   subscribedMintCount?: number;
   messagesReceived?: number;
   normalizedEvents?: number;
@@ -59,4 +59,6 @@ export interface PumpTradeProvider {
   onTrade(handler: PumpTradeHandler): void;
   health(): PumpTradeProviderHealth;
   close(): Promise<void>;
+  /** Optional bounded recovery (Alchemy). */
+  reconcileAll?(reason?: string): Promise<{ recovered: number }>;
 }

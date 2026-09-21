@@ -2,7 +2,7 @@ import type { PumpProviderStatus } from './provider/types.js';
 
 export type WorkerHealthState = {
   enabled: boolean;
-  provider: 'mock' | 'pumpportal' | null;
+  provider: 'mock' | 'alchemy' | null;
   watchlistSize: number;
   providerStatus: PumpProviderStatus;
   subscribedMintCount: number;
@@ -22,7 +22,7 @@ export type WorkerHealthState = {
 
 export function createHealthState(
   enabled: boolean,
-  provider: 'mock' | 'pumpportal' | null = null,
+  provider: 'mock' | 'alchemy' | null = null,
 ): WorkerHealthState {
   return {
     enabled,
