@@ -130,14 +130,13 @@ Email + Ethereum wallet + SIWE path unchanged. Authoritative namespace set to `e
 
 ## 13. Production deploy
 
-Filled after push / Vercel success.
-
 | Field | Value |
 |-------|-------|
-| Commit SHA | _(pending push)_ |
-| Vercel deployment ID | _(pending)_ |
+| Commit SHA | `b86c36a` |
+| GitHub Deployment ID | `6571146494` |
+| Vercel | Production success (`scoop-owsrussnr-cope2.vercel.app`) |
 | Production URL | `https://scoop.fun` |
-| Status | _(pending)_ |
+| Status | **success** |
 
 ---
 
