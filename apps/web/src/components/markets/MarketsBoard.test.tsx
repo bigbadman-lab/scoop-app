@@ -271,6 +271,42 @@ describe('MarketsBoard UI', () => {
     expect(rows[0]!.querySelector('[data-testid="market-leader-flame"]')).toBeNull();
   });
 
+  it('Newest, FDV, Most traded, and Holders reorder without dropping rows', () => {
+    const items = [
+      ...boardItems(),
+      market({
+        tokenAddress: 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu',
+        chainId: 900001,
+        marketSource: 'pump',
+        name: 'Scoopys',
+        symbol: 'SCPY',
+        launchedAt: 50,
+        tradeCountAllTime: 11,
+        fdvUsdX18: null,
+        fdvUsdDisplay: null,
+        holderCountAll: null,
+        holderCountRetail: null,
+      }),
+    ];
+    renderBoard(items);
+    expect(screen.getAllByTestId('market-row')).toHaveLength(4);
+
+    fireEvent.click(screen.getByTestId('markets-sort-newest'));
+    expect(screen.getAllByTestId('market-row')).toHaveLength(4);
+
+    fireEvent.click(screen.getByTestId('markets-sort-fdv'));
+    expect(screen.getAllByTestId('market-row')).toHaveLength(4);
+    expect(
+      screen.getAllByTestId('market-row').map((r) => r.getAttribute('data-token')),
+    ).toContain('B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu');
+
+    fireEvent.click(screen.getByTestId('markets-sort-trades'));
+    expect(screen.getAllByTestId('market-row')).toHaveLength(4);
+
+    fireEvent.click(screen.getByTestId('markets-sort-holders'));
+    expect(screen.getAllByTestId('market-row')).toHaveLength(4);
+  });
+
   it('Newest and Most traded reorder using live snapshot fields', () => {
     renderBoard();
 

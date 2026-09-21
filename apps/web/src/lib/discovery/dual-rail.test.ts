@@ -80,14 +80,32 @@ describe('mergeDiscoveryByLaunchedAt', () => {
     expect(merged[0]!.fdvUsdX18).toBeNull();
   });
 
-  it('dedupes by chainId:tokenAddress without lowercasing Solana', () => {
+  it('does not use FDV or holders as a homepage NEW visibility gate', () => {
     const merged = mergeDiscoveryByLaunchedAt(
-      [item({ chainId: 900001, tokenAddress: MINT, launchedAt: 1, name: 'A' })],
-      [item({ chainId: 900001, tokenAddress: MINT, launchedAt: 2, name: 'B' })],
+      [
+        item({
+          chainId: 4663,
+          tokenAddress: '0x4d35b131c2463ffb9cb2435e6df85d287f494b8b',
+          launchedAt: 100,
+          symbol: '$NOMI',
+          fdvUsdX18: '1',
+          holderCountAll: 0,
+        }),
+      ],
+      [
+        item({
+          chainId: 900001,
+          tokenAddress: MINT,
+          launchedAt: 200,
+          symbol: 'SCPY',
+          marketSource: 'pump',
+          fdvUsdX18: null,
+          holderCountAll: null,
+        }),
+      ],
     );
-    expect(merged).toHaveLength(1);
-    expect(merged[0]!.name).toBe('B');
-    expect(merged[0]!.tokenAddress).toBe(MINT);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((t) => t.symbol)).toEqual(['SCPY', '$NOMI']);
   });
 });
 

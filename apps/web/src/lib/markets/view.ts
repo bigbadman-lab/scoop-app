@@ -1,11 +1,22 @@
 import type { MarketsBoardItem } from '@/lib/markets/types';
+import {
+  compareMarketsByFdvDesc,
+  marketAddressKey,
+} from '@/lib/markets/rank';
 
-export type MarketsSortId = 'trending' | 'newest' | 'trades';
+export type MarketsSortId =
+  | 'trending'
+  | 'fdv'
+  | 'newest'
+  | 'trades'
+  | 'holders';
 
 export const MARKETS_SORT_OPTIONS = [
   { id: 'trending' as const, label: 'Trending' },
+  { id: 'fdv' as const, label: 'FDV' },
   { id: 'newest' as const, label: 'Newest' },
   { id: 'trades' as const, label: 'Most traded' },
+  { id: 'holders' as const, label: 'Holders' },
 ] as const;
 
 export const DEFAULT_MARKETS_SORT: MarketsSortId = 'trending';
@@ -16,21 +27,62 @@ export type RankedMarketsBoardItem = MarketsBoardItem & {
   rank: number;
 };
 
-/** Preserve incoming (canonical FDV) order for Trending. */
+function holdersRankValue(item: MarketsBoardItem): number | null {
+  const retail = item.holderCountRetail;
+  if (retail != null && Number.isFinite(retail)) return retail;
+  const all = item.holderCountAll;
+  if (all != null && Number.isFinite(all)) return all;
+  return null;
+}
+
+/**
+ * Reorder only — never drops rows.
+ * Null / missing metric values sort last but remain in the catalogue.
+ */
 export function sortMarketsBoardItems(
   items: readonly MarketsBoardItem[],
   sort: MarketsSortId,
 ): MarketsBoardItem[] {
   if (sort === 'trending') {
+    // Preserve canonical SSR ranking (FDV desc via buildMarketsBoardItems).
     return items.slice();
   }
 
   const next = items.slice();
+  if (sort === 'fdv') {
+    next.sort(compareMarketsByFdvDesc);
+    return next;
+  }
+
   if (sort === 'newest') {
     next.sort((a, b) => {
       const byLaunch = b.launchedAt - a.launchedAt;
       if (byLaunch !== 0) return byLaunch;
-      return a.tokenAddress.localeCompare(b.tokenAddress);
+      return marketAddressKey(a.tokenAddress).localeCompare(
+        marketAddressKey(b.tokenAddress),
+      );
+    });
+    return next;
+  }
+
+  if (sort === 'holders') {
+    next.sort((a, b) => {
+      const aH = holdersRankValue(a);
+      const bH = holdersRankValue(b);
+      const aMissing = aH == null;
+      const bMissing = bH == null;
+      if (aMissing && bMissing) {
+        return marketAddressKey(a.tokenAddress).localeCompare(
+          marketAddressKey(b.tokenAddress),
+        );
+      }
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      const byHolders = (bH as number) - (aH as number);
+      if (byHolders !== 0) return byHolders;
+      return marketAddressKey(a.tokenAddress).localeCompare(
+        marketAddressKey(b.tokenAddress),
+      );
     });
     return next;
   }
@@ -42,13 +94,17 @@ export function sortMarketsBoardItems(
     const aMissing = aTrades == null || !Number.isFinite(aTrades);
     const bMissing = bTrades == null || !Number.isFinite(bTrades);
     if (aMissing && bMissing) {
-      return a.tokenAddress.localeCompare(b.tokenAddress);
+      return marketAddressKey(a.tokenAddress).localeCompare(
+        marketAddressKey(b.tokenAddress),
+      );
     }
     if (aMissing) return 1;
     if (bMissing) return -1;
     const byTrades = (bTrades as number) - (aTrades as number);
     if (byTrades !== 0) return byTrades;
-    return a.tokenAddress.localeCompare(b.tokenAddress);
+    return marketAddressKey(a.tokenAddress).localeCompare(
+      marketAddressKey(b.tokenAddress),
+    );
   });
   return next;
 }
@@ -78,6 +134,7 @@ export function filterMarketsBoardItems<T extends MarketsBoardItem>(
 /**
  * Sort for the active view, assign canonical ranks, then optionally filter.
  * Search preserves each market's view rank (does not renumber).
+ * Sort never removes rows — only search does.
  */
 export function applyMarketsBoardView(
   items: readonly MarketsBoardItem[],
