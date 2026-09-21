@@ -124,4 +124,17 @@ Focused suites: **47 passed**. Typecheck + build: run in ship step.
 
 ## 14. Exact next step
 
-`NEXT STEP: PONS IMAGE + FDV/USD REPAIR ALREADY SHIPPED; CONTINUE TO NEWS ROUTING + LORE + DEV BUY.`
+`NEXT STEP: CONTINUE TO NEWS ROUTING + LORE + DEV BUY.`
+
+---
+
+## Follow-up (2026-09-21T20:27Z) — live-poll chainId wipe
+
+**Root cause of Solana still missing in UI:** SSR already loaded dual-rail data, but client live polls forced RHC-only:
+
+- `fetchMarketsBoard` → `/api/markets?chainId=4663`
+- `fetchDiscoverSnapshot` → `/api/discover?chainId=4663`
+
+Within ~2s the poll replaced the dual-rail snapshot with single-rail RHC rows, wiping SCPY.
+
+**Fix:** omit `chainId` so both endpoints use dual-rail defaults.

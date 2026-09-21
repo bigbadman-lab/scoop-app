@@ -1,7 +1,6 @@
 import type { DiscoverSnapshot, DiscoverTabResult } from '@/lib/discovery/load-home';
 import { DISCOVER_TABS, type DiscoverTabId } from '@/lib/discovery/tabs';
 import type { TokenDiscoveryItem } from '@/lib/server/queries';
-import { SCOOP_CHAIN_ID } from '@scoop/shared';
 
 type DiscoverApiBody = {
   new?: TokenDiscoveryItem[];
@@ -20,16 +19,14 @@ function toTabResult(tabId: DiscoverTabId, items: TokenDiscoveryItem[]): Discove
 
 /**
  * One HTTP request for all Discover tabs.
+ * Dual-rail: omit chainId so /api/discover returns RHC + Solana/Pump.
  * Returns `null` on transient failure so the poll keeps the last good snapshot.
  */
 export async function fetchDiscoverSnapshot(
   signal?: AbortSignal,
 ): Promise<DiscoverSnapshot | null> {
   try {
-    const params = new URLSearchParams({
-      chainId: String(SCOOP_CHAIN_ID),
-    });
-    const res = await fetch(`/api/discover?${params.toString()}`, {
+    const res = await fetch('/api/discover', {
       method: 'GET',
       headers: { Accept: 'application/json' },
       cache: 'no-store',

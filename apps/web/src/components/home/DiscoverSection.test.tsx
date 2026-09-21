@@ -169,7 +169,8 @@ describe('DiscoverSection', () => {
     await waitFor(() => expect(screen.getByText('New Live')).toBeTruthy());
     expect(fetchMock).toHaveBeenCalled();
     const url = String(fetchMock.mock.calls[0]![0]);
-    expect(url).toContain('/api/discover');
+    expect(url).toBe('/api/discover');
+    expect(url).not.toContain('chainId=');
     expect(url).not.toContain('/api/tokens');
 
     fireEvent.click(screen.getByTestId('discover-tab-bonding'));
