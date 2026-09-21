@@ -7,7 +7,9 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: [
-    '@pump-fun/pump-sdk',
+    // Keep Pump SDK out of serverExternalPackages so Next webpack bundles it.
+    // Externalizing left a runtime require that Vercel could not resolve
+    // (MODULE_NOT_FOUND) despite NFT including the package files.
     '@coral-xyz/anchor',
     '@pump-fun/pump-swap-sdk',
     '@pump-fun/agent-payments-sdk',
@@ -54,7 +56,8 @@ const nextConfig: NextConfig = {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
     if (isServer) {
       config.externals.push({
-        '@pump-fun/pump-sdk': 'commonjs @pump-fun/pump-sdk',
+        // Do not externalize @pump-fun/pump-sdk — must be webpack-bundled for
+        // Vercel serverless resolution (see prepare 502 MODULE_NOT_FOUND).
         '@pump-fun/pump-swap-sdk': 'commonjs @pump-fun/pump-swap-sdk',
         '@pump-fun/agent-payments-sdk': 'commonjs @pump-fun/agent-payments-sdk',
         '@coral-xyz/anchor': 'commonjs @coral-xyz/anchor',
