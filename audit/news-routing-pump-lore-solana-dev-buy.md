@@ -116,7 +116,11 @@ pnpm --filter @scoop/web run build      # ok (this gate)
 
 ## 12. Deploy
 
-Filled after push / Vercel prod deploy.
+- **SHA:** `dcca73a9e083c15ac8e7d22b20714587143112d6` (pushed to `origin/main`)
+- **Vercel CLI:** unavailable in this environment (`fetch failed` / not authenticated)
+- **Expected:** Git-linked Vercel production deploy for `main` @ `dcca73a` — confirm in Vercel dashboard
+
+Human: verify the production deployment for this SHA before the live canary.
 
 ## 13. Human production check
 
