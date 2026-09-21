@@ -35,6 +35,10 @@ vi.mock('@reown/appkit/react', () => ({
   }),
 }));
 
+vi.mock('@reown/appkit-adapter-solana/react', () => ({
+  useAppKitConnection: () => ({ connection: null }),
+}));
+
 vi.mock('wagmi', () => ({
   useAccount: () => useAccount(),
   useDisconnect: () => ({ disconnect: vi.fn() }),
@@ -108,9 +112,22 @@ describe('AccountPageLive Solana SIWS session', () => {
     });
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        Response.json(solanaAccountResponse()),
-      ),
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/account/solana/creator-fees')) {
+          return Response.json({
+            ok: true,
+            creator: SOL,
+            claimableLamports: '0',
+            claimableSol: '0',
+            claimableUsd: null,
+            supported: true,
+            feeMode: 'standard',
+            message: 'No creator fees available to claim.',
+          });
+        }
+        return Response.json(solanaAccountResponse());
+      }),
     );
   });
 
@@ -142,6 +159,10 @@ describe('AccountPageLive Solana SIWS session', () => {
     expect(screen.getByTestId('solana-modules-unavailable').textContent).toMatch(
       /Not available on Solana yet/i,
     );
+    expect(screen.getByTestId('solana-creator-fees')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('solana-creator-fees-sol').textContent).toMatch(/0 SOL/);
+    });
     expect(screen.getByText('No markets launched yet.')).toBeTruthy();
     expect(fetch).toHaveBeenCalledWith(
       '/api/account',
@@ -167,8 +188,21 @@ describe('AccountPageLive Solana SIWS session', () => {
     });
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        Response.json(
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/account/solana/creator-fees')) {
+          return Response.json({
+            ok: true,
+            creator: SOL,
+            claimableLamports: '0',
+            claimableSol: '0',
+            claimableUsd: null,
+            supported: true,
+            feeMode: 'standard',
+            message: 'No creator fees available to claim.',
+          });
+        }
+        return Response.json(
           solanaAccountResponse([
             {
               tokenAddress: MINT,
@@ -184,8 +218,8 @@ describe('AccountPageLive Solana SIWS session', () => {
               network: 'Solana',
             },
           ]),
-        ),
-      ),
+        );
+      }),
     );
 
     render(<AccountPageLive />);

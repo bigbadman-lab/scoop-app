@@ -45,6 +45,14 @@ type PumpSdkApi = {
 type OnlinePumpSdkCtor = new (connection: Connection) => {
   fetchGlobal: () => Promise<unknown>;
   fetchFeeConfig: () => Promise<unknown>;
+  getCreatorVaultBalanceBothPrograms?: (
+    creator: PublicKey,
+  ) => Promise<PumpBn>;
+  collectCoinCreatorFeeInstructions?: (
+    coinCreator: PublicKey,
+    feePayer?: PublicKey,
+  ) => Promise<TransactionInstruction[]>;
+  fetchBondingCurve?: (mint: PublicKey) => Promise<{ creator: PublicKey }>;
 };
 
 type PumpSdkModule = {
@@ -59,6 +67,10 @@ type PumpSdkModule = {
     amount: PumpBn;
     quoteMint: PublicKey;
   }) => PumpBn;
+  hasCoinCreatorMigratedToSharingConfig?: (args: {
+    mint: PublicKey;
+    creator: PublicKey;
+  }) => boolean;
 };
 
 type BnCtor = new (n: string | number | bigint, base?: number) => PumpBn;

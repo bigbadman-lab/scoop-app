@@ -28,6 +28,7 @@ import { pickTokenImageSrc } from '@/lib/media/resolve-token-image';
 import { CreatorClaimsLane } from '@/components/account/CreatorClaimsLane';
 import { DeployerFeesLane } from '@/components/account/DeployerFeesLane';
 import { HolderRewardsLane } from '@/components/account/HolderRewardsLane';
+import { SolanaCreatorFeesLane } from '@/components/account/SolanaCreatorFeesLane';
 
 type LoadState =
   | { kind: 'loading' }
@@ -399,12 +400,18 @@ function AccountReady({
         </section>
 
         {namespace === 'solana' ? (
-          <section className="mt-10 space-y-2 border-t border-[var(--divider)] pt-8">
-            <h2 className="text-lg font-semibold tracking-tight">Fees</h2>
-            <p className="text-sm text-[var(--muted)]" data-testid="solana-modules-unavailable">
-              Not available on Solana yet
-            </p>
-          </section>
+          <>
+            <SolanaCreatorFeesLane
+              sessionOnly={sessionOnly}
+              onClaimed={onRefresh}
+            />
+            <section className="mt-10 space-y-2 border-t border-[var(--divider)] pt-8">
+              <h2 className="text-lg font-semibold tracking-tight">Protocol fees</h2>
+              <p className="text-sm text-[var(--muted)]" data-testid="solana-modules-unavailable">
+                Not available on Solana yet
+              </p>
+            </section>
+          </>
         ) : (
           <FeesSection
             deployerAssets={account.fees.deployer.assets}
