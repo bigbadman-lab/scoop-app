@@ -74,6 +74,7 @@ export function SolanaCreatorFeesLane({
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<SolanaCreatorFeeClaimPhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [lastSignature, setLastSignature] = useState<string | null>(null);
   const refreshGen = useRef(0);
 
@@ -132,6 +133,7 @@ export function SolanaCreatorFeesLane({
   async function onClaim() {
     if (!claimable || busy || sessionOnly) return;
     setError(null);
+    setStatusMessage(null);
     setPhase('idle');
     try {
       const result = await runSolanaCreatorFeeClaim({
@@ -144,6 +146,7 @@ export function SolanaCreatorFeesLane({
       if (result.status === 'confirmed') {
         setPhase('claimed');
         setLastSignature(null);
+        setStatusMessage('Claimed — your unclaimed balance will update shortly.');
         await refresh();
         onClaimed?.();
         return;
@@ -155,10 +158,12 @@ export function SolanaCreatorFeesLane({
         return;
       }
       // Ambiguous — keep signature; do not blind retry broadcast.
-      setPhase('error');
-      setError(
-        'Claim submitted but confirmation is unclear. Check your wallet before trying again.',
+      setPhase('claimed');
+      setStatusMessage(
+        'Claim sent. Your wallet should show it shortly — give it a moment before claiming again.',
       );
+      void refresh();
+      onClaimed?.();
     } catch (err) {
       setPhase('error');
       setError(userFacingClaimError(err));
@@ -235,6 +240,16 @@ export function SolanaCreatorFeesLane({
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      {statusMessage ? (
+        <p
+          className="font-mono text-[11px] text-[var(--muted)]"
+          role="status"
+          data-testid="solana-creator-fees-status"
+        >
+          {statusMessage}
+        </p>
       ) : null}
 
       {error ? (
