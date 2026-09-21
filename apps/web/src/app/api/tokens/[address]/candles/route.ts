@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
-import { assertCandleInterval, getCandles, serverDb } from '@/lib/server/queries';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
+import {
+  assertCandleInterval,
+  getCandles,
+  getPumpCandles,
+  serverDb,
+} from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
-  parseAddress,
   parseChainId,
   parseLimit,
   parseOptionalInt,
+  parseTokenApiAddress,
 } from '@/lib/server/validate';
 
 export const dynamic = 'force-dynamic';
@@ -17,19 +23,34 @@ export async function GET(
 ) {
   try {
     const { address: raw } = await context.params;
-    const address = parseAddress(raw);
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId'));
+    const address = parseTokenApiAddress(raw, chainId);
     const interval = url.searchParams.get('interval') ?? '1m';
+    const db = serverDb();
+
+    if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+      if (interval !== '1m' && interval !== '5m' && interval !== '1h') {
+        throw new ValidationError('Invalid interval');
+      }
+      const items = await getPumpCandles(db, address, interval, {
+        from: parseOptionalInt(url.searchParams.get('from'), 'from'),
+        to: parseOptionalInt(url.searchParams.get('to'), 'to'),
+        limit: parseLimit(url.searchParams.get('limit'), 500, 100),
+      });
+      const body = { items };
+      assertNoSecretLeakage(body);
+      return NextResponse.json(body);
+    }
+
     try {
       assertCandleInterval(interval);
     } catch {
       throw new ValidationError('Invalid interval');
     }
-    const items = await getCandles(serverDb(), chainId, address, interval, {
+    const items = await getCandles(db, chainId, address, interval, {
       from: parseOptionalInt(url.searchParams.get('from'), 'from'),
       to: parseOptionalInt(url.searchParams.get('to'), 'to'),
-      // Match @scoop/db clampLimit ceiling so chart ranges (e.g. 1W×1h) are not truncated.
       limit: parseLimit(url.searchParams.get('limit'), 500, 100),
     });
     const body = { items };

@@ -91,6 +91,16 @@ export {
   getEarliestVaultDepositUnix,
   listHolderRewardEntitlementsForAccount,
   parseHolderRewardProofJson,
+  getPumpTrades,
+  getPumpCandles,
+  getPumpMarketState,
+  getTokenWithPumpMarketState,
+  applyPumpMarketStateToTokenDetail,
+  computePumpFdvSol,
+  solDecimalToX18,
+  type GetPumpTradesOptions,
+  type GetPumpCandlesOptions,
+  type PumpMarketStateRow,
   type GetTokensOptions,
   type GetActiveMarketsOptions,
   type ProtocolStats,
@@ -188,6 +198,38 @@ export {
   type PumpMarketPersistInput,
   type PumpMarketPersistResult,
 } from './repos/pump-markets.js';
+export {
+  listPumpWatchlist,
+  getPumpWatchlistItem,
+  PUMP_WATCHLIST_CHAIN_ID,
+  type PumpWatchlistItem,
+} from './repos/pump-watchlist.js';
+export {
+  upsertPumpTrade,
+  PUMP_MARKET_CHAIN_ID,
+  type PumpTradeRow,
+  type PumpTradeSide,
+  type UpsertPumpTradeResult,
+} from './repos/pump-trades.js';
+export {
+  applyPumpCandleTrade,
+  pumpCandleBucketStart,
+  PUMP_CANDLE_INTERVALS,
+  type PumpCandleInterval,
+  type ApplyPumpCandleTradeInput,
+} from './repos/pump-candles.js';
+export {
+  getPumpMarketState as getPumpMarketStateRow,
+  refreshPumpMarketStateFromTrades,
+  type PumpMarketStateRow as PumpMarketStateRepoRow,
+  type RefreshPumpMarketStateInput,
+} from './repos/pump-market-state.js';
+export {
+  getPumpWorkerCheckpoint,
+  upsertPumpWorkerCheckpoint,
+  type PumpWorkerCheckpoint,
+  type UpsertPumpWorkerCheckpointInput,
+} from './repos/pump-worker-checkpoints.js';
 export {
   upsertTokenDisplayFinalizeIntent,
   bindDisplayFinalizeIntentToToken,

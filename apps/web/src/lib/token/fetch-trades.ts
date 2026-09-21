@@ -12,8 +12,13 @@ export function tradeCacheKey(
   tokenAddress: string,
   limit: number,
   nowBucketSec: number,
+  chainId?: number,
 ): string {
-  return `${tokenAddress.toLowerCase()}:trades:${limit}:${nowBucketSec}`;
+  const id = tokenAddress.startsWith('0x')
+    ? tokenAddress.toLowerCase()
+    : tokenAddress;
+  const chain = chainId ?? '';
+  return `${chain}:${id}:trades:${limit}:${nowBucketSec}`;
 }
 
 export function clearTradeCache(): void {
@@ -33,7 +38,12 @@ export async function fetchTokenTrades(args: {
   const limit = Math.min(args.limit ?? TRADES_CHART_SEED_LIMIT, TRADES_CHART_SEED_LIMIT);
   const nowSec = args.nowSec ?? Math.floor(Date.now() / 1000);
   // 5s cache bucket — fine for static seed; live layer will bypass later.
-  const key = tradeCacheKey(args.tokenAddress, limit, Math.floor(nowSec / 5));
+  const key = tradeCacheKey(
+    args.tokenAddress,
+    limit,
+    Math.floor(nowSec / 5),
+    chainId,
+  );
 
   if (!args.bypassCache && cache.has(key)) {
     return { ok: true, items: cache.get(key)! };

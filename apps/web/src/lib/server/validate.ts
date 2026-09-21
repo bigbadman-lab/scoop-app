@@ -1,5 +1,12 @@
 /** Shared request validation for product API routes. */
 
+import {
+  SOLANA_MAINNET_CHAIN_ID,
+  isEvmAddressShape,
+  isSolanaAddressShape,
+  normalizeAssetAddress,
+} from '@scoop/shared';
+
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const BYTES32_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -17,6 +24,26 @@ export function parseAddress(raw: string): string {
     throw new ValidationError('Invalid address');
   }
   return raw.toLowerCase();
+}
+
+/**
+ * Dual-rail token identity for API routes.
+ * Solana (900001): base58 mint, case-preserving.
+ * EVM: existing 0x normalization. Never apply EVM rules to Solana.
+ */
+export function parseTokenApiAddress(raw: string, chainId: number): string {
+  const trimmed = raw.trim();
+  if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+    if (!isSolanaAddressShape(trimmed) || isEvmAddressShape(trimmed)) {
+      throw new ValidationError('Invalid address');
+    }
+    try {
+      return normalizeAssetAddress({ chain: 'solana', address: trimmed });
+    } catch {
+      throw new ValidationError('Invalid address');
+    }
+  }
+  return parseAddress(trimmed);
 }
 
 export function parseBytes32(raw: string): string {
@@ -71,6 +98,7 @@ export function assertNoSecretLeakage(payload: unknown): void {
     'STOCK_NEWS_API_TOKEN',
     'TIINGO_API_TOKEN',
     'SCOOP_INTERNAL_API_SECRET',
+    'SOLANA_RPC_URL',
     'postgres://',
     'postgresql://',
     'service_role',

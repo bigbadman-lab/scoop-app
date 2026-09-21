@@ -110,3 +110,27 @@ services:
         sync: false
       - key: STOCK_NEWS_API_TOKEN
         sync: false
+
+  # Phase 7 — Solana/Pump market-data worker (DISABLED by default)
+  # Do NOT set SCOOP_SOLANA_PUMP_INDEXING_ENABLED=true until single-mint canary.
+  - type: worker
+    name: scoop-solana-pump-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./docker/solana-pump-worker.Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SCOOP_SOLANA_PUMP_INDEXING_ENABLED
+        value: "false"
+      - key: SCOOP_SOLANA_PUMP_TRADE_PROVIDER
+        value: pumpportal
+      # Secrets — set in Render dashboard (never commit):
+      # DATABASE_URL
+      # PUMPPORTAL_API_KEY
+      - key: DATABASE_URL
+        sync: false
+      - key: PUMPPORTAL_API_KEY
+        sync: false

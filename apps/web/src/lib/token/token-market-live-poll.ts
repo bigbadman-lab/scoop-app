@@ -22,6 +22,8 @@ export type TokenMarketLiveSnapshot = {
 
 export type TokenMarketLivePollOptions = {
   tokenAddress: string;
+  /** Product chain id — required for Pump (900001); defaults inside fetch helpers. */
+  chainId?: number;
   initialToken: TokenDetail;
   pollMs?: number;
   tradesLimit?: number;
@@ -124,10 +126,12 @@ export function createTokenMarketLivePoll(options: TokenMarketLivePollOptions): 
       const [detailResult, tradesResult] = await Promise.all([
         fetchDetail({
           tokenAddress: options.tokenAddress,
+          chainId: options.chainId ?? options.initialToken.chainId,
           signal,
         }),
         fetchTradesFn({
           tokenAddress: options.tokenAddress,
+          chainId: options.chainId ?? options.initialToken.chainId,
           limit: tradesLimit,
           signal,
           bypassCache: opts?.bypassCache ?? true,

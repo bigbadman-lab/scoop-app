@@ -101,3 +101,15 @@ export {
   parseHolderRewardProofJson,
   type HolderRewardAccountEntitlement,
 } from './holder-rewards-account.js';
+export {
+  getPumpTrades,
+  getPumpCandles,
+  getPumpMarketState,
+  getTokenWithPumpMarketState,
+  applyPumpMarketStateToTokenDetail,
+  computePumpFdvSol,
+  solDecimalToX18,
+  type GetPumpTradesOptions,
+  type GetPumpCandlesOptions,
+  type PumpMarketStateRow,
+} from './pump-market.js';

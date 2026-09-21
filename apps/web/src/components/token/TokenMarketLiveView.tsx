@@ -37,6 +37,26 @@ import {
   solanaExplorerTxUrl,
 } from '@/lib/solana/explorer';
 
+/** FDV in SOL for Pump pages — never invent zero when price missing. */
+function formatPumpFdvSol(token: TokenDetail): string | null {
+  if (!token.priceQuoteX18) return null;
+  try {
+    const price = BigInt(token.priceQuoteX18);
+    const supply = BigInt(token.totalSupplyRaw);
+    if (supply <= BigInt(0)) return null;
+    const scale = BigInt(10) ** BigInt(token.decimals);
+    const fdvX18 = (price * supply) / scale;
+    const x18 = BigInt(10) ** BigInt(18);
+    const whole = fdvX18 / x18;
+    const frac = fdvX18 % x18;
+    const fracStr = frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 6);
+    const body = fracStr.length > 0 ? `${whole}.${fracStr}` : whole.toString();
+    return `${body} SOL`;
+  } catch {
+    return null;
+  }
+}
+
 type Props = {
   token: TokenDetail;
   quoteSymbol: string;
@@ -93,17 +113,23 @@ function TokenMarketLiveBody({
       : null;
   const headlinePrice = priceUsd ?? priceQuote ?? '—';
   const change = displayPriceChangeBps(token.priceChange24hBps);
-  const fdv = displayCompactUsdMarketValue(token.fdvUsdDisplay);
+  const isPons = token.marketSource === 'pons_v2';
+  const isPump = token.marketSource === 'pump';
+  const fdvUsd = displayCompactUsdMarketValue(token.fdvUsdDisplay);
+  const fdvPumpSol = isPump ? formatPumpFdvSol(token) : null;
+  const fdv = isPump ? fdvPumpSol : fdvUsd;
   const volume = displayVolume24hMetric({
     volume24hUsdDisplay: token.volume24hUsdDisplay,
     volume24hQuoteDisplay: token.volume24hQuoteDisplay,
     quoteSymbol,
   });
   const holdersRaw = displayHolderCount(token.holderCountRetail, token.holderCountAll);
-  const holders = holdersRaw ? holdersRaw.replace(/ holders?$/, '') : null;
+  const holders = isPump
+    ? null
+    : holdersRaw
+      ? holdersRaw.replace(/ holders?$/, '')
+      : null;
   const age = formatCompactAge(token.ageSeconds);
-  const isPons = token.marketSource === 'pons_v2';
-  const isPump = token.marketSource === 'pump';
   const showProgress = !isPump && shouldShowBondingProgress(token);
   const changeTone =
     token.priceChange24hBps == null
@@ -360,26 +386,37 @@ function TokenMarketLiveBody({
             data-region="token-market-primary"
           >
             {isPump ? (
-              <div
-                className="rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-4"
-                data-testid="token-price-panel-external"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-                  Chart
-                </p>
-                <p className="mt-2 text-sm text-[var(--muted)]">
-                  SCOOP does not index Pump.fun candles yet. Open the coin on
-                  Pump.fun for live price action.
-                </p>
-                {pumpUrl ? (
-                  <a
-                    href={pumpUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-block font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--scoop-green)] underline-offset-4 hover:underline"
+              <div data-testid="token-price-panel-pump">
+                <TokenPriceChart
+                  tokenAddress={token.tokenAddress}
+                  symbol={token.symbol}
+                  quoteSymbol={quoteSymbol}
+                  totalSupplyRaw={token.totalSupplyRaw}
+                  tokenDecimals={token.decimals}
+                  currentPriceUsdX18={null}
+                  currentPriceQuoteX18={token.priceQuoteX18}
+                />
+                {!token.priceQuoteX18 ? (
+                  <p
+                    className="mt-2 font-mono text-[11px] text-[var(--muted)]"
+                    data-testid="token-pump-waiting-trades"
+                    role="status"
                   >
-                    View on Pump.fun →
-                  </a>
+                    Waiting for trades
+                    {pumpUrl ? (
+                      <>
+                        {' · '}
+                        <a
+                          href={pumpUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[var(--scoop-green)] underline-offset-4 hover:underline"
+                        >
+                          View on Pump.fun
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
                 ) : null}
               </div>
             ) : (
@@ -396,23 +433,11 @@ function TokenMarketLiveBody({
           </section>
 
           <div className="order-3 min-w-0 lg:order-none" data-testid="token-market-trades">
-            {isPump ? (
-              <section
-                className="min-w-0"
-                data-testid="token-trades-external"
-                aria-label="Trades"
-              >
-                <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--muted-2)]">
-                  Trades
-                </h2>
-                <p className="mt-1.5 font-mono text-[11px] text-[var(--muted)]">
-                  Live SCOOP trade tape for Pump markets is not indexed yet. View
-                  activity on Pump.fun.
-                </p>
-              </section>
-            ) : (
-              <TokenRecentTrades tokenAddress={token.tokenAddress} quoteSymbol={quoteSymbol} />
-            )}
+            <TokenRecentTrades
+              tokenAddress={token.tokenAddress}
+              quoteSymbol={quoteSymbol}
+              marketSource={token.marketSource}
+            />
           </div>
         </div>
 

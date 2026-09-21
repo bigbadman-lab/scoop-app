@@ -1,0 +1,204 @@
+/**
+ * Enabled worker loop: watchlist refresh + mock / PumpPortal provider fan-in.
+ */
+
+import {
+  createPool,
+  listPumpWatchlist,
+  type Pool,
+  type PumpWatchlistItem,
+} from '@scoop/db';
+import type { SolanaPumpWorkerConfig } from './config.js';
+import { publicConfigView } from './config.js';
+import { createHealthState, type WorkerHealthState } from './health.js';
+import { ingestNormalizedPumpTrade } from './ingest.js';
+import { logJson } from './log.js';
+import { MockPumpTradeProvider } from './provider/mock.js';
+import { PumpPortalTradeProvider } from './provider/pumpportal.js';
+import type { NormalizedPumpTradeEvent, PumpTradeProvider } from './provider/types.js';
+
+export type RunWorkerOptions = {
+  signal?: AbortSignal;
+  /** Inject provider (tests). */
+  provider?: PumpTradeProvider;
+  /** Inject pool (tests). */
+  pool?: Pool;
+  sleep?: (ms: number) => Promise<void>;
+  /** When true, return after first watchlist load (tests). */
+  once?: boolean;
+};
+
+export type RunWorkerResult = {
+  health: WorkerHealthState;
+  provider: PumpTradeProvider;
+  pool: Pool;
+  stop: () => Promise<void>;
+};
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createProvider(config: SolanaPumpWorkerConfig): PumpTradeProvider {
+  if (config.tradeProvider === 'mock') {
+    return new MockPumpTradeProvider();
+  }
+  if (config.tradeProvider === 'pumpportal') {
+    if (!config.pumpPortalApiKey) {
+      throw new Error('PUMPPORTAL_API_KEY required');
+    }
+    return new PumpPortalTradeProvider({
+      apiKey: config.pumpPortalApiKey,
+      reconnectBackoffMs: config.reconnectBackoffMs,
+      maxReconnectBackoffMs: config.maxReconnectBackoffMs,
+    });
+  }
+  throw new Error(`Unsupported trade provider: ${String(config.tradeProvider)}`);
+}
+
+function syncProviderHealth(health: WorkerHealthState, provider: PumpTradeProvider): void {
+  const h = provider.health();
+  health.providerStatus = h.status;
+  health.subscribedMintCount = h.subscribedMintCount ?? 0;
+  health.messagesReceived = h.messagesReceived ?? health.messagesReceived;
+  health.eventsNormalized = h.normalizedEvents ?? health.eventsNormalized;
+  health.invalidEvents = h.invalidEvents ?? health.invalidEvents;
+  health.reconnectCount = h.reconnectCount ?? health.reconnectCount;
+  health.lastMessageAt = h.lastMessageAt ?? health.lastMessageAt;
+  if (h.error) health.currentError = h.error;
+}
+
+export async function runPumpMarketDataWorker(
+  config: SolanaPumpWorkerConfig,
+  opts: RunWorkerOptions = {},
+): Promise<RunWorkerResult> {
+  if (!config.indexingEnabled) {
+    throw new Error('runPumpMarketDataWorker requires SCOOP_SOLANA_PUMP_INDEXING_ENABLED=true');
+  }
+  if (!config.databaseUrl && !opts.pool) {
+    throw new Error('DATABASE_URL required');
+  }
+
+  const health = createHealthState(true, config.tradeProvider);
+  const pool = opts.pool ?? createPool(config.databaseUrl!);
+  const provider = opts.provider ?? createProvider(config);
+  const sleep = opts.sleep ?? defaultSleep;
+  const ownPool = !opts.pool;
+
+  let watchByMint = new Map<string, PumpWatchlistItem>();
+  let stopped = false;
+
+  async function refreshWatchlist(): Promise<void> {
+    const items = await listPumpWatchlist(pool);
+    const next = new Map(items.map((i) => [i.mint, i]));
+    const prev = watchByMint;
+
+    for (const mint of next.keys()) {
+      if (!prev.has(mint)) {
+        await provider.subscribeMint(mint);
+      }
+    }
+    for (const mint of prev.keys()) {
+      if (!next.has(mint)) {
+        await provider.unsubscribeMint(mint);
+      }
+    }
+
+    watchByMint = next;
+    health.watchlistSize = next.size;
+    syncProviderHealth(health, provider);
+    logJson('info', 'pump watchlist refreshed', {
+      watchlistSize: next.size,
+      subscribedMintCount: health.subscribedMintCount,
+    });
+  }
+
+  provider.onTrade(async (event: NormalizedPumpTradeEvent) => {
+    health.eventsReceived += 1;
+    health.lastEventAt = event.blockTime.toISOString();
+    syncProviderHealth(health, provider);
+    try {
+      const result = await ingestNormalizedPumpTrade(
+        {
+          pool,
+          resolveWatchItem: (mint) => watchByMint.get(mint) ?? null,
+        },
+        event,
+      );
+      if (!result.ok) {
+        health.currentError = result.error;
+        logJson('warn', 'pump trade rejected', {
+          mint: event.mint,
+          signature: event.signature,
+          error: result.error,
+        });
+        return;
+      }
+      if (!result.inserted) {
+        health.duplicatesSkipped += 1;
+        return;
+      }
+      health.eventsPersisted += 1;
+      health.lastPersistedAt = event.blockTime.toISOString();
+      health.currentError = null;
+      health.checkpointStatus = event.signature;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      health.currentError = message;
+      logJson('error', 'pump trade ingest failed', {
+        mint: event.mint,
+        signature: event.signature,
+        error: message,
+      });
+    }
+  });
+
+  logJson('info', 'solana-pump-worker starting', {
+    config: publicConfigView(config),
+    liveTradeSource: 'PUMPPORTAL_DATA_API',
+  });
+
+  health.providerStatus = 'connecting';
+  await refreshWatchlist();
+  await provider.connect([...watchByMint.keys()]);
+  syncProviderHealth(health, provider);
+
+  const stop = async () => {
+    stopped = true;
+    await provider.close();
+    if (ownPool) {
+      await pool.end();
+    }
+    health.providerStatus = 'disconnected';
+  };
+
+  if (opts.signal) {
+    opts.signal.addEventListener(
+      'abort',
+      () => {
+        void stop();
+      },
+      { once: true },
+    );
+  }
+
+  if (opts.once) {
+    return { health, provider, pool, stop };
+  }
+
+  void (async () => {
+    while (!stopped) {
+      await sleep(config.watchlistRefreshMs);
+      if (stopped) break;
+      try {
+        await refreshWatchlist();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        health.currentError = message;
+        logJson('error', 'watchlist refresh failed', { error: message });
+      }
+    }
+  })();
+
+  return { health, provider, pool, stop };
+}

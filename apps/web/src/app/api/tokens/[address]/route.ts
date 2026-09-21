@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 import {
   applyLiveTipToTokenDetail,
   getLiveTokenTip,
   getToken,
+  getTokenWithPumpMarketState,
   serverDb,
 } from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
-  parseAddress,
   parseChainId,
+  parseTokenApiAddress,
 } from '@/lib/server/validate';
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +22,22 @@ export async function GET(
 ) {
   try {
     const { address: raw } = await context.params;
-    const address = parseAddress(raw);
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId'));
+    const address = parseTokenApiAddress(raw, chainId);
 
     const db = serverDb();
+
+    if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+      const canonical = await getToken(db, chainId, address);
+      if (!canonical || canonical.marketSource !== 'pump') {
+        return NextResponse.json({ error: 'Token not found' }, { status: 404 });
+      }
+      const token = await getTokenWithPumpMarketState(db, canonical);
+      assertNoSecretLeakage(token);
+      return NextResponse.json({ token });
+    }
+
     const [canonical, liveTip] = await Promise.all([
       getToken(db, chainId, address),
       getLiveTokenTip(db, chainId, address).catch(() => null),

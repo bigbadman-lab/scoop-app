@@ -5,6 +5,7 @@ import type { TradeItem } from '@scoop/db';
 import { ContractCopy } from '@/components/ui/ContractCopy';
 import { useTokenMarketLiveOptional } from '@/components/token/TokenMarketLiveProvider';
 import { robinhoodTxUrl } from '@/lib/chain/explorer';
+import { solanaExplorerTxUrl } from '@/lib/solana/explorer';
 import { clearTradeCache, fetchTokenTrades } from '@/lib/token/fetch-trades';
 import {
   RECENT_TRADES_FETCH_LIMIT,
@@ -25,6 +26,8 @@ import {
 type Props = {
   tokenAddress: string;
   quoteSymbol: string;
+  /** When pump, use Solana explorer tx links. */
+  marketSource?: 'scoop' | 'pons_v2' | 'pump';
 };
 
 type LoadState =
@@ -40,7 +43,11 @@ const SELL_COLOR = 'text-[#c44c3a]';
  * Recent Trades beneath PRICE — newest-first indexed executions.
  * Consumes the shared token live layer when present (no separate poll).
  */
-export function TokenRecentTrades({ tokenAddress, quoteSymbol }: Props) {
+export function TokenRecentTrades({
+  tokenAddress,
+  quoteSymbol,
+  marketSource,
+}: Props) {
   const live = useTokenMarketLiveOptional();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
@@ -199,7 +206,10 @@ export function TokenRecentTrades({ tokenAddress, quoteSymbol }: Props) {
                     side === 'BUY' ? BUY_COLOR : side === 'SELL' ? SELL_COLOR : 'text-[var(--muted)]';
                   const age = formatTradeAge(trade.blockTimestamp, nowSec);
                   const absolute = formatTradeAbsoluteTime(trade.blockTimestamp);
-                  const txUrl = robinhoodTxUrl(trade.txHash);
+                  const txUrl =
+                    marketSource === 'pump'
+                      ? solanaExplorerTxUrl(trade.txHash)
+                      : robinhoodTxUrl(trade.txHash);
                   const id = tradeIdentity(trade);
 
                   return (

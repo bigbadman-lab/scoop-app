@@ -18,6 +18,8 @@
     "fee-keeper:dev": "pnpm --filter @scoop/fee-keeper dev",
     "holder-rewards:once": "pnpm --filter @scoop/holder-rewards-worker start",
     "holder-rewards:dev": "pnpm --filter @scoop/holder-rewards-worker dev",
+    "solana-pump-worker:dev": "pnpm --filter @scoop/solana-pump-worker dev",
+    "solana-pump-worker:start": "pnpm --filter @scoop/solana-pump-worker start",
     "format": "prettier --write .",
     "db:migrate": "node scripts/db-migrate.mjs",
     "tape:set-contract": "node scripts/set-tape-contract.mjs",

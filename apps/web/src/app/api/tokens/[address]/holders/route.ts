@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 import { getHolders, serverDb } from '@/lib/server/queries';
 import {
   ValidationError,
   assertNoSecretLeakage,
-  parseAddress,
   parseChainId,
   parseLimit,
   parseOffset,
+  parseTokenApiAddress,
 } from '@/lib/server/validate';
 
 export const dynamic = 'force-dynamic';
@@ -17,9 +18,17 @@ export async function GET(
 ) {
   try {
     const { address: raw } = await context.params;
-    const address = parseAddress(raw);
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId'));
+    const address = parseTokenApiAddress(raw, chainId);
+
+    // Pump holder indexing deferred — never 500 / never EVM-normalize Solana mints.
+    if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+      const body = { items: [] as const, deferred: true as const };
+      assertNoSecretLeakage(body);
+      return NextResponse.json(body);
+    }
+
     const retailOnly = url.searchParams.get('retailOnly') === 'true';
     const items = await getHolders(serverDb(), chainId, address, {
       retailOnly,

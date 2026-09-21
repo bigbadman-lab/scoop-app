@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { SOLANA_MAINNET_CHAIN_ID } from '@scoop/shared';
 import {
   getIndexerMainCheckpointBlock,
+  getPumpTrades,
   getTrades,
   listLiveTradesByToken,
   mergeLiveTrades,
@@ -10,11 +12,11 @@ import {
 import {
   ValidationError,
   assertNoSecretLeakage,
-  parseAddress,
   parseChainId,
   parseLimit,
   parseOffset,
   parseOptionalInt,
+  parseTokenApiAddress,
 } from '@/lib/server/validate';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +27,9 @@ export async function GET(
 ) {
   try {
     const { address: raw } = await context.params;
-    const address = parseAddress(raw);
     const url = new URL(request.url);
     const chainId = parseChainId(url.searchParams.get('chainId'));
+    const address = parseTokenApiAddress(raw, chainId);
     const sideRaw = url.searchParams.get('side');
     if (sideRaw != null && sideRaw !== '' && sideRaw !== 'buy' && sideRaw !== 'sell') {
       throw new ValidationError('Invalid side');
@@ -35,6 +37,18 @@ export async function GET(
     const limit = parseLimit(url.searchParams.get('limit'));
     const offset = parseOffset(url.searchParams.get('offset'));
     const db = serverDb();
+
+    if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+      const items = await getPumpTrades(db, address, {
+        limit,
+        offset,
+        side: sideRaw ? (sideRaw as TradeSide) : undefined,
+      });
+      const body = { items };
+      assertNoSecretLeakage(body);
+      return NextResponse.json(body);
+    }
+
     const [canonical, live, checkpoint] = await Promise.all([
       getTrades(db, chainId, address, {
         limit,
