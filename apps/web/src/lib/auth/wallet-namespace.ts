@@ -66,3 +66,52 @@ export function filterWalletsByNamespace<T extends ScoopWalletNamespaceItem>(
 ): T[] {
   return wallets.filter((w) => walletSupportsNamespace(w, namespace));
 }
+
+/** Wallets that should settle as Solana even from the default Sign In list. */
+const SOLANA_PRIMARY =
+  /phantom|solflare|backpack|glow|nightly|jupiter/i;
+
+/**
+ * Namespace used when the user picks a wallet from global Sign In.
+ * Solana-primary wallets (Phantom, Solflare, …) always connect as solana
+ * so Phantom is not paired as Ethereum.
+ */
+export function preferredConnectNamespace(
+  wallet: ScoopWalletNamespaceItem,
+  sheetNamespace: ScoopWalletNamespace,
+): ScoopWalletNamespace {
+  if (sheetNamespace === 'solana') return 'solana';
+
+  const connectors = wallet.connectors ?? [];
+  const onlySolana =
+    connectors.length > 0 && connectors.every((c) => c.chain === 'solana');
+  if (onlySolana) return 'solana';
+
+  const supported = wallet.walletInfo?.supportedNamespaces ?? [];
+  if (supported.length > 0 && supported.every((ns) => ns === 'solana')) {
+    return 'solana';
+  }
+
+  const label = `${wallet.name ?? ''} ${wallet.id ?? ''}`;
+  if (SOLANA_PRIMARY.test(label)) return 'solana';
+
+  return 'eip155';
+}
+
+/**
+ * Global Sign In wallet list: EVM wallets plus Solana-primary wallets
+ * (Phantom) so one picker covers both rails.
+ */
+export function filterWalletsForGlobalSignIn<T extends ScoopWalletNamespaceItem>(
+  wallets: T[],
+  sheetNamespace: ScoopWalletNamespace,
+): T[] {
+  if (sheetNamespace === 'solana') {
+    return filterWalletsByNamespace(wallets, 'solana');
+  }
+  return wallets.filter(
+    (w) =>
+      walletSupportsNamespace(w, 'eip155') ||
+      preferredConnectNamespace(w, 'eip155') === 'solana',
+  );
+}

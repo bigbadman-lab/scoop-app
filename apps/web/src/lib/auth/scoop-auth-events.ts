@@ -61,6 +61,10 @@ export function publishScoopProfileUpdate(
 
 /** Clear scoop_session and broadcast so shell chrome updates immediately. */
 export async function signOutScoopSession(): Promise<boolean> {
+  const { clearAuthoritativeWalletNamespace } = await import(
+    '@/lib/auth/wallet-session'
+  );
+  clearAuthoritativeWalletNamespace();
   // Optimistic clear so chrome flips immediately.
   notifyScoopAuthChanged({ reason: 'signout' });
   try {

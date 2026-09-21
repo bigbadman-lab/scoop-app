@@ -27,6 +27,11 @@ import {
   fetchScoopAuthStatus,
   requestSiweSession,
 } from '@/lib/auth/siwe-session-client';
+import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
+import {
+  clearAuthoritativeWalletNamespace,
+  setAuthoritativeWalletNamespace,
+} from '@/lib/auth/wallet-session';
 import { resolveSiweWalletMeta } from '@/lib/auth/wallet-origin';
 
 function ChevronAffordance({ className }: { className?: string }) {
@@ -161,6 +166,7 @@ export function WalletSlotLive({
   initialIntent: WalletOpenIntent;
 }) {
   const { open } = useAppKit();
+  const walletSession = useScoopWalletSession();
   const { open: modalOpen, connectingWallet } = useAppKitState();
   const appKitAccount = useAppKitAccount();
   const { address, isConnected, status, connector } = useAccount();
@@ -329,6 +335,7 @@ export function WalletSlotLive({
           signedOutGuardRef.current = false;
           joinIntentRef.current = false;
           autoSiweAddressRef.current = null;
+          setAuthoritativeWalletNamespace('eip155');
           setJoinPhase('authenticated');
           await refreshChrome();
           return;
@@ -554,6 +561,7 @@ export function WalletSlotLive({
   useEffect(() => {
     return subscribeScoopAuthChanged((detail) => {
       if (detail.reason === 'signout') {
+        clearAuthoritativeWalletNamespace();
         // Invalidate every in-flight refresh that could resurrect A after cookie lag.
         signedOutGuardRef.current = true;
         authEpochRef.current += 1;
@@ -606,6 +614,15 @@ export function WalletSlotLive({
     errorMessage: joinError,
   });
 
+  const solanaLive =
+    !scoopAuthed &&
+    walletSession.namespace === 'solana' &&
+    walletSession.connected &&
+    Boolean(walletSession.address);
+  const solanaLabel = solanaLive
+    ? shortenSession(walletSession.address)
+    : null;
+
   async function onUnsignedClick() {
     if (connecting || siweInFlightRef.current) return;
     if (scoopAuthedRef.current) {
@@ -645,6 +662,21 @@ export function WalletSlotLive({
       joinPhase === 'opening_wallet' ||
       joinPhase === 'siwe_in_progress' ||
       joinPhase === 'wallet_connected_pending_siwe';
+
+    if (solanaLive && solanaLabel) {
+      return (
+        <button
+          type="button"
+          data-scoop-wallet-namespace="solana"
+          data-wallet-address={walletSession.address ?? undefined}
+          className="inline-flex min-h-10 max-w-[12rem] items-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]"
+          title="Solana wallet connected"
+          aria-label={`Solana wallet ${solanaLabel}`}
+        >
+          {solanaLabel}
+        </button>
+      );
+    }
 
     return (
       <div className="flex max-w-[12rem] flex-col items-end gap-1">
@@ -702,6 +734,21 @@ export function WalletSlotLive({
       : joinPhase === 'opening_wallet' || connecting
         ? '…'
         : 'Sign in';
+
+  if (solanaLive && solanaLabel) {
+    return (
+      <button
+        type="button"
+        data-scoop-wallet-namespace="solana"
+        data-wallet-address={walletSession.address ?? undefined}
+        className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-[var(--divider)] font-mono text-[9px] text-[var(--fg)]"
+        title={`Solana wallet ${solanaLabel}`}
+        aria-label={`Solana wallet ${solanaLabel}`}
+      >
+        {solanaLabel.slice(0, 4)}
+      </button>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-1">

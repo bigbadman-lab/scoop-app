@@ -23,6 +23,7 @@ import {
   type ScoopAuthEvent,
 } from '@/lib/auth/scoop-auth-machine';
 import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
+import { setAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 
 type Props = {
   open: boolean;
@@ -278,8 +279,7 @@ export function ScoopAuthSheet({
               state={state}
               dispatch={send}
               onWalletReady={(address) => {
-                // Wallet/provider is ready — Join auto-SIWE owns the signature.
-                // Do not mark authenticated or close; wait for scoop:auth-changed signin.
+                setAuthoritativeWalletNamespace('eip155');
                 onWalletReady?.(address);
                 send({ type: 'SIWE_START' });
               }}
@@ -295,18 +295,23 @@ export function ScoopAuthSheet({
               error={state.error}
               onBack={backToEntry}
               onConnecting={() => send({ type: 'WALLET_CONNECT_START' })}
-              onConnected={(address) => {
+              onConnected={(address, connectedNamespace) => {
+                const ns = connectedNamespace ?? activeNamespace;
+                setAuthoritativeWalletNamespace(ns);
+                setScoopConnectNamespace(ns);
+                setActiveNamespace(ns);
                 send({ type: 'WALLET_CONNECT_OK' });
-                if (isSolana) {
-                  // Solana public key only — no SIWE / Join session.
+                if (ns === 'solana') {
                   close('completed');
                   return;
                 }
                 onWalletReady?.(address as `0x${string}`);
                 send({ type: 'SIWE_START' });
-                // External wallets use their own signing UI; sheet can settle
-                // as completed so Join intent is not cancelled on late dismiss.
                 close('completed');
+              }}
+              onNamespaceChange={(ns) => {
+                setScoopConnectNamespace(ns);
+                setActiveNamespace(ns);
               }}
               onCancelled={() => send({ type: 'WALLET_CONNECT_CANCEL' })}
               onFailed={(message) =>

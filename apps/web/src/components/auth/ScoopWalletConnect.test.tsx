@@ -297,8 +297,10 @@ describe('ScoopWalletConnect', () => {
 
     expect(onConnected).toHaveBeenCalledWith(
       '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4',
+      'solana',
     );
     expect(onConnected).not.toHaveBeenCalledWith('0xabc');
+    expect(onConnected).not.toHaveBeenCalledWith('0xabc', expect.anything());
   });
 
   it('does not render img for undefined asset imageUrl', () => {

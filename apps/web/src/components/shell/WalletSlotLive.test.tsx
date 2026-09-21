@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const open = vi.fn();
-const useAccount = vi.fn();
-const signMessageAsync = vi.fn();
-const fetchScoopAuthStatus = vi.fn();
-const requestSiweSession = vi.fn();
+const {
+  open,
+  useAccount,
+  signMessageAsync,
+  fetchScoopAuthStatus,
+  requestSiweSession,
+} = vi.hoisted(() => ({
+  open: vi.fn(),
+  useAccount: vi.fn(),
+  signMessageAsync: vi.fn(),
+  fetchScoopAuthStatus: vi.fn(),
+  requestSiweSession: vi.fn(),
+}));
+
 let appKitState = {
   open: false,
   connectingWallet: undefined as undefined | { id: string },
@@ -23,6 +32,7 @@ vi.mock('@reown/appkit/react', () => ({
   useAppKit: () => ({ open }),
   useAppKitState: () => appKitState,
   useAppKitAccount: () => ({ embeddedWalletInfo: undefined }),
+  useAppKitProvider: () => ({ walletProvider: undefined }),
 }));
 
 vi.mock('wagmi', () => ({
@@ -55,6 +65,7 @@ vi.mock('@/lib/auth/scoop-auth-events', () => ({
 }));
 
 import { WalletSlotLive } from '@/components/shell/WalletSlotLive';
+import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 
 const A = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 const B = '0x1111111111111111111111111111111111111111';
@@ -64,6 +75,7 @@ const connector = { id: 'mock' };
 
 describe('WalletSlotLive Join one-flow', () => {
   beforeEach(() => {
+    clearAuthoritativeWalletNamespace();
     open.mockReset();
     useAccount.mockReset();
     signMessageAsync.mockReset();
@@ -72,6 +84,12 @@ describe('WalletSlotLive Join one-flow', () => {
     authHandlers.length = 0;
     appKitState = { open: false, connectingWallet: undefined };
     fetchScoopAuthStatus.mockResolvedValue({ authenticated: false });
+    requestSiweSession.mockResolvedValue({
+      ok: true,
+      userId: USER_A,
+      address: A.toLowerCase(),
+      chainId: 4663,
+    });
     useAccount.mockReturnValue({
       address: undefined,
       isConnected: false,
@@ -672,6 +690,7 @@ describe('WalletSlotLive full sign-out shell reset', () => {
 
 describe('WalletSlotLive AppKit cancel resets Join', () => {
   beforeEach(() => {
+    clearAuthoritativeWalletNamespace();
     open.mockReset();
     useAccount.mockReset();
     signMessageAsync.mockReset();

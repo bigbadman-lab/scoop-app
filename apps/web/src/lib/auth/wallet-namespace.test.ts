@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterWalletsByNamespace,
+  preferredConnectNamespace,
   walletSupportsNamespace,
 } from '@/lib/auth/wallet-namespace';
 
@@ -116,5 +117,42 @@ describe('filterWalletsByNamespace', () => {
       'solana',
     );
     expect(list.map((w) => w.id)).toEqual(['ph', 'sf']);
+  });
+});
+
+describe('preferredConnectNamespace', () => {
+  it('routes Phantom to solana from the default Sign In list', () => {
+    expect(
+      preferredConnectNamespace(
+        {
+          id: 'phantom',
+          name: 'Phantom',
+          connectors: [{ id: 'phantom', chain: 'eip155' }],
+        },
+        'eip155',
+      ),
+    ).toBe('solana');
+  });
+
+  it('keeps MetaMask on eip155', () => {
+    expect(
+      preferredConnectNamespace(
+        {
+          id: 'metamask',
+          name: 'MetaMask',
+          connectors: [{ id: 'metamask', chain: 'eip155' }],
+        },
+        'eip155',
+      ),
+    ).toBe('eip155');
+  });
+
+  it('forces solana when the sheet is already the Solana list', () => {
+    expect(
+      preferredConnectNamespace(
+        { id: 'metamask', name: 'MetaMask' },
+        'solana',
+      ),
+    ).toBe('solana');
   });
 });

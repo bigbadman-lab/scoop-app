@@ -17,6 +17,7 @@ import { isEmbeddedWalletAccount } from '@/lib/auth/wallet-origin';
 import { resolveScoopAuthState } from '@/lib/auth/reconciliation';
 import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
 import { signOutScoopSession, publishScoopProfileUpdate } from '@/lib/auth/scoop-auth-events';
+import { clearAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 import { fetchScoopAuthStatus } from '@/lib/auth/siwe-session-client';
 import type { PublicAccountResponse } from '@/lib/account/load-account';
 import { shouldBlankAccountWhileRefreshing } from '@/lib/account/account-page-refresh';
@@ -237,6 +238,7 @@ function AccountReady({
     try {
       // Keep /account chrome mounted; only the wallet panel should change.
       onWalletDisconnected();
+      clearAuthoritativeWalletNamespace();
       await disconnect();
       onRefresh();
     } catch {

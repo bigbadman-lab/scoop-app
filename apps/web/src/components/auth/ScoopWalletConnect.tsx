@@ -16,9 +16,11 @@ import {
 import { connectScoopWallet } from '@/lib/auth/connect-scoop-wallet';
 import { ensureActiveWalletNamespace } from '@/lib/auth/ensure-wallet-namespace';
 import {
-  filterWalletsByNamespace,
+  filterWalletsForGlobalSignIn,
+  preferredConnectNamespace,
   type ScoopWalletNamespace,
 } from '@/lib/auth/wallet-namespace';
+import { setAuthoritativeWalletNamespace } from '@/lib/auth/wallet-session';
 
 type WalletLike = {
   id?: string;
@@ -41,7 +43,9 @@ type Props = {
   namespace?: ScoopWalletNamespace;
   onBack: () => void;
   onConnecting: () => void;
-  onConnected: (address: string) => void;
+  onConnected: (address: string, namespace: ScoopWalletNamespace) => void;
+  /** Fired when a Solana-primary wallet is chosen from the EVM list. */
+  onNamespaceChange?: (namespace: ScoopWalletNamespace) => void;
   onCancelled: () => void;
   onFailed: (message: string) => void;
 };
@@ -87,6 +91,7 @@ export function ScoopWalletConnect({
   onBack,
   onConnecting,
   onConnected,
+  onNamespaceChange,
   onCancelled,
   onFailed,
 }: Props) {
@@ -106,6 +111,13 @@ export function ScoopWalletConnect({
     void ensureActiveWalletNamespace(namespace);
   }, [namespace]);
 
+  const [connectNamespace, setConnectNamespace] =
+    useState<ScoopWalletNamespace>(namespace);
+
+  useEffect(() => {
+    setConnectNamespace(namespace);
+  }, [namespace]);
+
   const wallets = (walletsApi.wallets ?? []) as WalletLike[];
   const wcWallets = (walletsApi.wcWallets ?? []) as WalletLike[];
   const isInitialized = Boolean(walletsApi.isInitialized);
@@ -118,11 +130,11 @@ export function ScoopWalletConnect({
     isInitialized === false && wallets.length === 0 && !isFetchingWallets;
 
   const filteredWallets = useMemo(
-    () => filterWalletsByNamespace(wallets, namespace),
+    () => filterWalletsForGlobalSignIn(wallets, namespace),
     [wallets, namespace],
   );
   const filteredWcWallets = useMemo(
-    () => filterWalletsByNamespace(wcWallets, namespace),
+    () => filterWalletsForGlobalSignIn(wcWallets, namespace),
     [wcWallets, namespace],
   );
 
@@ -154,9 +166,9 @@ export function ScoopWalletConnect({
 
   useEffect(() => {
     if (!connecting) return;
-    if (namespace === 'solana') {
+    if (connectNamespace === 'solana') {
       if (solanaAccount.isConnected && solanaAccount.address) {
-        onConnected(solanaAccount.address);
+        onConnected(solanaAccount.address, 'solana');
       }
       return;
     }
@@ -165,11 +177,11 @@ export function ScoopWalletConnect({
       evmAccount.isConnected &&
       evmAccount.address
     ) {
-      onConnected(evmAccount.address);
+      onConnected(evmAccount.address, 'eip155');
     }
   }, [
     connecting,
-    namespace,
+    connectNamespace,
     solanaAccount.isConnected,
     solanaAccount.address,
     evmAccount.status,
@@ -183,9 +195,13 @@ export function ScoopWalletConnect({
       onFailed('Wallet connect is unavailable in this environment.');
       return;
     }
+    const nextNamespace = preferredConnectNamespace(wallet, namespace);
+    setConnectNamespace(nextNamespace);
+    onNamespaceChange?.(nextNamespace);
+    setAuthoritativeWalletNamespace(nextNamespace);
     onConnecting();
     try {
-      await ensureActiveWalletNamespace(namespace);
+      await ensureActiveWalletNamespace(nextNamespace);
       // Reown mobile deeplink requires a WC URI already present (onConnectMobile
       // no-ops without it). Prefetch on the same user gesture before connect().
       if (
@@ -196,7 +212,7 @@ export function ScoopWalletConnect({
       }
       await connectScoopWallet({
         wallet,
-        namespace,
+        namespace: nextNamespace,
         connect: async (w, ns) => {
           await walletsApi.connect(w as never, ns);
         },

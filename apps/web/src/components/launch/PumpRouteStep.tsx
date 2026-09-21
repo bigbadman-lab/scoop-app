@@ -1,65 +1,83 @@
 'use client';
 
-import { useAppKit } from '@reown/appkit/react';
-import { useAppKitAccount } from '@reown/appkit/react';
 import { truncateAddress } from '@/lib/format';
-import { requestScoopConnect } from '@/lib/auth/open-scoop-auth';
+import type { RailCompatibility } from '@/lib/launch/rail-compatibility';
 
 type Props = {
   errors?: Partial<Record<string, string>>;
+  /** Global session compatibility for the Pump rail. */
+  compatibility: RailCompatibility;
+  solanaAddress?: string | null;
+  /** Opens the site-wide Sign In sheet. Does not start a launch-local connect. */
+  onSignIn: () => void;
+  /** Clears the global wallet session, then opens Sign In. */
+  onSwitchWallet: () => void;
 };
 
 /**
- * Pump step 2 — Solana wallet + CREATE ONLY note (no initial buy in MVP).
- * Connect opens Solana-namespaced SCOOP headless sheet (or AppKit solana modal).
+ * Pump step 2 — shows the global wallet session.
+ * Wallet connection happens only through top-right / shared Sign In.
  */
-export function PumpRouteStep({ errors = {} }: Props) {
-  const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount({ namespace: 'solana' });
-
-  function connectSolanaWallet() {
-    requestScoopConnect(
-      () => void open({ view: 'Connect', namespace: 'solana' }),
-      { namespace: 'solana' },
-    );
-  }
+export function PumpRouteStep({
+  errors = {},
+  compatibility,
+  solanaAddress = null,
+  onSignIn,
+  onSwitchWallet,
+}: Props) {
+  const compatible =
+    compatibility.status === 'compatible' && Boolean(solanaAddress);
 
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Wallet & network</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Connect a Solana wallet. This launch creates the coin on Pump.fun — no
-          initial buy in this MVP.
+          Uses the wallet from Sign In. This launch creates the coin on Pump.fun
+          — no initial buy in this MVP.
         </p>
       </div>
 
       <div className="rounded-[var(--radius-md)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-4 py-3 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
-              Solana wallet
-            </p>
-            {isConnected && address ? (
-              <p
-                className="mt-1 font-mono text-[13px] text-[var(--fg)]"
-                data-testid="pump-solana-address"
-              >
-                {truncateAddress(address, 6, 4)}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-[var(--muted)]">Not connected</p>
-            )}
-          </div>
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--muted-2)]">
+          Solana wallet
+        </p>
+        {compatible && solanaAddress ? (
+          <p
+            className="font-mono text-[13px] text-[var(--fg)]"
+            data-testid="pump-solana-address"
+          >
+            {truncateAddress(solanaAddress, 6, 4)}
+          </p>
+        ) : (
+          <p
+            className="text-sm text-[var(--fg)]"
+            data-testid="launch-wallet-notice"
+            role="status"
+          >
+            {compatibility.message}
+          </p>
+        )}
+        {compatibility.status === 'requires_sign_in' ? (
           <button
             type="button"
-            data-testid="pump-connect-solana"
-            onClick={connectSolanaWallet}
-            className="shrink-0 min-h-9 rounded-[var(--radius-md)] border border-[var(--fg)] bg-[var(--fg)] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--bg)]"
+            data-testid="launch-global-sign-in"
+            onClick={onSignIn}
+            className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--fg)] bg-[var(--fg)] px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--bg)]"
           >
-            {isConnected ? 'Switch wallet' : 'Connect Solana'}
+            Sign in
           </button>
-        </div>
+        ) : null}
+        {compatibility.status === 'incompatible_namespace' ? (
+          <button
+            type="button"
+            data-testid="launch-switch-wallet"
+            onClick={onSwitchWallet}
+            className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] px-3 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)]"
+          >
+            Sign out & switch wallet
+          </button>
+        ) : null}
         {errors.wallet ? (
           <p className="text-xs text-[#b42318]" role="alert">
             {errors.wallet}

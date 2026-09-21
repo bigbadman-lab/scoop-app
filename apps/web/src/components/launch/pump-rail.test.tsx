@@ -52,38 +52,66 @@ describe('LaunchRailSelector', () => {
   });
 });
 
-describe('PumpRouteStep Solana connect', () => {
-  beforeEach(() => {
-    openAppKit.mockReset();
-    requestScoopConnect.mockReset();
-    useAppKitAccount.mockReturnValue({
-      address: undefined,
-      isConnected: false,
-    });
-  });
+describe('PumpRouteStep global session', () => {
+  const signedOut = {
+    status: 'requires_sign_in' as const,
+    message: 'Sign in to launch.',
+    canLaunch: false,
+  };
 
-  it('requests Solana namespace connect and does not open bare EVM Connect', () => {
-    render(<PumpRouteStep />);
-    expect(screen.getByText('Not connected')).toBeTruthy();
-    expect(screen.getByTestId('pump-connect-solana').textContent).toMatch(
-      /Connect Solana/i,
+  it('asks the user to use global Sign In and has no local connect control', () => {
+    const onSignIn = vi.fn();
+    render(
+      <PumpRouteStep
+        compatibility={signedOut}
+        onSignIn={onSignIn}
+        onSwitchWallet={() => undefined}
+      />,
     );
-    screen.getByTestId('pump-connect-solana').click();
-    expect(requestScoopConnect).toHaveBeenCalledTimes(1);
-    const [, opts] = requestScoopConnect.mock.calls[0]!;
-    expect(opts).toEqual({ namespace: 'solana' });
+    expect(screen.getByTestId('launch-wallet-notice').textContent).toMatch(
+      /Sign in to launch/i,
+    );
+    expect(screen.queryByTestId('pump-connect-solana')).toBeNull();
+    expect(screen.queryByText(/Connect Solana/i)).toBeNull();
+    screen.getByTestId('launch-global-sign-in').click();
+    expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 
-  it('shows Solana address when connected and ignores EVM-only state', () => {
-    useAppKitAccount.mockReturnValue({
-      address: SOL,
-      isConnected: true,
-    });
-    render(<PumpRouteStep />);
+  it('shows the Solana address when the global session is compatible', () => {
+    render(
+      <PumpRouteStep
+        compatibility={{ status: 'compatible', message: null, canLaunch: true }}
+        solanaAddress={SOL}
+        onSignIn={() => undefined}
+        onSwitchWallet={() => undefined}
+      />,
+    );
     expect(screen.getByTestId('pump-solana-address').textContent).toMatch(
       /2Q3bW/,
     );
-    expect(screen.queryByText(/0x/i)).toBeNull();
+    expect(screen.queryByTestId('pump-connect-solana')).toBeNull();
+  });
+
+  it('blocks an Ethereum session with a switch action and no connect button', () => {
+    const onSwitch = vi.fn();
+    render(
+      <PumpRouteStep
+        compatibility={{
+          status: 'incompatible_namespace',
+          message:
+            'You’re signed in with an Ethereum wallet. Solana launches require a Solana wallet such as Phantom. Sign out and reconnect with a Solana wallet to continue.',
+          canLaunch: false,
+        }}
+        onSignIn={() => undefined}
+        onSwitchWallet={onSwitch}
+      />,
+    );
+    expect(screen.getByTestId('launch-wallet-notice').textContent).toMatch(
+      /Ethereum wallet/i,
+    );
+    expect(screen.queryByTestId('pump-connect-solana')).toBeNull();
+    screen.getByTestId('launch-switch-wallet').click();
+    expect(onSwitch).toHaveBeenCalledTimes(1);
   });
 });
 
