@@ -70,6 +70,7 @@ import {
 } from '@/lib/launch/dev-supply-policy';
 import { isPublicCreatorFeeBps } from '@/lib/launch/creator-fee';
 import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import { useAppKitConnection } from '@reown/appkit-adapter-solana/react';
 import type { Provider as SolanaProvider } from '@reown/appkit-adapter-solana/react';
 import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
 import { getLaunchRailCompatibility } from '@/lib/launch/rail-compatibility';
@@ -255,6 +256,7 @@ function LaunchFlowInner({ catalogue }: Props) {
   const solanaAccount = useAppKitAccount({ namespace: 'solana' });
   const { walletProvider: solanaWalletProvider } =
     useAppKitProvider<SolanaProvider>('solana');
+  const { connection: solanaConnection } = useAppKitConnection();
   const solanaAddress = solanaAccount.address ?? null;
   const walletSession = useScoopWalletSession();
   const applied = useRef(false);
@@ -915,6 +917,7 @@ function LaunchFlowInner({ catalogue }: Props) {
         state,
         walletAddress: solanaAddress,
         walletProvider: solanaWalletProvider,
+        connection: solanaConnection,
         priorAttemptId: pumpAttemptIdRef.current,
         priorSignature: pumpSignatureRef.current,
         onPhase: (phase) => {

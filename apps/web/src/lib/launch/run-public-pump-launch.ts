@@ -1,7 +1,13 @@
 'use client';
 
-import { Transaction, type SendOptions } from '@solana/web3.js';
+import type { Connection } from '@solana/web3.js';
 import type { Provider } from '@reown/appkit-adapter-solana/react';
+import {
+  broadcastPreparedPumpTransaction,
+  PREPARED_TRANSACTION_INVALID,
+  SOLANA_RPC_UNAVAILABLE,
+  SOLANA_WALLET_SIGNER_UNAVAILABLE,
+} from '@/lib/launch/pump-wallet-broadcast';
 import {
   clearPumpMintAttempt,
   createPumpMintAttempt,
@@ -19,6 +25,7 @@ export type PublicPumpLaunchInput = {
   state: LaunchFormState;
   walletAddress: string;
   walletProvider: Provider;
+  connection: Pick<Connection, 'sendRawTransaction'> | null | undefined;
   /** Prior mint attempt — replaced so retries never reuse a broadcast mint. */
   priorAttemptId?: string | null;
   /** If a signature already exists from an uncertain broadcast, refuse auto-retry. */
@@ -64,26 +71,19 @@ type ConfirmResponse = {
   error?: unknown;
 };
 
-function b64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
 /**
  * Public Pump create flow (CREATE ONLY):
  * 1) Pin artwork / reuse SCOOP ipfs:// URI
  * 2) Client mint attempt (secret never leaves browser)
  * 3) Server prepares unsigned create_v2 (mint pubkey only) + SOL balance check
  * 4) Client partial-signs mint
- * 5) Wallet signs + broadcasts via Reown
+ * 5) Wallet signTransaction, then web3.js sendRawTransaction (signature string)
  * 6) Server confirms signature → LaunchResult
  */
 export async function runPublicPumpLaunch(
   input: PublicPumpLaunchInput,
 ): Promise<PublicPumpLaunchOutcome> {
-  const { state, walletAddress, walletProvider, onPhase, onImagePinned } = input;
+  const { state, walletAddress, walletProvider, connection, onPhase, onImagePinned } = input;
   const setPhase = (p: LaunchTxPhase) => onPhase?.(p);
 
   if (input.priorSignature) {
@@ -211,14 +211,12 @@ export async function runPublicPumpLaunch(
 
   let signature: string | undefined;
   try {
-    const tx = Transaction.from(b64ToUint8(prepareJson.transactionBase64!));
-    tx.partialSign(mintKp);
-
-    const sendOpts: SendOptions = {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    };
-    signature = await walletProvider.signAndSendTransaction(tx, sendOpts);
+    signature = await broadcastPreparedPumpTransaction({
+      transactionBase64: prepareJson.transactionBase64!,
+      mintKeypair: mintKp,
+      walletProvider,
+      connection,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const rejected =
@@ -233,9 +231,17 @@ export async function runPublicPumpLaunch(
         attemptId: handle.attemptId,
       };
     }
+    const friendly =
+      msg === SOLANA_WALLET_SIGNER_UNAVAILABLE
+        ? 'Solana wallet cannot sign this launch. Sign in again from the top-right, then retry.'
+        : msg === SOLANA_RPC_UNAVAILABLE
+          ? 'Solana network connection is not ready. Refresh and try again.'
+          : msg === PREPARED_TRANSACTION_INVALID
+            ? 'Prepared launch transaction was invalid. Start the launch again.'
+            : msg;
     return {
       ok: false,
-      error: msg,
+      error: friendly,
       phase: 'failed',
       attemptId: handle.attemptId,
       signature,
