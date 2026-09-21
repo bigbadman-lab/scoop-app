@@ -78,6 +78,121 @@ describe('expire24hVolume sweep', () => {
     expect(rows[0]?.tokenIsCurrency1).toBe(true);
   });
 
+  it('skips incomplete rows instead of BigInt(null) (production crash repro)', async () => {
+    // Production: after each fast-catchup batch, maybeExpireStale24hVolume lists
+    // candidates. Sparse/Pump markets can have null sqrt/liquidity while still
+    // matching the non-zero 24h WHERE clause. Pre-fix BigInt(null) killed the runner.
+    expect(() => BigInt(null as never)).toThrow(/Cannot convert null to a BigInt/);
+
+    const db = {
+      query: vi.fn(async () => ({
+        rows: [
+          {
+            token_address: IDLE,
+            pool_id: POOL_IDLE,
+            tick_lower: -100,
+            tick_upper: 100,
+            opening_sqrt_price_x96: '1',
+            liquidity_raw: null,
+            sqrt_price_x96: null,
+            tick: 0,
+            source_block: null,
+            source_tx_hash: null,
+            source_log_index: null,
+            quote_asset: ZERO_ADDRESS,
+            currency1: IDLE,
+            last_trade_sqrt: null,
+            last_trade_tick: null,
+            last_trade_liq: null,
+            last_trade_block: null,
+            last_trade_tx: null,
+            last_trade_log: null,
+          },
+          {
+            token_address: ACTIVE,
+            pool_id: POOL_ACTIVE,
+            tick_lower: -100,
+            tick_upper: 100,
+            opening_sqrt_price_x96: '5',
+            liquidity_raw: '10',
+            sqrt_price_x96: '7',
+            tick: 2,
+            source_block: '42',
+            source_tx_hash: TX,
+            source_log_index: 1,
+            quote_asset: ZERO_ADDRESS,
+            currency1: ACTIVE,
+            last_trade_sqrt: null,
+            last_trade_tick: null,
+            last_trade_liq: null,
+            last_trade_block: null,
+            last_trade_tx: null,
+            last_trade_log: null,
+          },
+        ],
+      })),
+    };
+
+    const rows = await listMarketsNeeding24hRefresh(db as never, 4663);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tokenAddress).toBe(ACTIVE);
+    expect(rows[0]?.sqrtPriceX96).toBe(7n);
+    expect(rows[0]?.sourceBlock).toBe(42n);
+    expect(rows[0]?.sourceLogIndex).toBe(1);
+  });
+
+  it('post-batch sweep with null candidate fields does not throw (multi-batch survivor)', async () => {
+    const db = {
+      query: vi.fn(async () => ({
+        rows: [
+          {
+            token_address: IDLE,
+            pool_id: POOL_IDLE,
+            tick_lower: -50,
+            tick_upper: 50,
+            opening_sqrt_price_x96: null,
+            liquidity_raw: null,
+            sqrt_price_x96: null,
+            tick: null,
+            source_block: null,
+            source_tx_hash: null,
+            source_log_index: null,
+            quote_asset: ZERO_ADDRESS,
+            currency1: null,
+            last_trade_sqrt: null,
+            last_trade_tick: null,
+            last_trade_liq: null,
+            last_trade_block: null,
+            last_trade_tx: null,
+            last_trade_log: null,
+          },
+        ],
+      })),
+    };
+
+    // Simulate runner: lastSweepAtMs=0 ⇒ first post-batch sweep always due.
+    const first = await maybeExpireStale24hVolume({
+      db: db as never,
+      chainId: 4663,
+      intervalSeconds: 60,
+      lastSweepAtMs: 0,
+      nowMs: 60_000,
+    });
+    expect(first.swept).toBe(true);
+    expect(first.candidates).toBe(0);
+    expect(first.failed).toBe(0);
+
+    const second = await maybeExpireStale24hVolume({
+      db: db as never,
+      chainId: 4663,
+      intervalSeconds: 60,
+      lastSweepAtMs: first.nextLastAtMs,
+      nowMs: first.nextLastAtMs + 60_000,
+    });
+    expect(second.swept).toBe(true);
+    expect(second.candidates).toBe(0);
+  });
+
   it('idle market refresh without a new trade uses wall-clock nowSec', async () => {
     const nowSec = 1_700_100_000;
     const refreshOne = vi.fn(async () => undefined);

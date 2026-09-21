@@ -103,13 +103,28 @@ export async function listMarketsNeeding24hRefresh(
   const out: Stale24hMarketCandidate[] = [];
   for (const row of result.rows) {
     const tokenAddress = normalizeAddress(row.token_address);
-    const sqrtPriceX96 = BigInt(row.last_trade_sqrt ?? row.sqrt_price_x96);
-    const tick = row.last_trade_tick ?? row.tick;
-    const liquidityRaw = BigInt(row.last_trade_liq ?? row.liquidity_raw);
-    const sourceBlock = BigInt(row.last_trade_block ?? row.source_block);
+    // Prefer last-trade curve state; fall back to materialized market columns.
+    // Never BigInt(null) — incomplete rows (e.g. Pump / sparse markets) must be
+    // skipped here: this loop runs outside per-market try/catch and would kill
+    // the live runner after every catch-up batch when the sweep interval elapses.
+    const sqrtRaw = row.last_trade_sqrt ?? row.sqrt_price_x96;
+    const liqRaw = row.last_trade_liq ?? row.liquidity_raw;
+    const blockRaw = row.last_trade_block ?? row.source_block;
+    const openingRaw = row.opening_sqrt_price_x96;
     const sourceTxHash = row.last_trade_tx ?? row.source_tx_hash;
     const sourceLogIndex = row.last_trade_log ?? row.source_log_index;
-    if (sourceTxHash == null || sourceLogIndex == null) {
+    if (
+      sqrtRaw == null ||
+      liqRaw == null ||
+      blockRaw == null ||
+      openingRaw == null ||
+      sourceTxHash == null ||
+      sourceLogIndex == null
+    ) {
+      continue;
+    }
+    const tick = row.last_trade_tick ?? row.tick;
+    if (tick == null) {
       continue;
     }
     out.push({
@@ -117,11 +132,11 @@ export async function listMarketsNeeding24hRefresh(
       poolId: row.pool_id,
       tickLower: row.tick_lower,
       tickUpper: row.tick_upper,
-      openingSqrtPriceX96: BigInt(row.opening_sqrt_price_x96),
-      liquidityRaw,
-      sqrtPriceX96,
+      openingSqrtPriceX96: BigInt(openingRaw),
+      liquidityRaw: BigInt(liqRaw),
+      sqrtPriceX96: BigInt(sqrtRaw),
       tick,
-      sourceBlock,
+      sourceBlock: BigInt(blockRaw),
       sourceTxHash,
       sourceLogIndex,
       quoteAsset: normalizeAddress(row.quote_asset),
