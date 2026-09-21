@@ -60,6 +60,8 @@ describe('applyPumpMarketStateToTokenDetail', () => {
     lastTradeSlot: '9',
     lastTradeAt: new Date('2026-09-21T12:00:00Z'),
     lastEventCursor: null,
+    holderCount: null as number | null,
+    holdersUpdatedAt: null as Date | null,
     updatedAt: new Date(),
   };
 
@@ -122,5 +124,24 @@ describe('applyPumpMarketStateToTokenDetail', () => {
     expect(out.priceUsdX18).toBeNull();
     expect(out.fdvUsdX18).toBeNull();
     expect(out.volume24hUsdX18).toBeNull();
+  });
+
+  it('maps holder_count into shared holderCountAll/Retail fields', () => {
+    const out = applyPumpMarketStateToTokenDetail(base, {
+      ...state,
+      holderCount: 12,
+    });
+    expect(out.holderCountAll).toBe(12);
+    expect(out.holderCountRetail).toBe(12);
+  });
+
+  it('applies holders even when price_sol is null', () => {
+    const out = applyPumpMarketStateToTokenDetail(base, {
+      ...state,
+      priceSol: null,
+      holderCount: 4,
+    });
+    expect(out.priceQuoteX18).toBeNull();
+    expect(out.holderCountAll).toBe(4);
   });
 });

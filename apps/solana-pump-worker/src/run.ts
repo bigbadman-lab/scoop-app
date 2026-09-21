@@ -14,6 +14,10 @@ import { publicConfigView } from './config.js';
 import { createHealthState, type WorkerHealthState } from './health.js';
 import { ingestNormalizedPumpTrade } from './ingest.js';
 import { logJson } from './log.js';
+import {
+  createHolderRefreshRpc,
+  refreshPumpHolderCounts,
+} from './holders/refresh.js';
 import { AlchemyTradeProvider } from './provider/alchemy.js';
 import { MockPumpTradeProvider } from './provider/mock.js';
 import type { NormalizedPumpTradeEvent, PumpTradeProvider } from './provider/types.js';
@@ -232,6 +236,30 @@ export async function runPumpMarketDataWorker(
       }
     }
   })();
+
+  // Holder enumeration — independent of trade decode / watchlist loop.
+  if (config.solanaRpcUrl) {
+    const holderRpc = createHolderRefreshRpc(config.solanaRpcUrl);
+    void (async () => {
+      // First cycle shortly after start so canaries do not wait a full interval.
+      await sleep(Math.min(15_000, config.holderRefreshMs));
+      while (!stopped) {
+        try {
+          const result = await refreshPumpHolderCounts({
+            db: pool,
+            rpc: holderRpc,
+            getMints: () => [...watchByMint.keys()],
+          });
+          logJson('info', 'pump holder refresh cycle', result);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logJson('error', 'pump holder refresh cycle failed', { error: message });
+        }
+        await sleep(config.holderRefreshMs);
+        if (stopped) break;
+      }
+    })();
+  }
 
   return { health, provider, pool, stop };
 }

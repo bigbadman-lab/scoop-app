@@ -18,6 +18,9 @@ export type PumpMarketStateRow = {
   lastTradeSlot: string | null;
   lastTradeAt: Date | null;
   lastEventCursor: string | null;
+  /** Unique owners with aggregate raw balance > 0. Null until first successful refresh. */
+  holderCount: number | null;
+  holdersUpdatedAt: Date | null;
   updatedAt: Date | null;
 };
 
@@ -47,6 +50,14 @@ function mapState(row: Record<string, unknown>): PumpMarketStateRow {
     lastTradeAt: row.last_trade_at == null ? null : new Date(String(row.last_trade_at)),
     lastEventCursor:
       row.last_event_cursor == null ? null : String(row.last_event_cursor),
+    holderCount:
+      row.holder_count == null || row.holder_count === ''
+        ? null
+        : Number(row.holder_count),
+    holdersUpdatedAt:
+      row.holders_updated_at == null
+        ? null
+        : new Date(String(row.holders_updated_at)),
     updatedAt: row.updated_at == null ? null : new Date(String(row.updated_at)),
   };
 }
@@ -154,6 +165,52 @@ export async function refreshPumpMarketStateFromTrades(
   const state = await getPumpMarketState(db, mint);
   if (!state) {
     throw new Error(`Failed to refresh pump_market_state for ${mint}`);
+  }
+  return state;
+}
+
+/**
+ * Persist Solana holder count only. Never touches price/FDV/volume/trades.
+ * Failed fetches must not call this (avoids writing fake zero).
+ */
+export async function updatePumpHolderCount(
+  db: Queryable,
+  input: {
+    mint: string;
+    holderCount: number;
+    holdersUpdatedAt?: Date | string;
+  },
+): Promise<PumpMarketStateRow> {
+  const mint = input.mint.trim();
+  if (!mint) throw new Error('mint is required');
+  if (
+    !Number.isInteger(input.holderCount) ||
+    input.holderCount < 0 ||
+    !Number.isSafeInteger(input.holderCount)
+  ) {
+    throw new Error(`Invalid holderCount: ${input.holderCount}`);
+  }
+  const holdersUpdatedAt =
+    input.holdersUpdatedAt instanceof Date
+      ? input.holdersUpdatedAt.toISOString()
+      : (input.holdersUpdatedAt ?? new Date().toISOString());
+
+  await db.query(
+    `INSERT INTO pump_market_state (
+       chain_id, mint, holder_count, holders_updated_at, updated_at
+     ) VALUES (
+       $1, $2, $3::bigint, $4::timestamptz, NOW()
+     )
+     ON CONFLICT (chain_id, mint) DO UPDATE SET
+       holder_count = EXCLUDED.holder_count,
+       holders_updated_at = EXCLUDED.holders_updated_at,
+       updated_at = NOW()`,
+    [PUMP_MARKET_CHAIN_ID, mint, input.holderCount, holdersUpdatedAt],
+  );
+
+  const state = await getPumpMarketState(db, mint);
+  if (!state) {
+    throw new Error(`Failed to update pump holder_count for ${mint}`);
   }
   return state;
 }

@@ -226,6 +226,7 @@ export {
   getPumpMarketState as getPumpMarketStateRow,
   getPumpMarketStates as getPumpMarketStatesRow,
   refreshPumpMarketStateFromTrades,
+  updatePumpHolderCount,
   type PumpMarketStateRow as PumpMarketStateRepoRow,
   type RefreshPumpMarketStateInput,
 } from './repos/pump-market-state.js';

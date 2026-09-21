@@ -22,6 +22,8 @@ export type SolanaPumpWorkerConfig = {
   maxReconnectBackoffMs: number;
   reconcileIntervalMs: number;
   reconcileLimit: number;
+  /** Periodic Alchemy holder enumeration cadence (default 3 minutes). */
+  holderRefreshMs: number;
 };
 
 export type PublicSolanaPumpWorkerConfig = {
@@ -29,6 +31,7 @@ export type PublicSolanaPumpWorkerConfig = {
   chainId: number;
   tradeProvider: PumpTradeProviderKind;
   watchlistRefreshMs: number;
+  holderRefreshMs: number;
   hasDatabaseUrl: boolean;
   hasSolanaRpcUrl: boolean;
   solanaRpcProvider: 'alchemy' | 'other' | null;
@@ -110,6 +113,11 @@ export function loadConfig(
       80,
       'SCOOP_SOLANA_PUMP_RECONCILE_LIMIT',
     ),
+    holderRefreshMs: parsePositiveInt(
+      env.SCOOP_SOLANA_PUMP_HOLDER_REFRESH_MS,
+      180_000,
+      'SCOOP_SOLANA_PUMP_HOLDER_REFRESH_MS',
+    ),
   };
 }
 
@@ -119,6 +127,7 @@ export function publicConfigView(config: SolanaPumpWorkerConfig): PublicSolanaPu
     chainId: config.chainId,
     tradeProvider: config.tradeProvider,
     watchlistRefreshMs: config.watchlistRefreshMs,
+    holderRefreshMs: config.holderRefreshMs,
     hasDatabaseUrl: Boolean(config.databaseUrl),
     hasSolanaRpcUrl: Boolean(config.solanaRpcUrl),
     solanaRpcProvider: classifyRpcProvider(config.solanaRpcUrl),

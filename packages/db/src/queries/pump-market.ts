@@ -204,14 +204,28 @@ export async function getPumpCandles(
  * Overlay Pump market state onto discovery / detail quote/volume fields.
  * When `solUsdX18` is provided, derive canonical USD fields via shared x18 math.
  * Never invents zero price when state is empty; never fabricates USD without SOL/USD.
+ * Holder count is applied independently of price (null price still surfaces holders).
  */
 export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
   token: T,
   state: PumpMarketStateRow | null,
   solUsdX18: bigint | null = null,
 ): T {
-  if (!state || state.priceSol == null) {
+  if (!state) {
     return token;
+  }
+
+  const withHolders: T =
+    state.holderCount == null
+      ? token
+      : {
+          ...token,
+          holderCountAll: state.holderCount,
+          holderCountRetail: state.holderCount,
+        };
+
+  if (state.priceSol == null) {
+    return withHolders;
   }
   const priceX18 = solDecimalToX18(state.priceSol);
   const volLamports = solToLamports(state.volume24hSol);
@@ -254,7 +268,7 @@ export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
   }
 
   return {
-    ...token,
+    ...withHolders,
     priceQuoteX18: priceX18,
     priceQuoteDisplay: formatX18(priceX18) ?? state.priceSol,
     priceUsdX18,
@@ -273,7 +287,7 @@ export function applyPumpMarketStateToTokenDetail<T extends TokenDiscoveryItem>(
     sellCount24h: state.sellCount24h,
     lastTradeAt: state.lastTradeAt
       ? Math.floor(state.lastTradeAt.getTime() / 1000)
-      : token.lastTradeAt,
+      : withHolders.lastTradeAt,
   };
 }
 

@@ -3,7 +3,7 @@
  * Never logs the RPC URL or API key.
  */
 
-export type SolanaRpcCall = <T>(method: string, params: unknown[]) => Promise<T>;
+export type SolanaRpcCall = <T>(method: string, params: unknown[] | Record<string, unknown>) => Promise<T>;
 
 export type JsonParsedTokenBalance = {
   accountIndex: number;
@@ -70,7 +70,10 @@ export function createSolanaRpc(rpcUrl: string): SolanaRpcCall {
   const url = rpcUrl.trim();
   if (!url) throw new Error('SOLANA_RPC_URL is required');
 
-  return async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
+  return async function rpcCall<T>(
+    method: string,
+    params: unknown[] | Record<string, unknown>,
+  ): Promise<T> {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

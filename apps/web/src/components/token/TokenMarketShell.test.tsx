@@ -504,6 +504,30 @@ describe('TokenMarketShell', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('Gate holders: Pump token page shows numeric holder count from shared fields', () => {
+    const mint = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    render(
+      <TokenMarketShell
+        token={baseToken({
+          chainId: 900001,
+          tokenAddress: mint,
+          marketSource: 'pump',
+          marketPhase: null,
+          poolId: null,
+          curveAddress: null,
+          quoteAsset: 'So11111111111111111111111111111111111111112',
+          holderCountAll: 1,
+          holderCountRetail: 1,
+          creatorFeeDistributions: [],
+          buybackFeeDistributions: [],
+          launchTxHash: '5'.repeat(64),
+        })}
+        quoteSymbol="SOL"
+      />,
+    );
+    expect(screen.getByTestId('token-metric-holders').textContent).toMatch(/1/);
+  });
+
   it('shows unavailable state without stack traces', () => {
     render(
       <TokenMarketUnavailable title="Market not found" message="No indexed market exists." />,

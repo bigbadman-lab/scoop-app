@@ -129,11 +129,9 @@ function TokenMarketLiveBody({
     quoteSymbol,
   });
   const holdersRaw = displayHolderCount(token.holderCountRetail, token.holderCountAll);
-  const holders = isPump
-    ? null
-    : holdersRaw
-      ? holdersRaw.replace(/ holders?$/, '')
-      : null;
+  const holders = holdersRaw
+    ? holdersRaw.replace(/ holders?$/, '')
+    : null;
   const age = formatCompactAge(token.ageSeconds);
   const showProgress = !isPump && shouldShowBondingProgress(token);
   const changeTone =
