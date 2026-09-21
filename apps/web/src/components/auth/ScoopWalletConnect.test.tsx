@@ -4,9 +4,11 @@ import { ScoopWalletConnect } from '@/components/auth/ScoopWalletConnect';
 
 const useAppKitWallets = vi.fn();
 const useAccount = vi.fn();
+const useAppKitAccount = vi.fn();
 
 vi.mock('@reown/appkit/react', () => ({
   useAppKitWallets: () => useAppKitWallets(),
+  useAppKitAccount: (opts?: { namespace?: string }) => useAppKitAccount(opts),
 }));
 
 vi.mock('wagmi', () => ({
@@ -25,6 +27,10 @@ describe('ScoopWalletConnect', () => {
       address: undefined,
       isConnected: false,
       status: 'disconnected',
+    });
+    useAppKitAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
     });
   });
 
@@ -100,7 +106,115 @@ describe('ScoopWalletConnect', () => {
     expect(screen.getByText('ME')).toBeTruthy();
     expect(screen.getByAltText('')).toBeTruthy();
     screen.getByText('MetaMask').closest('button')?.click();
-    expect(connect).toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'metamask' }),
+      'eip155',
+    );
+  });
+
+  it('filters out EVM-only wallets and connects with solana namespace', async () => {
+    const connect = vi.fn(async () => undefined);
+    useAppKitWallets.mockReturnValue({
+      wallets: [
+        {
+          id: 'metamask',
+          name: 'MetaMask',
+          isInjected: true,
+          connectors: [{ id: 'metamask', chain: 'eip155' }],
+        },
+        {
+          id: 'phantom',
+          name: 'Phantom',
+          isInjected: true,
+          connectors: [{ id: 'phantom', chain: 'solana' }],
+        },
+      ],
+      wcWallets: [],
+      isFetchingWallets: false,
+      isFetchingWcUri: false,
+      isInitialized: true,
+      wcUri: undefined,
+      connectingWallet: undefined,
+      connect,
+      getWcUri: vi.fn(),
+      fetchWallets: vi.fn(),
+      resetWcUri: vi.fn(),
+      resetConnectingWallet: vi.fn(),
+    });
+
+    render(
+      <ScoopWalletConnect
+        namespace="solana"
+        connecting={false}
+        error={null}
+        onBack={() => undefined}
+        onConnecting={() => undefined}
+        onConnected={() => undefined}
+        onCancelled={() => undefined}
+        onFailed={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByText('MetaMask')).toBeNull();
+    expect(screen.getByText('Phantom')).toBeTruthy();
+    expect(screen.queryByText(/Loading Solana wallets/i)).toBeNull();
+    screen.getByText('Phantom').closest('button')?.click();
+    expect(connect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'phantom' }),
+      'solana',
+    );
+  });
+
+  it('settles on Solana AppKit account, not wagmi EVM address', () => {
+    const onConnected = vi.fn();
+    useAppKitWallets.mockReturnValue({
+      wallets: [
+        {
+          id: 'phantom',
+          name: 'Phantom',
+          isInjected: true,
+          connectors: [{ id: 'phantom', chain: 'solana' }],
+        },
+      ],
+      wcWallets: [],
+      isFetchingWallets: false,
+      isFetchingWcUri: false,
+      isInitialized: true,
+      wcUri: undefined,
+      connectingWallet: undefined,
+      connect: vi.fn(),
+      getWcUri: vi.fn(),
+      fetchWallets: vi.fn(),
+      resetWcUri: vi.fn(),
+      resetConnectingWallet: vi.fn(),
+    });
+    useAccount.mockReturnValue({
+      address: '0xabc',
+      isConnected: true,
+      status: 'connected',
+    });
+    useAppKitAccount.mockReturnValue({
+      address: '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4',
+      isConnected: true,
+    });
+
+    render(
+      <ScoopWalletConnect
+        namespace="solana"
+        connecting
+        error={null}
+        onBack={() => undefined}
+        onConnecting={() => undefined}
+        onConnected={onConnected}
+        onCancelled={() => undefined}
+        onFailed={() => undefined}
+      />,
+    );
+
+    expect(onConnected).toHaveBeenCalledWith(
+      '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4',
+    );
+    expect(onConnected).not.toHaveBeenCalledWith('0xabc');
   });
 
   it('does not render img for undefined asset imageUrl', () => {

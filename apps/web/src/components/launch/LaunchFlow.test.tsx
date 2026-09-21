@@ -31,6 +31,19 @@ vi.mock('wagmi', () => ({
   useSwitchChain: () => ({ switchChainAsync: vi.fn() }),
 }));
 
+vi.mock('@reown/appkit/react', () => ({
+  useAppKit: () => ({ open: vi.fn() }),
+  useAppKitAccount: () => ({
+    address: undefined,
+    isConnected: false,
+  }),
+  useAppKitProvider: () => ({ walletProvider: undefined }),
+}));
+
+vi.mock('@/lib/auth/open-scoop-auth', () => ({
+  requestScoopConnect: vi.fn(),
+}));
+
 beforeAll(() => {
   if (typeof URL.createObjectURL !== 'function') {
     URL.createObjectURL = vi.fn(() => 'blob:mock');
@@ -228,7 +241,9 @@ describe('LaunchFlowLive', () => {
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
     await waitFor(() => {
       expect(screen.getByText(/02 \/ 03 — DEV_BUY/i)).toBeTruthy();
-      expect(screen.getByTestId('dev-buy-pair').textContent).toBe('ETH');
+      // Public Pons path is ETH-fixed — pair chooser removed.
+      expect(screen.getByTestId('dev-buy-amount')).toBeTruthy();
+      expect(screen.getByText(/Dev buy \(ETH\)/i)).toBeTruthy();
     });
   });
 

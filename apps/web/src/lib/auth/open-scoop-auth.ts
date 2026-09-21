@@ -8,8 +8,11 @@
  */
 
 import { isScoopCustomAuthUiEnabled } from '@/lib/auth/custom-auth-ui';
+import type { ScoopWalletNamespace } from '@/lib/auth/wallet-namespace';
 
 export type ScoopConnectOutcome = 'cancelled' | 'completed';
+
+export type ScoopConnectNamespace = ScoopWalletNamespace;
 
 type ScoopAuthSheetListener = (open: boolean) => void;
 
@@ -21,6 +24,7 @@ type ScoopConnectRequestListener = (event: ScoopConnectRequestEvent) => void;
 
 let sheetOpen = false;
 let connectRequestPending = false;
+let connectNamespace: ScoopConnectNamespace = 'eip155';
 const sheetListeners = new Set<ScoopAuthSheetListener>();
 const requestListeners = new Set<ScoopConnectRequestListener>();
 
@@ -66,6 +70,11 @@ export function isScoopConnectRequestPending(): boolean {
   return connectRequestPending;
 }
 
+/** Namespace for the current (or last-opened) connect sheet request. */
+export function getScoopConnectNamespace(): ScoopConnectNamespace {
+  return connectNamespace;
+}
+
 export function openScoopAuthSheet(): void {
   sheetOpen = true;
   notifySheet();
@@ -82,6 +91,7 @@ export function closeScoopAuthSheet(options?: {
   sheetOpen = false;
   notifySheet();
   settleScoopConnectRequest(outcome);
+  connectNamespace = 'eip155';
 }
 
 export function settleScoopConnectRequest(outcome: ScoopConnectOutcome): void {
@@ -92,9 +102,14 @@ export function settleScoopConnectRequest(outcome: ScoopConnectOutcome): void {
 
 /**
  * Central connect entry: custom SCOOP sheet when flagged, else AppKit modal.
- * Callers still own SIWE / join-intent around this.
+ * Pass `{ namespace: 'solana' }` for Pump / Solana rail (wallet-only, no SIWE).
+ * Default namespace remains eip155 for Join / PONS.
  */
-export function requestScoopConnect(openAppKitConnect: () => void): void {
+export function requestScoopConnect(
+  openAppKitConnect: () => void,
+  options?: { namespace?: ScoopConnectNamespace },
+): void {
+  connectNamespace = options?.namespace ?? 'eip155';
   if (isScoopCustomAuthUiEnabled()) {
     if (!connectRequestPending) {
       connectRequestPending = true;

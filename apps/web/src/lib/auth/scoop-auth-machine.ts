@@ -30,7 +30,7 @@ export type ScoopAuthState = {
 };
 
 export type ScoopAuthEvent =
-  | { type: 'OPEN' }
+  | { type: 'OPEN'; namespace?: 'eip155' | 'solana' }
   | { type: 'CLOSE' }
   | { type: 'CHOOSE_EMAIL' }
   | { type: 'CHOOSE_WALLET' }
@@ -88,9 +88,10 @@ export function reduceScoopAuth(
 ): ScoopAuthState {
   switch (event.type) {
     case 'OPEN':
+      // Solana / Pump rail: wallet list only (no email / SIWE Join path).
       return {
         ...INITIAL_SCOOP_AUTH_STATE,
-        phase: 'entry',
+        phase: event.namespace === 'solana' ? 'wallet_select' : 'entry',
       };
     case 'CLOSE':
       return { ...INITIAL_SCOOP_AUTH_STATE, phase: 'idle' };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useAppKitWallets } from '@reown/appkit/react';
+import { useAppKitAccount, useAppKitWallets } from '@reown/appkit/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { ScoopWcQr } from '@/components/auth/ScoopWcQr';
@@ -13,6 +13,10 @@ import {
   resolveScoopWalletImageSrc,
   scoopWalletMonogram,
 } from '@/lib/auth/resolve-wallet-image';
+import {
+  filterWalletsByNamespace,
+  type ScoopWalletNamespace,
+} from '@/lib/auth/wallet-namespace';
 
 type WalletLike = {
   id?: string;
@@ -23,15 +27,19 @@ type WalletLike = {
   connectors?: { id: string; chain?: string }[];
   walletInfo?: {
     deepLink?: string | null;
+    supportedNamespaces?: string[];
+    supportedChains?: string[];
   };
 };
 
 type Props = {
   connecting: boolean;
   error: string | null;
+  /** Default eip155 (Join). Pass solana for Pump rail. */
+  namespace?: ScoopWalletNamespace;
   onBack: () => void;
   onConnecting: () => void;
-  onConnected: (address: `0x${string}`) => void;
+  onConnected: (address: string) => void;
   onCancelled: () => void;
   onFailed: (message: string) => void;
 };
@@ -68,10 +76,12 @@ function WalletAvatar({ wallet }: { wallet: WalletLike }) {
 /**
  * External wallet chooser for SCOOP custom auth (Reown headless).
  * When headless wallets are not initialized, show a safe unavailable state.
+ * Supports eip155 (Join/SIWE) and solana (Pump) namespaces.
  */
 export function ScoopWalletConnect({
   connecting,
   error,
+  namespace = 'eip155',
   onBack,
   onConnecting,
   onConnected,
@@ -79,7 +89,8 @@ export function ScoopWalletConnect({
   onFailed,
 }: Props) {
   const walletsApi = useAppKitWallets();
-  const { address, isConnected, status } = useAccount();
+  const evmAccount = useAccount();
+  const solanaAccount = useAppKitAccount({ namespace: 'solana' });
   const [showMore, setShowMore] = useState(false);
   const [wcCopied, setWcCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -99,11 +110,20 @@ export function ScoopWalletConnect({
   const headlessUnavailable =
     isInitialized === false && wallets.length === 0 && !isFetchingWallets;
 
+  const filteredWallets = useMemo(
+    () => filterWalletsByNamespace(wallets, namespace),
+    [wallets, namespace],
+  );
+  const filteredWcWallets = useMemo(
+    () => filterWalletsByNamespace(wcWallets, namespace),
+    [wcWallets, namespace],
+  );
+
   const discoveryEmpty =
     isInitialized &&
     !isFetchingWallets &&
-    wallets.length === 0 &&
-    wcWallets.length === 0;
+    filteredWallets.length === 0 &&
+    filteredWcWallets.length === 0;
 
   const preferMobileOpen = shouldPreferMobileWcOpenOverQr({
     isMobile,
@@ -111,7 +131,9 @@ export function ScoopWalletConnect({
   });
 
   const curated = useMemo(() => {
-    const list = showMore ? [...wallets, ...wcWallets] : wallets;
+    const list = showMore
+      ? [...filteredWallets, ...filteredWcWallets]
+      : filteredWallets;
     const seen = new Set<string>();
     const out: WalletLike[] = [];
     for (const w of list) {
@@ -121,14 +143,33 @@ export function ScoopWalletConnect({
       out.push(w);
     }
     return out.slice(0, showMore ? 40 : 8);
-  }, [wallets, wcWallets, showMore]);
+  }, [filteredWallets, filteredWcWallets, showMore]);
 
   useEffect(() => {
     if (!connecting) return;
-    if (status === 'connected' && isConnected && address) {
-      onConnected(address);
+    if (namespace === 'solana') {
+      if (solanaAccount.isConnected && solanaAccount.address) {
+        onConnected(solanaAccount.address);
+      }
+      return;
     }
-  }, [connecting, status, isConnected, address, onConnected]);
+    if (
+      evmAccount.status === 'connected' &&
+      evmAccount.isConnected &&
+      evmAccount.address
+    ) {
+      onConnected(evmAccount.address);
+    }
+  }, [
+    connecting,
+    namespace,
+    solanaAccount.isConnected,
+    solanaAccount.address,
+    evmAccount.status,
+    evmAccount.isConnected,
+    evmAccount.address,
+    onConnected,
+  ]);
 
   async function connectWallet(wallet: WalletLike) {
     if (!wallet || typeof walletsApi.connect !== 'function') {
@@ -145,7 +186,7 @@ export function ScoopWalletConnect({
       ) {
         await walletsApi.getWcUri();
       }
-      await walletsApi.connect(wallet as never);
+      await walletsApi.connect(wallet as never, namespace);
     } catch (error) {
       const message =
         error instanceof Error && /reject|denied|cancel/i.test(error.message)
@@ -177,7 +218,8 @@ export function ScoopWalletConnect({
       <div className="space-y-4">
         <p className="text-sm text-[var(--muted)]">
           Wallet list is unavailable. Reown headless wallet discovery did not
-          initialize. Try again, or continue with email.
+          initialize. Try again
+          {namespace === 'solana' ? '.' : ', or continue with email.'}
         </p>
         <p className="font-mono text-[11px] text-[var(--muted)]">
           Status: wallets unavailable / not initialized
@@ -199,17 +241,19 @@ export function ScoopWalletConnect({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-scoop-wallet-namespace={namespace}>
       {isFetchingWallets || !isInitialized ? (
         <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
-          Loading wallets…
+          Loading {namespace === 'solana' ? 'Solana ' : ''}wallets…
         </p>
       ) : null}
 
       {discoveryEmpty ? (
         <div className="space-y-3">
           <p className="text-sm text-[var(--muted)]">
-            No wallets were discovered. Retry, or continue with email.
+            {namespace === 'solana'
+              ? 'No Solana wallets were discovered. Install Phantom, Solflare, or another Solana wallet, then retry.'
+              : 'No wallets were discovered. Retry, or continue with email.'}
           </p>
           <button
             type="button"
@@ -252,7 +296,8 @@ export function ScoopWalletConnect({
         })}
       </ul>
 
-      {!showMore && (wcWallets.length > 0 || wallets.length > 6) ? (
+      {!showMore &&
+      (filteredWcWallets.length > 0 || filteredWallets.length > 6) ? (
         <button
           type="button"
           disabled={connecting}

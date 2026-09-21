@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ReviewStep } from '@/components/launch/steps/ReviewStep';
 import { LaunchRailSelector } from '@/components/launch/LaunchRailSelector';
+import { PumpRouteStep } from '@/components/launch/PumpRouteStep';
 import { createInitialLaunchState } from '@/lib/launch/types';
 import { INITIAL_LAUNCH_TX_STATE } from '@/lib/launch/tx-state';
 import { pumpLaunchResult } from '@/lib/launch/launch-result';
@@ -9,6 +10,21 @@ import {
   pumpFunCoinUrl,
   solanaExplorerTxUrl,
 } from '@/lib/solana/explorer';
+
+const { openAppKit, requestScoopConnect, useAppKitAccount } = vi.hoisted(() => ({
+  openAppKit: vi.fn(),
+  requestScoopConnect: vi.fn(),
+  useAppKitAccount: vi.fn(),
+}));
+
+vi.mock('@reown/appkit/react', () => ({
+  useAppKit: () => ({ open: openAppKit }),
+  useAppKitAccount: (opts?: { namespace?: string }) => useAppKitAccount(opts),
+}));
+
+vi.mock('@/lib/auth/open-scoop-auth', () => ({
+  requestScoopConnect: (...args: unknown[]) => requestScoopConnect(...args),
+}));
 
 const SOL = '2Q3bWY6ivR4UBhkTDCNjwGp74waAbaiYieNiX3Papcm4';
 const MINT = 'So11111111111111111111111111111111111111112';
@@ -33,6 +49,41 @@ describe('LaunchRailSelector', () => {
     expect(screen.getByText('Launch via Pump.fun')).toBeTruthy();
     expect(pons.querySelector('img')?.getAttribute('src')).toBe('/brand/rh.svg');
     expect(pump.querySelector('img')?.getAttribute('src')).toBe('/brand/solana.svg');
+  });
+});
+
+describe('PumpRouteStep Solana connect', () => {
+  beforeEach(() => {
+    openAppKit.mockReset();
+    requestScoopConnect.mockReset();
+    useAppKitAccount.mockReturnValue({
+      address: undefined,
+      isConnected: false,
+    });
+  });
+
+  it('requests Solana namespace connect and does not open bare EVM Connect', () => {
+    render(<PumpRouteStep />);
+    expect(screen.getByText('Not connected')).toBeTruthy();
+    expect(screen.getByTestId('pump-connect-solana').textContent).toMatch(
+      /Connect Solana/i,
+    );
+    screen.getByTestId('pump-connect-solana').click();
+    expect(requestScoopConnect).toHaveBeenCalledTimes(1);
+    const [, opts] = requestScoopConnect.mock.calls[0]!;
+    expect(opts).toEqual({ namespace: 'solana' });
+  });
+
+  it('shows Solana address when connected and ignores EVM-only state', () => {
+    useAppKitAccount.mockReturnValue({
+      address: SOL,
+      isConnected: true,
+    });
+    render(<PumpRouteStep />);
+    expect(screen.getByTestId('pump-solana-address').textContent).toMatch(
+      /2Q3bW/,
+    );
+    expect(screen.queryByText(/0x/i)).toBeNull();
   });
 });
 

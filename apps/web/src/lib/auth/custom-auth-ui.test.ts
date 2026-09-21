@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isScoopCustomAuthUiEnabled } from '@/lib/auth/custom-auth-ui';
 import {
   closeScoopAuthSheet,
+  getScoopConnectNamespace,
   isScoopAuthSheetOpen,
   isScoopConnectRequestPending,
   openScoopAuthSheet,
@@ -68,10 +69,39 @@ describe('requestScoopConnect', () => {
     expect(openAppKit).not.toHaveBeenCalled();
     expect(isScoopAuthSheetOpen()).toBe(true);
     expect(isScoopConnectRequestPending()).toBe(true);
+    expect(getScoopConnectNamespace()).toBe('eip155');
     expect(seen.at(-1)).toBe(true);
     closeScoopAuthSheet();
     expect(isScoopConnectRequestPending()).toBe(false);
+    expect(getScoopConnectNamespace()).toBe('eip155');
     unsub();
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+
+  it('records solana namespace for Pump connect without calling AppKit when flag on', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = '1';
+    closeScoopAuthSheet();
+    const openAppKit = vi.fn();
+    requestScoopConnect(openAppKit, { namespace: 'solana' });
+    expect(openAppKit).not.toHaveBeenCalled();
+    expect(getScoopConnectNamespace()).toBe('solana');
+    expect(isScoopAuthSheetOpen()).toBe(true);
+    closeScoopAuthSheet({ outcome: 'completed' });
+    expect(getScoopConnectNamespace()).toBe('eip155');
+    if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
+  });
+
+  it('passes through to AppKit open when flag off even for solana namespace', () => {
+    const prev = process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
+    closeScoopAuthSheet();
+    const openAppKit = vi.fn();
+    requestScoopConnect(openAppKit, { namespace: 'solana' });
+    expect(openAppKit).toHaveBeenCalledTimes(1);
+    expect(isScoopAuthSheetOpen()).toBe(false);
     if (prev == null) delete process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI;
     else process.env.NEXT_PUBLIC_SCOOP_CUSTOM_AUTH_UI = prev;
   });
@@ -104,6 +134,19 @@ describe('requestScoopConnect', () => {
 });
 
 describe('reduceScoopAuth', () => {
+  it('opens directly to wallet_select for solana namespace', () => {
+    const state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, {
+      type: 'OPEN',
+      namespace: 'solana',
+    });
+    expect(state.phase).toBe('wallet_select');
+  });
+
+  it('opens to entry for default eip155 Join', () => {
+    const state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
+    expect(state.phase).toBe('entry');
+  });
+
   it('email -> OTP', () => {
     let state = reduceScoopAuth(INITIAL_SCOOP_AUTH_STATE, { type: 'OPEN' });
     state = reduceScoopAuth(state, { type: 'CHOOSE_EMAIL' });

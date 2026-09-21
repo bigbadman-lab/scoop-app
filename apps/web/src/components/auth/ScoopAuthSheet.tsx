@@ -12,6 +12,7 @@ import { ScoopEmailAuth } from '@/components/auth/ScoopEmailAuth';
 import { ScoopWalletConnect } from '@/components/auth/ScoopWalletConnect';
 import {
   closeScoopAuthSheet,
+  type ScoopConnectNamespace,
   type ScoopConnectOutcome,
 } from '@/lib/auth/open-scoop-auth';
 import {
@@ -23,7 +24,9 @@ import {
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Fired when an embedded/external wallet address is ready for SIWE. */
+  /** eip155 = Join SCOOP (email + SIWE). solana = Pump wallet-only. */
+  namespace?: ScoopConnectNamespace;
+  /** Fired when an embedded/external wallet address is ready for SIWE (eip155). */
   onWalletReady?: (address: `0x${string}`) => void;
 };
 
@@ -83,20 +86,27 @@ function SheetChrome({
 /**
  * SCOOP-native auth surface (email + wallet). No Reown modal chrome.
  * Mobile: bottom sheet. Desktop: centered card.
+ * Solana namespace: wallet chooser only (Pump launch).
  */
-export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
+export function ScoopAuthSheet({
+  open,
+  onClose,
+  onWalletReady,
+  namespace = 'eip155',
+}: Props) {
   const titleId = useId();
   const descId = useId();
   const [state, dispatch] = useReducer(reduceScoopAuth, INITIAL_SCOOP_AUTH_STATE);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const isSolana = namespace === 'solana';
 
   useEffect(() => {
     if (open) {
-      dispatch({ type: 'OPEN' });
+      dispatch({ type: 'OPEN', namespace });
     } else {
       dispatch({ type: 'CLOSE' });
     }
-  }, [open]);
+  }, [open, namespace]);
 
   const close = useCallback(
     (outcome: ScoopConnectOutcome = 'cancelled') => {
@@ -134,8 +144,11 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
 
   if (!open || state.phase === 'idle') return null;
 
-  const title =
-    state.phase === 'wallet_select' || state.phase === 'wallet_connecting'
+  const title = isSolana
+    ? state.phase === 'wallet_connecting'
+      ? 'Connecting Solana'
+      : 'Connect Solana Wallet'
+    : state.phase === 'wallet_select' || state.phase === 'wallet_connecting'
       ? 'Connect Wallet'
       : state.phase === 'otp_enter' ||
           state.phase === 'otp_verifying' ||
@@ -149,8 +162,9 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
             ? 'Finishing sign-in'
             : 'Join SCOOP';
 
-  const subtitle =
-    state.phase === 'entry' || state.phase === 'email_enter'
+  const subtitle = isSolana
+    ? 'Choose a Solana wallet for Pump.fun launches. Ethereum wallets are not used on this rail.'
+    : state.phase === 'entry' || state.phase === 'email_enter'
       ? 'Sign in with email or connect an external wallet.'
       : state.phase === 'otp_enter' || state.phase === 'otp_verifying'
         ? `We sent a code to ${state.email || 'your email'}`
@@ -180,6 +194,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
         aria-labelledby={titleId}
         aria-describedby={subtitle ? descId : undefined}
         className="relative z-[1] w-full max-w-[420px] px-0 sm:w-auto sm:px-0"
+        data-scoop-connect-namespace={namespace}
       >
         <SheetChrome
           title={title}
@@ -188,7 +203,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
           labelledBy={titleId}
           describedBy={subtitle ? descId : undefined}
         >
-          {state.phase === 'entry' ? (
+          {!isSolana && state.phase === 'entry' ? (
             <div className="space-y-4">
               <button
                 type="button"
@@ -214,14 +229,15 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
             </div>
           ) : null}
 
-          {state.phase === 'email_enter' ||
-          state.phase === 'email_sending' ||
-          state.phase === 'otp_enter' ||
-          state.phase === 'otp_verifying' ||
-          state.phase === 'device_approving' ||
-          state.phase === 'siwe_signing' ||
-          state.phase === 'session_creating' ||
-          state.phase === 'error' ? (
+          {!isSolana &&
+          (state.phase === 'email_enter' ||
+            state.phase === 'email_sending' ||
+            state.phase === 'otp_enter' ||
+            state.phase === 'otp_verifying' ||
+            state.phase === 'device_approving' ||
+            state.phase === 'siwe_signing' ||
+            state.phase === 'session_creating' ||
+            state.phase === 'error') ? (
             <ScoopEmailAuth
               state={state}
               dispatch={send}
@@ -238,13 +254,25 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
           {state.phase === 'wallet_select' ||
           state.phase === 'wallet_connecting' ? (
             <ScoopWalletConnect
+              namespace={namespace}
               connecting={state.phase === 'wallet_connecting'}
               error={state.error}
-              onBack={() => send({ type: 'BACK_TO_ENTRY' })}
+              onBack={() => {
+                if (isSolana) {
+                  close('cancelled');
+                  return;
+                }
+                send({ type: 'BACK_TO_ENTRY' });
+              }}
               onConnecting={() => send({ type: 'WALLET_CONNECT_START' })}
               onConnected={(address) => {
                 send({ type: 'WALLET_CONNECT_OK' });
-                onWalletReady?.(address);
+                if (isSolana) {
+                  // Pump rail: Solana public key only — no SIWE / Join session.
+                  close('completed');
+                  return;
+                }
+                onWalletReady?.(address as `0x${string}`);
                 send({ type: 'SIWE_START' });
                 // External wallets use their own signing UI; sheet can settle
                 // as completed so Join intent is not cancelled on late dismiss.
@@ -257,7 +285,7 @@ export function ScoopAuthSheet({ open, onClose, onWalletReady }: Props) {
             />
           ) : null}
 
-          {state.phase === 'authenticated' ? (
+          {!isSolana && state.phase === 'authenticated' ? (
             <p className="font-mono text-[12px] text-[var(--muted)]">
               Signed in. Closing…
             </p>
