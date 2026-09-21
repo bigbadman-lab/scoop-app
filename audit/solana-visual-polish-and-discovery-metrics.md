@@ -92,10 +92,10 @@ Results: focused tests PASS; typecheck PASS; build PASS.
 
 ## 12. Production deploy
 
-- SHA: `2be639d21a3ac1d4cf52026b7e353da8d3efe7f9` (+ follow-up SOL label commit)
+- SHA: `aa7f872` (`2be639d` metrics/badge/CTA/account + SOL quote label)
 - Vercel: auto-deploy from `main` to `https://scoop.fun`
 - Observed `x-vercel-id`: `lhr1::iad1::8fstr-1790018038670-3e9a0390d5ce`
-- status: READY (API + pages serving new overlay fields)
+- status: READY (`/api/markets` quoteSymbol=`SOL`; overlay fields live)
 
 ## 13. Production verification
 
