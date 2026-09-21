@@ -1,4 +1,4 @@
-import { encodeEventTopics, type Hex, type PublicClient } from 'viem';
+import { encodeEventTopics, parseAbi, type Hex, type PublicClient } from 'viem';
 import type { Queryable } from '@scoop/db';
 import {
   upsertRawChainEvent,
@@ -381,6 +381,40 @@ export async function processBlock(
       tokenLaunched.args.deployer,
     );
 
+    const hasCurveBuy = decoded.some((e) => e.kind === 'CurveBuy');
+    let reservePriceQuoteX18: bigint | null = null;
+    if (!hasCurveBuy) {
+      try {
+        const curveAbi = parseAbi([
+          'function quoteReserve() view returns (uint256)',
+          'function tokenReserve() view returns (uint256)',
+        ]);
+        const [quoteReserve, tokenReserve] = await Promise.all([
+          client.readContract({
+            address: curveAddress as Hex,
+            abi: curveAbi,
+            functionName: 'quoteReserve',
+          }),
+          client.readContract({
+            address: curveAddress as Hex,
+            abi: curveAbi,
+            functionName: 'tokenReserve',
+          }),
+        ]);
+        if (tokenReserve > 0n && quoteReserve > 0n) {
+          reservePriceQuoteX18 = curveExecutionPriceQuoteX18(
+            quoteReserve,
+            tokenReserve,
+          );
+        }
+      } catch (err) {
+        console.warn(
+          `[processBlock] pons reserve price read failed for ${curveAddress}`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     await normalizePonsLaunch(db, {
       chainId,
       blockNumber,
@@ -407,8 +441,9 @@ export async function processBlock(
         launchLogIndex: tokenLaunched.logIndex,
       },
       confirmationStatus,
+      quoteUsdMaxAgeSeconds,
+      reservePriceQuoteX18,
     });
-
     const quoteDecimals =
       (await getQuoteAssetDecimals(db, chainId, tokenLaunched.args.pairToken)) ??
       18;
@@ -630,6 +665,15 @@ export async function processBlock(
     const recipient = ev.args.recipient;
     const side = ev.kind === 'CurveBuy' ? 'buy' : 'sell';
     const exec = curveExecutionPriceQuoteX18(quoteAmount, tokenAmount);
+    const tradeUsd = await resolveTradeUsdFields(db, {
+      chainId,
+      quoteAsset: entry.quoteAsset,
+      quoteAmountRaw: quoteAmount,
+      executionPriceQuoteX18: exec,
+      quoteDecimals: entry.quoteDecimals,
+      tradeTimestampSec: Number(blockTimestamp),
+      maxAgeSeconds: quoteUsdMaxAgeSeconds,
+    });
 
     await upsertRawChainEvent(db, {
       chainId,
@@ -679,9 +723,9 @@ export async function processBlock(
       liquidityAfterRaw: BigInt(0),
       fee: ev.args.fee,
       executionPriceQuoteX18: exec,
-      quoteUsdX18: null,
-      executionPriceUsdX18: null,
-      usdValueX18: null,
+      quoteUsdX18: tradeUsd.quoteUsdX18,
+      executionPriceUsdX18: tradeUsd.executionPriceUsdX18,
+      usdValueX18: tradeUsd.usdValueX18,
       isInitialBuy: false,
     });
 
@@ -691,11 +735,15 @@ export async function processBlock(
       syntheticPoolId: entry.syntheticPoolId,
       blockNumber,
       priceQuoteX18: exec,
+      quoteAsset: entry.quoteAsset,
+      tokenDecimals: entry.tokenDecimals,
+      quoteDecimals: entry.quoteDecimals,
+      quoteUsdMaxAgeSeconds,
+      nowMs: Number(blockTimestamp) * 1000,
     });
 
     swapCount += 1;
   }
-
   // Transfers for known tokens
   for (const ev of decodedAll) {
     if (ev.kind !== 'Transfer') continue;

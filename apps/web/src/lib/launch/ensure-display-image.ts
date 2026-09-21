@@ -51,6 +51,8 @@ export async function ensureTokenDisplayImage(
   const signal = input.honorAbort ? input.signal : undefined;
 
   // Normal path: receipt bind by trusted image_uri (no wait-for-index).
+  // When no pin-time intent exists (common for PONS), fall through to the
+  // legacy finalize route which mirrors ipfs:// into token-image storage.
   if (imageUri) {
     try {
       const res = await fetchFn('/api/launch/display-image/bind', {
@@ -78,18 +80,27 @@ export async function ensureTokenDisplayImage(
         finalized?: boolean;
         source?: string;
         error?: string;
+        code?: string;
       } | null;
-      if (!res.ok || !body?.ok) {
+      if (res.ok && body?.ok) {
+        return {
+          ok: true,
+          status: body.finalized ? 'applied' : 'skipped',
+          source: body.source,
+          displayImageUrl: body.displayImageUrl,
+          finalized: body.finalized,
+          uploaded: false,
+        };
+      }
+      const bindCode = body?.code ?? '';
+      const canIpfsFallback =
+        bindCode === 'INTENT_NOT_FOUND' ||
+        bindCode === 'PATH_MISSING' ||
+        res.status === 409;
+      if (!canIpfsFallback) {
         return { ok: false, error: body?.error ?? `http_${res.status}` };
       }
-      return {
-        ok: true,
-        status: body.finalized ? 'applied' : 'skipped',
-        source: body.source,
-        displayImageUrl: body.displayImageUrl,
-        finalized: body.finalized,
-        uploaded: false,
-      };
+      // Fall through to finalize IPFS mirror below.
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return { ok: false, error: 'aborted' };
@@ -98,7 +109,7 @@ export async function ensureTokenDisplayImage(
     }
   }
 
-  // Legacy fallback when imageUri is absent (path/draft only).
+  // Path/draft finalize, or IPFS mirror fallback after bind miss.
   try {
     const res = await fetchFn('/api/launch/display-image', {
       method: 'POST',
@@ -111,6 +122,7 @@ export async function ensureTokenDisplayImage(
         tokenAddress: input.tokenAddress,
         displayImagePath: path || undefined,
         draftId: path ? undefined : draftId || undefined,
+        imageUri: imageUri || undefined,
         waitForIndex: input.waitForIndex !== false,
       }),
     });
@@ -119,6 +131,7 @@ export async function ensureTokenDisplayImage(
       status?: 'applied' | 'skipped' | 'noop';
       source?: string;
       uploaded?: boolean;
+      displayImageUrl?: string;
       error?: string;
     } | null;
     if (!res.ok || !body?.ok) {
@@ -129,6 +142,7 @@ export async function ensureTokenDisplayImage(
       status: body.status ?? 'applied',
       source: body.source,
       uploaded: body.uploaded,
+      displayImageUrl: body.displayImageUrl,
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {

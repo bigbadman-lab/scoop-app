@@ -55,38 +55,39 @@ describe('ensureTokenDisplayImage', () => {
     });
   });
 
-  it('posts imageUri to bind without waiting for index', async () => {
-    const fetchImpl = vi.fn(async (url, init?: RequestInit) => {
-      expect(url).toBe('/api/launch/display-image/bind');
-      const body = JSON.parse(String(init?.body ?? '{}')) as {
-        imageUri?: string;
-        waitForIndex?: boolean;
-      };
-      expect(body.imageUri).toBe('ipfs://bafybeiabc');
-      expect(body.waitForIndex).toBeUndefined();
+  it('falls back to finalize IPFS mirror when bind finds no intent', async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === '/api/launch/display-image/bind') {
+        return Response.json(
+          { ok: false, error: 'intent not found', code: 'INTENT_NOT_FOUND' },
+          { status: 409 },
+        );
+      }
+      expect(url).toBe('/api/launch/display-image');
       return Response.json({
         ok: true,
+        status: 'applied',
+        source: 'ipfs_fallback',
+        uploaded: true,
         displayImageUrl:
-          'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aa/aa.png',
-        finalized: false,
-        source: 'path',
+          'https://proj.supabase.co/storage/v1/object/public/token-image/canonical/x/x.webp',
       });
     }) as unknown as typeof fetch;
 
     const result = await ensureTokenDisplayImage({
       chainId: 4663,
-      tokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      imageUri: 'ipfs://bafybeiabc',
+      tokenAddress: '0x4d35b131c2463ffb9cb2435e6df85d287f494b8b',
+      imageUri: 'ipfs://bafybeig2qhiu4c7oeddmivtvjjdawkasc3jf35643cusg64cdbvy2ncmwa',
       fetchImpl,
     });
     expect(result).toEqual({
       ok: true,
-      status: 'skipped',
-      source: 'path',
+      status: 'applied',
+      source: 'ipfs_fallback',
+      uploaded: true,
       displayImageUrl:
-        'https://proj.supabase.co/storage/v1/object/public/token-image/manual/aa/aa.png',
-      finalized: false,
-      uploaded: false,
+        'https://proj.supabase.co/storage/v1/object/public/token-image/canonical/x/x.webp',
     });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

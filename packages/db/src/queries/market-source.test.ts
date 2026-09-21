@@ -51,7 +51,7 @@ describe('discovery marketSource mapping (Gate 6)', () => {
     expect(item.poolId).toBeTruthy();
   });
 
-  it('maps pons_v2 and withholds FDV/USD', () => {
+  it('maps pons_v2 and exposes FDV/USD from token market state', () => {
     const item = mapDiscoveryItem(
       scoopRow({
         market_source: 'pons_v2',
@@ -64,11 +64,24 @@ describe('discovery marketSource mapping (Gate 6)', () => {
     expect(item.marketPhase).toBe('curve');
     expect(item.poolId).toBeNull();
     expect(item.curveAddress).toBe('0xde0e7e06e54003d112eec210e5ddf727317cb6b0');
+    expect(item.fdvUsdX18).toBe('3000000000000000000');
+    expect(item.priceUsdX18).toBe('2000000000000000000');
+    expect(item.volume24hUsdX18).toBe('4000000000000000000');
+    // Quote volume still exposed from raw trades
+    expect(item.volume24hQuoteRaw).toBe('1000');
+  });
+
+  it('still withholds Pump TMS USD (dual-rail overlay owns Pump USD)', () => {
+    const item = mapDiscoveryItem(
+      scoopRow({
+        market_source: 'pump',
+        pool_id: null,
+      }),
+    );
+    expect(item.marketSource).toBe('pump');
     expect(item.fdvUsdX18).toBeNull();
     expect(item.priceUsdX18).toBeNull();
     expect(item.volume24hUsdX18).toBeNull();
-    // Quote volume still exposed from raw trades
-    expect(item.volume24hQuoteRaw).toBe('1000');
   });
 });
 

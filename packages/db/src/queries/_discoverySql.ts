@@ -75,8 +75,9 @@ export function mapDiscoveryItem(
         ? ('graduated_pool' as const)
         : ('curve' as const);
 
-  // Withhold misleading UV4 FDV/USD for Pons/Pump until native pricing is proven.
-  const withholdUsd = marketSource === 'pons_v2' || marketSource === 'pump';
+  // Withhold Pump overlay USD from TMS (Pump uses dual-rail overlay).
+  // Pons V2 uses the same resolveUsdMarketFields path as Scoop once indexed.
+  const withholdUsd = marketSource === 'pump';
   const safePriceUsd = withholdUsd ? null : priceUsdX18;
   const safeFdvUsd = withholdUsd ? null : fdvUsdX18;
   const safeVolumeUsd = withholdUsd ? null : volume24hUsd;
