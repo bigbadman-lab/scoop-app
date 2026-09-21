@@ -101,10 +101,10 @@ pnpm --filter @scoop/web run build → (in progress / ok)
 
 ## 11. Deploy
 
-- SHA: (filled after push)
-- Vercel: production deploy after push
-- status: pending at write time
-
+- SHA: `d2d7c32`
+- Vercel deployment: `dpl_237qGPVkadL7wgZo9sC1AeQwFDwp` → production READY ([scoop.fun](https://scoop.fun))
+- status: READY
+- Render workers: unchanged
 ## 12. Production check
 
 | Item | Value |
