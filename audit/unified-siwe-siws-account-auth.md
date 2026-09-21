@@ -120,7 +120,7 @@ pnpm --filter @scoop/web run build      → pass
 
 ## 13. Production deploy
 
-- SHA: recorded after push
+- SHA: `4561bc8`
 - Vercel deployment ID: pending dashboard
 - status: awaiting human SIWS verification on https://scoop.fun
 
