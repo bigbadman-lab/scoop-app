@@ -16,7 +16,10 @@ function baseToken(overrides: Partial<TokenDiscoveryItem> = {}): TokenDiscoveryI
     decimals: 18,
     imageUri: '',
     displayImageUrl: null,
+    marketSource: 'scoop',
+    marketPhase: null,
     poolId: '0xpool',
+    curveAddress: null,
     creatorId: '0xcreator',
     quoteAsset: '0x0000000000000000000000000000000000000000',
     launchedAt: 1,
@@ -193,7 +196,7 @@ describe('TokenImage fallback', () => {
     expect(screen.getByText(/scoop/i)).toBeTruthy();
   });
 
-  it('renders HELLO IPFS artwork via gateway HTTPS on the card', () => {
+  it('uses branded fallback when only raw IPFS imageUri is present', () => {
     render(
       <TokenDiscoveryItemCard
         token={baseToken({
@@ -205,12 +208,38 @@ describe('TokenImage fallback', () => {
         quoteSymbol="ETH"
       />,
     );
-    const img = screen.getByRole('img', { name: /hello world/i });
-    expect(img.tagName.toLowerCase()).toBe('img');
-    expect(img.getAttribute('src')).toBe(
-      'https://ipfs.io/ipfs/bafybeihzgw4e5bppt5wu2eqrm524xdme6g73rzdoifo5hujjavnm7exwyi',
+    expect(screen.getByText(/scoop/i)).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /hello world/i })?.getAttribute('src')).toBeFalsy();
+  });
+
+  it('includes Pump mint on card with base58 link and null metrics as —', () => {
+    const mint = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    render(
+      <TokenDiscoveryItemCard
+        token={baseToken({
+          chainId: 900001,
+          marketSource: 'pump',
+          tokenAddress: mint,
+          name: 'Scoopys',
+          symbol: 'SCPY',
+          imageUri: 'ipfs://bafkreiffc2vh75vzbn6e6lngg4m6jijhmqev426237fhjzcrjxfwfyqmvu',
+          displayImageUrl:
+            'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/canonical/bafkreiffc2vh75vzbn6e6lngg4m6jijhmqev426237fhjzcrjxfwfyqmvu/bafkreiffc2vh75vzbn6e6lngg4m6jijhmqev426237fhjzcrjxfwfyqmvu.webp',
+          priceQuoteDisplay: null,
+          fdvUsdDisplay: null,
+          volume24hQuoteDisplay: null,
+          tradeCount24h: null,
+          holderCountAll: null,
+        })}
+        quoteSymbol="SOL"
+      />,
     );
-    expect(screen.queryByText(/^Scoop$/)).toBeNull();
+    const link = screen.getByTestId('token-discovery-item');
+    expect(link.getAttribute('href')).toBe(`/token/${mint}`);
+    const img = screen.getByRole('img', { name: /scoopys/i });
+    expect(img.getAttribute('src')?.includes('token-image')).toBe(true);
+    expect(img.getAttribute('src')?.includes('ipfs.io')).toBe(false);
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
   it('prefers SCOOP displayImageUrl over IPFS for HELLO card', () => {

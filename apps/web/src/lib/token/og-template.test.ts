@@ -76,9 +76,9 @@ describe('token OG image source selection', () => {
     expect(model.logoCandidateUrl).toBe(display);
   });
 
-  it('falls back to IPFS gateway when display image absent', () => {
+  it('does not emit raw ipfs.io when display image absent', () => {
     const ipfs = 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi';
-    expect(pickTokenImageSrc(null, ipfs)).toContain('ipfs.io/ipfs/');
+    expect(pickTokenImageSrc(null, ipfs)).toBeNull();
   });
 
   it('metadata path points at the file-based opengraph-image route', () => {

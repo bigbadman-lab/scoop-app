@@ -1,5 +1,23 @@
 import type { Queryable } from '../types.js';
 import { normalizeAddress, toNumericString } from '../hex.js';
+import { SOLANA_MAINNET_CHAIN_ID } from './pump-markets.js';
+
+const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/** Canonicalize token address for writes — EVM 0x lowercased; Solana base58 preserved. */
+export function canonicalizeTokenAddressForWrite(
+  chainId: number,
+  address: string,
+): string {
+  if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+    const t = address.trim();
+    if (!SOLANA_BASE58_RE.test(t) || t.startsWith('0x')) {
+      throw new Error(`Invalid Solana address: ${address}`);
+    }
+    return t;
+  }
+  return normalizeAddress(address);
+}
 
 export interface TokenRow {
   chainId: number;
@@ -121,7 +139,10 @@ export async function setTokenDisplayImageUrl(
   if (/^(javascript|data|file|blob):/i.test(url)) {
     throw new Error('Unsafe displayImageUrl scheme');
   }
-  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const tokenAddress = canonicalizeTokenAddressForWrite(
+    input.chainId,
+    input.tokenAddress,
+  );
   const existing = await db.query<{ display_image_url: string | null }>(
     `SELECT display_image_url FROM tokens
      WHERE chain_id = $1 AND token_address = $2
@@ -155,7 +176,10 @@ export async function applyDraftDisplayImageToToken(
     draftId: string;
   },
 ): Promise<boolean> {
-  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const tokenAddress = canonicalizeTokenAddressForWrite(
+    input.chainId,
+    input.tokenAddress,
+  );
   const launch = await db.query(
     `SELECT 1 FROM launches WHERE chain_id = $1 AND token_address = $2 LIMIT 1`,
     [input.chainId, tokenAddress],
@@ -195,7 +219,10 @@ export async function applyDisplayImagePathToToken(
     displayImageUrl: string;
   },
 ): Promise<'applied' | 'skipped' | 'missing_token'> {
-  const tokenAddress = normalizeAddress(input.tokenAddress);
+  const tokenAddress = canonicalizeTokenAddressForWrite(
+    input.chainId,
+    input.tokenAddress,
+  );
   const launch = await db.query(
     `SELECT 1 FROM launches WHERE chain_id = $1 AND token_address = $2 LIMIT 1`,
     [input.chainId, tokenAddress],

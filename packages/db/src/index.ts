@@ -191,10 +191,12 @@ export {
   setTokenDisplayImageUrl,
   applyDraftDisplayImageToToken,
   applyDisplayImagePathToToken,
+  canonicalizeTokenAddressForWrite,
   type TokenRow,
 } from './repos/tokens.js';
 export {
   upsertPumpMarket,
+  SOLANA_MAINNET_CHAIN_ID,
   type PumpMarketPersistInput,
   type PumpMarketPersistResult,
 } from './repos/pump-markets.js';

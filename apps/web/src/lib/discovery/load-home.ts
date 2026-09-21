@@ -1,10 +1,12 @@
 import { SCOOP_CHAIN_ID } from '@/lib/quotes/catalogue';
 import {
+  getDualRailDiscoverBoard,
+} from '@/lib/discovery/dual-rail';
+import {
   DISCOVER_TABS,
   type DiscoverTabId,
 } from '@/lib/discovery/tabs';
 import {
-  getDiscoverBoard,
   getTokens,
   serverDb,
   type DiscoveryFilter,
@@ -68,7 +70,7 @@ function errorTab(tabId: DiscoverTabId): DiscoverTabResult {
 /** SSR + API shared loader for all three Discover slices. */
 export async function loadDiscoverSnapshot(): Promise<DiscoverSnapshot> {
   try {
-    const board = await getDiscoverBoard(serverDb(), { chainId: SCOOP_CHAIN_ID });
+    const board = await getDualRailDiscoverBoard(serverDb());
     return {
       new: toTabResult('new', board.new),
       bonding: toTabResult('bonding', board.bonding),

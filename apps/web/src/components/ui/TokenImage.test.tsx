@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TokenImage } from '@/components/ui/TokenImage';
 import {
-  SCOOP_IPFS_GATEWAY_PREFIX,
   pickTokenImageSrc,
   resolveTokenImageSrc,
+  SCOOP_IPFS_GATEWAY_PREFIX,
 } from '@/lib/media/resolve-token-image';
 import { HELLO_FIXTURE } from '@scoop/shared';
 
@@ -58,27 +58,27 @@ describe('pickTokenImageSrc', () => {
     expect(pickTokenImageSrc(HELLO_DISPLAY, HELLO_IPFS)).toBe(HELLO_DISPLAY);
   });
 
-  it('falls back to IPFS when display URL missing', () => {
-    expect(pickTokenImageSrc(null, HELLO_IPFS)).toBe(
-      `${SCOOP_IPFS_GATEWAY_PREFIX}/bafybeihzgw4e5bppt5wu2eqrm524xdme6g73rzdoifo5hujjavnm7exwyi`,
-    );
+  it('does not emit raw ipfs.io when display URL is missing', () => {
+    expect(pickTokenImageSrc(null, HELLO_IPFS)).toBeNull();
   });
 
   it('returns null when both missing', () => {
     expect(pickTokenImageSrc(null, null)).toBeNull();
     expect(pickTokenImageSrc('', '')).toBeNull();
   });
+
+  it('passes through managed HTTPS imageUri when display missing', () => {
+    expect(pickTokenImageSrc(null, HELLO_DISPLAY)).toBe(HELLO_DISPLAY);
+  });
 });
 
 describe('TokenImage', () => {
-  it('renders resolved HELLO IPFS image, not fallback', () => {
-    render(<TokenImage src={HELLO_IPFS} alt="Hello World" size={320} />);
+  it('renders managed HTTPS image, not fallback', () => {
+    const managed =
+      'https://hmqfzilijidiqtignamz.supabase.co/storage/v1/object/public/token-image/helloworld.png';
+    render(<TokenImage src={managed} alt="Hello World" size={320} />);
     const img = screen.getByRole('img', { name: /hello world/i });
-    expect(img.getAttribute('src')).toBe(
-      `${SCOOP_IPFS_GATEWAY_PREFIX}/bafybeihzgw4e5bppt5wu2eqrm524xdme6g73rzdoifo5hujjavnm7exwyi`,
-    );
-    expect(img.getAttribute('src')?.startsWith('https://')).toBe(true);
-    expect(img.getAttribute('src')?.startsWith('ipfs://')).toBe(false);
+    expect(img.getAttribute('src')).toBe(managed);
     expect(screen.queryByText(/scoop/i)).toBeNull();
   });
 

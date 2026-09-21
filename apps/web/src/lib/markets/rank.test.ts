@@ -17,7 +17,10 @@ function token(
     decimals: 18,
     imageUri: '',
     displayImageUrl: null,
+    marketSource: 'scoop',
+    marketPhase: null,
     poolId: '0xpool',
+    curveAddress: null,
     creatorId: '0x1111111111111111111111111111111111111111',
     quoteAsset: '0x0000000000000000000000000000000000000000',
     launchedAt: 1,
@@ -96,13 +99,31 @@ describe('markets ranking', () => {
     expect(hasValidFdv('0')).toBe(true);
   });
 
-  it('dedupes by token address', () => {
+  it('dedupes EVM addresses case-insensitively but preserves Solana base58 case', () => {
     const ranked = rankMarketsByFdv([
       { tokenAddress: '0xAAA', fdvUsdX18: '1' },
       { tokenAddress: '0xaaa', fdvUsdX18: '9' },
+      { tokenAddress: 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu', fdvUsdX18: null },
+      { tokenAddress: 'b7aivapq422h43h3wzbv7qopvykovxjutmjx8ddkercu', fdvUsdX18: '5' },
     ]);
-    expect(ranked).toHaveLength(1);
+    expect(ranked).toHaveLength(3);
     expect(ranked[0]!.fdvUsdX18).toBe('9');
+    expect(ranked.map((r) => r.tokenAddress)).toContain(
+      'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu',
+    );
+    expect(ranked.map((r) => r.tokenAddress)).toContain(
+      'b7aivapq422h43h3wzbv7qopvykovxjutmjx8ddkercu',
+    );
+  });
+
+  it('places null FDV last including Pump mint', () => {
+    const mint = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+    const ranked = rankMarketsByFdv([
+      { tokenAddress: mint, fdvUsdX18: null },
+      { tokenAddress: '0xlow', fdvUsdX18: '10' },
+      { tokenAddress: '0xhigh', fdvUsdX18: '99' },
+    ]);
+    expect(ranked.map((r) => r.tokenAddress)).toEqual(['0xhigh', '0xlow', mint]);
   });
 
   it('compareMarketsByFdvDesc is deterministic', () => {

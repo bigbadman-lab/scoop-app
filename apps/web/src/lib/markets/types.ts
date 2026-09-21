@@ -9,6 +9,8 @@ import { rankMarketsByFdv } from '@/lib/markets/rank';
 /** Public board row — enough for list UI + ranking without N+1. */
 export type MarketsBoardItem = {
   tokenAddress: string;
+  chainId: number;
+  marketSource: 'scoop' | 'pons_v2' | 'pump';
   name: string;
   symbol: string;
   imageUri: string;
@@ -51,6 +53,8 @@ export function toMarketsBoardItem(
 ): MarketsBoardItem {
   return {
     tokenAddress: token.tokenAddress,
+    chainId: token.chainId,
+    marketSource: token.marketSource,
     name: token.name,
     symbol: token.symbol,
     imageUri: token.imageUri,

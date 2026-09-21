@@ -12,6 +12,8 @@ function market(
   partial: Partial<MarketsBoardItem> & Pick<MarketsBoardItem, 'tokenAddress'>,
 ): MarketsBoardItem {
   return {
+    chainId: 4663,
+    marketSource: 'scoop',
     name: 'Hello',
     symbol: 'HELLO',
     imageUri: '',
@@ -27,6 +29,7 @@ function market(
     tradeCount24h: 1,
     holderCountAll: 5,
     holderCountRetail: 4,
+    loreTitle: null,
     ...partial,
   };
 }

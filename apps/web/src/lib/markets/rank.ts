@@ -25,6 +25,12 @@ export function compareFdvX18Desc(a: string, b: string): number {
   }
 }
 
+/** Dedupe by chain-aware address key (preserve Solana base58 case), then rank. */
+export function marketAddressKey(tokenAddress: string): string {
+  const t = tokenAddress.trim();
+  return t.startsWith('0x') ? t.toLowerCase() : t;
+}
+
 export function compareMarketsByFdvDesc(a: RankableMarket, b: RankableMarket): number {
   const aOk = hasValidFdv(a.fdvUsdX18);
   const bOk = hasValidFdv(b.fdvUsdX18);
@@ -33,14 +39,16 @@ export function compareMarketsByFdvDesc(a: RankableMarket, b: RankableMarket): n
     const cmp = compareFdvX18Desc(a.fdvUsdX18!, b.fdvUsdX18!);
     if (cmp !== 0) return cmp;
   }
-  return a.tokenAddress.toLowerCase().localeCompare(b.tokenAddress.toLowerCase());
+  return marketAddressKey(a.tokenAddress).localeCompare(
+    marketAddressKey(b.tokenAddress),
+  );
 }
 
 /** Dedupe by token address (last wins), then rank. */
 export function rankMarketsByFdv<T extends RankableMarket>(items: readonly T[]): T[] {
   const byAddress = new Map<string, T>();
   for (const item of items) {
-    byAddress.set(item.tokenAddress.toLowerCase(), item);
+    byAddress.set(marketAddressKey(item.tokenAddress), item);
   }
   return [...byAddress.values()].sort(compareMarketsByFdvDesc);
 }

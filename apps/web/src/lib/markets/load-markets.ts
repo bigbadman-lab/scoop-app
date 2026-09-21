@@ -1,7 +1,7 @@
-import { SCOOP_CHAIN_ID } from '@/lib/quotes/catalogue';
 import { loadEnabledQuoteCatalogue } from '@/lib/quotes/catalogue';
+import { getDualRailActiveMarkets } from '@/lib/discovery/dual-rail';
 import { buildMarketsBoardItems, type MarketsBoardSnapshot } from '@/lib/markets/types';
-import { getActiveMarkets, serverDb } from '@/lib/server/queries';
+import { serverDb } from '@/lib/server/queries';
 
 async function loadCatalogueSafe() {
   try {
@@ -14,15 +14,13 @@ async function loadCatalogueSafe() {
 
 /**
  * Server snapshot for `/markets`.
- * Active markets = all indexed launches for the chain (uncapped `getActiveMarkets`).
+ * Active markets = RHC + Pump/Solana indexed launches (uncapped).
  */
 export async function loadMarketsBoard(): Promise<MarketsBoardSnapshot> {
   const catalogue = await loadCatalogueSafe();
 
   try {
-    const tokens = await getActiveMarkets(serverDb(), {
-      chainId: SCOOP_CHAIN_ID,
-    });
+    const tokens = await getDualRailActiveMarkets(serverDb());
     const items = buildMarketsBoardItems(tokens, catalogue);
     if (items.length === 0) {
       return {

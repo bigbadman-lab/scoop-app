@@ -12,7 +12,9 @@ export const SCOOP_IPFS_GATEWAY_PREFIX = `${SCOOP_IPFS_GATEWAY_ORIGIN}/ipfs`;
 const UNSAFE_SCHEMES = /^(javascript|data|file|blob):/i;
 
 /**
- * Prefer SCOOP display HTTPS, else resolve canonical imageUri (IPFS/HTTP).
+ * Prefer SCOOP display HTTPS, else resolve non-IPFS imageUri.
+ * Do not emit raw public IPFS gateway URLs — browsers hit CORP/403 on ipfs.io.
+ * Product UI requires SCOOP-managed HTTPS (displayImageUrl) or a placeholder.
  */
 export function pickTokenImageSrc(
   displayImageUrl: string | null | undefined,
@@ -20,6 +22,8 @@ export function pickTokenImageSrc(
 ): string | null {
   const display = resolveTokenImageSrc(displayImageUrl);
   if (display) return display;
+  const uri = (imageUri ?? '').trim();
+  if (/^ipfs:\/\//i.test(uri)) return null;
   return resolveTokenImageSrc(imageUri);
 }
 

@@ -81,12 +81,46 @@ export async function POST(request: Request) {
       launchSlot: body.launchSlot,
     });
 
+    // Best-effort SCOOP-managed display image (do not fail complete if mirror fails).
+    let displayImageUrl: string | null = null;
+    try {
+      const { ensurePumpTokenDisplayImage } = await import(
+        '@/lib/launch/ensure-pump-token-display-image'
+      );
+      const display = await ensurePumpTokenDisplayImage({
+        db: serverDb(),
+        mint,
+        imageUri: body.imageUri ?? body.metadataUri,
+      });
+      if (display.ok) displayImageUrl = display.displayImageUrl;
+      else {
+        console.warn(
+          JSON.stringify({
+            scope: 'pump_complete_display_image',
+            mint,
+            ok: false,
+            reason: display.reason,
+          }),
+        );
+      }
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          scope: 'pump_complete_display_image',
+          mint,
+          ok: false,
+          reason: err instanceof Error ? err.message : 'display_image_failed',
+        }),
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       chainId: result.chainId,
       chain: 'solana',
       provider: 'pump',
       marketSource: 'pump',
+      displayImageUrl,
       mint: result.mint,
       signature: result.signature,
       created: result.created,

@@ -49,6 +49,8 @@ function market(
   partial: Partial<MarketsBoardItem> & Pick<MarketsBoardItem, 'tokenAddress'>,
 ): MarketsBoardItem {
   return {
+    chainId: 4663,
+    marketSource: 'scoop',
     name: 'Hello',
     symbol: 'HELLO',
     imageUri: '',
@@ -468,7 +470,10 @@ describe('markets Lore mapping', () => {
       decimals: 18,
       imageUri: '',
       displayImageUrl: null,
+      marketSource: 'scoop',
+      marketPhase: null,
       poolId: '0xpool',
+      curveAddress: null,
       creatorId: '0x1111111111111111111111111111111111111111',
       quoteAsset: '0x0000000000000000000000000000000000000000',
       launchedAt: 1,
