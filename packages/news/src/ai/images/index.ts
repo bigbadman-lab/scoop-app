@@ -57,6 +57,7 @@ export {
 } from './display-copy.js';
 export {
   mirrorIpfsUriToTokenImage,
+  mirrorHttpsUriToTokenImage,
   SCOOP_IPFS_GATEWAY_PREFIX,
   type MirrorIpfsDisplayResult,
 } from './mirror-ipfs-display.js';

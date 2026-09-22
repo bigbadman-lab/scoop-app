@@ -228,6 +228,15 @@ export {
   type UpsertScoopSupportBuyResult,
 } from './repos/scoop-support-buys.js';
 export {
+  registerExternalPumpImport,
+  getExternalPumpImport,
+  collectExternalPumpCanaryFootprint,
+  deleteExternalPumpCanaryMarket,
+  type ExternalPumpImportKind,
+  type ExternalPumpImportCanaryRow,
+  type ExternalPumpCanaryFootprint,
+} from './repos/external-pump-imports.js';
+export {
   applyPumpCandleTrade,
   pumpCandleBucketStart,
   PUMP_CANDLE_INTERVALS,

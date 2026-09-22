@@ -73,6 +73,7 @@ export {
   createSupabaseTokenImageStorage,
   persistSelectedArtworkDisplayCopy,
   mirrorIpfsUriToTokenImage,
+  mirrorHttpsUriToTokenImage,
   type ArtworkStyleId,
   type ArtworkStyle,
   type TokenArtworkOption,

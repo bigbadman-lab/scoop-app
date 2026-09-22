@@ -8,6 +8,7 @@ import {
 } from '@scoop/db';
 import {
   createSupabaseTokenImageStorage,
+  mirrorHttpsUriToTokenImage,
   mirrorIpfsUriToTokenImage,
 } from '@scoop/news';
 
@@ -59,7 +60,30 @@ export async function ensureTokenDisplayImageFromIpfs(input: {
   }
 
   if (!/^ipfs:\/\//i.test(imageUri)) {
-    return { ok: false, reason: 'unsupported_image_uri' };
+    if (!/^https:\/\//i.test(imageUri)) {
+      return { ok: false, reason: 'unsupported_image_uri' };
+    }
+    const storage = createSupabaseTokenImageStorage();
+    const mirrored = await mirrorHttpsUriToTokenImage({
+      imageUri,
+      storage,
+    });
+    if (!mirrored.ok) {
+      return { ok: false, reason: mirrored.reason };
+    }
+    const write = await applyDisplayImagePathToToken(input.db, {
+      chainId: input.chainId,
+      tokenAddress: input.tokenAddress,
+      displayImageUrl: mirrored.publicUrl,
+    });
+    if (write === 'missing_token') {
+      return { ok: false, reason: 'missing_token' };
+    }
+    return {
+      ok: true,
+      displayImageUrl: mirrored.publicUrl,
+      status: write,
+    };
   }
 
   const storage = createSupabaseTokenImageStorage();

@@ -1,5 +1,6 @@
 import {
   buildCanonicalTokenDisplayImagePath,
+  buildManualTokenDisplayImagePath,
   parseIpfsCid,
   TOKEN_IMAGE_MAX_BYTES,
   TOKEN_IMAGE_MIME,
@@ -132,6 +133,99 @@ export async function mirrorIpfsUriToTokenImage(input: {
       uploaded: true,
       mimeType,
       cid,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'upload_failed';
+    return { ok: false, reason: message, retryable: true };
+  }
+}
+
+/**
+ * Fetch an https:// image and upsert into `token-image` via content-addressed manual path.
+ * Used for external Pump imports whose metadata images are HTTPS (not ipfs://).
+ */
+export async function mirrorHttpsUriToTokenImage(input: {
+  imageUri: string;
+  storage: TokenImageStorage;
+  fetchImpl?: typeof fetch;
+}): Promise<
+  | {
+      ok: true;
+      path: string;
+      publicUrl: string;
+      uploaded: boolean;
+      mimeType: string;
+    }
+  | { ok: false; reason: string; retryable: boolean }
+> {
+  const url = input.imageUri.trim();
+  if (!/^https:\/\//i.test(url)) {
+    return { ok: false, reason: 'not_https_uri', retryable: false };
+  }
+
+  const fetchFn = input.fetchImpl ?? fetch;
+  let res: Response;
+  try {
+    res = await fetchFn(url, {
+      method: 'GET',
+      headers: { Accept: 'image/*,*/*' },
+      signal: AbortSignal.timeout(25_000),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'fetch_failed';
+    return { ok: false, reason: `https_fetch:${message}`, retryable: true };
+  }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      reason: `https_http_${res.status}`,
+      retryable: res.status >= 500 || res.status === 429,
+    };
+  }
+
+  const headerMime = normalizeMime(res.headers.get('content-type'));
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength === 0 || buf.byteLength > TOKEN_IMAGE_MAX_BYTES) {
+    return { ok: false, reason: 'invalid_size', retryable: false };
+  }
+
+  const mimeType = headerMime ?? sniffMime(buf);
+  if (!mimeType) {
+    return { ok: false, reason: 'non_image_content', retryable: false };
+  }
+
+  try {
+    validateTokenDisplayImage({ bytes: buf, mimeType });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'invalid_image';
+    return { ok: false, reason, retryable: false };
+  }
+
+  const path = buildManualTokenDisplayImagePath({ bytes: buf, mimeType });
+  const publicUrl = input.storage.publicUrlForPath(path);
+
+  try {
+    const head = await fetchFn(publicUrl, { method: 'HEAD' });
+    if (head.ok) {
+      return { ok: true, path, publicUrl, uploaded: false, mimeType };
+    }
+  } catch {
+    // Fall through to upload.
+  }
+
+  try {
+    const uploaded = await input.storage.uploadDisplayCopy({
+      path,
+      bytes: buf,
+      mimeType,
+    });
+    return {
+      ok: true,
+      path: uploaded.path,
+      publicUrl: uploaded.publicUrl,
+      uploaded: true,
+      mimeType,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'upload_failed';

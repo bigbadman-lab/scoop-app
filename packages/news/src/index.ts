@@ -134,6 +134,7 @@ export {
   createSupabaseTokenImageStorage,
   persistSelectedArtworkDisplayCopy,
   mirrorIpfsUriToTokenImage,
+  mirrorHttpsUriToTokenImage,
   type EnabledQuoteAsset,
   type LaunchConcept,
   type LaunchConceptResponse,
