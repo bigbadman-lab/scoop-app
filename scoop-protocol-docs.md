@@ -1801,23 +1801,51 @@ Trading for Pump markets happens on Solana terminals. SCOOP links out to Axiom (
 
 # 24. Creator Rewards Power Stronger Markets
 
-SCOOP’s native token earns creator rewards from its own market activity.
+**$TAPE** — SCOOP’s official Solana token on Pump.fun — earns creator rewards from its own trading activity. Those rewards accrue to SCOOP’s deployer wallet and are recycled into the ecosystem: SCOOP’s AI evaluates new launches for narrative strength, lore and early market signals, then selectively deploys capital through real onchain purchases into standout markets.
 
-Those rewards are recycled back into the ecosystem. SCOOP uses AI to evaluate new launches for narrative strength, lore and early market signals, then selectively deploys those rewards through real onchain purchases into standout markets.
+The objective is a reinforcing loop: stronger narratives attract better launches and more activity; that activity funds creator rewards on $TAPE; those rewards fund strategic onchain support for the next wave of strong markets.
 
-The objective is to create a reinforcing loop:
+## How it works
+
+1. **$TAPE earns creator rewards** — Trading activity on the $TAPE Pump.fun market generates creator fees for the token’s creator (SCOOP’s deployer wallet).
+2. **Rewards land in the deployer wallet** — Claimed creator rewards sit in SCOOP’s public Solana deployer / support wallet, not in a proprietary offchain ledger.
+3. **AI scores new launches** — SCOOP continuously evaluates launches for narrative strength, lore quality and early market signals.
+4. **Selective onchain buys** — When a launch stands out, SCOOP can automatically purchase that market from the deployer wallet. These are ordinary Solana transactions — real buys, not database credits or simulated support.
+
+## The flywheel
 
 ```text
-strong narratives → better launches → more activity → creator rewards → strategic onchain support for new markets
+$TAPE activity → creator rewards → deployer wallet
+        ↑                                    ↓
+stronger markets ← onchain buys ← AI selects standouts ← new launches
 ```
 
-This support is selective rather than guaranteed. SCOOP does not buy every launch, and creator-reward deployment is based on the system’s assessment of narrative quality and market conditions.
+Better lore and clearer narratives increase the chance a market receives support. Support that works feeds attention and activity back into the ecosystem — including $TAPE — which can generate further creator rewards to deploy.
+
+This support is **selective rather than guaranteed**. SCOOP does not buy every launch. Creator-reward deployment depends on the system’s assessment of narrative quality and market conditions.
+
+## Onchain verification
+
+Every supported buy is a public Solana transaction from SCOOP’s deployer wallet:
+
+```text
+44tkTKCk1wRUZuFkqnS8AE6wAJBAn26f6i6xxLzU3X27
+```
+
+Anyone can verify buys, balances and history on a Solana explorer. Settlement is onchain; scoop.fun does not invent or backfill “support” that did not occur as a wallet transaction.
+
+## What this is not
+
+- Not a promise that any particular launch will receive a buy
+- Not a SCOOP-owned Solana AMM, bonding curve or holder-rewards system (see §23)
+- Not an offchain rebate or points programme — selected support is executed as onchain purchases from the deployer wallet
+- Not a replacement for independent due diligence by traders or launchers
 
 ## Current dual-rail product
 
-- **Solana → Pump.fun** — launch venue and Solana creator-fee accrual; claim via `/account`
+- **Solana → Pump.fun** — launch venue; $TAPE and other Pump markets; Solana creator-fee accrual and claim via `/account`
 - **Robinhood Chain → Pons** — current RHC execution rail
 - AI-assisted news launches and cross-chain discovery on scoop.fun
-- Creator rewards recycled into selective onchain purchases behind strong narratives
+- $TAPE creator rewards recycled into selective onchain purchases behind strong narratives
 
 Historical SCOOP-native Robinhood protocol fee splits and factory launch mechanics are documented above and marked as historical; they are not the active dual-rail model.

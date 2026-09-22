@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   SCOOP_MARK_SRC,
-  SCOOP_PROTOCOL_GITHUB_URL,
+  SCOOP_APP_GITHUB_URL,
   SCOOP_X_URL,
 } from '@/lib/brand';
 import { GitHubIcon } from '@/components/ui/GitHubIcon';
@@ -91,10 +91,10 @@ export function SiteFooter() {
                 <XIcon className="h-4 w-4" />
               </a>
               <a
-                href={SCOOP_PROTOCOL_GITHUB_URL}
+                href={SCOOP_APP_GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="SCOOP Protocol on GitHub"
+                aria-label="SCOOP on GitHub"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] text-[var(--fg)] transition-colors hover:border-[var(--fg)]"
               >
                 <GitHubIcon className="h-4 w-4" />

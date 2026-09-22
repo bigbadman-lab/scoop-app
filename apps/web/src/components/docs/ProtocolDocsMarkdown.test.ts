@@ -26,7 +26,9 @@ describe('ProtocolDocsMarkdown', () => {
     expect(html).toContain('id="1-protocol-overview"');
     expect(html).toContain('id="11-canonical-deployment"');
     expect(html).toContain('id="22-risk-disclosure-and-disclaimer"');
+    expect(html).toContain('id="24-creator-rewards-power-stronger-markets"');
     expect(html).toContain('data-testid="protocol-docs-content"');
+    expect(html).toContain('data-testid="docs-creator-rewards-flywheel"');
     expect(html).toContain('Protocol Vault');
     expect(html).toContain('Protocol capability');
     expect(html).toContain('Current interface capability');
@@ -40,7 +42,7 @@ describe('ProtocolDocsNav', () => {
     const sections = extractProtocolDocsSections(loadProtocolDocsMarkdown());
     const html = renderToStaticMarkup(createElement(ProtocolDocsNav, { sections }));
 
-    expect(sections).toHaveLength(23);
+    expect(sections).toHaveLength(24);
     for (const section of sections) {
       expect(html).toContain(`href="#${section.id}"`);
     }

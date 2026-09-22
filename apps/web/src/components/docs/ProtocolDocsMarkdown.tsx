@@ -1,6 +1,7 @@
 import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CreatorRewardsFlywheel } from '@/components/docs/CreatorRewardsFlywheel';
 import {
   isEthereumAddress,
   protocolDocsSectionId,
@@ -118,7 +119,7 @@ const components: Components = {
         </h1>
       );
     }
-    return (
+    const heading = (
       <h2
         id={id}
         className="scroll-mt-28 mt-14 border-t border-[var(--divider)] pt-10 text-2xl font-semibold tracking-tight text-[var(--fg)] first:mt-0 first:border-t-0 first:pt-0 md:text-[1.65rem]"
@@ -126,6 +127,15 @@ const components: Components = {
         {children}
       </h2>
     );
+    if (numbered[1] === '24') {
+      return (
+        <>
+          {heading}
+          <CreatorRewardsFlywheel />
+        </>
+      );
+    }
+    return heading;
   },
   h2: ({ children }) => {
     const text = headingText(children);

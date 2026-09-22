@@ -28,9 +28,9 @@ describe('SiteFooter', () => {
     );
     expect(screen.getByText(/News to markets — Solana or Robinhood Chain/i)).toBeTruthy();
     expect(screen.getAllByLabelText('SCOOP on X').length).toBeGreaterThanOrEqual(1);
-    const github = screen.getByRole('link', { name: 'SCOOP Protocol on GitHub' });
+    const github = screen.getByRole('link', { name: 'SCOOP on GitHub' });
     expect(github.getAttribute('href')).toBe(
-      'https://github.com/bigbadman-lab/scoop-protocol',
+      'https://github.com/bigbadman-lab/scoop-app',
     );
   });
 });

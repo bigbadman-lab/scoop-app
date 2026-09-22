@@ -35,6 +35,6 @@ export const ROBINHOOD_CHAIN_LABEL = 'Robinhood Chain' as const;
 /** Official SCOOP presence on X. */
 export const SCOOP_X_URL = 'https://x.com/scoopterminal' as const;
 
-/** Official SCOOP protocol contracts repository. */
-export const SCOOP_PROTOCOL_GITHUB_URL =
-  'https://github.com/bigbadman-lab/scoop-protocol' as const;
+/** Official SCOOP application repository. */
+export const SCOOP_APP_GITHUB_URL =
+  'https://github.com/bigbadman-lab/scoop-app' as const;

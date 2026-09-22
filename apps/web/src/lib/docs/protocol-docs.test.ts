@@ -78,7 +78,11 @@ describe('protocol docs source', () => {
     const markdown = loadProtocolDocsMarkdown();
     expect(markdown).toContain('Historical protocol documentation');
     expect(markdown).toContain('Creator Rewards Power Stronger Markets');
+    expect(markdown).toContain('$TAPE');
+    expect(markdown).toContain('44tkTKCk1wRUZuFkqnS8AE6wAJBAn26f6i6xxLzU3X27');
     expect(markdown).toContain('selective rather than guaranteed');
+    expect(markdown).toContain('deployer wallet');
+    expect(markdown).toContain('Onchain verification');
     expect(markdown).toContain('Axiom');
     expect(markdown).toContain('GMGN');
     expect(markdown).not.toMatch(/Trade on Pump\.fun/);
