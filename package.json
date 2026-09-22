@@ -28,6 +28,7 @@
     "tape:verify-lock": "node scripts/tape-verify-lock.mjs",
     "official:canary-import": "pnpm --filter @scoop/web exec tsx scripts/official-canary-import.mts",
     "official:canary-remove": "pnpm --filter @scoop/web exec tsx scripts/official-canary-remove.mts",
+    "official:finalize": "pnpm --filter @scoop/web exec tsx scripts/official-finalize.mts",
     "news:repair-article-market": "node scripts/repair-news-article-market.mjs",
     "test:tape-contract": "vitest run scripts/tape-contract-verify.test.ts",
     "test:tge-finalize": "vitest run scripts/tge-finalize.test.ts scripts/tge-finalize-phase2.test.ts scripts/tge-finalize-phase3.test.ts scripts/tape-contract-verify.test.ts scripts/tge-failure-report.test.ts scripts/tge-verify-lock.test.ts",
