@@ -6,11 +6,9 @@
 PASS — UI + CREATOR-REWARD CONTENT REFRESH LIVE
 ```
 
-*(Pending production Vercel READY after push — code and tests green on main.)*
-
 ## 2. UTC timestamp
 
-2026-09-22T08:18:00Z
+2026-09-22T08:22:00Z
 
 ## 3. Solana trading CTA
 
@@ -122,19 +120,21 @@ Result: **both passed**
 
 ## 13. Deploy
 
-- SHA: *(filled after commit/push)*
-- Vercel deployment: *(filled after production deploy)*
-- READY status: *(filled after production deploy)*
+- SHA: `cfa601a50755fa7492bbbaa2ca787de61416a2cb`
+- Vercel deployment: `dpl_8ZiEsp1WHdkijG8qDQxQyuD7fqXq` → Production ([scoop.fun](https://scoop.fun))
+- READY status: YES (`Deployment has completed` / GitHub Vercel status `success`)
 
 ## 14. Production verification
 
 | Surface | Status |
 | --- | --- |
-| Homepage hero + mechanism cards | PENDING post-deploy |
-| Pump/Solana token Axiom+GMGN + creator panel | PENDING post-deploy |
-| RHC/Pons unchanged | PENDING post-deploy |
-| About strong-narratives | PENDING post-deploy |
-| Docs historical + §24 | PENDING post-deploy |
+| Homepage hero + mechanism cards | PASS — headline, `/news` link, creator-reward support sentence, AI SCANS / MARKETS RANK / SCOOP DEPLOYS / VALUE RECYCLES present; 70/4/20/6 absent |
+| Pump/Solana token Axiom+GMGN + creator panel | PASS — live chunk for `/token/[address]` includes Axiom/GMGN CTAs, URL builders (`axiom.trade/t/{mint}`, `gmgn.ai/sol/token/{mint}`), Creator rewards + `/account` CTA; no `Trade on Pump.fun`. Verified against mint `B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu` (SCPY). |
+| RHC/Pons unchanged | PASS — Pons page still shows Pons trade-disabled copy; no Solana creator-rewards strings |
+| About strong-narratives | PASS |
+| Docs historical + §24 | PASS — historical notice + Creator Rewards Power Stronger Markets + Axiom/GMGN |
+
+Note: curl to Pump token routes can return HTTP 500 with a streamed RSC/client payload (pre-existing Solana token SSR quirk). Client bundle on `dpl_8ZiEsp1WHdkijG8qDQxQyuD7fqXq` contains the new UI; homepage/about/docs SSR cleanly.
 
 ## 15. Production actions
 
