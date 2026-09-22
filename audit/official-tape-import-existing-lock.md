@@ -167,11 +167,16 @@ TAPE present with Solana/Pump identity and mirrored image (API smoke PASS).
 
 ## 14. Commit SHA
 
-(filled after commit/push)
+`7c86c92d83213516d4f3a5ba28f36840851110da`
 
 ## 15. Vercel deployment
 
-(filled after production deploy Ready)
+| Field | Value |
+| --- | --- |
+| SHA | `7c86c92` |
+| Status | **Ready** (`Deployment has completed` / success) |
+| Preview URL | `https://scoop-csgo32f83-cope2.vercel.app` |
+| Homepage bar | PASS — `official-tape-contract-bar`, mint, Official $TAPE, lock badge present on `https://scoop.fun/` |
 
 ---
 
