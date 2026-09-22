@@ -29,6 +29,7 @@ import { TokenBuySell } from '@/components/token/TokenBuySell';
 import { TokenSolanaCreatorRewards } from '@/components/token/TokenSolanaCreatorRewards';
 import { TokenScoopSupport } from '@/components/token/TokenScoopSupport';
 import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
+import { TokenWidgetErrorBoundary } from '@/components/token/TokenWidgetErrorBoundary';
 import {
   TokenMarketLiveProvider,
   useTokenMarketLive,
@@ -474,7 +475,9 @@ function TokenMarketLiveBody({
               />
             ) : null}
             {isPump ? (
-              <TokenSolanaCreatorRewards creatorWallet={token.deployerAddress} />
+              <TokenWidgetErrorBoundary name="solana-creator-rewards">
+                <TokenSolanaCreatorRewards creatorWallet={token.deployerAddress} />
+              </TokenWidgetErrorBoundary>
             ) : null}
           </div>
 

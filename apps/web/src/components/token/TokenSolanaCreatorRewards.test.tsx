@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TokenSolanaCreatorRewards } from '@/components/token/TokenSolanaCreatorRewards';
 
@@ -12,25 +12,46 @@ const sessionState = {
   address: null as string | null,
 };
 
+const shellState = {
+  runtimeReady: true,
+};
+
+const useScoopWalletSessionMock = vi.fn(() => ({
+  connected: sessionState.authenticated,
+  authenticated: sessionState.authenticated,
+  namespace: sessionState.namespace,
+  address: sessionState.address,
+  providerReady: false,
+  authMethod: sessionState.authMethod,
+  userId: null,
+}));
+
 vi.mock('@/lib/auth/use-scoop-wallet-session', () => ({
-  useScoopWalletSession: () => ({
-    connected: sessionState.authenticated,
-    authenticated: sessionState.authenticated,
-    namespace: sessionState.namespace,
-    address: sessionState.address,
-    providerReady: false,
-    authMethod: sessionState.authMethod,
-    userId: null,
+  useScoopWalletSession: () => useScoopWalletSessionMock(),
+}));
+
+vi.mock('@/components/auth/WalletShellProvider', () => ({
+  useWalletShell: () => ({
+    configured: true,
+    runtimeReady: shellState.runtimeReady,
+    activating: false,
+    cookies: null,
+    ensureRuntime: async () => {},
+    takePendingIntent: () => null,
   }),
 }));
 
 describe('TokenSolanaCreatorRewards', () => {
-  it('renders informational block with /account CTA when signed out', () => {
+  beforeEach(() => {
+    shellState.runtimeReady = true;
     sessionState.authenticated = false;
     sessionState.authMethod = null;
     sessionState.namespace = null;
     sessionState.address = null;
+    useScoopWalletSessionMock.mockClear();
+  });
 
+  it('renders informational block with /account CTA when signed out', () => {
     render(<TokenSolanaCreatorRewards creatorWallet={CREATOR} />);
 
     expect(screen.getByTestId('token-solana-creator-rewards')).toBeTruthy();
@@ -41,6 +62,19 @@ describe('TokenSolanaCreatorRewards', () => {
     const cta = screen.getByTestId('token-solana-creator-rewards-cta');
     expect(cta.getAttribute('href')).toBe('/account');
     expect(cta.textContent).toMatch(/Claim via account/i);
+    expect(screen.getByTestId('token-solana-creator-rewards').getAttribute('data-creator-match')).toBe(
+      'no',
+    );
+  });
+
+  it('does not call wallet session hooks when wallet runtime is not ready', () => {
+    shellState.runtimeReady = false;
+    render(<TokenSolanaCreatorRewards creatorWallet={CREATOR} />);
+
+    expect(useScoopWalletSessionMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('token-solana-creator-rewards-cta').textContent).toMatch(
+      /Claim via account/i,
+    );
     expect(screen.getByTestId('token-solana-creator-rewards').getAttribute('data-creator-match')).toBe(
       'no',
     );

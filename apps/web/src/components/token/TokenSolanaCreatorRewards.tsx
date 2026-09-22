@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useWalletShell } from '@/components/auth/WalletShellProvider';
 import { walletIdentitiesEqual } from '@/lib/auth/address';
 import { useScoopWalletSession } from '@/lib/auth/use-scoop-wallet-session';
 
@@ -9,18 +10,14 @@ type Props = {
   creatorWallet: string;
 };
 
-/**
- * Compact Solana/Pump creator-fee guidance. Claims stay on `/account`.
- */
-export function TokenSolanaCreatorRewards({ creatorWallet }: Props) {
-  const session = useScoopWalletSession();
-  const isMatchingCreator =
-    session.authenticated &&
-    session.authMethod === 'siws' &&
-    session.namespace === 'solana' &&
-    typeof session.address === 'string' &&
-    walletIdentitiesEqual(session.address, creatorWallet);
+type PanelProps = {
+  isMatchingCreator: boolean;
+};
 
+/**
+ * Presentational panel — no wallet hooks (safe without Wagmi/AppKit providers).
+ */
+function CreatorRewardsPanel({ isMatchingCreator }: PanelProps) {
   const ctaLabel = isMatchingCreator ? 'Claim creator fees →' : 'Claim via account →';
 
   return (
@@ -54,4 +51,34 @@ export function TokenSolanaCreatorRewards({ creatorWallet }: Props) {
       </div>
     </section>
   );
+}
+
+/**
+ * Only mounted when WalletShell has loaded Wagmi/AppKit providers.
+ * Calling useScoopWalletSession without WagmiProvider throws and blanked mobile token pages.
+ */
+function TokenSolanaCreatorRewardsLive({ creatorWallet }: Props) {
+  const session = useScoopWalletSession();
+  const isMatchingCreator =
+    session.authenticated &&
+    session.authMethod === 'siws' &&
+    session.namespace === 'solana' &&
+    typeof session.address === 'string' &&
+    walletIdentitiesEqual(session.address, creatorWallet);
+
+  return <CreatorRewardsPanel isMatchingCreator={isMatchingCreator} />;
+}
+
+/**
+ * Compact Solana/Pump creator-fee guidance. Claims stay on `/account`.
+ * Defers wallet-session hooks until wallet runtime is ready (lazy shell).
+ */
+export function TokenSolanaCreatorRewards({ creatorWallet }: Props) {
+  const { runtimeReady } = useWalletShell();
+
+  if (!runtimeReady) {
+    return <CreatorRewardsPanel isMatchingCreator={false} />;
+  }
+
+  return <TokenSolanaCreatorRewardsLive creatorWallet={creatorWallet} />;
 }
