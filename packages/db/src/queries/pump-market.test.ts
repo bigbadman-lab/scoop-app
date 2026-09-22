@@ -3,6 +3,7 @@ import {
   computePumpFdvSol,
   solDecimalToX18,
   applyPumpMarketStateToTokenDetail,
+  mapPumpTradeRow,
 } from './pump-market.js';
 import type { TokenDetail } from '../dto.js';
 import { priceUsdX18FromQuote, notionalUsdX18FromQuoteAmount } from '@scoop/shared';
@@ -14,6 +15,81 @@ describe('solDecimalToX18', () => {
 
   it('converts fractional SOL', () => {
     expect(solDecimalToX18('0.5')).toBe('500000000000000000');
+  });
+});
+
+describe('mapPumpTradeRow USD', () => {
+  const baseRow = {
+    signature: 'SigBuy111111111111111111111111111111111111111111111111111111111111',
+    event_index: 0,
+    slot: 100n,
+    block_time: new Date('2026-09-22T12:00:00Z'),
+    mint: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+    curve_address: 'Curve111111111111111111111111111111111111111',
+    wallet: 'Wallet11111111111111111111111111111111111111',
+    token_amount_raw: '1000000',
+    token_amount: '1',
+    sol_amount: '0.25',
+    sol_amount_lamports: '250000000',
+    price_sol: '0.25',
+  };
+
+  it('buy with SOL → USD via notionalUsdX18FromQuoteAmount', () => {
+    const solUsdX18 = 118n * 10n ** 18n; // $118 / SOL
+    const trade = mapPumpTradeRow({ ...baseRow, side: 'buy' }, 6, solUsdX18);
+    expect(trade.side).toBe('buy');
+    expect(trade.quoteAmountDisplay).toMatch(/0\.25/);
+    expect(trade.quoteUsdX18).toBe(solUsdX18.toString());
+
+    const expectedNotional = notionalUsdX18FromQuoteAmount({
+      quoteAmountRaw: BigInt(trade.quoteAmountRaw),
+      quoteUsdX18: solUsdX18,
+      quoteDecimals: 9,
+    });
+    const expectedExec = priceUsdX18FromQuote({
+      priceQuoteX18: BigInt(trade.executionPriceQuoteX18!),
+      quoteUsdX18: solUsdX18,
+    });
+    expect(trade.usdValueX18).toBe(expectedNotional.toString());
+    expect(trade.usdValueDisplay).toBeTruthy();
+    expect(trade.executionPriceUsdX18).toBe(expectedExec.toString());
+    // 0.25 SOL × $118 = $29.5
+    expect(Number(trade.usdValueDisplay)).toBeCloseTo(29.5, 5);
+  });
+
+  it('sell with SOL → USD', () => {
+    const solUsdX18 = 100n * 10n ** 18n;
+    const trade = mapPumpTradeRow(
+      { ...baseRow, side: 'sell', sol_amount: '1', price_sol: '1' },
+      6,
+      solUsdX18,
+    );
+    expect(trade.side).toBe('sell');
+    expect(trade.usdValueX18).toBe(
+      notionalUsdX18FromQuoteAmount({
+        quoteAmountRaw: BigInt(trade.quoteAmountRaw),
+        quoteUsdX18: solUsdX18,
+        quoteDecimals: 9,
+      }).toString(),
+    );
+    expect(trade.usdValueDisplay).toBeTruthy();
+    expect(Number(trade.usdValueDisplay)).toBeCloseTo(100, 5);
+  });
+
+  it('SOL/USD missing → null USD, SOL quote remains', () => {
+    const trade = mapPumpTradeRow({ ...baseRow, side: 'buy' }, 6, null);
+    expect(trade.quoteAmountDisplay).toMatch(/0\.25/);
+    expect(trade.executionPriceQuoteX18).toBeTruthy();
+    expect(trade.quoteUsdX18).toBeNull();
+    expect(trade.usdValueX18).toBeNull();
+    expect(trade.usdValueDisplay).toBeNull();
+    expect(trade.executionPriceUsdX18).toBeNull();
+  });
+
+  it('zero solUsdX18 does not fabricate $0', () => {
+    const trade = mapPumpTradeRow({ ...baseRow, side: 'buy' }, 6, 0n);
+    expect(trade.usdValueX18).toBeNull();
+    expect(trade.usdValueDisplay).toBeNull();
   });
 });
 

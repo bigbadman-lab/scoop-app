@@ -6,6 +6,7 @@ import {
   formatTradeAccountDisplay,
   formatTradeAge,
   formatTradeExecutionPrice,
+  formatTradeQuoteAmount,
   formatTradeSideLabel,
   formatTradeUsdValue,
   mergeRecentTradesNewestFirst,
@@ -57,6 +58,36 @@ describe('recent-trades helpers', () => {
       '0xabc',
     );
     expect(resolveTradeAccount({ ...newest!, traderAddress: null, txFrom: null })).toBeNull();
+  });
+
+  it('formats Pump SOL quote + USD notional; null SOL/USD stays em dash not zero', () => {
+    const pumpBuy: TradeItem = {
+      ...helloTradesNewestFirst()[0]!,
+      chainId: 900001,
+      side: 'buy',
+      quoteAmountRaw: '250000000',
+      quoteAmountDisplay: '0.25',
+      executionPriceQuoteDisplay: '0.25',
+      executionPriceUsdX18: '29500000000000000000',
+      executionPriceUsdDisplay: '29.5',
+      usdValueX18: '29500000000000000000',
+      usdValueDisplay: '29.5',
+    };
+    expect(formatTradeQuoteAmount(pumpBuy, 'SOL')).toBe('0.25 SOL');
+    expect(formatTradeUsdValue(pumpBuy)).toBe('$29.5');
+    expect(formatTradeSideLabel('buy')).toBe('BUY');
+    expect(formatTradeSideLabel('sell')).toBe('SELL');
+
+    const missingFx: TradeItem = {
+      ...pumpBuy,
+      executionPriceUsdX18: null,
+      executionPriceUsdDisplay: null,
+      usdValueX18: null,
+      usdValueDisplay: null,
+    };
+    expect(formatTradeQuoteAmount(missingFx, 'SOL')).toBe('0.25 SOL');
+    expect(formatTradeUsdValue(missingFx)).toBe('—');
+    expect(formatTradeUsdValue(missingFx)).not.toBe('$0');
   });
 
   it('formats compact trade age and explorer tx url', () => {

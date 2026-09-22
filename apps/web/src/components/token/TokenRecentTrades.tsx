@@ -52,6 +52,15 @@ export function TokenRecentTrades({
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
   const [retryKey, setRetryKey] = useState(0);
+  /** Pump: keep SOL quote visible on mobile alongside USD notional. RHC unchanged. */
+  const quoteColClass =
+    marketSource === 'pump'
+      ? 'px-3 py-2 align-middle tabular-nums text-[var(--muted)]'
+      : 'hidden px-3 py-2 align-middle tabular-nums text-[var(--muted)] lg:table-cell';
+  const quoteHeadClass =
+    marketSource === 'pump'
+      ? 'px-3 py-2 font-normal'
+      : 'hidden px-3 py-2 font-normal lg:table-cell';
 
   // Shared live layer.
   useEffect(() => {
@@ -192,7 +201,7 @@ export function TokenRecentTrades({
                   <th className="px-3 py-2 font-normal">Type</th>
                   <th className="px-3 py-2 font-normal">Price</th>
                   <th className="hidden px-3 py-2 font-normal md:table-cell">Token</th>
-                  <th className="hidden px-3 py-2 font-normal lg:table-cell">Quote</th>
+                  <th className={quoteHeadClass}>Quote</th>
                   <th className="px-3 py-2 font-normal">USD</th>
                   <th className="px-3 py-2 font-normal">Time</th>
                   <th className="px-3 py-2 font-normal">Tx</th>
@@ -248,7 +257,7 @@ export function TokenRecentTrades({
                         {formatTradeTokenAmount(trade)}
                       </td>
                       <td
-                        className="hidden px-3 py-2 align-middle tabular-nums text-[var(--muted)] lg:table-cell"
+                        className={quoteColClass}
                         data-testid="token-recent-trade-quote-amt"
                       >
                         {formatTradeQuoteAmount(trade, quoteSymbol)}

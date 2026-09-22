@@ -9,6 +9,7 @@ import {
   serverDb,
   type TradeSide,
 } from '@/lib/server/queries';
+import { getSolUsdX18 } from '@/lib/market/spot';
 import {
   ValidationError,
   assertNoSecretLeakage,
@@ -39,10 +40,13 @@ export async function GET(
     const db = serverDb();
 
     if (chainId === SOLANA_MAINNET_CHAIN_ID) {
+      // One SOL/USD fetch per request — display conversion, not trade-time FX.
+      const solUsdX18 = await getSolUsdX18();
       const items = await getPumpTrades(db, address, {
         limit,
         offset,
         side: sideRaw ? (sideRaw as TradeSide) : undefined,
+        solUsdX18,
       });
       const body = { items };
       assertNoSecretLeakage(body);

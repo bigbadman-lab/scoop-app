@@ -101,6 +101,7 @@ export {
   applyPumpMarketStateToDiscoveryItems,
   computePumpFdvSol,
   solDecimalToX18,
+  mapPumpTradeRow,
   type GetPumpTradesOptions,
   type GetPumpCandlesOptions,
   type PumpMarketStateRow,

@@ -38,6 +38,11 @@ export type GetPumpTradesOptions = {
   limit?: number;
   offset?: number;
   side?: 'buy' | 'sell';
+  /**
+   * Current SOL/USD (x18). Display conversion — not trade-time FX.
+   * Null/≤0 leaves trade USD fields null (never fabricate $0).
+   */
+  solUsdX18?: bigint | null;
 };
 
 export type GetPumpCandlesOptions = {
@@ -69,9 +74,14 @@ function solToLamports(solAmount: string): string {
   return (x18 / 10n ** 9n).toString();
 }
 
-function mapTradeRow(
+/**
+ * Map a pump_trades row → TradeItem.
+ * When `solUsdX18` is set, derive USD via shared x18 helpers (current spot, not trade-time FX).
+ */
+export function mapPumpTradeRow(
   row: Record<string, unknown>,
   tokenDecimals: number,
+  solUsdX18: bigint | null = null,
 ): TradeItem {
   const priceX18 = solDecimalToX18(String(row.price_sol));
   const quoteRaw = solToLamports(String(row.sol_amount));
@@ -80,6 +90,29 @@ function mapTradeRow(
     row.block_time instanceof Date
       ? Math.floor(row.block_time.getTime() / 1000)
       : Math.floor(new Date(String(row.block_time)).getTime() / 1000);
+
+  let quoteUsdX18: string | null = null;
+  let executionPriceUsdX18: string | null = null;
+  let executionPriceUsdDisplay: string | null = null;
+  let usdValueX18: string | null = null;
+  let usdValueDisplay: string | null = null;
+
+  if (solUsdX18 != null && solUsdX18 > 0n) {
+    quoteUsdX18 = solUsdX18.toString();
+    const execUsd = priceUsdX18FromQuote({
+      priceQuoteX18: BigInt(priceX18),
+      quoteUsdX18: solUsdX18,
+    });
+    executionPriceUsdX18 = execUsd.toString();
+    executionPriceUsdDisplay = formatX18(executionPriceUsdX18);
+    const notional = notionalUsdX18FromQuoteAmount({
+      quoteAmountRaw: BigInt(quoteRaw),
+      quoteUsdX18: solUsdX18,
+      quoteDecimals: SOL_DECIMALS,
+    });
+    usdValueX18 = notional.toString();
+    usdValueDisplay = formatX18(usdValueX18);
+  }
 
   return {
     chainId: PUMP_MARKET_CHAIN_ID,
@@ -100,11 +133,11 @@ function mapTradeRow(
     tokenAmountDisplay: formatRawAmount(tokenRaw, tokenDecimals),
     executionPriceQuoteX18: priceX18,
     executionPriceQuoteDisplay: formatX18(priceX18) ?? String(row.price_sol),
-    quoteUsdX18: null,
-    executionPriceUsdX18: null,
-    executionPriceUsdDisplay: null,
-    usdValueX18: null,
-    usdValueDisplay: null,
+    quoteUsdX18,
+    executionPriceUsdX18,
+    executionPriceUsdDisplay,
+    usdValueX18,
+    usdValueDisplay,
     isInitialBuy: false,
     confirmationStatus: 'confirmed',
   };
@@ -118,6 +151,7 @@ export async function getPumpTrades(
 ): Promise<TradeItem[]> {
   const limit = clampLimit(opts.limit ?? 50, 100);
   const offset = clampOffset(opts.offset ?? 0);
+  const solUsdX18 = opts.solUsdX18 ?? null;
   const params: unknown[] = [PUMP_MARKET_CHAIN_ID, mint.trim()];
   let sideSql = '';
   if (opts.side) {
@@ -133,7 +167,7 @@ export async function getPumpTrades(
     params,
   );
   return (result.rows as Record<string, unknown>[]).map((r) =>
-    mapTradeRow(r, tokenDecimals),
+    mapPumpTradeRow(r, tokenDecimals, solUsdX18),
   );
 }
 

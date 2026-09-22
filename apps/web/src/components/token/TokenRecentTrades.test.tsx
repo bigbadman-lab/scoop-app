@@ -136,4 +136,95 @@ describe('TokenRecentTrades', () => {
       expect(screen.getAllByTestId('token-recent-trade-row')).toHaveLength(20),
     );
   });
+
+  it('Pump rows render SOL quote + USD notional for buy and sell', async () => {
+    const mint = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+    const buy: TradeItem = {
+      chainId: 900001,
+      txHash: 'SigBuy'.padEnd(64, '1'),
+      logIndex: 0,
+      blockNumber: 1,
+      blockTimestamp: 1_800_000_100,
+      tokenAddress: mint,
+      poolId: mint,
+      side: 'buy',
+      swapSender: 'Wallet1',
+      txFrom: 'Wallet1',
+      traderAddress: 'Wallet1',
+      traderAttributionType: 'wallet',
+      quoteAmountRaw: '250000000',
+      quoteAmountDisplay: '0.25',
+      tokenAmountRaw: '1000000',
+      tokenAmountDisplay: '1',
+      executionPriceQuoteX18: '250000000000000000',
+      executionPriceQuoteDisplay: '0.25',
+      quoteUsdX18: '118000000000000000000',
+      executionPriceUsdX18: '29500000000000000000',
+      executionPriceUsdDisplay: '29.5',
+      usdValueX18: '29500000000000000000',
+      usdValueDisplay: '29.5',
+      isInitialBuy: false,
+      confirmationStatus: 'confirmed',
+    };
+    const sell: TradeItem = {
+      ...buy,
+      txHash: 'SigSell'.padEnd(64, '2'),
+      logIndex: 1,
+      blockTimestamp: 1_800_000_090,
+      side: 'sell',
+      quoteAmountRaw: '100000000',
+      quoteAmountDisplay: '0.1',
+      usdValueX18: '11800000000000000000',
+      usdValueDisplay: '11.8',
+      executionPriceUsdDisplay: '11.8',
+    };
+    vi.mocked(fetch).mockResolvedValue(Response.json({ items: [buy, sell] }));
+
+    render(
+      <TokenRecentTrades
+        tokenAddress={mint}
+        quoteSymbol="SOL"
+        marketSource="pump"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('token-recent-trades-table')).toBeTruthy(),
+    );
+    const rows = screen.getAllByTestId('token-recent-trade-row');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.getAttribute('data-side')).toBe('BUY');
+    expect(within(rows[0]!).getByTestId('token-recent-trade-quote-amt').textContent).toBe(
+      '0.25 SOL',
+    );
+    expect(within(rows[0]!).getByTestId('token-recent-trade-usd').textContent).toBe('$29.5');
+    expect(rows[1]!.getAttribute('data-side')).toBe('SELL');
+    expect(within(rows[1]!).getByTestId('token-recent-trade-quote-amt').textContent).toBe(
+      '0.1 SOL',
+    );
+    expect(within(rows[1]!).getByTestId('token-recent-trade-usd').textContent).toBe('$11.8');
+    // Quote column always visible for pump (no lg:hidden).
+    expect(
+      within(rows[0]!).getByTestId('token-recent-trade-quote-amt').className,
+    ).not.toMatch(/hidden/);
+    expect(within(rows[0]!).getByTestId('token-recent-trade-tx').getAttribute('href')).toContain(
+      'solana',
+    );
+  });
+
+  it('RHC quote column stays lg-gated (unchanged)', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({ items: helloTradesNewestFirst().slice(0, 1) }),
+    );
+    render(
+      <TokenRecentTrades
+        tokenAddress="0x2284ed0e4d446c6d78ac2d49a68bae822fd87373"
+        quoteSymbol="ETH"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('token-recent-trade-quote-amt')).toBeTruthy(),
+    );
+    expect(screen.getByTestId('token-recent-trade-quote-amt').className).toMatch(/lg:table-cell/);
+  });
 });
