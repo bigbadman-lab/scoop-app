@@ -142,11 +142,12 @@ All focused tests + typecheck/build: **PASS**
 
 ## 14. Deploy
 
-- SHA: *(filled after commit/push)*
-- Migration: **applied** (`scoop_support_buys` live)
-- Vercel: auto on `main` push for web/API
-- Render: redeploy `scoop-solana-pump-worker` for ingest hook
-- Backfill: ran (0 historical events)
+- SHA: `81d0f6c7e6a0c90de7e6da58468f3dd172863275`
+- Migration: **applied** (`scoop_support_buys` live on production Postgres)
+- Vercel: `dpl_7TAjtRTJCaDJv1XgfmKFUNQnSBts` → Production READY ([scoop.fun](https://scoop.fun))
+- Render: `dep-dap7oe79b27s73ev13bg` (`scoop-solana-pump-worker`) → **live**
+- Backfill: ran (0 historical events; 25 indexed Pump trades, 0 from support wallet)
+- Production API check: Pump rows expose `scoopSupportBuyCount: 0`; RHC rows unmarked (`null`/absent); token bundle includes `SCOOP SUPPORT` UI
 
 ## 15. Confirmations
 
