@@ -4,29 +4,41 @@ import type { CSSProperties } from 'react';
 import { usePathname } from 'next/navigation';
 import { getActiveAnnouncement } from '@/lib/announcements';
 import { AnnouncementBar } from '@/components/home/AnnouncementBar';
+import { OfficialTapeContractBar } from '@/components/home/OfficialTapeContractBar';
 import { DesktopSidebar } from '@/components/shell/DesktopSidebar';
 import { MobileBottomNav } from '@/components/shell/MobileBottomNav';
 import { ScoopHomeMark } from '@/components/shell/ScoopHomeMark';
 import { SiteFooter } from '@/components/shell/SiteFooter';
 import { WalletSlot } from '@/components/shell/WalletSlot';
+import type { OfficialTapePublic } from '@/lib/official-tape/load-official-tape-public';
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  officialTape = null,
+}: {
+  children: React.ReactNode;
+  officialTape?: OfficialTapePublic | null;
+}) {
   const pathname = usePathname();
   const announcement = getActiveAnnouncement();
-  const hasAnnouncement = announcement != null;
+  const hasTopBar = officialTape != null || announcement != null;
 
   return (
     <div
       className="flex min-h-dvh flex-col bg-[var(--bg)]"
       style={
         {
-          '--announcement-offset': hasAnnouncement ? 'var(--announcement-height)' : '0px',
+          '--announcement-offset': hasTopBar ? 'var(--announcement-height)' : '0px',
         } as CSSProperties
       }
     >
       {/* Full-bleed site strip — sits above sidebar + content as its own band */}
       <div className="sticky top-0 z-50">
-        <AnnouncementBar announcement={announcement} />
+        {officialTape ? (
+          <OfficialTapeContractBar official={officialTape} />
+        ) : (
+          <AnnouncementBar announcement={announcement} />
+        )}
       </div>
 
       <DesktopSidebar pathname={pathname} />

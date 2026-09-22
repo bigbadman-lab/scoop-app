@@ -9,6 +9,7 @@ import '@fontsource/open-sauce-sans/latin-700.css';
 import { AppShell } from '@/components/shell/AppShell';
 import { SCOOP_GREEN, SCOOP_MARK_SRC } from '@/lib/brand';
 import { WalletShellProvider } from '@/components/auth/WalletShellProvider';
+import { loadOfficialTapePublicSafe } from '@/lib/official-tape/load-official-tape-public';
 import {
   SEO_DEFAULT_DESCRIPTION,
   SEO_DEFAULT_OG_IMAGE_ALT,
@@ -73,12 +74,13 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieHeader = (await headers()).get('cookie');
+  const officialTape = await loadOfficialTapePublicSafe();
 
   return (
     <html lang="en" className={GeistMono.variable}>
       <body className="bg-[var(--bg)] text-[var(--fg)] antialiased">
         <WalletShellProvider cookies={cookieHeader}>
-          <AppShell>{children}</AppShell>
+          <AppShell officialTape={officialTape}>{children}</AppShell>
         </WalletShellProvider>
         <Script
           src="https://datafa.st/js/script.js"

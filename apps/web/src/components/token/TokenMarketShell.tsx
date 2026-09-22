@@ -7,6 +7,7 @@ type Props = {
   quoteSymbol: string;
   quoteImageUrl?: string | null;
   lore?: TokenNewsLore | null;
+  officialTapeBadges?: { lockBadgeCopy: string | null } | null;
 };
 
 /**
@@ -17,6 +18,7 @@ export function TokenMarketShell({
   quoteSymbol,
   quoteImageUrl = null,
   lore = null,
+  officialTapeBadges = null,
 }: Props) {
   return (
     <TokenMarketLiveView
@@ -24,6 +26,7 @@ export function TokenMarketShell({
       quoteSymbol={quoteSymbol}
       quoteImageUrl={quoteImageUrl}
       lore={lore}
+      officialTapeBadges={officialTapeBadges}
     />
   );
 }

@@ -25,8 +25,12 @@ export type OfficialTapeEnvAudit = {
   signerMatchesDeployer: boolean;
   keypairPathOnDisk: boolean | null;
   readyForReadOnlyPreflight: boolean;
+  /** Publish/import/verify path — no signer required (no chain write). */
+  readyForPublish: boolean;
   readyForLockBroadcast: boolean;
   blockReasons: string[];
+  /** Reasons that block publish (excludes keypair-only gates). */
+  publishBlockReasons: string[];
 };
 
 function presence(env: NodeJS.ProcessEnv, key: string): EnvPresence {
@@ -95,18 +99,20 @@ export function auditOfficialTapeEnv(
     }
   }
 
-  const blockReasons: string[] = [];
-  if (DATABASE_URL === 'MISSING') blockReasons.push('DATABASE_URL missing');
-  if (SOLANA_RPC_URL === 'MISSING') blockReasons.push('SOLANA_RPC_URL missing');
+  const publishBlockReasons: string[] = [];
+  if (DATABASE_URL === 'MISSING') publishBlockReasons.push('DATABASE_URL missing');
+  if (SOLANA_RPC_URL === 'MISSING') publishBlockReasons.push('SOLANA_RPC_URL missing');
   if (NEXT_PUBLIC_SUPABASE_URL === 'MISSING') {
-    blockReasons.push('NEXT_PUBLIC_SUPABASE_URL missing');
+    publishBlockReasons.push('NEXT_PUBLIC_SUPABASE_URL missing');
   }
   if (SUPABASE_SERVICE_ROLE_KEY === 'MISSING') {
-    blockReasons.push('SUPABASE_SERVICE_ROLE_KEY missing');
+    publishBlockReasons.push('SUPABASE_SERVICE_ROLE_KEY missing');
   }
   if (rpcNetwork === 'WRONG_NETWORK' || rpcNetwork === 'INVALID_URL') {
-    blockReasons.push(`SOLANA_RPC_URL network ${rpcNetwork}`);
+    publishBlockReasons.push(`SOLANA_RPC_URL network ${rpcNetwork}`);
   }
+
+  const blockReasons = [...publishBlockReasons];
   if (SOLANA_KEYPAIR_PATH === 'MISSING') {
     blockReasons.push('SOLANA_KEYPAIR_PATH missing');
   } else if (keypairPathOnDisk === false) {
@@ -126,6 +132,8 @@ export function auditOfficialTapeEnv(
     SUPABASE_SERVICE_ROLE_KEY === 'PRESENT' &&
     rpcNetwork === 'MAINNET';
 
+  const readyForPublish = readyForReadOnlyPreflight;
+
   const readyForLockBroadcast =
     readyForReadOnlyPreflight &&
     SOLANA_KEYPAIR_PATH === 'PRESENT' &&
@@ -144,8 +152,10 @@ export function auditOfficialTapeEnv(
     signerMatchesDeployer,
     keypairPathOnDisk,
     readyForReadOnlyPreflight,
+    readyForPublish,
     readyForLockBroadcast,
     blockReasons,
+    publishBlockReasons,
   };
 }
 

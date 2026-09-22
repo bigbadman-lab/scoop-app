@@ -21,7 +21,9 @@ describe('official-tape env audit', () => {
     expect(audit.DATABASE_URL).toBe('PRESENT');
     expect(audit.SOLANA_KEYPAIR_PATH).toBe('MISSING');
     expect(audit.streamflowApiKeyRequired).toBe(false);
+    expect(audit.readyForPublish).toBe(true);
     expect(audit.readyForLockBroadcast).toBe(false);
+    expect(audit.publishBlockReasons).toHaveLength(0);
     const report = formatEnvAuditReport(audit);
     expect(report).not.toMatch(/postgres:\/\//);
     expect(report).not.toMatch(/secret/);
@@ -111,5 +113,29 @@ describe('official-tape mint gates', () => {
         creator: 'So11111111111111111111111111111111111111112',
       }),
     ).toThrow(/OFFICIAL PUMP CREATOR DOES NOT MATCH/);
+  });
+});
+
+describe('official lock badge copy', () => {
+  it('uses 6 MONTHS when unlock matches calendar policy', async () => {
+    const { officialLockBadgeCopy } = await import(
+      '@/lib/official-tape/verify-existing-streamflow-lock'
+    );
+    const created = Math.floor(Date.UTC(2026, 2, 22, 12, 0, 0) / 1000);
+    const unlock = unlockUnixSixCalendarMonthsFrom(created);
+    expect(officialLockBadgeCopy({ createdAtUnix: created, unlockAtUnix: unlock })).toBe(
+      'DEV TOKENS LOCKED 6 MONTHS',
+    );
+  });
+
+  it('uses dated wording when unlock is not 6 calendar months', async () => {
+    const { officialLockBadgeCopy } = await import(
+      '@/lib/official-tape/verify-existing-streamflow-lock'
+    );
+    const created = Math.floor(Date.UTC(2026, 2, 22, 12, 0, 0) / 1000);
+    const unlock = created + 90 * 24 * 60 * 60;
+    expect(officialLockBadgeCopy({ createdAtUnix: created, unlockAtUnix: unlock })).toMatch(
+      /^DEV TOKENS LOCKED UNTIL /,
+    );
   });
 });

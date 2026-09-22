@@ -24,6 +24,8 @@ export type OfficialTapeSolanaConfig = {
   unlockAt: string | null;
   lockAmountRaw: string | null;
   registeredAt: string;
+  /** Truthful UI badge from Streamflow verify (optional for older rows). */
+  lockBadgeCopy?: string | null;
 };
 
 export type SetOfficialTapeResult =

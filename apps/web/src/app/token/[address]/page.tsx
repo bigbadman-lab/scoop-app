@@ -3,6 +3,7 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { TokenFreshLaunchGate } from '@/components/token/TokenFreshLaunchGate';
 import { TokenMarketShell, TokenMarketUnavailable } from '@/components/token/TokenMarketShell';
+import { loadOfficialTapePublicSafe } from '@/lib/official-tape/load-official-tape-public';
 import { buildPageMetadata } from '@/lib/seo/site';
 import { loadTokenPage } from '@/lib/token/load-token-page';
 import { TOKEN_OG_SIZE, tokenOpenGraphImagePath } from '@/lib/token/og-card';
@@ -76,11 +77,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TokenPage({ params }: Props) {
   const { address } = await params;
-  const result = await loadTokenPageCached(address);
+  const [result, officialTape] = await Promise.all([
+    loadTokenPageCached(address),
+    loadOfficialTapePublicSafe(),
+  ]);
 
   if (result.status === 'invalid') {
     notFound();
   }
+
+  const officialTapeBadges =
+    result.status === 'ok' &&
+    officialTape &&
+    officialTape.mint === result.token.tokenAddress
+      ? { lockBadgeCopy: officialTape.lockBadgeCopy }
+      : null;
 
   return (
     <main className="mx-auto max-w-[1400px] px-4 py-3 md:px-8 md:py-4 lg:px-10">
@@ -99,6 +110,7 @@ export default async function TokenPage({ params }: Props) {
           quoteSymbol={result.quoteSymbol}
           quoteImageUrl={result.quoteImageUrl}
           lore={result.lore}
+          officialTapeBadges={officialTapeBadges}
         />
       ) : null}
     </main>

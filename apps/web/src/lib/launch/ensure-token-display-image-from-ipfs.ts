@@ -59,13 +59,20 @@ export async function ensureTokenDisplayImageFromIpfs(input: {
     };
   }
 
-  if (!/^ipfs:\/\//i.test(imageUri)) {
-    if (!/^https:\/\//i.test(imageUri)) {
+  // Normalize public IPFS HTTPS gateways → ipfs:// so we can retry mirrors.
+  let normalizedUri = imageUri;
+  const httpsIpfs = imageUri.match(/^https?:\/\/[^/]+\/ipfs\/([^/?#]+)/i);
+  if (httpsIpfs?.[1]) {
+    normalizedUri = `ipfs://${httpsIpfs[1]}`;
+  }
+
+  if (!/^ipfs:\/\//i.test(normalizedUri)) {
+    if (!/^https:\/\//i.test(normalizedUri)) {
       return { ok: false, reason: 'unsupported_image_uri' };
     }
     const storage = createSupabaseTokenImageStorage();
     const mirrored = await mirrorHttpsUriToTokenImage({
-      imageUri,
+      imageUri: normalizedUri,
       storage,
     });
     if (!mirrored.ok) {
@@ -96,7 +103,7 @@ export async function ensureTokenDisplayImageFromIpfs(input: {
     null;
   for (const gatewayPrefix of gateways) {
     mirrored = await mirrorIpfsUriToTokenImage({
-      imageUri,
+      imageUri: normalizedUri,
       storage,
       gatewayPrefix,
     });

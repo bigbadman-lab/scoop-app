@@ -30,6 +30,7 @@ import { TokenSolanaCreatorRewards } from '@/components/token/TokenSolanaCreator
 import { TokenScoopSupport } from '@/components/token/TokenScoopSupport';
 import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
 import { TokenWidgetErrorBoundary } from '@/components/token/TokenWidgetErrorBoundary';
+import { OfficialTapeTokenBadges } from '@/components/token/OfficialTapeTokenBadges';
 import {
   TokenMarketLiveProvider,
   useTokenMarketLive,
@@ -69,6 +70,7 @@ type Props = {
   quoteSymbol: string;
   quoteImageUrl?: string | null;
   lore?: TokenNewsLore | null;
+  officialTapeBadges?: { lockBadgeCopy: string | null } | null;
 };
 
 function DetailRow({
@@ -104,10 +106,12 @@ function TokenMarketLiveBody({
   quoteSymbol,
   quoteImageUrl = null,
   lore = null,
+  officialTapeBadges = null,
 }: {
   quoteSymbol: string;
   quoteImageUrl?: string | null;
   lore?: TokenNewsLore | null;
+  officialTapeBadges?: { lockBadgeCopy: string | null } | null;
 }) {
   const { token, refreshNow } = useTokenMarketLive();
   const loreHref = lore ? safeHttpsUrl(lore.url) : null;
@@ -222,6 +226,9 @@ function TokenMarketLiveBody({
                   className="rounded-[var(--radius-sm)] px-1 py-0.5 shadow-none"
                 />
               </div>
+              {officialTapeBadges ? (
+                <OfficialTapeTokenBadges lockBadgeCopy={officialTapeBadges.lockBadgeCopy} />
+              ) : null}
               {/* Desktop: contract under pair. Mobile: demoted below price. */}
               <div className="mt-1 hidden sm:block">
                 <ContractCopy
@@ -682,6 +689,7 @@ export function TokenMarketLiveView({
   quoteSymbol,
   quoteImageUrl = null,
   lore = null,
+  officialTapeBadges = null,
 }: Props) {
   return (
     <TokenMarketLiveProvider initialToken={token}>
@@ -689,6 +697,7 @@ export function TokenMarketLiveView({
         quoteSymbol={quoteSymbol}
         quoteImageUrl={quoteImageUrl}
         lore={lore}
+        officialTapeBadges={officialTapeBadges}
       />
     </TokenMarketLiveProvider>
   );

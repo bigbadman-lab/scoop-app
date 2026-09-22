@@ -20,6 +20,80 @@ import { ensurePumpTokenDisplayImage } from '@/lib/launch/ensure-pump-token-disp
 
 const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
+const METADATA_FETCH_ATTEMPTS = 5;
+const METADATA_RETRY_BASE_MS = 750;
+
+const IPFS_GATEWAYS = [
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://ipfs.io/ipfs/',
+] as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Expand a metadata URI into primary + IPFS gateway mirrors (no fabrication). */
+export function metadataUriCandidates(metadataUri: string): string[] {
+  const uri = metadataUri.trim();
+  const out: string[] = [uri];
+  const ipfsMatch = uri.match(/\/ipfs\/([^/?#]+)/i) ?? uri.match(/^ipfs:\/\/([^/?#]+)/i);
+  if (ipfsMatch?.[1]) {
+    const cid = ipfsMatch[1];
+    for (const gateway of IPFS_GATEWAYS) {
+      const candidate = `${gateway}${cid}`;
+      if (!out.includes(candidate)) out.push(candidate);
+    }
+  }
+  return out;
+}
+
+/**
+ * Fetch Pump offchain metadata JSON with bounded 429 backoff + IPFS gateway mirrors.
+ * Does not fabricate fields — only retries transport / rate-limit failures.
+ */
+export async function fetchPumpMetadataJson(
+  metadataUri: string,
+): Promise<Record<string, unknown>> {
+  const candidates = metadataUriCandidates(metadataUri);
+  let lastStatus = 0;
+  let lastError: Error | null = null;
+
+  for (const candidate of candidates) {
+    for (let attempt = 0; attempt < METADATA_FETCH_ATTEMPTS; attempt++) {
+      try {
+        const metaRes = await fetch(candidate, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'scoop-external-pump-import',
+          },
+          signal: AbortSignal.timeout(25_000),
+        });
+        lastStatus = metaRes.status;
+        if (metaRes.ok) {
+          return (await metaRes.json()) as Record<string, unknown>;
+        }
+        if (metaRes.status === 429 || metaRes.status >= 500) {
+          const backoff =
+            METADATA_RETRY_BASE_MS * 2 ** attempt + Math.floor(Math.random() * 250);
+          await sleep(backoff);
+          continue;
+        }
+        // Non-retryable for this candidate — try next gateway.
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const backoff =
+          METADATA_RETRY_BASE_MS * 2 ** attempt + Math.floor(Math.random() * 250);
+        await sleep(backoff);
+      }
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw new Error(`Metadata URI HTTP ${lastStatus || 429}`);
+}
+
 export type ExternalPumpPreflight = {
   mint: string;
   name: string;
@@ -215,14 +289,7 @@ export async function preflightExternalPumpMint(input: {
   let website = '';
 
   if (metadataUri) {
-    const metaRes = await fetch(metadataUri, {
-      headers: { Accept: 'application/json', 'User-Agent': 'scoop-external-pump-import' },
-      signal: AbortSignal.timeout(25_000),
-    });
-    if (!metaRes.ok) {
-      throw new Error(`Metadata URI HTTP ${metaRes.status}`);
-    }
-    const meta = (await metaRes.json()) as Record<string, unknown>;
+    const meta = await fetchPumpMetadataJson(metadataUri);
     name = String(meta.name ?? name).trim() || name;
     symbol = String(meta.symbol ?? symbol).trim() || symbol;
     imageUri = String(meta.image ?? meta.image_uri ?? '').trim();
