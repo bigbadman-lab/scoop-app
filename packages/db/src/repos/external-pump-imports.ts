@@ -177,6 +177,14 @@ export async function deleteExternalPumpCanaryMarket(
     counts[label] = result.rowCount ?? 0;
   };
 
+  // Drop watchlist source BEFORE pump_* so a concurrent worker refresh cannot
+  // re-subscribe from launches while we are mid-scrub (still race until in-memory refresh).
+  await del(
+    'launches',
+    `DELETE FROM launches WHERE chain_id = $1 AND token_address = $2 AND market_source = 'pump'`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
+
   const supportTable = await db.query(
     `SELECT 1 FROM information_schema.tables
      WHERE table_schema = 'public' AND table_name = 'scoop_support_buys'
@@ -212,11 +220,6 @@ export async function deleteExternalPumpCanaryMarket(
     [PUMP_MARKET_CHAIN_ID, m],
   );
   await del(
-    'launches',
-    `DELETE FROM launches WHERE chain_id = $1 AND token_address = $2 AND market_source = 'pump'`,
-    [PUMP_MARKET_CHAIN_ID, m],
-  );
-  await del(
     'tokens',
     `DELETE FROM tokens WHERE chain_id = $1 AND token_address = $2`,
     [PUMP_MARKET_CHAIN_ID, m],
@@ -227,5 +230,74 @@ export async function deleteExternalPumpCanaryMarket(
     [PUMP_MARKET_CHAIN_ID, m],
   );
 
+  return counts;
+}
+
+/**
+ * Phase-1 detach: remove Pump launch row so DB watchlist drops the mint.
+ * Does not touch pump_* / tokens / registry — allows worker refresh before scrub.
+ */
+export async function detachExternalPumpCanaryWatchlist(
+  db: Queryable,
+  mint: string,
+): Promise<number> {
+  const m = assertMint(mint);
+  const result = await db.query(
+    `DELETE FROM launches
+     WHERE chain_id = $1 AND token_address = $2 AND market_source = 'pump'`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
+  return result.rowCount ?? 0;
+}
+
+/**
+ * Mint-scoped orphan scrub for pump_* (+ support) after watchlist detach.
+ * Does not delete tokens / launches / registry.
+ */
+export async function scrubExternalPumpCanaryMarketData(
+  db: Queryable,
+  mint: string,
+): Promise<Record<string, number>> {
+  const m = assertMint(mint);
+  const counts: Record<string, number> = {};
+  const del = async (label: string, sql: string, params: unknown[]) => {
+    const result = await db.query(sql, params);
+    counts[label] = result.rowCount ?? 0;
+  };
+
+  const supportTable = await db.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'scoop_support_buys'
+     LIMIT 1`,
+  );
+  if (supportTable.rows.length > 0) {
+    await del(
+      'scoop_support_buys',
+      `DELETE FROM scoop_support_buys WHERE chain_id = $1 AND mint = $2`,
+      [PUMP_MARKET_CHAIN_ID, m],
+    );
+  } else {
+    counts.scoop_support_buys = 0;
+  }
+  await del(
+    'pump_candles',
+    `DELETE FROM pump_candles WHERE chain_id = $1 AND mint = $2`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
+  await del(
+    'pump_trades',
+    `DELETE FROM pump_trades WHERE chain_id = $1 AND mint = $2`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
+  await del(
+    'pump_market_state',
+    `DELETE FROM pump_market_state WHERE chain_id = $1 AND mint = $2`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
+  await del(
+    'pump_worker_checkpoints',
+    `DELETE FROM pump_worker_checkpoints WHERE chain_id = $1 AND mint = $2`,
+    [PUMP_MARKET_CHAIN_ID, m],
+  );
   return counts;
 }

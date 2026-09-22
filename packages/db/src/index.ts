@@ -233,6 +233,8 @@ export {
   getExternalPumpImport,
   collectExternalPumpCanaryFootprint,
   deleteExternalPumpCanaryMarket,
+  detachExternalPumpCanaryWatchlist,
+  scrubExternalPumpCanaryMarketData,
   type ExternalPumpImportKind,
   type ExternalPumpImportCanaryRow,
   type ExternalPumpCanaryFootprint,

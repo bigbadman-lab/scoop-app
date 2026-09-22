@@ -20,6 +20,15 @@ describe('external pump canary removal guards', () => {
     const counts = await deleteExternalPumpCanaryMarket(db as never, mint);
     expect(counts.tokens).toBe(1);
     expect(counts.launches).toBe(1);
+    // Watchlist source (launches) must be deleted before pump_* scrub.
+    const launchIdx = queries.findIndex((q) =>
+      /DELETE FROM launches/i.test(q.sql),
+    );
+    const tradesIdx = queries.findIndex((q) =>
+      /DELETE FROM pump_trades/i.test(q.sql),
+    );
+    expect(launchIdx).toBeGreaterThanOrEqual(0);
+    expect(tradesIdx).toBeGreaterThan(launchIdx);
     expect(queries.every((q) => q.params.includes(mint) || q.params.length === 0 || q.sql.includes('information_schema'))).toBe(
       true,
     );
