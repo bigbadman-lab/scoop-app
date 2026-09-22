@@ -8,6 +8,7 @@ const liveSpot: SpotPayload = {
   source: 'live',
   instruments: [
     { id: 'eth', label: 'ETH', price: 2500, changePct: 1.25 },
+    { id: 'sol', label: 'SOL', price: 148.25, changePct: 2.1 },
     { id: 'btc', label: 'BTC', price: 80000, changePct: -0.5 },
     { id: 'spx', label: 'S&P 500', price: 7718.6, changePct: 0.68 },
     { id: 'ftse', label: 'FTSE 100', price: 9200.1, changePct: 1.1 },
@@ -19,6 +20,7 @@ const refreshedSpot: SpotPayload = {
   source: 'live',
   instruments: [
     { id: 'eth', label: 'ETH', price: 2600, changePct: 2 },
+    { id: 'sol', label: 'SOL', price: 150.5, changePct: 2.5 },
     { id: 'btc', label: 'BTC', price: 81000, changePct: 0.2 },
     { id: 'spx', label: 'S&P 500', price: 7800, changePct: 1 },
     { id: 'ftse', label: 'FTSE 100', price: 9300, changePct: 1.5 },
@@ -38,28 +40,31 @@ beforeEach(() => {
 });
 
 describe('LiveDeskStrip', () => {
-  it('renders all four instruments from initial SSR data', () => {
+  it('renders all five instruments from initial SSR data', () => {
     render(<LiveDeskStrip initialSpot={liveSpot} />);
 
     expect(screen.getByTestId('desk-pill-eth')).toBeTruthy();
+    expect(screen.getByTestId('desk-pill-sol')).toBeTruthy();
     expect(screen.getByTestId('desk-pill-btc')).toBeTruthy();
     expect(screen.getByTestId('desk-pill-spx')).toBeTruthy();
     expect(screen.getByTestId('desk-pill-ftse')).toBeTruthy();
     expect(screen.getByText('ETH')).toBeTruthy();
+    expect(screen.getByText('SOL')).toBeTruthy();
     expect(screen.getByText('BTC')).toBeTruthy();
     expect(screen.getByText('S&P 500')).toBeTruthy();
     expect(screen.getByText('FTSE 100')).toBeTruthy();
     expect(screen.getByText('$2,500')).toBeTruthy();
+    expect(screen.getByText('$148.25')).toBeTruthy();
     expect(screen.getByText('$80,000')).toBeTruthy();
   });
 
-  it('fallback state still renders all four instrument slots', () => {
+  it('fallback state still renders all five instrument slots', () => {
     render(<LiveDeskStrip initialSpot={emptySpotPayload()} />);
 
-    for (const id of ['eth', 'btc', 'spx', 'ftse'] as const) {
+    for (const id of ['eth', 'sol', 'btc', 'spx', 'ftse'] as const) {
       expect(screen.getByTestId(`desk-pill-${id}`)).toBeTruthy();
     }
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4);
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(5);
   });
 
   it('keeps SSR values when refresh fails', async () => {
@@ -98,6 +103,7 @@ describe('LiveDeskStrip', () => {
     const ids = pills.map((el) => el.getAttribute('data-testid'));
     expect(ids).toEqual([
       'desk-pill-eth',
+      'desk-pill-sol',
       'desk-pill-btc',
       'desk-pill-spx',
       'desk-pill-ftse',

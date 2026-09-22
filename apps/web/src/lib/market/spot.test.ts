@@ -46,17 +46,22 @@ describe('loadDeskSpot', () => {
 
     const spot = await loadDeskSpot();
     expect(spot.source).toBe('live');
-    expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
+    expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'sol', 'btc', 'spx', 'ftse']);
     expect(spot.instruments[0]).toMatchObject({
       label: 'ETH',
       price: 2500,
       changePct: 1.25,
     });
-    expect(spot.instruments[2]?.label).toBe('S&P 500');
-    expect(spot.instruments[2]?.price).toBe(7718.6);
-    expect(spot.instruments[2]?.changePct).toBeCloseTo(((7718.6 - 7666.6) / 7666.6) * 100, 5);
-    expect(spot.instruments[3]?.label).toBe('FTSE 100');
-    expect(spot.instruments[3]?.changePct).toBeCloseTo(((9200.1 - 9100) / 9100) * 100, 5);
+    expect(spot.instruments[1]).toMatchObject({
+      label: 'SOL',
+      price: 148.25,
+      changePct: 2.1,
+    });
+    expect(spot.instruments[3]?.label).toBe('S&P 500');
+    expect(spot.instruments[3]?.price).toBe(7718.6);
+    expect(spot.instruments[3]?.changePct).toBeCloseTo(((7718.6 - 7666.6) / 7666.6) * 100, 5);
+    expect(spot.instruments[4]?.label).toBe('FTSE 100');
+    expect(spot.instruments[4]?.changePct).toBeCloseTo(((9200.1 - 9100) / 9100) * 100, 5);
   });
 
   it('returns partial when one feed fails', async () => {
@@ -78,14 +83,15 @@ describe('loadDeskSpot', () => {
     const spot = await loadDeskSpot();
     expect(spot.source).toBe('partial');
     expect(spot.instruments[0]?.price).toBe(2500);
-    expect(spot.instruments[2]?.price).toBeNull();
+    expect(spot.instruments[1]?.price).toBe(140);
     expect(spot.instruments[3]?.price).toBeNull();
+    expect(spot.instruments[4]?.price).toBeNull();
   });
 
-  it('emptySpotPayload reserves all four slots', () => {
+  it('emptySpotPayload reserves all five slots', () => {
     const empty = emptySpotPayload();
     expect(empty.source).toBe('unavailable');
-    expect(empty.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
+    expect(empty.instruments.map((i) => i.id)).toEqual(['eth', 'sol', 'btc', 'spx', 'ftse']);
     expect(empty.instruments.every((i) => i.price == null)).toBe(true);
   });
 
@@ -99,7 +105,7 @@ describe('loadDeskSpot', () => {
 
     const spot = await loadDeskSpotSafe();
     expect(spot.source).toBe('unavailable');
-    expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'btc', 'spx', 'ftse']);
+    expect(spot.instruments.map((i) => i.id)).toEqual(['eth', 'sol', 'btc', 'spx', 'ftse']);
     expect(spot.instruments.every((i) => i.price == null)).toBe(true);
   });
 });

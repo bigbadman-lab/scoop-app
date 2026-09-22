@@ -1,4 +1,4 @@
-export type DeskInstrumentId = 'eth' | 'btc' | 'spx' | 'ftse';
+export type DeskInstrumentId = 'eth' | 'sol' | 'btc' | 'spx' | 'ftse';
 
 export type DeskInstrument = {
   id: DeskInstrumentId;
@@ -16,6 +16,7 @@ export type SpotPayload = {
 
 const EMPTY: DeskInstrument[] = [
   { id: 'eth', label: 'ETH', price: null, changePct: null },
+  { id: 'sol', label: 'SOL', price: null, changePct: null },
   { id: 'btc', label: 'BTC', price: null, changePct: null },
   { id: 'spx', label: 'S&P 500', price: null, changePct: null },
   { id: 'ftse', label: 'FTSE 100', price: null, changePct: null },
@@ -57,13 +58,14 @@ export function usdNumberToX18(usd: number | null | undefined): bigint | null {
 
 type CryptoSpot = {
   eth: DeskInstrument;
+  sol: DeskInstrument;
   btc: DeskInstrument;
-  /** SOL/USD from the same CoinGecko request — desk UI does not show SOL yet. */
+  /** SOL/USD from the same CoinGecko request — used by Solana USD market conversion. */
   solUsd: number | null;
 };
 
 /**
- * Single CoinGecko simple/price call for ETH, BTC, and SOL.
+ * Single CoinGecko simple/price call for ETH, SOL, and BTC.
  * Shared by the desk ticker and Solana USD market conversion.
  */
 async function fetchCrypto(): Promise<CryptoSpot> {
@@ -82,6 +84,7 @@ async function fetchCrypto(): Promise<CryptoSpot> {
     bitcoin?: { usd?: number; usd_24h_change?: number };
     solana?: { usd?: number; usd_24h_change?: number };
   };
+  const solUsd = finiteOrNull(data.solana?.usd);
   return {
     eth: {
       id: 'eth',
@@ -89,13 +92,19 @@ async function fetchCrypto(): Promise<CryptoSpot> {
       price: finiteOrNull(data.ethereum?.usd),
       changePct: finiteOrNull(data.ethereum?.usd_24h_change),
     },
+    sol: {
+      id: 'sol',
+      label: 'SOL',
+      price: solUsd,
+      changePct: finiteOrNull(data.solana?.usd_24h_change),
+    },
     btc: {
       id: 'btc',
       label: 'BTC',
       price: finiteOrNull(data.bitcoin?.usd),
       changePct: finiteOrNull(data.bitcoin?.usd_24h_change),
     },
-    solUsd: finiteOrNull(data.solana?.usd),
+    solUsd,
   };
 }
 
@@ -169,6 +178,7 @@ export async function loadDeskSpot(): Promise<SpotPayload> {
   const cryptoResult = settled[0];
   if (cryptoResult.status === 'fulfilled') {
     byId.set('eth', cryptoResult.value.eth);
+    byId.set('sol', cryptoResult.value.sol);
     byId.set('btc', cryptoResult.value.btc);
   }
 

@@ -5,7 +5,7 @@ import { emptySpotPayload, type DeskInstrument, type SpotPayload } from '@/lib/m
 
 function formatPrice(id: DeskInstrument['id'], value: number | null): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  if (id === 'eth' || id === 'btc') {
+  if (id === 'eth' || id === 'sol' || id === 'btc') {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -91,12 +91,12 @@ function MarketPill({ instrument }: { instrument: DeskInstrument }) {
 }
 
 type Props = {
-  /** SSR / RSC snapshot so ETH/BTC/S&P/FTSE exist on first paint. */
+  /** SSR / RSC snapshot so ETH/SOL/BTC/S&P/FTSE exist on first paint. */
   initialSpot: SpotPayload;
 };
 
 /**
- * Bloomberg-style desk strip — local clock + live ETH/BTC/S&P/FTSE.
+ * Bloomberg-style desk strip — local clock + live ETH/SOL/BTC/S&P/FTSE.
  * First paint uses `initialSpot` from the server; client polls `/api/market/spot`.
  */
 export function LiveDeskStrip({ initialSpot }: Props) {
