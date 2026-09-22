@@ -23,9 +23,9 @@ describe('protocol docs source', () => {
     expect(markdown).not.toMatch(/buyback/i);
   });
 
-  it('extracts all 23 numbered major sections with stable anchors', () => {
+  it('extracts all 24 numbered major sections with stable anchors', () => {
     const sections = extractProtocolDocsSections(loadProtocolDocsMarkdown());
-    expect(sections).toHaveLength(23);
+    expect(sections).toHaveLength(24);
     expect(sections[0]).toMatchObject({
       number: 1,
       title: 'Protocol Overview',
@@ -40,6 +40,11 @@ describe('protocol docs source', () => {
       number: 23,
       title: 'Solana / Pump.fun Launches',
       id: '23-solana-pump-fun-launches',
+    });
+    expect(sections[23]).toMatchObject({
+      number: 24,
+      title: 'Creator Rewards Power Stronger Markets',
+      id: '24-creator-rewards-power-stronger-markets',
     });
     expect(sections.map((s) => s.id)).toEqual([
       '1-protocol-overview',
@@ -65,7 +70,21 @@ describe('protocol docs source', () => {
       '21-current-implementation-notes',
       '22-risk-disclosure-and-disclaimer',
       '23-solana-pump-fun-launches',
+      '24-creator-rewards-power-stronger-markets',
     ]);
+  });
+
+  it('marks legacy SCOOP-native fee economics historical and keeps creator-reward model current', () => {
+    const markdown = loadProtocolDocsMarkdown();
+    expect(markdown).toContain('Historical protocol documentation');
+    expect(markdown).toContain('Creator Rewards Power Stronger Markets');
+    expect(markdown).toContain('selective rather than guaranteed');
+    expect(markdown).toContain('Axiom');
+    expect(markdown).toContain('GMGN');
+    expect(markdown).not.toMatch(/Trade on Pump\.fun/);
+    // Legacy split retained only under historical labelling
+    expect(markdown).toMatch(/70% Creator/);
+    expect(markdown).toMatch(/is \*\*not\*\* the current dual-rail product economics/);
   });
 
   it('builds deterministic section ids', () => {

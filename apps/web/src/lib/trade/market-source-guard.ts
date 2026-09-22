@@ -33,5 +33,11 @@ export function canUseScoopUv4TradePath(args: {
 export const PONS_TRADE_DISABLED_COPY =
   'Trading integration for this Pons market is not enabled yet.';
 
-export const PUMP_TRADE_EXTERNAL_COPY =
-  'Trade this coin on Pump.fun — SCOOP Solana trading lands in a later gate.';
+/** Token-aware Solana terminal copy for Pump markets. */
+export function pumpTradeTerminalCopy(symbol?: string | null): string {
+  const trimmed = symbol?.trim();
+  if (trimmed) {
+    return `Trade $${trimmed} on your preferred Solana terminal.`;
+  }
+  return 'Trade this token on your preferred Solana terminal.';
+}

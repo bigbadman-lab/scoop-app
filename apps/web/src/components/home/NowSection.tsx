@@ -41,6 +41,13 @@ export function NowSection({ news, deskSpot }: Props) {
                 </Link>{' '}
                 and launch them on Solana via Pump.fun or Robinhood Chain via Pons.
               </span>
+              <span
+                className="mt-2 block text-[12px] leading-snug text-[var(--muted-2)] md:text-[13px] lg:text-sm"
+                data-testid="homepage-creator-reward-support"
+              >
+                SCOOP recycles creator rewards back into the ecosystem, using AI to identify
+                standout launches and make strategic onchain buys behind the strongest narratives.
+              </span>
             </p>
             <div className="mt-4 md:hidden">
               <CtaLink href="/launch" variant="primary" className="w-full justify-center px-5 text-white!">

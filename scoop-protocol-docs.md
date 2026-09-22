@@ -5,9 +5,13 @@
 SCOOP is the product layer for discovery, news context, AI launch assistance and market UX. Users choose an execution rail:
 
 1. **Solana → Pump.fun** — wallet-connected create on Pump.fun (SOL pair). SCOOP does not run a custom Solana AMM, Solana holder-rewards system, or Pump replacement protocol.
-2. **Robinhood Chain → Pons** — launches on Robinhood Chain via Pons, with Uniswap v4 liquidity and the SCOOP protocol stack documented below.
+2. **Robinhood Chain → Pons** — launches on Robinhood Chain via Pons, with Uniswap v4 liquidity on that path.
 
-The sections that follow are primarily the **Robinhood protocol / legacy infrastructure** reference (Uniswap v4, FeeDistributor, locks, holder rewards, stock-token quotes). Solana / Pump.fun product behaviour is summarised in **§23**.
+> **Historical protocol documentation**
+>
+> Much of the numbered reference below describes SCOOP’s earlier Robinhood Chain-native protocol architecture (ScoopFactory, FeeDistributor, locks, holder rewards, and the legacy 70/4/20/6 fee split). SCOOP now operates a dual-rail launch model using **Pump.fun on Solana** and **Pons on Robinhood Chain**. That material is retained for transparency and technical history.
+>
+> Current product behaviour: AI-assisted news launches, cross-chain discovery, Solana creator-fee claiming via `/account`, and selective creator-reward recycling into standout markets (see **§24**). Solana / Pump.fun product behaviour is summarised in **§23**.
 
 `scoop.fun` is the first interface on this dual-rail product.
 
@@ -38,12 +42,17 @@ The sections that follow are primarily the **Robinhood protocol / legacy infrast
 21. Current Implementation Notes
 22. Risk Disclosure & Disclaimer
 23. Solana / Pump.fun Launches
+24. Creator Rewards Power Stronger Markets
 
 ---
 
 # 1. Protocol Overview
 
-> **Scope:** This overview describes the **Robinhood Chain → Pons / Uniswap v4** protocol path. For Solana → Pump.fun, see §23.
+> **Historical protocol documentation**
+>
+> This section describes SCOOP’s earlier Robinhood Chain-native protocol architecture. SCOOP now operates a dual-rail launch model using Pump.fun on Solana and Pons on Robinhood Chain. The material below is retained for transparency and technical history.
+>
+> **Scope:** Robinhood Chain → Pons remains the current RHC execution rail. The ScoopFactory / Uniswap v4 fee-distributor stack below is historical architecture, not the active public launch path.
 
 SCOOP is a permissionless token launch and market protocol built on Uniswap v4 for Robinhood Chain.
 
@@ -69,6 +78,10 @@ SCOOP contracts are non-custodial and non-upgradeable. Once an individual market
 ---
 
 # 2. How SCOOP Works
+
+> **Historical protocol documentation**
+>
+> This section describes SCOOP’s earlier Robinhood Chain-native protocol architecture. SCOOP now operates a dual-rail launch model using Pump.fun on Solana and Pons on Robinhood Chain. The material below is retained for transparency and technical history.
 
 A SCOOP market moves through five core stages.
 
@@ -160,6 +173,10 @@ Holder Rewards use dedicated per-market vaults and Merkle-based distribution rou
 ---
 
 # 3. Launching a Market
+
+> **Historical protocol documentation**
+>
+> This section describes SCOOP’s earlier Robinhood Chain-native launch mechanics (`ScoopFactory`). The current public RHC rail is **Pons**. Solana launches route through **Pump.fun**. The material below is retained for transparency and technical history.
 
 The canonical entry point for a SCOOP launch is `ScoopFactory`.
 
@@ -265,6 +282,10 @@ The launch process uses the supply to establish the market's initial liquidity, 
 ---
 
 # 4. Market Economics
+
+> **Historical protocol documentation**
+>
+> This section describes SCOOP’s earlier Robinhood Chain-native protocol fee split (70% Creator / 4% Deployer / 20% Protocol / 6% Operations). That allocation is **not** the current dual-rail product economics. SCOOP now operates Pump.fun on Solana and Pons on Robinhood Chain; selective creator-reward recycling is documented in **§24**. The material below is retained for transparency and technical history.
 
 Every SCOOP market has its economics established at launch.
 
@@ -1758,19 +1779,45 @@ SCOOP’s Solana rail is a **product integration**, not a SCOOP-owned Solana pro
 - Launch UX on scoop.fun prepares and confirms a **create** transaction against Pump.fun.
 - Markets pair with **SOL** on Pump.fun.
 - After confirmation, SCOOP persists the mint and opens `/token/<mint>`.
+- Creator fees from Pump markets accrue to the creator’s Solana wallet and can be claimed from **`/account`** after SIWS authentication.
 
 ## What SCOOP does not provide on Solana
 
 - No custom Solana AMM or bonding curve owned by SCOOP
 - No SCOOP Solana holder rewards, fee distributor, or locks
-- No embedded Pump trading UI (trade CTA opens Pump.fun)
+- No embedded Solana swap UI (token pages link out to Solana terminals)
 - No create+buy atomic flow in the current public path
 - No claim that scoop.fun indexes Pump candles or trade tape yet
 
 ## Market pages
 
-Pump markets render with Solana / Pump.fun terminology (mint, Solana explorer, Trade on Pump.fun). Robinhood markets continue to use Robinhood Chain / Pons / Uniswap context where accurate.
+Pump markets render with Solana / Pump.fun terminology (mint, Solana explorer, Pump.fun as launch venue/source). Primary trading CTAs open **Axiom** and **GMGN** using the mint. Robinhood markets continue to use Robinhood Chain / Pons / Uniswap context where accurate.
 
 ## Trading
 
-Trading for Pump markets happens on **Pump.fun**. SCOOP links out; it does not custody Solana swaps.
+Trading for Pump markets happens on Solana terminals. SCOOP links out to Axiom (primary) and GMGN (secondary); it does not custody Solana swaps. Pump.fun remains the launch venue, not the primary trade destination on scoop.fun.
+
+---
+
+# 24. Creator Rewards Power Stronger Markets
+
+SCOOP’s native token earns creator rewards from its own market activity.
+
+Those rewards are recycled back into the ecosystem. SCOOP uses AI to evaluate new launches for narrative strength, lore and early market signals, then selectively deploys those rewards through real onchain purchases into standout markets.
+
+The objective is to create a reinforcing loop:
+
+```text
+strong narratives → better launches → more activity → creator rewards → strategic onchain support for new markets
+```
+
+This support is selective rather than guaranteed. SCOOP does not buy every launch, and creator-reward deployment is based on the system’s assessment of narrative quality and market conditions.
+
+## Current dual-rail product
+
+- **Solana → Pump.fun** — launch venue and Solana creator-fee accrual; claim via `/account`
+- **Robinhood Chain → Pons** — current RHC execution rail
+- AI-assisted news launches and cross-chain discovery on scoop.fun
+- Creator rewards recycled into selective onchain purchases behind strong narratives
+
+Historical SCOOP-native Robinhood protocol fee splits and factory launch mechanics are documented above and marked as historical; they are not the active dual-rail model.

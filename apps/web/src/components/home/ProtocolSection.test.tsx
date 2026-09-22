@@ -10,32 +10,35 @@ vi.mock('next/image', () => ({
 }));
 
 describe('ProtocolSection', () => {
-  it('renders locked economics copy, fee split, and marketfeeds artwork', () => {
+  it('renders creator-reward recycling copy and mechanism cards', () => {
     render(<ProtocolSection />);
 
     expect(screen.getByText('SCOOP ECONOMICS')).toBeTruthy();
     expect(screen.getByRole('heading', { name: /The market feeds the market/i })).toBeTruthy();
     expect(
-      screen.getByText(
-        /Every trade generates fees\. SCOOP puts them back into the ecosystem, rewarding creators/i,
-      ),
+      screen.getByText(/SCOOP earns creator rewards from its own native token/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/strategic onchain buys funded by SCOOP's creator rewards/i),
     ).toBeTruthy();
 
-    expect(screen.getByText('70%')).toBeTruthy();
-    expect(screen.getByText('4%')).toBeTruthy();
-    expect(screen.getByText('20%')).toBeTruthy();
-    expect(screen.getByText('6%')).toBeTruthy();
-    expect(screen.getByText('Creator rewards')).toBeTruthy();
-    expect(screen.getByText('Deployer rewards')).toBeTruthy();
-    expect(screen.getByText('Protocol')).toBeTruthy();
-    expect(screen.getByText('Operations')).toBeTruthy();
+    expect(screen.getByText('AI SCANS')).toBeTruthy();
+    expect(screen.getByText('MARKETS RANK')).toBeTruthy();
+    expect(screen.getByText('SCOOP DEPLOYS')).toBeTruthy();
+    expect(screen.getByText('VALUE RECYCLES')).toBeTruthy();
+    expect(screen.getAllByTestId('protocol-mechanism-card')).toHaveLength(4);
+
+    expect(screen.queryByText('70%')).toBeNull();
+    expect(screen.queryByText('4%')).toBeNull();
+    expect(screen.queryByText('20%')).toBeNull();
+    expect(screen.queryByText('6%')).toBeNull();
+    expect(screen.queryByText('Deployer rewards')).toBeNull();
+    expect(screen.queryByText(/Every trade generates fees/i)).toBeNull();
 
     const img = screen.getByRole('img');
     expect(img.getAttribute('src')).toBe('/brand/marketfeeds.webp');
 
     expect(screen.queryByText(/\$SCOOP/i)).toBeNull();
-    expect(screen.queryByText(/\$Scoop/i)).toBeNull();
     expect(screen.queryByText(/buyback/i)).toBeNull();
-    expect(screen.queryByText(/Trading \+ launch activity/i)).toBeNull();
   });
 });

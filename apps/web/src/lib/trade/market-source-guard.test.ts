@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canUseScoopUv4TradePath,
   PONS_TRADE_DISABLED_COPY,
+  pumpTradeTerminalCopy,
 } from './market-source-guard';
 
 describe('market-source trade guard (Gate 6)', () => {
@@ -60,5 +61,17 @@ describe('market-source trade guard (Gate 6)', () => {
 
   it('exposes safe disabled copy', () => {
     expect(PONS_TRADE_DISABLED_COPY.toLowerCase()).toContain('pons');
+  });
+
+  it('builds token-aware Solana terminal copy', () => {
+    expect(pumpTradeTerminalCopy('TAPE')).toBe(
+      'Trade $TAPE on your preferred Solana terminal.',
+    );
+    expect(pumpTradeTerminalCopy(null)).toBe(
+      'Trade this token on your preferred Solana terminal.',
+    );
+    expect(pumpTradeTerminalCopy('')).toBe(
+      'Trade this token on your preferred Solana terminal.',
+    );
   });
 });

@@ -6,8 +6,9 @@ import { DEFAULT_SLIPPAGE_BPS } from '@/lib/trade/constants';
 import {
   canUseScoopUv4TradePath,
   PONS_TRADE_DISABLED_COPY,
-  PUMP_TRADE_EXTERNAL_COPY,
+  pumpTradeTerminalCopy,
 } from '@/lib/trade/market-source-guard';
+import { axiomTradeUrl, gmgnTradeUrl } from '@/lib/solana/explorer';
 
 export type TokenBuySellProps = {
   tokenAddress: string;
@@ -24,14 +25,13 @@ export type TokenBuySellProps = {
   tickSpacing: number | null;
   hooks: string | null;
   onTradeConfirmed?: () => void;
-  /** Pump.fun coin URL — shown when marketSource === 'pump'. */
-  pumpTradeUrl?: string | null;
 };
 
 /**
  * Light trade entry — no AppKit/wagmi static imports.
  * Loads TokenBuySellLive only after WalletRuntimeProviders is ready.
  * Gate 6: Pons curve markets never load Scoop UV4 swap UI.
+ * Pump markets: external Axiom (primary) + GMGN (secondary) terminals.
  */
 export function TokenBuySell(props: TokenBuySellProps) {
   const { configured, runtimeReady, activating, ensureRuntime } = useWalletShell();
@@ -61,12 +61,14 @@ export function TokenBuySell(props: TokenBuySellProps) {
 
   if (!scoopTradeAllowed) {
     const isPump = props.marketSource === 'pump';
+    const axiomUrl = isPump ? axiomTradeUrl(props.tokenAddress) : null;
+    const gmgnUrl = isPump ? gmgnTradeUrl(props.tokenAddress) : null;
     return (
       <section
         className="min-w-0"
         aria-labelledby="token-buy-sell-heading"
         data-testid="token-buy-sell"
-        data-trade-path={isPump ? 'external-pump' : 'disabled'}
+        data-trade-path={isPump ? 'external-solana-terminals' : 'disabled'}
         data-market-source={props.marketSource ?? 'scoop'}
       >
         <h2
@@ -76,24 +78,35 @@ export function TokenBuySell(props: TokenBuySellProps) {
           Trade
         </h2>
         <div className="mt-1.5 rounded-[var(--radius-lg)] border border-[var(--divider)] bg-[var(--bg-elevated)] px-3 py-3">
-          {isPump && props.pumpTradeUrl ? (
+          {isPump && axiomUrl && gmgnUrl ? (
             <>
               <p
                 className="font-mono text-[11px] text-[var(--muted)]"
                 role="status"
                 data-testid="token-trade-disabled"
               >
-                {PUMP_TRADE_EXTERNAL_COPY}
+                {pumpTradeTerminalCopy(props.symbol)}
               </p>
-              <a
-                href={props.pumpTradeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-white!"
-                data-testid="token-trade-pump-link"
-              >
-                Trade on Pump.fun →
-              </a>
+              <div className="mt-3 flex flex-col gap-2">
+                <a
+                  href={axiomUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--scoop-green)] px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-white!"
+                  data-testid="token-trade-axiom-link"
+                >
+                  Trade on Axiom →
+                </a>
+                <a
+                  href={gmgnUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--divider)] bg-transparent px-4 font-mono text-[11px] uppercase tracking-[0.12em] text-[var(--fg)] hover:border-[var(--fg)]"
+                  data-testid="token-trade-gmgn-link"
+                >
+                  Trade on GMGN →
+                </a>
+              </div>
             </>
           ) : (
             <p

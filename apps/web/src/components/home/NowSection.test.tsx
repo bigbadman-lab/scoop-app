@@ -139,6 +139,9 @@ describe('NowSection news lead', () => {
     expect(
       screen.getByRole('link', { name: /breaking narratives/i }).getAttribute('href'),
     ).toBe('/news');
+    expect(screen.getByTestId('homepage-creator-reward-support').textContent).toMatch(
+      /recycles creator rewards back into the ecosystem/i,
+    );
 
     const launches = screen.getAllByRole('link', { name: /^launch$/i });
     expect(launches.length).toBeGreaterThan(0);

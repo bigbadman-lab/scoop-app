@@ -41,6 +41,8 @@ const baseProps = {
   hooks: '0x0000000000000000000000000000000000000000',
 } as const;
 
+const PUMP_MINT = 'B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu';
+
 describe('TokenBuySell shell', () => {
   beforeEach(() => {
     shellState.configured = true;
@@ -67,18 +69,34 @@ describe('TokenBuySell shell', () => {
     expect(shellState.ensureRuntime).not.toHaveBeenCalled();
   });
 
-  it('Pump CTA uses forced white text', () => {
+  it('Pump markets show Axiom primary and GMGN secondary with mint in URLs', () => {
     render(
       <TokenBuySell
         {...baseProps}
+        tokenAddress={PUMP_MINT}
+        symbol="TAPE"
         marketSource="pump"
-        pumpTradeUrl="https://pump.fun/coin/B7aiVApq422h43h3wZBV7QopvYKoVXjuTMJX8DdKerCu"
       />,
     );
-    const link = screen.getByTestId('token-trade-pump-link');
-    expect(link.textContent).toMatch(/Trade on Pump/i);
-    expect(link.className).toContain('text-white!');
+    const axiom = screen.getByTestId('token-trade-axiom-link');
+    const gmgn = screen.getByTestId('token-trade-gmgn-link');
+    expect(axiom.textContent).toMatch(/Trade on Axiom/i);
+    expect(gmgn.textContent).toMatch(/Trade on GMGN/i);
+    expect(axiom.getAttribute('href')).toBe(`https://axiom.trade/t/${PUMP_MINT}`);
+    expect(gmgn.getAttribute('href')).toBe(`https://gmgn.ai/sol/token/${PUMP_MINT}`);
+    expect(axiom.className).toContain('text-white!');
+    expect(screen.getByText(/Trade \$TAPE on your preferred Solana terminal/i)).toBeTruthy();
+    expect(screen.queryByTestId('token-trade-pump-link')).toBeNull();
+    expect(screen.queryByText(/Trade on Pump\.fun/i)).toBeNull();
+    expect(screen.queryByText(/Solana trading lands in a later gate/i)).toBeNull();
     expect(shellState.ensureRuntime).not.toHaveBeenCalled();
+  });
+
+  it('Pons markets stay disabled without Solana terminal CTAs', () => {
+    render(<TokenBuySell {...baseProps} marketSource="pons_v2" />);
+    expect(screen.getByText(/Trading integration for this Pons market/i)).toBeTruthy();
+    expect(screen.queryByTestId('token-trade-axiom-link')).toBeNull();
+    expect(screen.queryByTestId('token-trade-gmgn-link')).toBeNull();
   });
 });
 

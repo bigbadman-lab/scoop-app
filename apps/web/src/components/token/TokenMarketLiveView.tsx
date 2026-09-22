@@ -26,6 +26,7 @@ import {
 import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
 import { TokenBuySell } from '@/components/token/TokenBuySell';
+import { TokenSolanaCreatorRewards } from '@/components/token/TokenSolanaCreatorRewards';
 import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
 import {
   TokenMarketLiveProvider,
@@ -448,7 +449,7 @@ function TokenMarketLiveBody({
           className="contents lg:col-span-4 lg:flex lg:flex-col lg:gap-3"
           data-testid="token-market-side"
         >
-          <div className="order-2 min-w-0 lg:order-none">
+          <div className="order-2 min-w-0 space-y-3 lg:order-none">
             <TokenBuySell
               tokenAddress={token.tokenAddress}
               symbol={token.symbol}
@@ -462,9 +463,11 @@ function TokenMarketLiveBody({
               poolFee={token.poolFee}
               tickSpacing={token.tickSpacing}
               hooks={token.hooks}
-              pumpTradeUrl={pumpUrl}
               onTradeConfirmed={refreshNow}
             />
+            {isPump ? (
+              <TokenSolanaCreatorRewards creatorWallet={token.deployerAddress} />
+            ) : null}
           </div>
 
           <section

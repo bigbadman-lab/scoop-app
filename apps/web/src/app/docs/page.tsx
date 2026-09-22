@@ -36,7 +36,8 @@ export default function DocsPage() {
             SCOOP is the discovery and market-creation layer. Execution rails:{' '}
             <strong className="font-medium text-[var(--fg)]">Solana → Pump.fun</strong> and{' '}
             <strong className="font-medium text-[var(--fg)]">Robinhood Chain → Pons</strong>.
-            Sections below document the Robinhood protocol stack where it still applies.
+            Numbered sections that describe the earlier Robinhood Chain-native protocol stack are
+            labelled historical; current creator-reward recycling is in §24.
           </p>
         </div>
 
