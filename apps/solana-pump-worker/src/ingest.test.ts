@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { NormalizedPumpTradeEvent } from './provider/types.js';
+import { SCOOP_SUPPORT_WALLET } from '@scoop/shared';
 
 const upsertPumpTrade = vi.fn();
 const applyPumpCandleTrade = vi.fn();
 const refreshPumpMarketStateFromTrades = vi.fn();
 const upsertPumpWorkerCheckpoint = vi.fn();
+const upsertScoopSupportBuy = vi.fn();
+const isQualifyingScoopSupportBuy = vi.fn();
 const computePumpFdvSol = vi.fn(() => '1000');
 const pumpCandleBucketStart = vi.fn(() => new Date('2026-09-21T12:00:00.000Z'));
 
@@ -16,6 +19,8 @@ vi.mock('@scoop/db', () => ({
   refreshPumpMarketStateFromTrades: (...args: unknown[]) =>
     refreshPumpMarketStateFromTrades(...args),
   upsertPumpWorkerCheckpoint: (...args: unknown[]) => upsertPumpWorkerCheckpoint(...args),
+  upsertScoopSupportBuy: (...args: unknown[]) => upsertScoopSupportBuy(...args),
+  isQualifyingScoopSupportBuy: (...args: unknown[]) => isQualifyingScoopSupportBuy(...args),
   computePumpFdvSol: (...args: unknown[]) => computePumpFdvSol(...args),
   pumpCandleBucketStart: (...args: unknown[]) => pumpCandleBucketStart(...args),
   withTransaction: async (_pool: unknown, fn: (c: unknown) => Promise<unknown>) => fn({}),
@@ -37,7 +42,7 @@ function sampleEvent(overrides: Partial<NormalizedPumpTradeEvent> = {}): Normali
     solAmountLamports: '500000000',
     solAmount: '0.5',
     priceSol: '0.5',
-    source: 'pump',
+    source: 'alchemy',
     curveAddress: null,
     ...overrides,
   };
@@ -50,6 +55,8 @@ describe('ingestNormalizedPumpTrade', () => {
     applyPumpCandleTrade.mockResolvedValue(undefined);
     refreshPumpMarketStateFromTrades.mockResolvedValue({});
     upsertPumpWorkerCheckpoint.mockResolvedValue({});
+    upsertScoopSupportBuy.mockResolvedValue({ inserted: true });
+    isQualifyingScoopSupportBuy.mockReturnValue(false);
   });
 
   it('persists a valid buy and updates candles/state/checkpoint', async () => {
@@ -78,6 +85,54 @@ describe('ingestNormalizedPumpTrade', () => {
     expect(refreshPumpMarketStateFromTrades).toHaveBeenCalledTimes(1);
     expect(upsertPumpWorkerCheckpoint).toHaveBeenCalledTimes(1);
     expect(computePumpFdvSol).toHaveBeenCalled();
+    expect(upsertScoopSupportBuy).not.toHaveBeenCalled();
+  });
+
+  it('persists a support-wallet buy into scoop_support_buys', async () => {
+    isQualifyingScoopSupportBuy.mockReturnValue(true);
+    const event = sampleEvent({
+      wallet: SCOOP_SUPPORT_WALLET,
+      side: 'buy',
+      solAmountLamports: '420000000',
+      solAmount: '0.42',
+    });
+    const result = await ingestNormalizedPumpTrade(
+      {
+        pool: {} as never,
+        resolveWatchItem: () =>
+          ({
+            chainId: 900001,
+            mint: event.mint,
+            signature: 'x',
+            creator: 'y',
+            launchedAt: null,
+            name: 'T',
+            symbol: 'T',
+            imageUri: '',
+            totalSupplyRaw: '1000000000000000',
+            decimals: 6,
+          }) as never,
+      },
+      event,
+    );
+    expect(result).toEqual({ ok: true, inserted: true });
+    expect(upsertScoopSupportBuy).toHaveBeenCalledTimes(1);
+    expect(upsertScoopSupportBuy.mock.calls[0]?.[1]).toMatchObject({
+      mint: event.mint,
+      signature: event.signature,
+      supportWallet: SCOOP_SUPPORT_WALLET,
+      solAmountLamports: '420000000',
+      source: 'alchemy',
+    });
+  });
+
+  it('does not write support buys for sells even from the support wallet', async () => {
+    isQualifyingScoopSupportBuy.mockReturnValue(false);
+    await ingestNormalizedPumpTrade(
+      { pool: {} as never },
+      sampleEvent({ wallet: SCOOP_SUPPORT_WALLET, side: 'sell' }),
+    );
+    expect(upsertScoopSupportBuy).not.toHaveBeenCalled();
   });
 
   it('persists a valid sell', async () => {
@@ -98,6 +153,7 @@ describe('ingestNormalizedPumpTrade', () => {
     expect(result).toEqual({ ok: true, inserted: false, reason: 'duplicate' });
     expect(applyPumpCandleTrade).not.toHaveBeenCalled();
     expect(refreshPumpMarketStateFromTrades).not.toHaveBeenCalled();
+    expect(upsertScoopSupportBuy).not.toHaveBeenCalled();
   });
 
   it('rejects malformed events', async () => {

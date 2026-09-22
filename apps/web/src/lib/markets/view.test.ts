@@ -44,6 +44,8 @@ function market(
     holderCountAll: 5,
     holderCountRetail: 4,
     loreTitle: null,
+    scoopSupportBuyCount: null,
+    scoopSupportTotalSol: null,
     ...partial,
   };
 }

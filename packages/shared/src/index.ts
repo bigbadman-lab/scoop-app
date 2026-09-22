@@ -97,6 +97,10 @@ export {
   type ScoopLaunchProvider,
 } from './chainIds.js';
 export {
+  SCOOP_SUPPORT_WALLET,
+  isScoopSupportWallet,
+} from './scoopSupportWallet.js';
+export {
   normalizeAssetAddress,
   isEvmAddressShape,
   isSolanaAddressShape,

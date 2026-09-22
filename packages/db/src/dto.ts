@@ -91,6 +91,17 @@ export interface TokenDiscoveryItem {
    * `news_article_markets` link exists. Null for manual/non-news markets.
    */
   loreTitle: string | null;
+  /**
+   * SCOOP ecosystem support-wallet buys (Pump/Solana only).
+   * Null/undefined when unset or non-Pump; 0 means no qualifying buys.
+   */
+  scoopSupportBuyCount?: number | null;
+  /** Total SOL spent by the support wallet (decimal string). */
+  scoopSupportTotalSol?: string | null;
+  scoopSupportLastBuySol?: string | null;
+  /** Unix seconds of latest support buy. */
+  scoopSupportLastBuyAt?: number | null;
+  scoopSupportLastSignature?: string | null;
 }
 
 /** Per-asset lifetime fee leg for token MARKET display (never cross-sum assets). */
@@ -101,6 +112,16 @@ export type TokenFeeAssetDistribution = {
   decimals: number;
   amountRaw: string;
   amountDisplay: string;
+};
+
+/** Recent support-buy history item for token MARKET display. */
+export type ScoopSupportBuyHistoryItem = {
+  signature: string;
+  eventIndex: number;
+  solAmount: string;
+  solAmountLamports: string;
+  tokenAmountRaw: string;
+  blockTime: number;
 };
 
 export interface TokenDetail extends TokenDiscoveryItem {
@@ -166,6 +187,8 @@ export interface TokenDetail extends TokenDiscoveryItem {
   buybackFeeDistributions: TokenFeeAssetDistribution[];
   /** Launch transaction hash (EVM) or Solana signature (Pump). */
   launchTxHash: string | null;
+  /** Recent SCOOP support buys for token-page history (Pump only; empty when none). */
+  scoopSupportBuys?: ScoopSupportBuyHistoryItem[];
 }
 
 export interface TradeItem {

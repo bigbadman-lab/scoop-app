@@ -24,6 +24,7 @@ export type {
   TokenDiscoveryItem,
   TokenDetail,
   TokenFeeAssetDistribution,
+  ScoopSupportBuyHistoryItem,
   TradeItem,
   HolderItem,
   CandleItem,
@@ -215,6 +216,17 @@ export {
   type PumpTradeSide,
   type UpsertPumpTradeResult,
 } from './repos/pump-trades.js';
+export {
+  upsertScoopSupportBuy,
+  isQualifyingScoopSupportBuy,
+  getScoopSupportBuyAggregate,
+  getScoopSupportBuyAggregates,
+  listScoopSupportBuys,
+  backfillScoopSupportBuysFromPumpTrades,
+  type ScoopSupportBuyRow,
+  type ScoopSupportBuyAggregate,
+  type UpsertScoopSupportBuyResult,
+} from './repos/scoop-support-buys.js';
 export {
   applyPumpCandleTrade,
   pumpCandleBucketStart,

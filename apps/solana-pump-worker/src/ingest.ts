@@ -1,5 +1,6 @@
 /**
  * Idempotent Pump trade ingest: trade → candles → market state → checkpoint.
+ * Qualifying SCOOP support-wallet buys are persisted in the same transaction.
  */
 
 import {
@@ -7,14 +8,17 @@ import {
   PUMP_MARKET_CHAIN_ID,
   applyPumpCandleTrade,
   computePumpFdvSol,
+  isQualifyingScoopSupportBuy,
   pumpCandleBucketStart,
   refreshPumpMarketStateFromTrades,
   upsertPumpTrade,
   upsertPumpWorkerCheckpoint,
+  upsertScoopSupportBuy,
   withTransaction,
   type Pool,
   type PumpWatchlistItem,
 } from '@scoop/db';
+import { SCOOP_SUPPORT_WALLET } from '@scoop/shared';
 import type { NormalizedPumpTradeEvent } from './provider/types.js';
 
 export type IngestResult =
@@ -107,6 +111,33 @@ export async function ingestNormalizedPumpTrade(
       lastTradeAt: event.blockTime,
       lastEventCursor: event.providerCursor ?? event.signature,
     });
+
+    // Support-wallet buy tracking — same txn, idempotent; watchlist = listed mint.
+    if (
+      isQualifyingScoopSupportBuy({
+        side: event.side,
+        wallet: event.wallet,
+        solAmountLamports: event.solAmountLamports,
+        tokenAmountRaw: event.tokenAmountRaw,
+      })
+    ) {
+      const decimals = watch?.decimals ?? 6;
+      await upsertScoopSupportBuy(client, {
+        chainId: PUMP_MARKET_CHAIN_ID,
+        mint: event.mint,
+        signature: event.signature,
+        eventIndex: event.eventIndex,
+        slot: event.slot,
+        blockTime: event.blockTime,
+        supportWallet: SCOOP_SUPPORT_WALLET,
+        solAmountLamports: event.solAmountLamports,
+        solAmount: event.solAmount,
+        tokenAmountRaw: event.tokenAmountRaw,
+        tokenAmount: event.tokenAmount,
+        tokenDecimals: decimals,
+        source: event.source === 'alchemy' ? 'alchemy' : event.source,
+      });
+    }
 
     await upsertPumpWorkerCheckpoint(client, {
       mint: event.mint,

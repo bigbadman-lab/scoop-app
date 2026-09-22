@@ -19,6 +19,12 @@ import {
   type PumpMarketStateRow,
 } from '../repos/pump-market-state.js';
 import { PUMP_MARKET_CHAIN_ID } from '../repos/pump-trades.js';
+import {
+  getScoopSupportBuyAggregate,
+  getScoopSupportBuyAggregates,
+  listScoopSupportBuys,
+  type ScoopSupportBuyAggregate,
+} from '../repos/scoop-support-buys.js';
 import type { PumpCandleInterval } from '../repos/pump-candles.js';
 import {
   notionalUsdX18FromQuoteAmount,
@@ -299,8 +305,46 @@ export async function getTokenWithPumpMarketState(
   if (token.chainId !== PUMP_MARKET_CHAIN_ID || token.marketSource !== 'pump') {
     return token;
   }
-  const state = await getPumpMarketState(db, token.tokenAddress);
-  return applyPumpMarketStateToTokenDetail(token, state, solUsdX18);
+  const [state, supportAgg, supportBuys] = await Promise.all([
+    getPumpMarketState(db, token.tokenAddress),
+    getScoopSupportBuyAggregate(db, token.tokenAddress),
+    listScoopSupportBuys(db, token.tokenAddress, { limit: 10 }),
+  ]);
+  const withPump = applyPumpMarketStateToTokenDetail(token, state, solUsdX18);
+  return applyScoopSupportToToken(withPump, supportAgg, supportBuys);
+}
+
+function applyScoopSupportToToken<T extends TokenDiscoveryItem>(
+  token: T,
+  agg: ScoopSupportBuyAggregate | null,
+  history?: Awaited<ReturnType<typeof listScoopSupportBuys>>,
+): T {
+  if (!agg || agg.scoopSupportBuyCount <= 0) {
+    const cleared = {
+      ...token,
+      scoopSupportBuyCount: 0,
+      scoopSupportTotalSol: null,
+      scoopSupportLastBuySol: null,
+      scoopSupportLastBuyAt: null,
+      scoopSupportLastSignature: null,
+    } as T;
+    if (history) {
+      return { ...cleared, scoopSupportBuys: [] } as T;
+    }
+    return cleared;
+  }
+  const withAgg = {
+    ...token,
+    scoopSupportBuyCount: agg.scoopSupportBuyCount,
+    scoopSupportTotalSol: agg.scoopSupportTotalSol,
+    scoopSupportLastBuySol: agg.scoopSupportLastBuySol,
+    scoopSupportLastBuyAt: agg.scoopSupportLastBuyAt,
+    scoopSupportLastSignature: agg.scoopSupportLastSignature,
+  } as T;
+  if (history) {
+    return { ...withAgg, scoopSupportBuys: history } as T;
+  }
+  return withAgg;
 }
 
 /** Overlay pump_market_state onto Pump discovery rows (homepage / markets). */
@@ -315,15 +359,22 @@ export async function applyPumpMarketStateToDiscoveryItems(
     )
     .map((t) => t.tokenAddress);
   if (pumpMints.length === 0) return [...items];
-  const states = await getPumpMarketStates(db, pumpMints);
+  const [states, supportAggs] = await Promise.all([
+    getPumpMarketStates(db, pumpMints),
+    getScoopSupportBuyAggregates(db, pumpMints),
+  ]);
   return items.map((item) => {
     if (item.chainId !== PUMP_MARKET_CHAIN_ID || item.marketSource !== 'pump') {
       return item;
     }
-    return applyPumpMarketStateToTokenDetail(
+    const withPump = applyPumpMarketStateToTokenDetail(
       item,
       states.get(item.tokenAddress) ?? null,
       solUsdX18,
+    );
+    return applyScoopSupportToToken(
+      withPump,
+      supportAggs.get(item.tokenAddress) ?? null,
     );
   });
 }

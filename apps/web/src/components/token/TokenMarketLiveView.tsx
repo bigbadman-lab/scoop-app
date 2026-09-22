@@ -27,6 +27,7 @@ import { TokenImage } from '@/components/ui/TokenImage';
 import { TokenPriceChart } from '@/components/token/TokenPriceChart';
 import { TokenBuySell } from '@/components/token/TokenBuySell';
 import { TokenSolanaCreatorRewards } from '@/components/token/TokenSolanaCreatorRewards';
+import { TokenScoopSupport } from '@/components/token/TokenScoopSupport';
 import { TokenRecentTrades } from '@/components/token/TokenRecentTrades';
 import {
   TokenMarketLiveProvider,
@@ -465,6 +466,13 @@ function TokenMarketLiveBody({
               hooks={token.hooks}
               onTradeConfirmed={refreshNow}
             />
+            {isPump && (token.scoopSupportBuyCount ?? 0) > 0 ? (
+              <TokenScoopSupport
+                buyCount={token.scoopSupportBuyCount ?? 0}
+                totalSol={token.scoopSupportTotalSol ?? '0'}
+                buys={token.scoopSupportBuys ?? []}
+              />
+            ) : null}
             {isPump ? (
               <TokenSolanaCreatorRewards creatorWallet={token.deployerAddress} />
             ) : null}

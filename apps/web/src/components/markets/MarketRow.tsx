@@ -205,6 +205,21 @@ export function MarketRow({
               <span className="min-w-0 truncate text-[12px] text-[var(--muted)]">
                 {market.name}
               </span>
+              {(market.scoopSupportBuyCount ?? 0) > 0 ? (
+                <span
+                  className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--scoop-green)]"
+                  title="Onchain purchases made by the SCOOP ecosystem wallet."
+                  aria-label="Onchain purchases made by the SCOOP ecosystem wallet."
+                  data-testid="market-scoop-buy"
+                >
+                  SCOOP BUY
+                  {market.scoopSupportTotalSol ? (
+                    <span className="ml-1 normal-case tracking-normal text-[var(--muted)]">
+                      {market.scoopSupportTotalSol} SOL
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
               {loreTitle ? (
                 <span
                   className="hidden min-w-0 truncate text-[11px] text-[var(--muted-2)] min-[390px]:inline"
@@ -235,6 +250,21 @@ export function MarketRow({
                 <span className="min-w-0 truncate text-[13px] font-medium tracking-tight text-[var(--fg)]">
                   {market.name}
                 </span>
+                {(market.scoopSupportBuyCount ?? 0) > 0 ? (
+                  <span
+                    className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--scoop-green)]"
+                    title="Onchain purchases made by the SCOOP ecosystem wallet."
+                    aria-label="Onchain purchases made by the SCOOP ecosystem wallet."
+                    data-testid="market-scoop-buy"
+                  >
+                    SCOOP BUY
+                    {market.scoopSupportTotalSol ? (
+                      <span className="ml-1 normal-case tracking-normal text-[var(--muted)]">
+                        {market.scoopSupportTotalSol} SOL
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
                 <span
                   data-testid="market-age"
                   className="shrink-0 font-mono text-[11px] text-[var(--muted-2)]"

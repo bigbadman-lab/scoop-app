@@ -39,6 +39,10 @@ export type MarketsBoardItem = {
    * Same source as token-page Lore (`provider_news_articles.title`).
    */
   loreTitle: string | null;
+  /** Pump/Solana only — qualifying SCOOP support-wallet buy count. */
+  scoopSupportBuyCount: number | null;
+  /** Total SOL spent by the support wallet (decimal). */
+  scoopSupportTotalSol: string | null;
 };
 
 export type MarketsLiveHealth = 'live' | 'stale';
@@ -82,6 +86,8 @@ export function toMarketsBoardItem(
     holderCountAll: token.holderCountAll,
     holderCountRetail: token.holderCountRetail,
     loreTitle: token.loreTitle,
+    scoopSupportBuyCount: token.scoopSupportBuyCount ?? null,
+    scoopSupportTotalSol: token.scoopSupportTotalSol ?? null,
   };
 }
 
